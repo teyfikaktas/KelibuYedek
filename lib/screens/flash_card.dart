@@ -10,7 +10,123 @@ import '../providers/volume_provider.dart';
 import '../providers/language_provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:another_flushbar/flushbar.dart';
+import 'package:auto_size_text/auto_size_text.dart';
+import 'package:back_button_interceptor/back_button_interceptor.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../shared_preferences/shared_preferences.dart';
+
 // UserProvider importu
+
+class ScoreDisplay extends StatelessWidget {
+  final ValueNotifier<int> userPointsNotifier; // Now expects a ValueNotifier
+
+  const ScoreDisplay({Key? key, required this.userPointsNotifier}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.2),
+              spreadRadius: 0,
+              blurRadius: 10,
+              offset: const Offset(0, 5),
+            ),
+          ],
+        ),
+        // Wrap Text widget with ValueListenableBuilder
+        child: ValueListenableBuilder<int>(
+          valueListenable: userPointsNotifier, // Listen to the ValueNotifier
+          builder: (context, value, child) {
+            // This builder rebuilds whenever the notifier's value changes
+            return Text(
+              "Puan: $value", // Display the current value
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.black,
+                fontWeight: FontWeight.bold,
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class SwipeHintAnimation extends StatefulWidget {
+  final Function onAnimationComplete; // Animasyon tamamlandığında çağrılacak fonksiyon
+
+  SwipeHintAnimation({Key? key, required this.onAnimationComplete}) : super(key: key);
+
+  @override
+  _SwipeHintAnimationState createState() => _SwipeHintAnimationState();
+}
+
+class _SwipeHintAnimationState extends State<SwipeHintAnimation>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
+  late Animation<double> _opacityAnimation;
+  late Animation<Offset> _slideAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _animationController = AnimationController(
+      vsync: this,
+      duration: Duration(milliseconds: 2000), // Animasyon süresini ayarlayabilirsiniz
+    );
+
+    _opacityAnimation = Tween<double>(
+      begin: 1.0,
+      end: 0.0,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeIn,
+    ));
+
+    _slideAnimation = Tween<Offset>(
+      begin: Offset(0.0, 0.0),
+      end: Offset(1.0, 0.0), // Sağa doğru bir kayma
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInOut,
+    ));
+
+    _animationController.forward().then((value) {
+      widget.onAnimationComplete(); // Animasyon tamamlandığında dışarıya bir sinyal gönder
+    });
+
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _opacityAnimation, // Yavaşça kaybol
+      child: SlideTransition(
+        position: _slideAnimation, // Sağa kaydır
+        child: Icon(
+          Icons.back_hand_outlined, // Ya da istediğiniz bir ikon
+          size: 48.0,
+          color: Colors.grey,
+        ),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+}
 
 class AnimatedProgressBar extends StatefulWidget {
   final double targetProgress;
@@ -146,7 +262,54 @@ class _AnimatedProgressBarState extends State<AnimatedProgressBar>
   }
 }
 
+class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
+  CustomAppBar({Key? key}) : super(key: key);
 
+  @override
+  Widget build(BuildContext context) {
+    // Ses ve dil için provider'lar
+    final volumeProvider = Provider.of<VolumeProvider>(context);
+    final languageProvider = Provider.of<LanguageProvider>(context);
+
+    return AppBar(
+      backgroundColor: const Color(0xFFFEFAF6), // Arka plan rengini burada ayarlayın
+
+      leading: IconButton(
+        icon: Icon(Icons.arrow_back),
+        onPressed: () => Navigator.of(context).pop(),
+      ),
+      title: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: <Widget>[
+          Spacer(), // Boşluk bırakır
+          IconButton(
+            icon: Icon(Icons.shuffle),
+            onPressed: () {
+              // Karıştırma işlemi
+            },
+          ),
+          Text("0"), // Yıldızlı kelime sayısı, dinamik olmalı
+          IconButton(
+            icon: Icon(volumeProvider.isVolumeOn ? Icons.volume_up : Icons.volume_off),
+            onPressed: () {
+              volumeProvider.toggleVolume();
+            },
+          ),
+          IconButton(
+            icon: Icon(Icons.language),
+            onPressed: () {
+              languageProvider.toggleLanguage();
+            },
+          ),
+          Spacer(), // Boşluk bırakır
+        ],
+      ),
+    );
+  }
+
+  @override
+  Size get preferredSize => Size.fromHeight(kToolbarHeight);
+}
 
 
 class CustomProgressBar extends StatelessWidget {
@@ -185,7 +348,9 @@ class CustomProgressBar extends StatelessWidget {
           ),
         ),
       ),
+
     );
+
   }
 }
 class MyVolumeControl extends StatefulWidget {
@@ -205,7 +370,7 @@ class MyVolumeControlState extends State<MyVolumeControl> {
       icon: Icon(
         // VolumeProvider üzerinden isVolumeOn özelliğine eriş
         volumeProvider.isVolumeOn ? Icons.volume_up : Icons.volume_off,
-          color: Colors.pink,
+        color: Colors.pink,
       ),
       onPressed: () {
         volumeProvider.toggleVolume();
@@ -259,46 +424,52 @@ class CardImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    double fontSize = (text.length > 100) ? 24 : 32;
-    double screenWidth = MediaQuery.of(context).size.width;
-    double screenHeight = MediaQuery.of(context).size.height;
     return ValueListenableBuilder<bool>(
       valueListenable: isVisibleNotifier,
       builder: (context, isVisible, child) {
         return Stack(
           alignment: Alignment.center,
           children: <Widget>[
-            // isImageShow değerine bağlı olarak görüntü gösterimi
             if (isImageShow)
               AnimatedOpacity(
                 opacity: isVisible ? 1.0 : 0.0,
                 duration: const Duration(milliseconds: 500),
                 child: SizedBox(
                   width: double.infinity,
-                  height: screenWidth*.7,
-                  child: Image.network(
+                  height: MediaQuery.of(context).size.width * 0.7,
+                  child:             Image.network(
                     imageUrl,
-                    fit: BoxFit.cover,
+                    width: 100,
+                    height: 100,
+                    errorBuilder: (BuildContext context, Object exception, StackTrace? stackTrace) {
+                      // Burada resim yüklenemediğinde gösterilecek alternatif bir resmi belirleyebilirsiniz.
+                      return Image.asset('assets/logo.png',                   width: 100,
+                        height: 100,);
+                    },
                   ),
+
                 ),
               ),
-            // Metin her zaman gösterilecek
             Positioned(
               bottom: 20,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                color: Colors.white.withOpacity(0.7),
-                width: MediaQuery.of(context).size.width * 0.8,
-                child: Text(
-                  text,
-                  style: TextStyle(
-                    fontSize: fontSize,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            color: Colors.white.withOpacity(0.7),
+            width: MediaQuery.of(context).size.width * 0.7,
+            child: AutoSizeText(
+            text,
+            style: TextStyle(
+            fontSize: MediaQuery.of(context).size.width * 0.03, // Başlangıç font büyüklüğü
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+            ),
+            textAlign: TextAlign.center,
+            minFontSize: 8, // Minimum font büyüklüğü
+        maxLines:5, // Maksimum satır sayısı
+        overflow: TextOverflow.ellipsis, // Taşma durumunda nasıl davranılacağı
+        ),
+        ),
+
             ),
           ],
         );
@@ -335,11 +506,48 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
   int wordId = 0;
   bool isShuffled = false;
   int totalWords = 0; // Toplam kelime sayısı
+  DateTime? lastSwipeTime;
+  ValueNotifier<bool> isWordStarred = ValueNotifier(false);
 
+  late UserProvider userProvider;
+  ValueNotifier<int> pointValueNotife = ValueNotifier(0);
+  ValueNotifier<bool> isAnimationCompletedNotifier = ValueNotifier(false);
+  Map<int, ValueNotifier<bool>> starredNotifiers = {};
+  ValueNotifier<int> starredWordCountNotifier = ValueNotifier(0);
+
+  int score = 0; // Puanı takip etmek için yeni bir değişken
+  Future<void> onCardSwiped() async {
+    int newPoint = userProvider.point;
+
+    newPoint += 3; // Örnek olarak 3 puan ekleyin
+    pointValueNotife.value +=3;
+
+    await ApiService().updateUserPoint(userProvider.userId, newPoint); // API üzerinden puanı güncelleyin
+    userProvider.addPoint(newPoint); // UserProvider'daki puanı güncelleyin
+
+  }
+  bool canSwipe() {
+    final now = DateTime.now();
+    if (lastSwipeTime == null) {
+      lastSwipeTime = now;
+      print('First swipe allowed.');
+      return true;
+    }
+
+    final difference = now.difference(lastSwipeTime!).inSeconds;
+    print('Time since last swipe: $difference seconds');
+    if (difference >= 1) {
+      lastSwipeTime = now;
+      return true;
+    }
+    print('Swipe too fast, ignoring.');
+    return false;
+  }
   Map<int, GlobalKey<FlipCardState>> cardKeys = {};
   ValueNotifier<int> starredWordCount = ValueNotifier(0);
   ValueNotifier<Color> borderColorNotifier = ValueNotifier(Colors.white);
   ValueNotifier<int> animatedStarredCount = ValueNotifier(0);
+  final service = StarredWordsService();
 
   late AnimationController _animationController;
   late Animation<Color?> _borderColorAnimation;
@@ -349,14 +557,45 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
   bool isLanguageOn = true;
   bool isVolumeOn = true;
   int userID= 2;
-  Map<int, bool> starredStatus = {};
-  Map<int, ValueNotifier<bool>> starredNotifiers = {};
-// Bu satırı ekleyin
+  late int point;
 
+  Map<int, bool> starredStatus = {};
+  bool _isAnimationCompleted = false; // Animasyonun tamamlanıp tamamlanmadığını takip eden değişken
+  bool myInterceptor(bool stopDefaultButtonEvent, RouteInfo info) {
+    _showExitConfirmationDialog();
+    return true;
+  }
+  void _showExitConfirmationDialog() {
+    showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Çıkmak istediğinize emin misiniz?'),
+        content: Text("Bu işlem geri alınamaz."),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text('Hayır'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop(true);
+            },
+            child: Text('Evet'),
+          ),
+        ],
+      ),
+    ).then((value) => value ?? false ? Navigator.of(context).pop(true) : null);
+  }
+// Bu satırı ekleyin
+  ValueNotifier<Color> backgroundColorNotifier = ValueNotifier(Colors.blue); // Varsayılan olarak mavi renk
   final FlutterTts flutterTts = FlutterTts();
   @override
   void initState() {
     super.initState();
+    print('state girdi');
+    _initializeStarredStatus();
+    _loadStarredStatusAsync();
+
     for (var word in widget.words) {
       cardKeys[word.id] = GlobalKey<FlipCardState>();
     }
@@ -365,7 +604,6 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
         _speak();
       }
     });
-    _loadStarredStatus();
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 500),
@@ -380,149 +618,318 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
         borderColorNotifier.value = _borderColorAnimation.value ?? Colors.white; // Null kontrolü eklendi
       });
     totalWords = widget.words.length; // Toplam kelime sayısını ayarla
+    // Ensure the context is fully available by deferring the userProvider initialization.
+    Future.microtask(() {
+      userProvider = Provider.of<UserProvider>(context, listen: false);
+      // Now that userProvider is initialized, you can use it safely.
+      // If you have any code that depends on userProvider and needs to be executed right away,
+      // consider calling it here.
 
+      // Initialize the pointValueNotifier with the user's current points.
+      pointValueNotife.value = userProvider.point; // Adjusted initialization
+    });
   }
   @override
   void dispose() {
     _animationController.dispose();
     super.dispose();
   }
-  void _loadStarredStatus() async {
-    try {
-      var initialStatus = await ApiService().checkStarredBulk(
-        widget.words.map((e) => e.id).toList(),
-        widget.studySetId,
-        userID,
-      );
-      setState(() {
-        starredStatus = initialStatus;
-        // Her kelime için bir ValueNotifier oluştur
-        for (var word in widget.words) {
-          starredNotifiers[word.id] = ValueNotifier(initialStatus[word.id] ?? false);
-
+  void _initializeStarredStatus() {
+    for (var word in widget.words) {
+      // Her kelime için, başlangıçta yıldızlı olmadığını varsayarak bir ValueNotifier<bool> ekleyin.
+      starredNotifiers[word.id] = ValueNotifier(false);
+    }
+    // Bu noktada, yıldızlanan kelimelerin sayısını güncellemeyin,
+    // çünkü bu veri henüz yüklenmemiş olabilir.
+    // `_loadStarredStatusAsync` içinde güncelleyeceğiz.
+  }
+  void _toggleStarStatus(int wordId) {
+    isWordStarred.value = !isWordStarred.value; // Yıldızlanma durumunu değiştirß
+      isWordStarred.addListener(() {
+        if (isWordStarred.value) {
+          starredWordCountNotifier.value++; // Kelime yıldızlandı, sayacı artır
+        } else {
+          starredWordCountNotifier.value--; // Yıldız kaldırıldı, sayacı azalt
         }
       });
-      _updateStarredWordCount(); // Yıldızlı kelime sayısını güncelle
 
-    } catch (e) {
-      print('Hata: $e');
-    }
+
   }
+  void _updateStarredWordCount(ValueNotifier<bool> isStarredNotifier) {
+    int newCount = starredWordCountNotifier.value;
+    if(isStarredNotifier.value){
+      newCount = starredWordCountNotifier.value + 1;
+    }
+    else{
+      if(newCount>0){
+        newCount = starredWordCountNotifier.value-1;
+      }
+    }
+    starredWordCountNotifier.value = newCount; // Bu satırı ekledim
+
+  }
+  void _loadStarredStatusAsync() async {
+    final service = StarredWordsService();
+    final starredWordIds = await service.loadStarredWords(widget.classroomId, widget.studySetId);
+    print('_loadStarredStatusAsync');
+    setState(() {
+      int newStarredCount = 0; // Yeni yıldızlanan kelime sayısını tutacak değişken
+      for (var word in widget.words) {
+        bool isStarred = starredWordIds.contains(word.id);
+        starredNotifiers[word.id]?.value = isStarred;
+        starredStatus[word.id] = isStarred;
+        if (isStarred) {
+          newStarredCount++; // Eğer kelime yıldızlanmışsa, sayacı artır
+        }
+      }
+      starredWordCountNotifier.value = newStarredCount; // Toplam yıldızlanan kelime sayısını güncelle
+    });
+  }
+
   bool isSpeaking = false;
   bool _showStarredOnly = false;
+
   void _toggleStarredView() {
     print("Yıldız görünümü değiştiriliyor: $_showStarredOnly");
-
+    showCustomFlushbar(
+      context,
+      _showStarredOnly ? "Yıldızlı kelimeler modu kapandı." : "Yıldızlı kelimeler modu açıldı.",
+    );
+    _loadStarredStatusAsync();
+    currentWordIndex.value = 0;
     setState(() {
       _showStarredOnly = !_showStarredOnly;
+      backgroundColorNotifier.value = _showStarredOnly ? Colors.green : Colors.blue;
 
       // Yıldızlı kelimelerin listesini filtreleyin
       List<WordDetail> wordsToShow;
       if (_showStarredOnly) {
         wordsToShow = widget.words.where((word) => starredStatus[word.id] ?? false).toList();
+        totalWords = starredWordCountNotifier.value;
       } else {
         wordsToShow = widget.words;
+        totalWords = wordsToShow.length; // Yeni toplam kelime sayısını ayarlayın
+
       }
 
       // İlerleme çubuğunu ve mevcut kelime sayısını sıfırlayın
       currentWordIndex.value = 0;
-      totalWords = wordsToShow.length; // Yeni toplam kelime sayısını ayarlayın
     });
 
     // Eğer sıfırdan farklı bir kelime sayısı istiyorsanız, burada _speak() çağrısını yapabilirsiniz
   }
-
-
   _speak() async {
     final volumeProvider = Provider.of<VolumeProvider>(context, listen: false);
 
-    if (!isSpeaking && volumeProvider.isVolumeOn && currentWordIndex.value < widget.words.length) {
+    if (!isSpeaking && volumeProvider.isVolumeOn) {
       isSpeaking = true;
-      String wordToSpeak = widget.words[currentWordIndex.value].word;
-      await flutterTts.setLanguage("en-US");
-      await flutterTts.awaitSpeakCompletion(true);
-      await flutterTts.speak(wordToSpeak);
+
+      String wordToSpeak = ""; // Başlangıçta boş bir değer atayın
+      if (_showStarredOnly) {
+        // Yıldızlı mod aktifse, yıldızlı kelimeler listesinden kelime seç
+        var starredWords = widget.words.where((word) => starredStatus[word.id] ?? false).toList();
+        if (currentWordIndex.value < starredWords.length) {
+          wordToSpeak = starredWords[currentWordIndex.value].word;
+        }
+      } else {
+        // Yıldızlı mod değilse, orijinal kelimeler listesinden kelime seç
+        if (currentWordIndex.value < widget.words.length) {
+          wordToSpeak = widget.words[currentWordIndex.value].word;
+        }
+      }
+
+      // Sözcüğü seslendir, eğer geçerli bir kelime varsa
+      if (wordToSpeak.isNotEmpty) {
+        await flutterTts.setLanguage("en-US");
+        await flutterTts.awaitSpeakCompletion(true);
+        await flutterTts.speak(wordToSpeak);
+      }
       isSpeaking = false;
     }
   }
+  void _toggleStar(int word, ValueNotifier<bool> isStarredNotifier) async {
+    final service = StarredWordsService();
+    final newStatus = !isStarredNotifier.value;
 
+    await service.toggleWordStarStatus(word, !isStarredNotifier.value, widget.classroomId, widget.studySetId);
 
-  Widget _buildStarIcon(WordDetail word, ValueNotifier<bool> isStarredNotifier) {
+      isStarredNotifier.value = newStatus; // UI'ı güncelleyin
+      starredStatus[wordId] = newStatus; // Bu eklemeyi unutmayın
+
+      _updateStarredWordCount(isStarredNotifier);
+  }
+  Widget _buildStarIcon(int wordId, ValueNotifier<bool> isStarredNotifier) {
     return ValueListenableBuilder<bool>(
       valueListenable: isStarredNotifier,
       builder: (context, isStarred, child) {
         return IconButton(
-          icon: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 100),
-            transitionBuilder: (Widget child, Animation<double> animation) {
-              return ScaleTransition(scale: animation, child: child);
-            },
-            child: Icon(
-              isStarred ? Icons.star : Icons.star_border,
-              key: ValueKey<bool>(isStarred),
-              color: isStarred ? Colors.yellow : null,
-            ),
+          icon: Icon(
+            isStarred ? Icons.star : Icons.star_border, // Koşullu ifadeyi ValueNotifier'dan gelen değere göre güncelle
+            color: isStarred ? Colors.yellow : Colors.grey, // Eğer kelime yıldızlanmışsa sarı, değilse gri ikon
           ),
           onPressed: () {
-            _toggleStar(word, isStarredNotifier);
-            // Opcionalmente, puede reproducir un sonido o efecto adicional aquí
+            _toggleStar(wordId, isStarredNotifier); // _toggleStar fonksiyonunu çağır
           },
         );
       },
     );
   }
 
-  void _toggleStar(WordDetail word, ValueNotifier<bool> isStarredNotifier) async {
-    try {
-      // API çağrısını yap
-      await ApiService().starWord(word.id, widget.classroomId, widget.studySetId, userID);
 
-      // Yıldızlanma durumunu tersine çevir ve starredStatus map'ini güncelle
-      bool newStatus = !isStarredNotifier.value;
-      isStarredNotifier.notifyListeners();
-      starredStatus[word.id] = newStatus;
-
-      // ValueNotifier'ün değerini güncelle
-      isStarredNotifier.value = newStatus;
-      isStarredNotifier.notifyListeners();
-
-      // ValueNotifier dinleyicilerine güncellemeyi bildir
-      isStarredNotifier.notifyListeners();
-
-      // Sadece yıldıza tıkladığınızda animasyonu başlatmak için ValueNotifier'ı kullanabilirsiniz
-      if (newStatus) {
-        isStarredNotifier.value = true; // Yıldızı açın
-      }
-    } catch (e) {
-      print('Hata: $e'); // Hata durumunu işleme
+  Future<void> _updateStarredWordsInPrefs(int wordId, bool isStarred) async {
+    final prefs = await SharedPreferences.getInstance();
+    List<int> starredWords = [];
+    final starredWordsString = prefs.getString('starredWords');
+    if (starredWordsString != null) {
+      starredWords = starredWordsString.split(',').map((id) => int.parse(id)).toList();
     }
-    _updateStarredWordCount();
 
+    if (isStarred) {
+      // Kelimeyi listeye ekle
+      if (!starredWords.contains(wordId)) {
+        starredWords.add(wordId);
+      }
+    } else {
+      // Kelimeyi listeden kaldır
+      starredWords.remove(wordId);
+    }
+
+    // Listeyi tekrar kaydet
+    await prefs.setString('starredWords', starredWords.join(','));
   }
   @override
   Widget build(BuildContext context) {
-    final userProvider = Provider.of<UserProvider>(context);
-    userID = userProvider.userId;
-
+    userProvider = Provider.of<UserProvider>(context, listen: false);
     // Card listesi oluşturma
     List<Card> cardDeck = widget.words.map((word) {
-      // Ensure the correct number of arguments is passed to _buildCard
-      return _buildCard(word.word, word.meaning, word.image, word.id, word, cardKeys[word.id]!);
+      return _buildCard(word.type,word.word, word.meaning, word.image, word.id, word, cardKeys[word.id]!);
     }).toList();
     double screenWidth = MediaQuery.of(context).size.width;
     double screenHeight = MediaQuery.of(context).size.height;
-    return Scaffold(
+    return
+      WillPopScope(
+        onWillPop: () async {
+      Navigator.of(context).pop(true);
+      return false;
+    },
+    child: Scaffold(
+      backgroundColor: const Color(0xFFFEFAF6), // Arka plan rengini burada ayarlayın
+
       appBar: AppBar(
+        backgroundColor: const Color(0xFFFEFAF6), // Arka plan rengini burada ayarlayın
+
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        actions: const [
-          // İhtiyaca göre eklemeler yapabilirsiniz
+        actions: [
+          Spacer(),
+          Spacer(),
+          Spacer(),
+
+          Center(
+            child: GestureDetector(
+              onTap: () {
+                print("Tapped!");
+                setState(() {
+                  if (starredWordCountNotifier.value > 0) {
+                    _toggleStarredView();
+                    currentWordIndex.value = 0; // Indexi sıfırla
+                  } else {
+                    // Yıldızlı kelime yoksa gösterilecek modal
+                    showDialog(
+                      context: context,
+                      builder: (context) {
+                        return AlertDialog(
+                          title: Text("Information"),
+                          content: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              Text(
+                                "You don't have any starred words yet.",
+                                style: TextStyle(fontSize: screenWidth * 0.04),
+                              ),
+                              SizedBox(height: 8),
+                              Text(
+                                "Star words to enhance your learning with Kelibu!",
+                                style: TextStyle(
+                                  fontSize: screenWidth * 0.04,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                          actions: <Widget>[
+                            TextButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              child: Text("OK"),
+                            ),
+                          ],
+                        );
+                      },
+                    );
+                  }
+                });
+              },
+              child: ValueListenableBuilder<Color>(
+                valueListenable: backgroundColorNotifier, // Arka plan rengini takip eden ValueNotifier
+                builder: (context, color, child) {
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: color, // Dinamik olarak değişen arka plan rengi
+                      borderRadius: BorderRadius.circular(15),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.2),
+                          spreadRadius: 1,
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        Icon(
+                          Icons.star,
+                          color: Colors.yellow,
+                          size: screenWidth * 0.05,
+                        ),
+                        ValueListenableBuilder<int>(
+                          valueListenable: starredWordCountNotifier,
+                          builder: (context, count, child) {
+                            return AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 500),
+                              transitionBuilder: (Widget child, Animation<double> animation) {
+                                return ScaleTransition(scale: animation, child: child);
+                              },
+                              child: Text(
+                                '$count',
+                                key: ValueKey<int>(count),
+                                style: GoogleFonts.lato(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: MediaQuery.of(context).size.width * 0.04,
+                                ),
+                              ),
+                            );
+                          },
+                        )
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+          Spacer(),
+          ScoreDisplay(userPointsNotifier: pointValueNotife), // Updated to use the notifier
         ],
-        centerTitle: true,
       ),
       body: SafeArea(
+
         child: Column(
           children: <Widget>[
             // İlerleme çubuğu (progress bar)
@@ -537,6 +944,8 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
                 );
               },
             ),
+            SizedBox(height: MediaQuery.of(context).size.height * 0.02),
+
             Flexible(
               flex: 1, // Menü ve yıldız sayısının boyutunu ayarlar
               child: Column(
@@ -596,7 +1005,12 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
                                 }
                                 currentWordIndex.value = 0; // indeksi sıfırla
                               });
-                              _speak(); // Ses oynatma işlemini başlat
+                              _speak();
+
+                                showCustomFlushbar(
+                                  context,
+                                  isShuffled ? "Liste karıştırıldı." : "Liste Sıralandı.",
+                                );
                             },
                           ),
                         ),
@@ -642,135 +1056,50 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
                   Align(
                     alignment: Alignment.topCenter,
                     child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 500),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.blueAccent,
-                        borderRadius: BorderRadius.circular(15),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.2),
-                            spreadRadius: 1,
-                            blurRadius: 10,
-                            offset: const Offset(0, 3),
-                          ),
-                        ],
-                      ),
-                        child: GestureDetector(
-                          onTap: () {
-                            print("Tapped!");
-                            setState(() {
-                              if (starredWordCount.value > 0) {
-                                _toggleStarredView();
-                                currentWordIndex.value = 0; // Reset the index
-                              } else {
-                                // Show a more visually appealing modal (dialog) when there are no starred words
-                                showDialog(
-                                  context: context,
-                                  builder: (context) {
-                                    return AlertDialog(
-                                      title: Text("Information"),
-                                      content: Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: <Widget>[
-                                          Text(
-                                            "You don't have any starred words yet.",
-                                            style: TextStyle(
-                                              fontSize: screenWidth * 0.04,
-                                            ),
-                                          ),
-                                          SizedBox(height: 8), // Add some spacing
-                                          Text(
-                                            "Star words to enhance your learning with Kelibu!",
-                                            style: TextStyle(
-                                              fontSize: screenWidth * 0.04,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      actions: <Widget>[
-                                        TextButton(
-                                          onPressed: () {
-                                            Navigator.of(context).pop(); // Close the dialog
-                                          },
-                                          child: Text("OK"),
-                                        ),
-                                      ],
-                                    );
-                                  },
-                                );
-                              }
-                            });
-                          },
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: <Widget>[
-                              Icon(
-                                Icons.star,
-                                color: Colors.yellow,
-                                size: screenWidth * 0.05,
-                              ),
-                              ValueListenableBuilder<int>(
-                                valueListenable: starredWordCount,
-                                builder: (context, count, child) {
-                                  return AnimatedSwitcher(
-                                    duration: const Duration(milliseconds: 500),
-                                    transitionBuilder: (Widget child, Animation<double> animation) {
-                                      return FadeTransition(
-                                        opacity: animation,
-                                        child: child,
-                                      );
-                                    },
-                                    child: Text(
-                                      '$count',
-                                      key: ValueKey<int>(count),
-                                      style: GoogleFonts.lato(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: screenWidth * 0.04,
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ],
-                          ),
-                        )
+                        duration: const Duration(milliseconds: 500),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.transparent,
+                          borderRadius: BorderRadius.circular(15),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.2),
+                              spreadRadius: 1,
+                              blurRadius: 10,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
                     ),
                   ),
                 ],
+
               ),
             ),
-            Flexible(
-              flex: 8, // Flash kartların boyutunu ayarlar
-              child: SwipingCardDeck(
+            SwipingCardDeck(
                 cardDeck: _buildCardDeck(),
                 onDeckEmpty: () {
                   // Deck boş olduğunda yapılacak işlemler
                 },
-                onLeftSwipe: (Card card) {
-                  currentWordIndex.value++; // İndeksi artır
-                  _speak(); // Ses oynatma işlemini başlat
-                  _resetCardsToFront();
-                },
-                onRightSwipe: (Card card) {
-                  currentWordIndex.value++; // İndeksi artır
-                  _speak(); // Ses oynatma işlemini başlat
-                  _resetCardsToFront();
-                },
-
+                onLeftSwipe: (Card card) => _handleSwipe(true),
+                onRightSwipe: (Card card) => _handleSwipe(true),
                 swipeThreshold: MediaQuery.of(context).size.width / 4,
                 minimumVelocity: 1000,
                 cardWidth: MediaQuery.of(context).size.width * 0.85, // Kart genişliğini ekran genişliğine göre ayarla
               ),
-            ),
+            if (!_isAnimationCompleted)
+              SwipeHintAnimation(
+                onAnimationComplete: () {
+                  // Animasyon tamamlandığında bu blok çalışacak
+                  isAnimationCompletedNotifier.value = true;
+
+                },
+              ),//
             // Yıldız sayısı ve Menü
           ],
         ),
       ),
-    );
+    ));
 
   }
   void _resetCardsToFront() {
@@ -782,9 +1111,10 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
     });
   }
 
-  Card _buildCard(String englishWord, String turkishWord, String? imageUrl, int wordId, WordDetail word, GlobalKey<FlipCardState> cardKey) {
+  Card _buildCard(String? type,String englishWord, String turkishWord, String? imageUrl, int wordId, WordDetail word, GlobalKey<FlipCardState> cardKey) {
+
     String fullImageUrl = imageUrl != null
-        ? "https://cloud.argethink.com/uploads/kelibu.net/$imageUrl"
+        ? "https://cloud.phdakademi.com/uploads/kelibu.net/$imageUrl"
         : "https://kelibu.net/images/defaultimage.png";
     double screenWidth = MediaQuery.of(context).size.width;
     double screenHeight = MediaQuery.of(context).size.height;
@@ -828,19 +1158,43 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
                               isVisibleNotifier: isVisibilityOn,
                               isImageShow: false
                           ),
+
                     ),
                     back: Consumer<LanguageProvider>(
                       builder: (context, languageProvider, child) =>
-                          CardImage(
-                              text: languageProvider.isEnglish ? turkishWord : englishWord,
-                              imageUrl: fullImageUrl,
-                              isVisibleNotifier: isVisibilityOn,
-                              isImageShow: true
+                          Stack(
+                            alignment: Alignment.center,
+                            children: <Widget>[
+                              CardImage(
+                                  text: languageProvider.isEnglish ? turkishWord : englishWord,
+                                  imageUrl: fullImageUrl,
+                                  isVisibleNotifier: isVisibilityOn,
+                                  isImageShow: true
+                              ),
+                              Positioned(
+                                bottom: 10,
+                                child: Container(
+                                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withOpacity(0.5),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    type ?? 'Bilinmiyor', // Eğer type null ise 'Bilinmiyor' yazacak
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                     ),
                   ),
                 ),
-                _buildStarIcon(word, isStarredNotifier),
+                _buildStarIcon(word.id, isStarredNotifier),
               ],
             ),
           );
@@ -850,11 +1204,13 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
   }
   _swipeCallback(bool isLeftSwipe) {
     // Sol kaydırma işlemi
-
   }
   void _handleSwipe(bool isLeftSwipe) {
-    Color endColor = isLeftSwipe ? Colors.yellow : Colors.green;
 
+
+    onCardSwiped(); // Update the score as before
+
+    Color endColor = isLeftSwipe ? Colors.yellow : Colors.green;
     _borderColorAnimation = ColorTween(
       begin: borderColorNotifier.value,
       end: endColor,
@@ -866,23 +1222,30 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
     _animationController
       ..reset()
       ..forward().then((_) {
-        // Animasyon tamamlandığında rengi beyaza döndür
+        // Reset the border color to white once the animation is complete
         borderColorNotifier.value = Colors.white;
       });
+    currentWordIndex.value++; // Increment the index as before
+    _speak(); // Play the speech as before
+    _resetCardsToFront(); // Reset cards to front view as before
   }
 
   void _resetBorderColor() {
     borderColorNotifier.value = Colors.white; // Rengi doğrudan beyaza döndür
   }
-  void _updateStarredWordCount() {
-    int newCount = starredStatus.values.where((isStarred) => isStarred).length;
-    starredWordCount.value = newCount; // Bu satırı ekledim
-    animatedStarredCount.value = newCount; // Bu satırı ekledim
-  }
+
+
 
   void showCustomFlushbar(BuildContext context, String message) {
     Flushbar(
-      message: message,
+      // Mesajı Google Fonts ile stilize et
+      messageText: Text(
+        message,
+        style: GoogleFonts.lato(
+          color: Colors.black, // Yazı rengi siyah
+          fontSize: 16,
+        ),
+      ),
       icon: Image.asset(
         'assets/logo.png',
         width: 56.0,
@@ -890,21 +1253,21 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
       ),
       duration: const Duration(seconds: 3),
       flushbarPosition: FlushbarPosition.TOP,
-      backgroundColor: Colors.blueGrey[100]!,
+      backgroundColor: Colors.white,
       margin: const EdgeInsets.all(8),
       borderRadius: BorderRadius.circular(8),
+      // Çerçeve rengini pembe yap
       boxShadows: const [
         BoxShadow(
-          color: Colors.black45,
-          offset: Offset(3, 3),
+          color: Colors.pink, // Çerçeve rengi pembe
+          offset: Offset(0, 3),
           blurRadius: 3,
         ),
       ],
       forwardAnimationCurve: Curves.easeInOutCubic,
       reverseAnimationCurve: Curves.easeInOutCubic,
     ).show(context);
-  }
-  List<Card> _buildCardDeck() {
+  }  List<Card> _buildCardDeck() {
     List<WordDetail> wordsToShow;
 
     if (_showStarredOnly) {
@@ -916,7 +1279,7 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
     }
 
     return wordsToShow.map((word) {
-      return _buildCard(word.word, word.meaning, word.image, word.id, word, cardKeys[word.id]!);
+      return _buildCard(word.type,word.word, word.meaning, word.image, word.id, word, cardKeys[word.id]!);
     }).toList();
   }
 

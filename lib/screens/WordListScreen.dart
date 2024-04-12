@@ -1,8 +1,23 @@
 import 'package:flutter/material.dart';
-import 'package:kelibu/Models/Classroom.dart'; // Eğer Word sınıfı buradaysa
-// import '../Models/category.dart'; // Eğer Word sınıfını burada kullanmıyorsanız bu importu kaldırabilirsiniz.
+import 'package:google_fonts/google_fonts.dart';
+import 'package:kelibu/Models/Classroom.dart';
 import 'package:kelibu/api.dart';
 import 'package:kelibu/screens/study_set.dart';
+import 'package:flutter_spinkit/flutter_spinkit.dart';
+
+import 'loadingIndicator.dart';
+
+class CustomLoadingIndicator extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: SpinKitChasingDots(
+        color: Colors.blue,
+        size: 50.0,
+      ),
+    );
+  }
+}
 
 class WordListScreen extends StatefulWidget {
   final int categoryId;
@@ -23,45 +38,85 @@ class _WordListScreenState extends State<WordListScreen> {
     wordsFuture = ApiService().fetchWords(widget.categoryId);
   }
 
+  void checkAndNavigate(List<Word> words) {
+    if (words.length == 1) {
+      Future.delayed(Duration.zero, () {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => StudySetListScreen(
+              classroomId: widget.categoryId,
+              wordid: words[0].id,
+            ),
+          ),
+        );
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFFEFAF6), // Arka plan rengini burada ayarlayın
+
       appBar: AppBar(
-        title: Text(widget.categoryName),
+        backgroundColor: Colors.white,
+        title: Text(
+          widget.categoryName,
+          style: GoogleFonts.poppins(
+            color: Colors.pink,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        iconTheme: IconThemeData(
+          color: Colors.pink,
+        ),
       ),
-      body:Container(
-        color: const Color(0xFFEEC4C9), // Set the background color here
-        child:  FutureBuilder<List<Word>>(
+      body: Container(
+        child: FutureBuilder<List<Word>>(
           future: wordsFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const CircularProgressIndicator();
-            } else if (snapshot.hasError) {
-              return Text("Hata: ${snapshot.error}");
-            } else if (snapshot.hasData && snapshot.data != null) {
-              return ListView.builder(
+              return Center(
+                child: const LogoLoadingIndicator(), // Merkeze alınmış LogoLoadingIndicator
+              );
+            }
+            else if (snapshot.hasError) {
+              return Center(child: Text("Hata: ${snapshot.error}"));
+            } else if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+              // Veri yüklendikten sonra, eğer yalnızca bir eleman varsa, yönlendirme yap
+
+              return ListView.separated(
                 itemCount: snapshot.data!.length,
+                separatorBuilder: (context, index) => Divider(color: Colors.grey),
                 itemBuilder: (context, index) {
                   var word = snapshot.data![index];
-                  return ListTile(
-                    title: Text(word.name),
+                  return InkWell(
                     onTap: () {
-                      // Burada kelimenin bağlı olduğu studySet sayfasına yönlendirin
                       Navigator.of(context).push(
                         MaterialPageRoute(
-                          builder: (context) => StudySetListScreen(classroomId: widget.categoryId),
+                          builder: (context) => StudySetListScreen(
+                              classroomId: widget.categoryId,
+                              wordid: word.id
+                          ),
                         ),
                       );
                     },
+                    child: ListTile(
+                      leading: Icon(Icons.bookmark, color: Colors.pink),
+                      title: Text(
+                        word.name,
+                        style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
+                      ),
+                    ),
                   );
                 },
               );
             } else {
-              return const Text("Kelime listesi yok");
+              return Center(child: Text("Kelime listesi yok"));
             }
           },
         ),
-      )
+      ),
     );
   }
 }

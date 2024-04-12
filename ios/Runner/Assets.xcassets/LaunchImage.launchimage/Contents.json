@@ -1,0 +1,30 @@
+{
+  "images" : [
+    {
+      "extent" : "full-screen",
+      "filename" : "LaunchImage-Landscape@2x~ipad_2048x1496.png",
+      "idiom" : "iphone",
+      "orientation" : "portrait",
+      "scale" : "1x"
+    },
+    {
+      "extent" : "full-screen",
+      "filename" : "LaunchImage-Landscape@2x~ipad_2048x1536.png",
+      "idiom" : "iphone",
+      "orientation" : "portrait",
+      "scale" : "2x"
+    },
+    {
+      "extent" : "full-screen",
+      "filename" : "LaunchImage-Landscape@2x~ipad_2224x1668.png",
+      "idiom" : "iphone",
+      "orientation" : "portrait",
+      "scale" : "2x",
+      "subtype" : "retina4"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}
