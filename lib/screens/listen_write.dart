@@ -85,7 +85,7 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> {
       newPoint = newPoint + 3;
       userProvider.addPoint(3); // UserProvider üzerinden puanı artır
       _userPoints.value = userProvider.point; // UserProvider'daki güncel puanı ValueNotifier ile eşitle
-      await ApiService().updateUserPoint(userProvider.userId, newPoint); // API üzerinden puanı güncelleyin
+      await ApiService().updateUserPointTimePeriod(userProvider.userId, newPoint,3); // API üzerinden puanı güncelleyin
       userProvider.addPoint(newPoint); // UserProvider'daki puanı güncelleyin      Provider.of<UserProvider>(context, listen: false).addPoint(Provider.of<UserProvider>(context, listen: false).point + 5);
       AwesomeDialog(
         context: context,

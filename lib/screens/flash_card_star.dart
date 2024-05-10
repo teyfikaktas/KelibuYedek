@@ -465,7 +465,7 @@ class _FlashCardStarScreenState extends State<FlashCardStarScreen> with SingleTi
     newPoint += 3; // Örnek olarak 3 puan ekleyin
     pointValueNotife.value +=3;
 
-    await ApiService().updateUserPoint(userProvider.userId, newPoint); // API üzerinden puanı güncelleyin
+    await ApiService().updateUserPointTimePeriod(userProvider.userId, newPoint,3); // API üzerinden puanı güncelleyin
     userProvider.addPoint(newPoint); // UserProvider'daki puanı güncelleyin
 
   }

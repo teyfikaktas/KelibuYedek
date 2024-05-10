@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import 'package:kelibu/api.dart';
+import 'package:kelibu/providers/connectivity.dart';
 import 'package:path_provider/path_provider.dart' as path_provider;
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -25,11 +26,16 @@ import 'package:event_bus/event_bus.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'dart:io';
 import 'package:path/path.dart' as path;
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final appDocumentDirectory = await path_provider.getApplicationDocumentsDirectory();
   Hive.init(appDocumentDirectory.path);
   String csvContent = await rootBundle.loadString('assets/Model/words.csv');
+
+  var connectivityService = ConnectivityService(); // Create an instance of ConnectivityService
+  connectivityService.startMonitoring(); // Start monitoring the internet connection
 
   var userProvider = UserProvider();
   await userProvider.loadUser();
@@ -42,6 +48,7 @@ void main() async {
       ChangeNotifierProvider(create: (context) => StarredWordsProvider()),
       ChangeNotifierProvider(create: (context) => VolumeProvider()),
       ChangeNotifierProvider(create: (context) => LanguageProvider()),
+      Provider<ConnectivityService>.value(value: connectivityService),
     ],
     child: const MyApp(),
   ));
@@ -55,13 +62,18 @@ class MyApp extends StatelessWidget {
     return ScreenUtilInit(
       designSize: Size(360, 690),
       builder: (context, child) => MaterialApp(
+        navigatorKey: navigatorKey, // Use the global navigator key
         title: 'Kelibu',
         debugShowCheckedModeBanner: false,
         home: const SplashScreen(),
+        routes: {
+          '/noInternet': (context) => NoInternetPage(), // Define no internet page route
+        },
       ),
     );
   }
 }
+
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 

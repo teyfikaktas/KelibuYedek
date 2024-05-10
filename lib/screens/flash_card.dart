@@ -78,7 +78,6 @@ class _SwipeHintAnimationState extends State<SwipeHintAnimation>
   @override
   void initState() {
     super.initState();
-
     _animationController = AnimationController(
       vsync: this,
       duration: Duration(milliseconds: 2000), // Animasyon süresini ayarlayabilirsiniz
@@ -494,13 +493,12 @@ class FlashCardScreen extends StatefulWidget {
   @override
   _FlashCardScreenState createState() => _FlashCardScreenState();
 }
-int currentCardIndex = 0; // Mevcut kartın indeksini saklamak için bir değişken
 
 //...
 
 
 
-class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProviderStateMixin {
+class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   bool isStarred = false;
   ValueNotifier<int> currentWordIndex = ValueNotifier(0); // Mevcut kelime indeksi için ValueNotifier ekle
   int wordId = 0;
@@ -522,7 +520,7 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
     newPoint += 3; // Örnek olarak 3 puan ekleyin
     pointValueNotife.value +=3;
 
-    await ApiService().updateUserPoint(userProvider.userId, newPoint); // API üzerinden puanı güncelleyin
+    await ApiService().updateUserPointTimePeriod(userProvider.userId, newPoint,3); // API üzerinden puanı güncelleyin
     userProvider.addPoint(newPoint); // UserProvider'daki puanı güncelleyin
 
   }
@@ -590,9 +588,12 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
   ValueNotifier<Color> backgroundColorNotifier = ValueNotifier(Colors.blue); // Varsayılan olarak mavi renk
   final FlutterTts flutterTts = FlutterTts();
   @override
+
   void initState() {
     super.initState();
     print('state girdi');
+    WidgetsBinding.instance.addObserver(this);  // Observer'ı ekleyin
+
     _initializeStarredStatus();
     _loadStarredStatusAsync();
 
@@ -630,7 +631,20 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
     });
   }
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed) {
+      // Uygulama tekrar ön plana geldiğinde, mevcut indeks korunmuş olacak.
+      print("Uygulama ön plana döndü, mevcut kart indeksi: ${currentWordIndex.value}");
+    }
+    else if (state == AppLifecycleState.paused) {
+      // Uygulama tekrar ön plana geldiğinde, mevcut indeks korunmuş olacak.
+      print("Uygulama ön plana döndü, mevcut kart indeksi: ${currentWordIndex.value}");
+    }
+  }
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _animationController.dispose();
     super.dispose();
   }
@@ -639,9 +653,6 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
       // Her kelime için, başlangıçta yıldızlı olmadığını varsayarak bir ValueNotifier<bool> ekleyin.
       starredNotifiers[word.id] = ValueNotifier(false);
     }
-    // Bu noktada, yıldızlanan kelimelerin sayısını güncellemeyin,
-    // çünkü bu veri henüz yüklenmemiş olabilir.
-    // `_loadStarredStatusAsync` içinde güncelleyeceğiz.
   }
   void _toggleStarStatus(int wordId) {
     isWordStarred.value = !isWordStarred.value; // Yıldızlanma durumunu değiştirß
@@ -1225,6 +1236,7 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
         // Reset the border color to white once the animation is complete
         borderColorNotifier.value = Colors.white;
       });
+
     currentWordIndex.value++; // Increment the index as before
     _speak(); // Play the speech as before
     _resetCardsToFront(); // Reset cards to front view as before

@@ -897,7 +897,7 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
 
       // Puan güncellemesi ve animasyonlar
       showScoreAnimation('${pointChange > 0 ? '+' : ''}$pointChange');
-      _updateUserScore(score);
+      _updateUserScore(score,pointChange);
 
       // Bir sonraki soruya geçiş
       Future.delayed(Duration(milliseconds: 1000), () {
@@ -909,13 +909,13 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
       });
     });
   }
-  Future<void> _updateUserScore(int score) async {
+  Future<void> _updateUserScore(int score,int pointChange) async {
 
     try {
       UserProvider userProvider = Provider.of<UserProvider>(context, listen: false);
       userID =userProvider.userId;
       print("userid"+userID.toString());
-      await ApiService().updateUserPoint(userID, score);
+      await ApiService().updateUserPointTimePeriod(userID, score,pointChange);
       userProvider.addPoint(score);
       print("Puan güncellendi: $score");
     } catch (e) {

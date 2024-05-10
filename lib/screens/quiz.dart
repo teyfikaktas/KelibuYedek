@@ -380,7 +380,7 @@ class _QuizScreenState extends State<QuizScreen> {
   void finishQuiz() async {
     int finalScore = score; // Bu fonksiyon, kullanıcının toplam puanını hesaplar.
     try {
-      await ApiService().updateUserPoint(userID, finalScore); // API çağrısı
+      await ApiService().updateUserPointTimePeriod(userID, finalScore,5); // API çağrısı
       print('Puan güncellendi: $finalScore');
     } catch (e) {
       print('Puan güncelleme hatası: $e');
@@ -687,7 +687,7 @@ class _QuizScreenState extends State<QuizScreen> {
       UserProvider userProvider = Provider.of<UserProvider>(context, listen: false);
       int point = userProvider.point.toInt();
       userProvider.addPoint(point+5);
-      await ApiService().updateUserPoint(userID, score);
+      await ApiService().updateUserPointTimePeriod(userID, score,5);
     } catch (e) {
       print("Puan güncelleme hatası: $e");
     }
@@ -1004,7 +1004,7 @@ _toggleStar(wordId, isStarredNotifier) ;
                         onPressed: () async {
                           try {
                             // Puanı güncelleme veya diğer işlemleri burada yap
-                            await ApiService().updateUserPoint(userID, score);
+                            await ApiService().updateUserPointTimePeriod(userID, score,0);
                             Navigator.of(context).pop(true); // İşlem başarılıysa sayfayı kapat
                           } catch (e) {
                             print("Puan güncelleme hatası: $e");

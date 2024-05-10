@@ -79,6 +79,30 @@ class ApiService {
       print('Puan güncelleme başarısız: ${response.body}');
     }
   }
+
+  Future<void> updateUserPointTimePeriod(int userId, int newPoint, int timePoint) async {
+    var url = Uri.parse('https://kelibu.net/api/user/new/updateUserPoint');
+    var response = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Custom-Header': privacyKey.privacyKeyVariable, // İsteğe eklenen özel header
+      },
+      body: jsonEncode({
+        'userId': userId,  // UserID'yi buraya ekledik
+        'point': newPoint,
+        'timePoint': timePoint
+
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      print('Kullanıcı puanı başarıyla güncellendi.');
+    } else {
+      print('Puan güncelleme başarısız: ${response.body}');
+    }
+  }
+
   Future<int> fetchUserPoint(int userId) async {
     final String apiUrl = 'http://kelibu.net/api/$userId/point';
 
@@ -260,7 +284,24 @@ class ApiService {
         'X-Custom-Header': privacyKey.privacyKeyVariable, // Add your custom header here
       },
     );
-    print(response.body);
+    if (response.statusCode == 200) {
+      List<dynamic> usersJson = json.decode(response.body);
+      return usersJson.map((json) => User.fromJson(json)).toList();
+    } else {
+      throw Exception('Failed to load users');
+    }
+  }
+  Future<List<User>> fetchUsersNew(String code, String period) async {
+    final response = await http.post(
+        Uri.parse('https://kelibu.net/api/users-point-period'),
+        headers: {
+          'X-Custom-Header': privacyKey.privacyKeyVariable, // Add your custom header here
+        },
+        body: {
+          'code': code, // Code parameter to be sent in the request body
+          'period': period, // Period parameter to be sent in the request body
+        }
+    );
     if (response.statusCode == 200) {
       List<dynamic> usersJson = json.decode(response.body);
       return usersJson.map((json) => User.fromJson(json)).toList();
@@ -273,7 +314,6 @@ class ApiService {
     var response = await http.post(
       url,
       headers: {
-        'Content-Type': 'application/json',
         'X-Custom-Header': privacyKey.privacyKeyVariable, // Add the custom header here
       },
       body: json.encode({

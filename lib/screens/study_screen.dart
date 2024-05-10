@@ -43,6 +43,8 @@ class _StudyScreenState extends State<StudyScreen> {
   late PageController _sentencePageController;
   bool isLoading = true; // Yeni durum değişkeni
   bool _showOnlyStarred = false; // Yıldızlı kelimeleri göstermek için eklediğimiz kontrol değişkeni
+  bool _shouldSpeak = true;  // Sayfa değiştirildiğinde seslendirme yapılması gerekip gerekmediğini kontrol eder
+  int _targetPageIndex = -1;  // Hedef kelimenin indeksini saklamak için bir değişken
 
   ValueNotifier<int> _currentSentenceIndex = ValueNotifier<int>(0);
   late PageController _pageController;
@@ -92,7 +94,7 @@ class _StudyScreenState extends State<StudyScreen> {
     userID = userProvider.userId;
     int currentPoints = userProvider.point; // Mevcut puanı al ve int'e çevir. Eğer çevrilemezse 0 varsay.
     userProvider.addPoint((currentPoints + 3)); // Puanı 3 artır ve güncelle.
-    ApiService().updateUserPoint(userProvider.userId, currentPoints); // API üzerinden puanı güncelleyin
+    ApiService().updateUserPointTimePeriod(userProvider.userId, currentPoints,3); // API üzerinden puanı güncelleyin
 
     _sentencePageController = PageController(initialPage: 0);
     for (var word in widget.words) {
@@ -283,6 +285,8 @@ class _StudyScreenState extends State<StudyScreen> {
                           onTap: () {
                             Navigator.of(context).pop(true); // Drawer'ı kapat
                             int originalIndex = widget.words.indexOf(word);
+                            _targetPageIndex = index;  // Hedef kelimenin indeksini ayarla
+
                             _pageController.animateToPage(
                               originalIndex,
                               duration: Duration(milliseconds: 500), // Sayfa geçiş süresi
@@ -319,16 +323,26 @@ class _StudyScreenState extends State<StudyScreen> {
 
         // Yıldızlı kelimeleri göster seçeneği aktifse ve yıldızlı kelimeler varsa, yalnızca bu kelimeleri seslendir
         List<WordDetail> displayedWords = getDisplayedWords();
-        if(_showOnlyStarred && displayedWords.isNotEmpty) {
-          speak(displayedWords[index].word); // Yıldızlı kelimeyi seslendir
-        } else if (!_showOnlyStarred) {
-          speak(widget.words[index].word); // Tüm kelimeler listesinden kelimeyi seslendir
-        }
+        print(_shouldSpeak);
 
+        if(_showOnlyStarred && displayedWords.isNotEmpty) {
+          if (_shouldSpeak) {
+          }if (index == _targetPageIndex) {  // Eğer hedef kelimeye ulaşıldıysa
+            _targetPageIndex = -1;  // Hedef indeksi sıfırla
+            speak(displayedWords[index].word); // Yıldızlı kelimeyi seslendir
+            _shouldSpeak = true;  // Gelecek sayfa değişiklikleri için seslendirme yeteneğini aktif et
+          }
+        } else if (!_showOnlyStarred) {
+          if (index == _targetPageIndex) {  // Eğer hedef kelimeye ulaşıldıysa
+            _targetPageIndex = -1;  // Hedef indeksi sıfırla
+            speak(widget.words[index].word);  // Hedef kelimeyi seslendir
+            _shouldSpeak = true;  // Gelecek sayfa değişiklikleri için seslendirme yeteneğini aktif et
+          }
+        }
         var userProvider = Provider.of<UserProvider>(context, listen: false);
         int currentPoints = userProvider.point;; // Mevcut puanı al ve int'e çevir. Eğer çevrilemezse 0 varsay.
         userProvider.addPoint((currentPoints + 3)); // Puanı 3 artır ve güncelle.
-        await ApiService().updateUserPoint(userProvider.userId, currentPoints); // API üzerinden puanı güncelleyin
+        await ApiService().updateUserPointTimePeriod(userProvider.userId, currentPoints,3); // API üzerinden puanı güncelleyin
         _currentSentenceIndex.value = 0; // Bu satırı ekleyin.
       },
 

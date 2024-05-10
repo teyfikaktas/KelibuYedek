@@ -2,7 +2,7 @@ name: kelibu
 description: "Yeni nesil kelime öğrenme uygulaması"
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 
-version: 1.0.0+1
+version: 1.0.2
 
 environment:
   sdk: '>=3.2.0 <4.0.0'
@@ -69,7 +69,8 @@ dependencies:
   crypto: ^3.0.1
   flutter_secure_storage: ^9.0.0
   encrypt: ^5.0.0
-
+  in_app_purchase: ^2.0.0
+  connectivity_plus: ^6.0.3
 dev_dependencies:
   flutter_test:
     sdk: flutter

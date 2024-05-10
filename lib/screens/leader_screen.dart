@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -10,6 +12,18 @@ import 'package:auto_size_text/auto_size_text.dart';
 
 import 'loadingIndicator.dart';
 
+import 'dart:math';
+import 'package:flutter/material.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:kelibu/api.dart';
+import 'package:provider/provider.dart';
+import 'package:kelibu/providers/user_provider.dart';
+import 'package:kelibu/Models/user.dart';
+import 'package:getwidget/getwidget.dart';
+import 'package:auto_size_text/auto_size_text.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 class LeaderboardPage extends StatefulWidget {
   const LeaderboardPage({Key? key}) : super(key: key);
 
@@ -17,35 +31,83 @@ class LeaderboardPage extends StatefulWidget {
   _LeaderboardPageState createState() => _LeaderboardPageState();
 }
 
-class _LeaderboardPageState extends State<LeaderboardPage> {
+class _LeaderboardPageState extends State<LeaderboardPage> with SingleTickerProviderStateMixin {
   late Future<List<User>> _futureLeaderboardData;
+  late TabController _tabController;
   int? userRank;
   User? currentUser;
   final ScrollController _scrollController = ScrollController();
   bool _isUserRankComputed = false;
+  String? _code;
 
   @override
   void initState() {
     super.initState();
-    _loadData();
+    _tabController = TabController(length: 4, vsync: this);
+    _tabController.addListener(_handleTabSelection);
+    _loadData('all_time'); // default period
+    _initPreferences();
   }
 
-  void _loadData() async {
+  Future<void> _initPreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    _code = prefs.getString('leaderboard_code');
+    if (_code != null) {
+      setState(() {});
+      _loadData(_code!);
+    }
+  }
+
+  void _setCode(String newCode) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('leaderboard_code', newCode);
+    _code = newCode;
+    _loadData(_code!);
+  }
+
+  void _removeCode() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('leaderboard_code');
+    _code = null;
+    _loadData('all_time');
+  }
+
+  void _handleTabSelection() {
+    if (_tabController.indexIsChanging) {
+      switch (_tabController.index) {
+        case 0:
+          _loadData('all_time');
+          break;
+        case 1:
+          _loadData('daily');
+          break;
+        case 2:
+          _loadData('weekly');
+          break;
+        case 3:
+          _loadData('monthly');
+          break;
+      }
+    }
+  }
+
+  void _loadData(String timePeriod) async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final currentUserId = userProvider.userId;
-    _futureLeaderboardData = ApiService().fetchUsers();
+    _futureLeaderboardData = ApiService().fetchUsersNew(_code ?? "", timePeriod);
     List<User> users = await _futureLeaderboardData;
     int currentUserIndex = users.indexWhere((user) => user.id == currentUserId);
 
     if (currentUserIndex != -1 && currentUserIndex < 150) {
       userRank = currentUserIndex + 1;
+    } else {
+      userRank = null; // User not found in the current period's leaderboard
     }
     _isUserRankComputed = true;
 
     if (mounted) {
       setState(() {});
       if (userRank != null) {
-        // Delay the scroll to ensure the ListView is built
         WidgetsBinding.instance.addPostFrameCallback((_) {
           scrollToUserRank(currentUserIndex);
         });
@@ -57,9 +119,9 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
   Widget build(BuildContext context) {
     return SafeArea(
       child: Scaffold(
-        backgroundColor: const Color(0xFFFEFAF6), // Arka plan rengini burada ayarlayın
+        backgroundColor: const Color(0xFFFEFAF6),
         appBar: AppBar(
-          backgroundColor: const Color(0xFFFEFAF6), // Arka plan rengini burada ayarlayın
+          backgroundColor: const Color(0xFFFEFAF6),
           title: Text(
             'Liderlik Tablosu',
             style: GoogleFonts.poppins(
@@ -67,121 +129,160 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
               fontWeight: FontWeight.bold,
             ),
           ),
-          iconTheme: IconThemeData(
-            color: Colors.pink,
+          bottom: TabBar(
+            controller: _tabController,
+            tabs: const [
+              Tab(text: 'Tümü'),
+              Tab(text: 'Günlük'),
+              Tab(text: 'Haftalık'),
+              Tab(text: 'Ay'),
+            ],
           ),
-        ),
-        body: FutureBuilder<List<User>>(
-          future: _futureLeaderboardData,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return Center(
-                child: const LogoLoadingIndicator(), // Merkeze alınmış LogoLoadingIndicator
-              );
-            } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-              return const Text('Yeterli veri yok');
-            } else {
-              // Potential place to initiate scrolling after data is loaded
-              if (!_isUserRankComputed && userRank != null) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  scrollToUserRank(userRank! - 1);
-                });
-              }
-              return AnimationLimiter(
-                child: ListView.builder(
-                  controller: _scrollController,
-                  itemCount: snapshot.data!.length,
-                  itemBuilder: (context, index) {
-                    return AnimationConfiguration.staggeredList(
-                      position: index,
-                      duration: const Duration(milliseconds: 375),
-                      child: SlideAnimation(
-                        verticalOffset: 50.0,
-                        child: FadeInAnimation(
-                          child: _buildUserTile(snapshot.data![index], index + 1),
-                        ),
+          actions: <Widget>[
+            IconButton(
+              icon: Icon(Icons.add),
+              onPressed: _code == null ? () async {
+                TextEditingController codeController = TextEditingController();
+                bool shouldRefresh = await showDialog(
+                  context: context,
+                  builder: (BuildContext context) {
+                    return AlertDialog(
+                      title: const Text("Enter Code"),
+                      content: TextField(
+                        controller: codeController,
+                        decoration: const InputDecoration(hintText: "Code"),
                       ),
+                      actions: <Widget>[
+                        TextButton(
+                          onPressed: () {
+                            Navigator.of(context).pop(false);
+                          },
+                          child: const Text('Cancel'),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            if (codeController.text.isNotEmpty) {
+                              _setCode(codeController.text);
+                              Navigator.of(context).pop(true);
+                            }
+                          },
+                          child: const Text('Save'),
+                        ),
+                      ],
                     );
                   },
-                ),
-              );
-            }
-          },
-        ),
-        bottomSheet: _isUserRankComputed
-            ? Container(
-          decoration: BoxDecoration(
-            color: Colors.pink.shade100, // Gradyan yerine katı bir pembe renk kullan
-            borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(20),
-                topRight: Radius.circular(20)
+                );
+                if (shouldRefresh) {
+                  _loadData(_code!);
+                }
+              } : null,
             ),
-            boxShadow: const [
-              BoxShadow(
-                spreadRadius: 0,
-                blurRadius: 10,
-                offset: Offset(0, -2), // Gölgelerin yönünü ayarlayın
+          ],
+        ),
+        body: TabBarView(
+          controller: _tabController,
+          children: [
+            LeaderboardList(timePeriod: 'all_time', code: _code),
+            LeaderboardList(timePeriod: 'daily', code: _code),
+            LeaderboardList(timePeriod: 'weekly', code: _code),
+            LeaderboardList(timePeriod: 'monthly', code: _code),
+          ],
+        ),
+        bottomSheet: userRank != null && _isUserRankComputed
+            ? Container(
+          color: Colors.blueGrey[100],
+          height: 50,
+          child: Center(
+            child: Text(
+              'Sizin sıralamanız: #$userRank',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                color: Colors.black54,
               ),
-            ],
-          ),
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween, // İçerik ve logo arasında boşluk bırakmak için
-            children: [
-              Row( // Sıralama ve ikonu sol tarafta tutacak iç içe Row
-                children: [
-                  const Icon(Icons.leaderboard, color: Colors.white70),
-                  const SizedBox(width: 10),
-                  Text(
-                    userRank != null && userRank! <= 150 ? 'Sizin Sıralamanız: #$userRank' : 'İlk 150 kişi içerisinde değilsiniz',
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
-                  ),
-                ],
-              ),
-              // Sağ tarafta logo gösterimi
-              Image.asset('assets/logo.png', width: 50), // Logo burada, boyutunu ayarlayabilirsiniz
-            ],
+            ),
           ),
         )
-            : const SizedBox.shrink(),
-
+            : SizedBox.shrink(),
+        floatingActionButton: _code != null
+            ? FloatingActionButton(
+          onPressed: _removeCode,
+          tooltip: 'Remove Code',
+          child: Icon(Icons.remove),
+        )
+            : null,
       ),
     );
   }
 
   void scrollToUserRank(int index) async {
-    await Future.delayed(Duration(milliseconds: 100)); // Ensure ListView is built
+    if (userRank == null) return; // No rank to scroll to
+
+    await Future.delayed(const Duration(milliseconds: 100));
 
     if (_scrollController.hasClients) {
-      // Ensure the calculation results in a double
-      var itemPositionOffset = (100.0 + 4.0) * index; // Making 100.0 and 8.0 explicitly double
-
-      // Get the height of the screen as a double
+      var itemPositionOffset = 104.0 * index;
       var screenHeight = MediaQuery.of(context).size.height;
-
-      // Calculate the offset to center the user's rank in the screen, ensuring the result is a double
-      var centeredPositionOffset = itemPositionOffset - (screenHeight / 2) + (100.0 / 2); // Adjust the 100.0 if your item height is different
-
-      // Ensure the calculated offset is not negative and explicitly cast to double if necessary
-      final offset = centeredPositionOffset > 0 ? centeredPositionOffset : 0.0;
+      var centeredPositionOffset = itemPositionOffset - (screenHeight / 2) + (104.0 / 2);
+      final offset = max(centeredPositionOffset, 0.0);
 
       _scrollController.animateTo(
         offset,
-        duration: Duration(seconds: 2),
+        duration: const Duration(seconds: 2),
         curve: Curves.easeInOut,
       );
     }
   }
+}
 
+
+class LeaderboardList extends StatelessWidget {
+  final String timePeriod;
+  final String? code;
+
+  const LeaderboardList({Key? key, required this.timePeriod, this.code}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    Future<List<User>> users = ApiService().fetchUsersNew(code ?? "", timePeriod);
+
+    return FutureBuilder<List<User>>(
+      future: users,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Center(child: const LogoLoadingIndicator());
+        } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return const Text('No data available');
+        } else {
+          return AnimationLimiter(
+            child: ListView.builder(
+              itemCount: snapshot.data!.length,
+              itemBuilder: (context, index) {
+                return AnimationConfiguration.staggeredList(
+                  position: index,
+                  duration: const Duration(milliseconds: 375),
+                  child: SlideAnimation(
+                    verticalOffset: 50.0,
+                    child: FadeInAnimation(
+                      child: _buildUserTile(snapshot.data![index], index + 1),
+                    ),
+                  ),
+                );
+              },
+            ),
+          );
+        }
+      },
+    );
+  }
 
   Widget _buildUserTile(User user, int rank) {
     Color backgroundColor = _getBackgroundColorForRank(rank);
 
-    // Determines the appropriate rank indicator based on rank
     Widget rankIndicator = _getRankIndicator(rank);
 
-    String teamInfo = user.team == null || user.team!.isEmpty ? "Takım seçilmemiştir" : user.team!;
-    String cityInfo = user.city ?? "İl belirsiz";
+    String teamInfo = user.team == null || user.team!.isEmpty ? "Bilgi Verilmemiştir." : user.team!;
+    String cityInfo = user.city ?? "Şehir Bilinmiyor";
 
     return GFListTile(
       avatar: Stack(
@@ -217,18 +318,17 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
         ],
       ),
       subTitle: AutoSizeText(
-        '${user.point} Puan',
+        '${user.point} Points',
         style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         minFontSize: 12,
         maxLines: 1,
       ),
       color: backgroundColor,
       margin: EdgeInsets.all(8),
-      padding: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+      padding: EdgeInsets.symmetric(vertical: 8, horizontal:16),
     );
   }
 
-  // Helper function to determine the background color based on rank
   Color _getBackgroundColorForRank(int rank) {
     switch (rank) {
       case 1:
@@ -242,7 +342,6 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
     }
   }
 
-  // Helper function to create a rank indicator widget
   Widget _getRankIndicator(int rank) {
     if (rank <= 3) {
       return Icon(
@@ -252,10 +351,10 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
       );
     } else {
       return Container(
-        width: 20,
-        height: 20,
+        width: 25,
+        height: 25,
         decoration: BoxDecoration(
-          color: Colors.orange,
+          color: Colors.pink,
           shape: BoxShape.circle,
           border: Border.all(color: Colors.white, width: 2),
         ),
