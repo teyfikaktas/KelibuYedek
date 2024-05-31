@@ -68,6 +68,7 @@ class _StudySetListScreenState extends State<StudySetListScreen> {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     int userID = userProvider.userId;
     var sets = await ApiService().fetchStudySets(widget.classroomId, widget.wordid, userID.toString());
+    print(widget.classroomId);
     final tempStarredWordCounts = <int, int>{};
     for (var studySet in sets) {
       final starredWordsSet = await StarredWordsService().loadStarredWords(widget.classroomId, studySet.id);
@@ -139,7 +140,6 @@ class _StudySetListScreenState extends State<StudySetListScreen> {
   }
   Future<void> navigateToGameModeStarScreen() async {
     try {
-      // Yükleme göstergesini göster
       showDialog(
         context: context,
         barrierDismissible: false,
@@ -154,12 +154,9 @@ class _StudySetListScreenState extends State<StudySetListScreen> {
       );
 
       final userProvider = Provider.of<UserProvider>(context, listen: false);
-      int userID = userProvider.userId;
-      int studyset = widget.wordid;
       // Asenkron işleminizi burada gerçekleştirin
-      String studySets = await ApiService().fetchStudySetsStar(widget.classroomId, userID);
       String idString = studySetIds.join(', ');
-
+      print('studytsets'+idString);
       // İşlem tamamlandığında yükleme göstergesini kapat
       Navigator.of(context).pop();
 

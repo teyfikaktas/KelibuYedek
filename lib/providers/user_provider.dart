@@ -123,11 +123,11 @@ class UserProvider with ChangeNotifier {
     await box.put('avatar', newAvatarUrl);
     notifyListeners();
   }
+
   Future<String> getUsernameHash() async {
     var box = await Hive.openBox('userBox');
     String hash = box.get('usernameHash', defaultValue: '');
 
-    // Eğer hash değeri boşsa ve kullanıcı adı mevcutsa, hash'i yeniden hesapla ve kaydet
     if (hash.isEmpty && _username.isNotEmpty) {
       hash = _hashValue(_username);
       await box.put('usernameHash', hash); // Yeniden hesaplanan hash değerini kaydet

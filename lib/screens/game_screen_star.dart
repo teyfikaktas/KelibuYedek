@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:kelibu/Models/wordDetaik.dart'; // WordDetail modelinizin importu
 import 'package:kelibu/api.dart';
@@ -71,9 +73,11 @@ class _GameModeScreenState extends State<GameModeStarScreen> {
       );
     },
   );
+
   Future<void> _loadWords() async {
-    // API'den kelime listesini alın ve `starredWordsList` ile doldurun
-    // Örnek olarak bu adımı basit bir şekilde simüle ediyoruz
+    print('widget.studySetName');
+
+    print(widget.studySetName);
     String processedString = widget.studySetName.replaceAll('[', '').replaceAll(']', '');
     List<String> stringIds = processedString.split(',').map((id) => id.trim()).where((id) => id.isNotEmpty).toList();
     wordIds = stringIds.map((id) => int.tryParse(id) ?? 0).toList();
@@ -84,10 +88,18 @@ class _GameModeScreenState extends State<GameModeStarScreen> {
 
     // `starredWordsList`'i doldurun
     setState(() {
-      starredWordsList.addAll(wordDetails);
+      starredWordsList = getRandomWordDetails(wordDetails); // Rastgele 100 veya daha az WordDetail seç
       starredCountNotifier.value = wordDetails.length; // Bu satır eklendi
-
     });
+  }
+// Rastgele 100 veya daha az sayıda WordDetail seçen fonksiyon
+  List<WordDetail> getRandomWordDetails(List<WordDetail> wordDetails) {
+    final random = Random();
+    if (wordDetails.length <= 100) {
+      return wordDetails;
+    } else {
+      return (wordDetails.toList()..shuffle(random)).take(100).toList();
+    }
   }
   Future<void> _removeWord(int index) async {
     WordDetail removedWord = wordDetails.removeAt(index);
@@ -96,18 +108,16 @@ class _GameModeScreenState extends State<GameModeStarScreen> {
           (context, animation) => _buildItem(removedWord, animation, index),
       duration: const Duration(milliseconds: 600),
     );
-setState(() {
-  _loadWords();
-
-});    // Burada API'ye kelimenin silindiğine dair bir istek gönderebilirsiniz
-    // Örneğin: await ApiService().removeWord(removedWord.id);
+    setState(() {
+      _loadWords();
+    });
   }
+
   Future<void> removeWord(int index) async {
     if (index < starredWordsList.length) {
       WordDetail word = starredWordsList[index];
 
       // API'den kelimeyi silme işlemini gerçekleştirin
-      // Örneğin: await ApiService().removeWordFromAll(word.id);
       await StarredWordsService().removeWordFromAll(word.id);
 
       // UI'dan kelimeyi animasyonlu bir şekilde kaldır
@@ -118,13 +128,14 @@ setState(() {
       );
 
       // Listenizden kelimeyi kaldırın
-      // Bu satırı removeItem callback'inden sonra çağırmanız önemli, çünkü o anki indeksle ilgili animasyonu oynatmak istiyorsunuz
       setState(() {
+        starredWordsList = List<WordDetail>.from(starredWordsList); // Bu satırı güncelledim
         starredWordsList.removeAt(index);
         starredCountNotifier.value = starredWordsList.length; // Güncelleme
       });
     }
   }
+
   Widget buildWordTile(BuildContext context, int index, Animation<double> animation) {
     WordDetail word = starredWordsList[index];
     return SizeTransition(
@@ -138,10 +149,10 @@ setState(() {
           onPressed: () => removeWord(index),
         ),
         onTap: () => _navigateToWordDetail(word),
-
       ),
     );
   }
+
   Widget _buildItem(WordDetail word, Animation<double> animation, int index) {
     return SizeTransition(
       sizeFactor: animation,
@@ -156,6 +167,7 @@ setState(() {
       ),
     );
   }
+
   @override
   void initState() {
     super.initState();
@@ -168,6 +180,7 @@ setState(() {
       });
     });
   }
+
   @override
   void dispose() {
     super.dispose();
@@ -179,12 +192,18 @@ setState(() {
     await flutterTts.speak(text);
   }
 
-
   @override
   Widget build(BuildContext context) {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     int currentUserId = userProvider.userId;
+    var screenSize = MediaQuery.of(context).size;
+    int gridCount = screenSize.width > 600 ? 4 : 2;  // Tablet için 4, telefon için 2 sütun
+    double aspectRatio = screenSize.width > 600 ? 1.5 : 2;  // Tablet için daha geniş tile'lar
+    bool isTablet = screenSize.width > 600;
+    bool yatayEkran = MediaQuery.of(context).size.aspectRatio > 1.5;
 
+    int childAspectRatio = isTablet ? 4 : 2;
+    double crossAxisCount = yatayEkran ? 4 : 2;
     if (wordDetails == null) {
       // wordsFuture henüz başlatılmamışsa, yükleme göstergesini göster
       return Scaffold(
@@ -205,401 +224,435 @@ setState(() {
       );
     }
 
-    return  Scaffold(
-        appBar: AppBar(
-          backgroundColor: Colors.white,
-          title: Text(
-            'Oyun Modları',
-            style: GoogleFonts.poppins(
-              color: Colors.pink,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          iconTheme: IconThemeData(
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        title: Text(
+          'Oyun Modları',
+          style: GoogleFonts.poppins(
             color: Colors.pink,
+            fontWeight: FontWeight.bold,
           ),
         ),
-        body: FutureBuilder<List<WordDetail>>(
-              future: wordsFuture,
-              builder: (context, snapshot) {
-                // Kelime listesi kontrolü
-                if (snapshot.hasData! && snapshot.data!.isEmpty) {
-                  // Kelime listesi boşsa, oyun modlarını tıklanamaz yap
-                  areGamesClickable = false;
-                } else {
-                  // Kelime listesi doluysa, oyun modlarını tıklanabilir yap
-                  areGamesClickable = true;
-                }
+        iconTheme: IconThemeData(
+          color: Colors.pink,
+        ),
+      ),
+      body: FutureBuilder<List<WordDetail>>(
+        future: wordsFuture,
+        builder: (context, snapshot) {
+          // Kelime listesi kontrolü
+          if (snapshot.hasData! && snapshot.data!.isEmpty) {
+            // Kelime listesi boşsa, oyun modlarını tıklanamaz yap
+            areGamesClickable = false;
+          } else {
+            // Kelime listesi doluysa, oyun modlarını tıklanabilir yap
+            areGamesClickable = true;
+          }
           return Column(
-          children: [
-
-            InkWell(
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => FutureBuilder<List<WordDetail>>(
-                      future: wordsFuture, // Burada Future<List<WordDetail>> türünde bir Future bekleniyor
-                      builder: (context, snapshot) {
-                        if (snapshot.hasData) {
-                          // Eğer snapshot içinde veri varsa, bu verileri QuizScreen'e gönder
-                          return KelimeOyunu(
-                            words: snapshot.data!, // wordsFuture'den gelen veriler
-                            classroomId: widget.classroomId, // Aktarılacak classroomId
-                            studySetId: widget.studySetId, // Aktarılacak studySetId
-                          );
-                        } else {
-                          // Eğer veri yoksa, yükleme göstergesini göster
-                          return CustomLoadingIndicator();
-                        }
-                      },
-                    ),
-                  ),
-                );
-              },
-              child: Container(
-                padding: const EdgeInsets.all(16.0),
-                margin: const EdgeInsets.only(top: 8.0, bottom: 8.0),
-                decoration: BoxDecoration(
-                  color: Colors.deepPurple[400],
-                  borderRadius: BorderRadius.circular(10),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.deepPurple.shade900.withOpacity(0.5),
-                      spreadRadius: 2,
-                      blurRadius: 6,
-                      offset: Offset(0, 3),
-                    ),
-                  ],
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Colors.deepPurple.shade300, Colors.deepPurple.shade600],
-                  ),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.gamepad, color: Colors.white, size: 30),
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8.0),
-                      child: Text(
-                        "Klasik Kelibu",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 24,
-                          shadows: [
-                            Shadow(
-                              blurRadius: 6.0,
-                              color: Colors.black.withOpacity(0.5),
-                              offset: Offset(2, 2),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            Expanded(
-              flex: 1,
-              child: GridView.count(
-                crossAxisCount: 2,
-                childAspectRatio: 2 ,
-                children: <Widget>[
-                  _buildGameModeTile(context, "Öğren", areGamesClickable ? Colors.blue : Colors.grey, Icons.school, TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18), () {
+            children: [
+              InkWell(
+                onTap: () {
+                  if (areGamesClickable) {
+                    print('object');
                     Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (context) => FutureBuilder<List<WordDetail>>(
-                          future: wordsFuture,
+                          future: wordsFuture, // Burada Future<List<WordDetail>> türünde bir Future bekleniyor
                           builder: (context, snapshot) {
-                            if (snapshot.hasData) {
-                              return QuizStarScreen(
-                                words: snapshot.data!,
-                                classroomId: widget.classroomId, // classroomId değerini burada aktar
-                                studySetId: widget.studySetId, // studySetId değerini burada aktar
-                              );
-                            } else {
-                              return  CustomLoadingIndicator();
-                            }
-                          },
-                        ),
-                      ),
-                    );
-                  }),
-
-                  _buildGameModeTile(context, "Flash Kart", areGamesClickable ? Colors.green : Colors.grey, Icons.flash_on, TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18), () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => FutureBuilder<List<WordDetail>>(
-                          future: wordsFuture,
-                          builder: (context, snapshot) {
-                            if (snapshot.hasData) {
-                              return FlashCardStarScreen(
-                                words: snapshot.data!,
-                                classroomId: widget.classroomId, // classroomId değerini burada aktar
-                                studySetId: widget.studySetId, // studySetId değerini burada aktar
-                              );
-                            } else {
+                            if (snapshot.connectionState == ConnectionState.waiting) {
+                              // Veriler yükleniyor ise yükleme göstergesini göster
                               return CustomLoadingIndicator();
+                            } else if (snapshot.hasError) {
+                              // Eğer bir hata varsa, hata mesajı göster
+                              return Text('Hata: ${snapshot.error}');
+                            } else if (snapshot.hasData) {
+                              // Eğer veriler başarıyla gelmişse
+                              if (snapshot.data!.isEmpty) {
+                                // Veri yoksa kullanıcıya bilgi ver
+                                return Center(child: Text("Yıldızlı kelime bulunamadı, oyun başlatılamıyor!"));
+                              } else {
+                                return Material(
+                                  color: Colors.transparent, // Material widget'ının arka planını transparan yaparak altındaki renkleri etkilemez
+                                  child:InkWell(
+                                    onTap: () {
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (context) => FutureBuilder<List<WordDetail>>(
+                                            future: wordsFuture, // Burada Future<List<WordDetail>> türünde bir Future bekleniyor
+                                            builder: (context, snapshot) {
+                                              if (snapshot.hasData) {
+                                                // Eğer snapshot içinde veri varsa, bu verileri QuizScreen'e gönder
+                                                return KelimeOyunu(
+                                                  words: snapshot.data!, // wordsFuture'den gelen veriler
+                                                  classroomId: widget.classroomId, // Aktarılacak classroomId
+                                                  studySetId: widget.studySetId, // Aktarılacak studySetId
+                                                );
+                                              } else {
+                                                // Eğer veri yoksa, yükleme göstergesini göster
+                                                return CustomLoadingIndicator();
+                                              }
+                                            },
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.all(16.0),
+                                      margin: const EdgeInsets.only(top: 8.0, bottom: 8.0),
+                                      decoration: BoxDecoration(
+                                        color: Colors.deepPurple[400],
+                                        borderRadius: BorderRadius.circular(10),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.deepPurple.shade900.withOpacity(0.5),
+                                            spreadRadius: 2,
+                                            blurRadius: 6,
+                                            offset: Offset(0, 3),
+                                          ),
+                                        ],
+                                        gradient: LinearGradient(
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                          colors: [Colors.deepPurple.shade300, Colors.deepPurple.shade600],
+                                        ),
+                                      ),
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(Icons.gamepad, color: Colors.white, size: 30),
+                                          Padding(
+                                            padding: const EdgeInsets.only(top: 8.0),
+                                            child: Text(
+                                              "Klasik Kelibu",
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 24,
+                                                shadows: [
+                                                  Shadow(
+                                                    blurRadius: 6.0,
+                                                    color: Colors.black.withOpacity(0.5),
+                                                    offset: Offset(2, 2),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }
+                            } else {
+                              // Eğer veri yoksa, boş bir widget döndür
+                              return SizedBox();
                             }
                           },
                         ),
                       ),
                     );
-                  }),
-                  _buildGameModeTile(context, "Çalış", areGamesClickable ? Colors.greenAccent : Colors.grey, Icons.work, TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18), () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => FutureBuilder<List<WordDetail>>(
-                          future: wordsFuture,
-                          builder: (context, snapshot) {
-                            if (snapshot.hasData) {
-                              return StudyScreen(
-                                words: snapshot.data!,
-                                classroomId: widget.classroomId, // classroomId değerini burada aktar
-                                studySetId: widget.studySetId, // studySetId değerini burada aktar
-                              );
-                            } else {
-                              return  CustomLoadingIndicator();                          }
-                          },
-                        ),
+                  } else {
+                    // Tıklanabilir değilse, kullanıcıya uyarı göster
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text("Yıldızlı kelime bulunamadı!"),
+                        duration: Duration(seconds: 2),
                       ),
                     );
-                  }),
-                  _buildGameModeTile(context, "Dinle", Colors.deepOrangeAccent, Icons.music_note, TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18), () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => FutureBuilder<List<WordDetail>>(
-                          future: wordsFuture,
-                          builder: (context, snapshot) {
-                            if (snapshot.hasData) {
-                              return ListenAndWriteScreen(
-                                words: snapshot.data!,
-                              );
-                            } else {
-                              return  CustomLoadingIndicator();                          }
-                          },
-                        ),
-                      ),
-                    );
-                  }),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: ValueListenableBuilder<int>(
-                valueListenable: starredCountNotifier,
-                builder: (context, count, _) {
-                  return Container(
-                    padding: EdgeInsets.symmetric(vertical: 10, horizontal: 20),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 20.0),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.blueGrey),
-                        boxShadow: [
-                          BoxShadow(
-                            offset: Offset(1.0, 1.0),
-                            blurRadius: 3.0,
-                            color: Colors.grey.withOpacity(0.5),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.star, color: Colors.amber, size: 24),
-                          SizedBox(width: 8),
-                          Text(
-                            'Yıldızlı Kelime Sayısı: ${count}',
-                            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
+                  }
                 },
+                child: buildKlasikKelibuTile(context),
               ),
-            ),
-            Expanded(
-              flex: 2,
-              child: FutureBuilder<List<WordDetail>>(
-                future: wordsFuture, // Güncellenmiş future
-                builder: (context, wordSnapshot) {
-                  if (wordSnapshot.connectionState == ConnectionState.waiting) {
-                    return CustomLoadingIndicator();
-                  } else if (wordSnapshot.hasError) {
-                    return Text('Error: ${wordSnapshot.error}');
-                  } else if (wordSnapshot.hasData && wordSnapshot.data!.isEmpty) {
+              Expanded(
+                flex: 1,
+                child: GridView.count(
+                  crossAxisCount: childAspectRatio,
+                  childAspectRatio: crossAxisCount,
+                  children: <Widget>[
+                    _buildGameModeTile(context, "Öğren", areGamesClickable ? Colors.blue : Colors.grey, Icons.school, TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18), () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => FutureBuilder<List<WordDetail>>(
+                            future: wordsFuture,
+                            builder: (context, snapshot) {
+                              if (snapshot.hasData) {
+                                return QuizStarScreen(
+                                  words: snapshot.data!,
+                                  classroomId: widget.classroomId, // classroomId değerini burada aktar
+                                  studySetId: widget.studySetId, // studySetId değerini burada aktar
+                                );
+                              } else {
+                                return CustomLoadingIndicator();
+                              }
+                            },
+                          ),
+                        ),
+                      );
+                    }),
 
-                    return Center(
+                    _buildGameModeTile(context, "Flash Kart", areGamesClickable ? Colors.green : Colors.grey, Icons.flash_on, TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18), () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => FutureBuilder<List<WordDetail>>(
+                            future: wordsFuture,
+                            builder: (context, snapshot) {
+                              if (snapshot.hasData) {
+                                return FlashCardStarScreen(
+                                  words: snapshot.data!,
+                                  classroomId: widget.classroomId, // classroomId değerini burada aktar
+                                  studySetId: widget.studySetId, // studySetId değerini burada aktar
+                                );
+                              } else {
+                                return CustomLoadingIndicator();
+                              }
+                            },
+                          ),
+                        ),
+                      );
+                    }),
+                    _buildGameModeTile(context, "Çalış", areGamesClickable ? Colors.greenAccent : Colors.grey, Icons.work, TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18), () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => FutureBuilder<List<WordDetail>>(
+                            future: wordsFuture,
+                            builder: (context, snapshot) {
+                              if (snapshot.hasData) {
+                                return StudyScreen(
+                                  words: snapshot.data!,
+                                  classroomId: widget.classroomId, // classroomId değerini burada aktar
+                                  studySetId: widget.studySetId, // studySetId değerini burada aktar
+                                );
+                              } else {
+                                return CustomLoadingIndicator();
+                              }
+                            },
+                          ),
+                        ),
+                      );
+                    }),
+                    _buildGameModeTile(context, "Dinle", areGamesClickable ? Colors.deepOrangeAccent : Colors.grey, Icons.music_note, TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18), () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => FutureBuilder<List<WordDetail>>(
+                            future: wordsFuture,
+                            builder: (context, snapshot) {
+                              if (snapshot.hasData) {
+                                return ListenAndWriteScreen(
+                                  words: snapshot.data!,
+                                );
+                              } else {
+                                return CustomLoadingIndicator();
+                              }
+                            },
+                          ),
+                        ),
+                      );
+                    }),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: ValueListenableBuilder<int>(
+                  valueListenable: starredCountNotifier,
+                  builder: (context, count, _) {
+                    return Container(
+                      padding: EdgeInsets.symmetric(vertical: 10, horizontal: 20),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
                       child: Container(
-                        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10), // İç boşluk
+                        padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 20.0),
                         decoration: BoxDecoration(
-                          color: Colors.lightBlue[100], // Arka plan rengi
-                          borderRadius: BorderRadius.circular(10), // Kenar yuvarlaklığı
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.blueGrey),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.grey.withOpacity(0.5), // Gölge rengi
-                              spreadRadius: 5, // Gölgenin yayılma yarıçapı
-                              blurRadius: 7, // Gölgenin bulanıklık yarıçapı
-                              offset: Offset(0, 3), // Gölgenin yatay ve dikey pozisyonu
+                              offset: Offset(1.0, 1.0),
+                              blurRadius: 3.0,
+                              color: Colors.grey.withOpacity(0.5),
                             ),
                           ],
                         ),
-                        child: Text(
-                          'Yıldızlanmış kelime bulunmuyor. Hemen öğrenmediğiniz kelimeleri yıldızlayın ve öğrenmeye başlayın!',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.black, // Metin rengi
-                            fontWeight: FontWeight.bold, // Metin kalınlığı
-                          ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.star, color: Colors.amber, size: 24),
+                            SizedBox(width: 8),
+                            Text(
+                              'Yıldızlı Kelime Sayısı: ${count}',
+                              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+                            ),
+                          ],
                         ),
                       ),
                     );
-                  } else if (wordSnapshot.hasData) {
-
-                    return AnimatedList(
-                      key: animatedListKey,
-                      initialItemCount: starredWordsList.length,
-                      itemBuilder: (context, index, animation) => buildWordTile(context, index, animation),
-                    );
-                  } else {
-                    return const Text('No words available');
-                  }
-                },
+                  },
+                ),
               ),
-            ),
+              Expanded(
+                flex: 2,
+                child: FutureBuilder<List<WordDetail>>(
+                  future: wordsFuture, // Güncellenmiş future
+                  builder: (context, wordSnapshot) {
+                    // Yükleme durumu kontrolü
+                    if (wordSnapshot.connectionState == ConnectionState.waiting) {
+                      // Eğer veri yükleniyorsa, yükleme göstergesi gösterilir
+                      return CustomLoadingIndicator();
+                    } else if (wordSnapshot.hasError) {
+                      // Eğer bir hata oluşmuşsa, hata mesajı gösterilir
+                      return Text('Error: ${wordSnapshot.error}');
+                    } else if (wordSnapshot.hasData && wordSnapshot.data!.isEmpty) {
+                      // Eğer veri yüklendi ancak liste boşsa, kullanıcıya bilgilendirici bir mesaj gösterilir
+                      return Center(
+                        child: Container(
+                          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: Colors.lightBlue[100],
+                            borderRadius: BorderRadius.circular(10),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.grey.withOpacity(0.5),
+                                spreadRadius: 5,
+                                blurRadius: 7,
+                                offset: Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          child: Text(
+                            'Yıldızlanmış kelime bulunmuyor. Hemen öğrenmediğiniz kelimeleri yıldızlayın ve öğrenmeye başlayın!',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.black,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      );
+                    } else if (wordSnapshot.hasData) {
+                      // Eğer veri başarıyla yüklendiyse ve veri varsa, yıldızlanmış kelimeleri listelemek için AnimatedList kullanılır
+                      return AnimatedList(
+                        key: animatedListKey,
+                        initialItemCount: starredWordsList.length,
+                        itemBuilder: (context, index, animation) => buildWordTile(context, index, animation),
+                      );
+                    } else {
+                      // Hiçbir veri yoksa, uygun bir uyarı mesajı gösterilir
+                      return const Text('No words available');
+                    }
+                  },
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
 
-
-          ],
-        );
-      }),
-    );}
-  Widget _buildStarredWordsCountWithIcon() {
+  Widget buildKlasikKelibuTile(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.all(16.0),
+      margin: const EdgeInsets.only(top: 8.0, bottom: 8.0),
       decoration: BoxDecoration(
-        color: Colors.blue, // Arka plan rengi
+        color: areGamesClickable ? Colors.deepPurple[400] : Colors.grey, // Tıklanabilir duruma göre renk ayarı
         borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.gamepad, color: Colors.white), // Oyun ikonu
-          SizedBox(width: 10), // İkon ile metin arasındaki boşluk
-          _buildStarredWordsCountWithIcon(), // Yıldızlı kelime sayısını ve oyun ikonunu göster
+        boxShadow: [
+          BoxShadow(
+            color: areGamesClickable ? Colors.deepPurple.shade900.withOpacity(0.5) : Colors.grey.shade400.withOpacity(0.5),
+            spreadRadius: 2,
+            blurRadius: 6,
+            offset: Offset(0, 3),
+          ),
         ],
+        gradient: areGamesClickable
+            ? LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Colors.deepPurple.shade300, Colors.deepPurple.shade600],
+        )
+            : LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Colors.grey, Colors.grey[300]!], // Tıklanamaz durumda gri gradient
+        ),
+      ),
+      child: InkWell(
+        onTap: areGamesClickable
+            ? () {          Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => FutureBuilder<List<WordDetail>>(
+              future: wordsFuture, // Burada Future<List<WordDetail>> türünde bir Future bekleniyor
+              builder: (context, snapshot) {
+                List<WordDetail> randomWords = selectRandomWords(snapshot.data!, 100);
+
+                if (snapshot.hasData) {
+                  print('snapshot.data');
+                  print(snapshot.data);
+                  // Eğer snapshot içinde veri varsa, bu verileri QuizScreen'e gönder
+                  return KelimeOyunu(
+                    words: randomWords!, // wordsFuture'den gelen veriler
+                    classroomId: widget.classroomId, // Aktarılacak classroomId
+                    studySetId: widget.studySetId, // Aktarılacak studySetId
+                  );
+                } else {
+                  // Eğer veri yoksa, yükleme göstergesini göster
+                  return CustomLoadingIndicator();
+                }
+              },
+            ),
+          ),
+        );}
+            : null, // Tıklanabilirlik durumuna göre onTap işlevi
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.gamepad, color: Colors.white, size: 30),
+            Padding(
+              padding: const EdgeInsets.only(top: 8.0),
+              child: Text(
+                "Klasik Kelibu",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 24,
+                  shadows: [
+                    Shadow(
+                      blurRadius: 6.0,
+                      color: Colors.black.withOpacity(0.5),
+                      offset: Offset(2, 2),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
-
-  void _triggerColorChange(int wordId, bool isStarred) async {
-    // İlk olarak, arka plan rengini turuncuya değiştir
-    _tileColors[wordId] = Colors.orange;
-
-    // Biraz bekle (örneğin, 500 milisaniye)
-    await Future.delayed(Duration(milliseconds: 200));
-
-    // Ardından, arka plan rengini beyaza döndür
-    _tileColors[wordId] = Colors.white;
-  }
-
-  Widget _buildGameModesGrid(BuildContext context) {
-    // Ekran genişliğini al
-    double screenWidth = MediaQuery.of(context).size.width;
-
-    // Ekran genişliğine bağlı olarak sütun sayısını belirle
-    int crossAxisCount = screenWidth > 600 ? 4 : 2; // Örnek bir mantık, bu değerleri ihtiyacınıza göre ayarlayın
-
-    return GridView.count(
-      crossAxisCount: crossAxisCount,
-      childAspectRatio: 3 / 2, // Yükseklik/genişlik oranını ayarla, bu değeri ihtiyacınıza göre ayarlayın
-      children: <Widget>[
-        _buildGameModeTile(context, "Öğren", Colors.blue, Icons.school, TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18), () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) => FutureBuilder<List<WordDetail>>(
-                future: wordsFuture,
-                builder: (context, snapshot) {
-                  if (snapshot.hasData) {
-                    return QuizStarScreen(
-                      words: snapshot.data!,
-                      classroomId: widget.classroomId, // classroomId değerini burada aktar
-                      studySetId: widget.studySetId, // studySetId değerini burada aktar
-                    );
-                  } else {
-                    return  CustomLoadingIndicator();
-                  }
-                },
-              ),
-            ),
-          );
-        }),
-
-        _buildGameModeTile(context, "Flash Kart", Colors.green, Icons.flash_on, TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18), () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) => FutureBuilder<List<WordDetail>>(
-                future: wordsFuture,
-                builder: (context, snapshot) {
-                  if (snapshot.hasData) {
-                    return FlashCardStarScreen(
-                      words: snapshot.data!,
-                      classroomId: widget.classroomId, // classroomId değerini burada aktar
-                      studySetId: widget.studySetId, // studySetId değerini burada aktar
-                    );
-                  } else {
-                    return CustomLoadingIndicator();
-                  }
-                },
-              ),
-            ),
-          );
-        }),
-        _buildGameModeTile(context, "Çalış", Colors.greenAccent, Icons.work, TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18), () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) => FutureBuilder<List<WordDetail>>(
-                future: wordsFuture,
-                builder: (context, snapshot) {
-                  if (snapshot.hasData) {
-                    return StudyScreen(
-                      words: snapshot.data!,
-                      classroomId: widget.classroomId, // classroomId değerini burada aktar
-                      studySetId: widget.studySetId, // studySetId değerini burada aktar
-                    );
-                  } else {
-                    return  CustomLoadingIndicator();                          }
-                },
-              ),
-            ),
-          );
-        }),
-        _buildGameModeTileInprogress(context, "Dinle", null),
-        // Diğer modlarınız buraya gelecek
-      ],
-    );
+  List<WordDetail> selectRandomWords(List<WordDetail> words, int count) {
+    Random random = Random();
+    return (words.toList()..shuffle(random)).take(count).toList();
   }
   Future<void> toggleStar(int wordId, bool isStarred, int userId) async {
     try {
       // Kelimeyi yıldızlı kelime listesinden ekleyip çıkarma işlemi
-      await ApiService().starWordDelete(wordId, widget.classroomId, widget.studySetId, userId);
-      // UI'da güncelleme yapmak için yıldızlı kelime durumunu değiştir
-      // UI'ı güncellemek için setState çağrısı yap
-      setState(() {_loadWords(); print('setstate');});
+      await StarredWordsService().toggleWordStarStatus(wordId, true, widget.studySetId, widget.classroomId);
+
+      setState(() {
+        _loadWords();
+        print('setstate');
+      });
     } catch (e) {
       // Hata işleme
       print("An error occurred while toggling the star status: $e");
     }
   }
+
   Widget _buildGameModeTile(BuildContext context, String title, Color color, IconData? icon, TextStyle textStyle, [VoidCallback? onTap]) {
     // Ekran boyutuna göre dinamik değerler
     double screenWidth = MediaQuery.of(context).size.width;
@@ -625,22 +678,24 @@ setState(() {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
-                if (icon != null) Container(
-                  padding: EdgeInsets.all(8.0), // İkona sabit padding
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.9), // İkon arka planı
-                    shape: BoxShape.circle, // Daire şeklinde bir arka plan
-                    boxShadow: [ // Gölge efekti
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.2),
-                        spreadRadius: 2,
-                        blurRadius: 4,
-                        offset: Offset(0, 2),
-                      ),
-                    ],
+                if (icon != null)
+                  Container(
+                    padding: EdgeInsets.all(8.0), // İkona sabit padding
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.9), // İkon arka planı
+                      shape: BoxShape.circle, // Daire şeklinde bir arka plan
+                      boxShadow: [
+                        // Gölge efekti
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.2),
+                          spreadRadius: 2,
+                          blurRadius: 4,
+                          offset: Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Icon(icon, color: color, size: iconSize), // Dinamik ikon boyutu
                   ),
-                  child: Icon(icon, color: color, size: iconSize), // Dinamik ikon boyutu
-                ),
                 if (icon != null) SizedBox(width: padding), // İkon ve metin arasında dinamik boşluk
                 Text(
                   title,
@@ -653,6 +708,7 @@ setState(() {
       ),
     );
   }
+
   void _navigateToWordDetail(WordDetail word) {
     // Kelime detay sayfasına yönlendirme yapın
     Navigator.of(context).push(MaterialPageRoute(
@@ -663,6 +719,7 @@ setState(() {
       ),
     ));
   }
+
   Widget _buildGameModeTileInprogress(BuildContext context, String title, [VoidCallback? onTap]) {
     // Ekran boyutuna göre dinamik değerler
     double screenWidth = MediaQuery.of(context).size.width;
@@ -692,7 +749,8 @@ setState(() {
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.9), // İkon arka planı
                     shape: BoxShape.circle, // Daire şeklinde bir arka plan
-                    boxShadow: [ // Gölge efekti
+                    boxShadow: [
+                      // Gölge efekti
                       BoxShadow(
                         color: Colors.black.withOpacity(0.2),
                         spreadRadius: 2,
@@ -715,5 +773,4 @@ setState(() {
       ),
     );
   }
-
 }

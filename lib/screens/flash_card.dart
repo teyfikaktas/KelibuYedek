@@ -517,10 +517,10 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
   Future<void> onCardSwiped() async {
     int newPoint = userProvider.point;
 
-    newPoint += 3; // Örnek olarak 3 puan ekleyin
-    pointValueNotife.value +=3;
+    newPoint += 1; // Örnek olarak 3 puan ekleyin
+    pointValueNotife.value +=1;
 
-    await ApiService().updateUserPointTimePeriod(userProvider.userId, newPoint,3); // API üzerinden puanı güncelleyin
+    await ApiService().updateUserPointTimePeriod(userProvider.userId, newPoint,1); // API üzerinden puanı güncelleyin
     userProvider.addPoint(newPoint); // UserProvider'daki puanı güncelleyin
 
   }
@@ -766,7 +766,6 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
 
       isStarredNotifier.value = newStatus; // UI'ı güncelleyin
       starredStatus[wordId] = newStatus; // Bu eklemeyi unutmayın
-
       _updateStarredWordCount(isStarredNotifier);
   }
   Widget _buildStarIcon(int wordId, ValueNotifier<bool> isStarredNotifier) {

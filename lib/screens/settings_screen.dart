@@ -1,38 +1,29 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
-import 'dart:io';
-import 'package:path/path.dart' as p;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:kelibu/main.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
-import '../api.dart';
-import '../providers/user_provider.dart';
-import 'package:hive/hive.dart';
-import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:image/image.dart' as img;
 import 'package:http/http.dart' as http;
-import 'package:http/http.dart' as http;
-
-import 'login_screen.dart';
-import 'privary_policy.dart';
-import 'privacy_conditions_screen.dart';
-import 'profile_setting.dart';
-import 'contact_screen.dart';
-import 'about_screen.dart';
-import 'home_screen.dart';
-import '../providers/user_provider.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:ftpconnect/ftpconnect.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:kelibu/variables.dart'; // FTP bilgilerini içeren dosyayı import et
+import '../api.dart';
+import '../providers/user_provider.dart';
+import 'about_screen.dart';
+import 'contact_screen.dart';
+import 'privacy_conditions_screen.dart';
+import 'privary_policy.dart';
+import 'profile_setting.dart';
+import 'package:hive/hive.dart';
+import 'package:kelibu/main.dart';
 
 class SettingsPage extends StatefulWidget {
   @override
   _SettingsPageState createState() => _SettingsPageState();
 }
-
 
 class _SettingsPageState extends State<SettingsPage> {
   bool _isUploading = false;
@@ -60,73 +51,93 @@ class _SettingsPageState extends State<SettingsPage> {
           color: Colors.pink,
         ),
       ),
-        body: SafeArea(
-          child: SingleChildScrollView(
-            child: Column(
-              children: <Widget>[
-                Container(
-                  color: Colors.pink,
-                  height: MediaQuery.of(context).size.height * 0.003,
-                ),
-                SizedBox(
-                  width: MediaQuery.of(context).size.width * 0.95,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: <Widget>[
-                      GestureDetector(
-                        onTap: () => _selectImage(context),
-                        child: CircleAvatar(
-                          radius: MediaQuery.of(context).size.height * 0.07,
-                          backgroundImage: NetworkImage('https://kelibu.net/storage/${userProvider.avatar}'),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: Column(
+            children: <Widget>[
+              Container(
+                color: Colors.pink,
+                height: MediaQuery.of(context).size.height * 0.003,
+              ),
+              SizedBox(
+                width: MediaQuery.of(context).size.width * 0.95,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: <Widget>[
+                    GestureDetector(
+                      onTap: () => _selectImage(context),
+                      child: CircleAvatar(
+                        radius: MediaQuery.of(context).size.height * 0.07,
+                        backgroundImage: NetworkImage('https://kelibu.net/storage/${userProvider.avatar}'),
+                      ),
+                    ),
+                    SizedBox(height: MediaQuery.of(context).size.height * 0.02),
+                    OutlinedButton.icon(
+                      onPressed: () => _selectImage(context),
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: Colors.pink), // Çerçeve rengi pembe
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                        textStyle: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
-                      SizedBox(height: MediaQuery.of(context).size.height * 0.001),
-                      // SettingsItem widget'ları ve diğer elemanlar burada yer alıyor.
-                      SettingsItem(Icons.settings, 'Hesap Bilgileri', onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => AccountPage()),
-                        );
-                      }),
-                      SettingsItem(Icons.info_outline, 'Hakkımızda', onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => AboutPage()),
-                        );
-                      }),
-                      SettingsItem(Icons.settings, 'İletişim ve Sorun Bildir', onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => ContactFormPage()),
-                        );
-                      }),
-                      SettingsItem(Icons.book, 'Hüküm ve Koşullar', onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => TermsAndConditionsPage()),
-                        );
-                      }),
-                      SettingsItem(Icons.privacy_tip, 'Gizlilik Sözleşmesi', onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => PrivacyPolicyPage()),
-                        );
-                      }),
-                      SettingsItem(Icons.delete, 'Hesabımı Sil', onTap: () {
-                        _confirmDeleteAccount(context, userProvider);
-                      }),
-                      SettingsItem(Icons.exit_to_app, 'Çıkış Yap', onTap: () => logout(context)),
-                    ],
-                  ),
+                      icon: Icon(Icons.camera_alt, color: Colors.pink), // İkon ve rengi
+                      label: Text(
+                        'Profil Resmini Değiştir',
+                        style: TextStyle(color: Colors.pink), // Yazı rengi pembe
+                      ),
+                    ),
+                    SizedBox(height: MediaQuery.of(context).size.height * 0.02),
+                    // SettingsItem widget'ları ve diğer elemanlar burada yer alıyor.
+                    SettingsItem(Icons.settings, 'Hesap Bilgileri', onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => AccountPage()),
+                      );
+                    }),
+                    SettingsItem(Icons.info_outline, 'Hakkımızda', onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => AboutPage()),
+                      );
+                    }),
+                    SettingsItem(Icons.settings, 'İletişim ve Sorun Bildir', onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => ContactFormPage()),
+                      );
+                    }),
+                    SettingsItem(Icons.book, 'Hüküm ve Koşullar', onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => TermsAndConditionsPage()),
+                      );
+                    }),
+                    SettingsItem(Icons.privacy_tip, 'Gizlilik Sözleşmesi', onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => PrivacyPolicyPage()),
+                      );
+                    }),
+                    SettingsItem(Icons.delete, 'Hesabımı Sil', onTap: () {
+                      _confirmDeleteAccount(context, userProvider);
+                    }),
+                    SettingsItem(Icons.exit_to_app, 'Çıkış Yap', onTap: () => logout(context)),
+                  ],
                 ),
-                Divider(color: Colors.grey.shade200, thickness: 2),
-              ],
-            ),
+              ),
+              Divider(color: Colors.grey.shade200, thickness: 2),
+            ],
           ),
         ),
-
+      ),
     );
   }
+
   void _confirmDeleteAccount(BuildContext context, UserProvider userProvider) {
     showDialog(
       context: context,
@@ -177,7 +188,7 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-// Hesap silme işlemi için API çağrısı yapılacak fonksiyon
+  // Hesap silme işlemi için API çağrısı yapılacak fonksiyon
   void _deleteAccount(int userId, BuildContext context, UserProvider userProvider) async {
     final bool isSuccess = await ApiService().deleteUser(userId);
     if (isSuccess) {
@@ -201,8 +212,6 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-
-
   void logout(BuildContext context) async {
     try {
       print('Hive box açılmaya çalışılıyor...');
@@ -220,6 +229,7 @@ class _SettingsPageState extends State<SettingsPage> {
       print('Hive işlemi sırasında bir hata oluştu: $e');
     }
   }
+
   Future<void> _selectImage(BuildContext context) async {
     final ImagePicker _picker = ImagePicker();
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
@@ -265,7 +275,9 @@ class _SettingsPageState extends State<SettingsPage> {
         _isUploading = false;
       });
     }
-  }  Future<File> compressImage(File file, {int minWidth = 256, int minHeight = 256}) async {
+  }
+
+  Future<File> compressImage(File file, {int minWidth = 256, int minHeight = 256}) async {
     final img.Image? image = img.decodeImage(await file.readAsBytes());
     img.Image resized = image!;
 
@@ -284,6 +296,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
     return newImageFile;
   }
+
   Future<void> uploadImageAndUpdateAvatar(File imageFile) async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     Uri uri = Uri.parse("https://www.kelibu.net/api/updateAvatar");
@@ -317,27 +330,6 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  Future<void> _uploadFileToFTP(String filePath) async {
-    final ftpClient = FTPConnect(
-      FTPVariables.ftpServer,
-      user: FTPVariables.ftpUser,
-      pass: FTPVariables.ftpPassword,
-    );
-
-    // Rastgele dosya adı oluştur
-    final fileName = _createRandomFileName(filePath);
-
-    try {
-      await ftpClient.changeDirectory(FTPVariables.ftpRemotePath);
-      await ftpClient.uploadFile(File(filePath), sRemoteName: fileName);
-      print('Dosya başarıyla yüklendi: $fileName');
-    } catch (e) {
-      print('FTP yükleme hatası: $e');
-    } finally {
-      await ftpClient.disconnect();
-    }
-  }
-
   String _createRandomFileName(String filePath) {
     final extension = p.extension(filePath); // Dosyanın uzantısını al
     final rand = Random();
@@ -345,6 +337,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final timestamp = DateTime.now().millisecondsSinceEpoch; // Zaman damgası
     return 'image_${timestamp}_$randomNumber$extension'; // Örnek: image_1625496728934_1234.jpg
   }
+
   void _showUploadingDialog() {
     showDialog(
       context: context,

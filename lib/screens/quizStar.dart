@@ -14,7 +14,6 @@ import 'package:provider/provider.dart';
 import '../providers/volume_provider.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:another_flushbar/flushbar.dart';
-import 'package:audioplayers/audioplayers.dart';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:path/path.dart' as p;
@@ -1187,7 +1186,7 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
         scrollDirection: Axis.horizontal, // Horizontal scrolling
         itemCount: questions.length,
         itemBuilder: (context, index) {
-          Color bgColor = Colors.grey; // Default background color
+          Color bgColor = Colors.white; // Default background color
 
           // If the question is answered, determine the color based on the status
           if (questionStatuses[index] != null) {
@@ -1200,7 +1199,7 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
           }
 
           // Determine text color based on background color
-          Color textColor = bgColor == Colors.grey ? Colors.black : Colors.white;
+          Color textColor = bgColor == Colors.white ? Colors.black : Colors.white;
 
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4.0),
@@ -1258,6 +1257,7 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
   }
 
 }
+
 class QuizQuestion {
   int id; // id özelliğini ekliyorum
   String term;
@@ -1283,6 +1283,7 @@ class QuizQuestion {
   bool get isAnsweredCorrectly => userAnswer == correctOptionIndex;
 
 }
+
 Future<List<QuizQuestion>> generateQuizQuestions(List<WordDetail> words, ValueNotifier<bool> isLanguageTurkish) async {
   var random = Random();
   var questions = <QuizQuestion>[];

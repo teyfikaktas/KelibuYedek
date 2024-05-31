@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import 'package:kelibu/api.dart';
 import 'package:kelibu/providers/connectivity.dart';
+import 'package:kelibu/providers/socket.dart';
+import 'package:kelibu/screens/RaceScreen.dart';
 import 'package:path_provider/path_provider.dart' as path_provider;
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -26,29 +28,28 @@ import 'package:event_bus/event_bus.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'dart:io';
 import 'package:path/path.dart' as path;
-final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+import 'package:animated_bottom_navigation_bar/animated_bottom_navigation_bar.dart'; // Animasyonlu alt navigasyon çubuğu paketi
 
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+UserProvider? userProviderGlobal;
+EventBus eventBus = EventBus();
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final appDocumentDirectory = await path_provider.getApplicationDocumentsDirectory();
   Hive.init(appDocumentDirectory.path);
   String csvContent = await rootBundle.loadString('assets/Model/words.csv');
 
-  var connectivityService = ConnectivityService(); // Create an instance of ConnectivityService
-  connectivityService.startMonitoring(); // Start monitoring the internet connection
-
-  var userProvider = UserProvider();
-  await userProvider.loadUser();
-  EventBus eventBus = EventBus();
+  userProviderGlobal = UserProvider();
+  await userProviderGlobal?.loadUser();
 
   // Uygulamayı MultiProvider ile başlatın
   runApp(MultiProvider(
     providers: [
-      ChangeNotifierProvider(create: (context) => UserProvider()),
+      ChangeNotifierProvider(create: (_) => SocketService()),
+      ChangeNotifierProvider(create: (context) => userProviderGlobal),
       ChangeNotifierProvider(create: (context) => StarredWordsProvider()),
       ChangeNotifierProvider(create: (context) => VolumeProvider()),
       ChangeNotifierProvider(create: (context) => LanguageProvider()),
-      Provider<ConnectivityService>.value(value: connectivityService),
     ],
     child: const MyApp(),
   ));
@@ -83,6 +84,7 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen> {
   VideoPlayerController? _controller;
+
   @override
   void initState() {
     super.initState();
@@ -118,10 +120,16 @@ class _SplashScreenState extends State<SplashScreen> {
       String hash = await Provider.of<UserProvider>(context, listen: false).getUsernameHash();
       print(hash);
 
-      int userPoint = await ApiService().fetchUserPoint(userId);
+      try {
+        Map<String, dynamic> userData = await ApiService().fetchUserPoint(userId);
+        int userPoint = userData['point'];
+        print('User Point: $userPoint'); // Burada userPoint değişkenini kullanabilirsiniz
+        await Provider.of<UserProvider>(context, listen: false).addPoint(userPoint);
+      } catch (error) {
+        print("Error fetching user point: $error");
+      }
       print('checkuser');
       // Puanı Hive veritabanına kaydet
-      await Provider.of<UserProvider>(context, listen: false).addPoint(userPoint);
 
       Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => MainScreen()));
     }
@@ -132,6 +140,7 @@ class _SplashScreenState extends State<SplashScreen> {
     _controller!.dispose();
     super.dispose();
   }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -150,9 +159,7 @@ class _SplashScreenState extends State<SplashScreen> {
       ),
     );
   }
-
 }
-
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -160,6 +167,7 @@ class MainScreen extends StatefulWidget {
   @override
   _MainScreenState createState() => _MainScreenState();
 }
+
 Future<void> _clearSharedPreferences() async {
   final prefs = await SharedPreferences.getInstance();
   await prefs.clear();
@@ -169,28 +177,27 @@ Future<void> _clearSharedPreferences() async {
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
 
-  // Sayfa oluşturmak için bir yöntem
-  Widget _getPage(int index) {
-    // Sadece liderlik ve öğrenme yolculuğu sayfaları için yeni bir instance oluştur
-    if (index == 1) { // Liderlik sayfası index'i
-      return const LeaderboardPage();
-    } else if (index == 4) { // Öğrenme Yolculuğu sayfası index'i
-      return const StarredWordsScreen();
-    }
-
-    // Diğer sayfalar için IndexedStack içinden sayfayı getir
-    return _pages[index];
-  }
+  final iconList = <IconData>[
+    Icons.home,
+    Icons.leaderboard,
+    Icons.store,
+    Icons.star,
+  ];
 
   // IndexedStack yerine, sayfaların bir listesi
   final List<Widget> _pages = [
     const HomeScreen(),
-    const Placeholder(), // Liderlik sayfası için yer tutucu
+    const LeaderboardPage(),
     MarketPage(),
-    SettingsPage(),
-    const Placeholder(), // Öğrenme Yolculuğu sayfası için yer tutucu
+ //   SettingsPage(),
+    const StarredWordsScreen(),
     // Diğer sayfalarınız burada listelenir
   ];
+
+  // Sayfa oluşturmak için bir yöntem
+  Widget _getPage(int index) {
+    return _pages[index];
+  }
 
   void _onItemTapped(int index) {
     setState(() {
@@ -201,37 +208,30 @@ class _MainScreenState extends State<MainScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: _getPage(_selectedIndex), // IndexedStack yerine, seçilen sayfayı dinamik olarak getir
-      bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: Colors.white54,
-        unselectedItemColor: Colors.grey,
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Ana Sayfa',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.leaderboard),
-            label: 'Liderlik',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.store),
-            label: 'Mağaza',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings),
-            label: 'Ayarlar',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.star),
-            label: 'Yıldızlarım',
-          ),
-          // Diğer sekmeler...
-        ],
-        currentIndex: _selectedIndex,
-        selectedItemColor: Colors.pink,
-        onTap: _onItemTapped,
+      backgroundColor: const Color(0xFFFEFAF6),
+      body: _getPage(_selectedIndex),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {{
+          Navigator.of(context).push(MaterialPageRoute(
+            builder: (context) => RaceScreenBuild(),
+          ));
+        }},
+        child: Icon(Icons.videogame_asset,color: Colors.pink),
+        backgroundColor: Colors.white,
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      bottomNavigationBar: AnimatedBottomNavigationBar(
+        icons: iconList,
+        activeIndex: _selectedIndex,
+        gapLocation: GapLocation.center,
+        notchSmoothness: NotchSmoothness.smoothEdge,
+        backgroundColor: Colors.white,
+        leftCornerRadius: 32,
+        rightCornerRadius: 32,
+        activeColor: Colors.pink,
+        inactiveColor: Colors.grey,
+        splashColor: Colors.pinkAccent,
+        onTap: (index) => _onItemTapped(index),
       ),
     );
   }

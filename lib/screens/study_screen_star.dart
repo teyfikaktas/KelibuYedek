@@ -91,6 +91,7 @@ class _StudyScreenState extends State<StudyScreenStar> {
 
     _pageController = PageController(initialPage: 0);
     filteredWords = widget.words; // Başlangıçta tüm kelimeleri göster
+
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     userID = userProvider.userId;
 
@@ -212,35 +213,6 @@ class _StudyScreenState extends State<StudyScreenStar> {
                   },
                 ),
               ),
-              IconButton(
-                icon: Icon(_showOnlyStarred ? Icons.star : Icons.star_border),
-                onPressed: () {
-                  setState(() {
-                    _showOnlyStarred = !_showOnlyStarred;
-                    if (_showOnlyStarred) {
-                      // Yıldızlı kelimeler listesini al
-                      List<WordDetail> starredWords = getDisplayedWords();
-                      // Eğer yıldızlı kelime varsa, ilk yıldızlı kelimenin indeksine git
-                      if (starredWords.isNotEmpty) {
-                        int firstStarredWordIndex = widget.words.indexOf(starredWords.first);
-                        _pageController.jumpToPage(firstStarredWordIndex);
-                        _selectedPageIndex.value = firstStarredWordIndex; // Sayfa indeksini güncelle
-                        // İlk yıldızlı kelimeyi seslendir
-                        speak(starredWords.first.word);
-                      }
-                    } else {
-                      // Yıldızlı kelime modu kapalıysa, ilk sayfaya dön
-                      _pageController.jumpToPage(0);
-                      _selectedPageIndex.value = 0; // Sayfa indeksini sıfırla
-                      // İlk kelimeyi seslendir
-                      if (widget.words.isNotEmpty) {
-                        speak(widget.words.first.word);
-                      }
-                    }
-                  });
-                },
-              ),
-
             ],
           ),
           drawer: Drawer(
@@ -282,15 +254,6 @@ class _StudyScreenState extends State<StudyScreenStar> {
                                   ),
                                 ),
                                 // Yıldızlı durumu göstermek için bir ikon ekleyin
-                                ValueListenableBuilder<bool>(
-                                  valueListenable: starredNotifiers[word.id] ?? ValueNotifier(false),
-                                  builder: (_, isStarred, __) {
-                                    return Icon(
-                                      starredStatusWord.value ? Icons.star : Icons.star_border, // Yıldızlı ise dolu yıldız, değilse boş yıldız ikonu
-                                      color: isStarred ? Colors.yellow : Colors.grey, // Yıldızlı ise sarı, değilse gri renk
-                                    );
-                                  },
-                                ),
                               ],
                             ),
                             onTap: () {
@@ -353,8 +316,8 @@ class _StudyScreenState extends State<StudyScreenStar> {
 
         var userProvider = Provider.of<UserProvider>(context, listen: false);
         int currentPoints = userProvider.point; // Mevcut puanı al ve int'e çevir. Eğer çevrilemezse 0 varsay.
-        userProvider.addPoint((currentPoints + 3)); // Puanı 3 artır ve güncelle.
-        await ApiService().updateUserPointTimePeriod(userProvider.userId, currentPoints,3); // API üzerinden puanı güncelleyin
+        userProvider.addPoint((currentPoints + 1)); // Puanı 3 artır ve güncelle.
+        await ApiService().updateUserPointTimePeriod(userProvider.userId, currentPoints,1); // API üzerinden puanı güncelleyin
         _currentSentenceIndex.value = 0; // Bu satırı ekleyin.
       },
     );

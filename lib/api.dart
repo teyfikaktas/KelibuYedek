@@ -32,7 +32,6 @@ class WordDetailService {
     final csvFile = await rootBundle.loadString(filePath);
     List<List<dynamic>> csvList = CsvToListConverter().convert(csvFile);
 
-    // CSV dosyasından WordDetail listesini oluştur
     List<WordDetail> allWords = csvList.sublist(1).map((csvRow) {
       return WordDetail(
         id: int.parse(csvRow[0]),
@@ -61,6 +60,51 @@ class WordDetailService {
 }
 
 class ApiService {
+  Future<Map<String, dynamic>> joinGroup(String code,String id) async {
+    final url = Uri.parse('https://kelibu.net/api/join-group');
+    final response = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Custom-Header': privacyKey.privacyKeyVariable, // İsteğe eklenen özel header
+      },
+      body: jsonEncode({
+        'code': code,
+        'user_id': id, // Kullanıcının ID'sini buraya ekleyin
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      return {
+        'success': false,
+        'message': 'Failed to join group',
+      };
+    }
+  }
+  Future<Map<String, dynamic>> leaveGroup(String id) async {
+    final url = Uri.parse('https://kelibu.net/api/join-group');
+    final response = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Custom-Header': privacyKey.privacyKeyVariable, // İsteğe eklenen özel header
+      },
+      body: jsonEncode({
+        'user_id': id, // Kullanıcının ID'sini buraya ekleyin
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      return {
+        'success': false,
+        'message': 'Failed to join group',
+      };
+    }
+  }
 
   Future<void> updateUserPoint(int userId, int newPoint) async {
     var url = Uri.parse('https://kelibu.net/api/user/$userId/updateUserPoint');
@@ -103,7 +147,7 @@ class ApiService {
     }
   }
 
-  Future<int> fetchUserPoint(int userId) async {
+  Future<Map<String, dynamic>> fetchUserPoint(int userId) async {
     final String apiUrl = 'http://kelibu.net/api/$userId/point';
 
     try {
@@ -116,16 +160,27 @@ class ApiService {
       if (response.statusCode == 200) {
         final userData = json.decode(response.body);
         final userPoint = userData['point'];
-        return userPoint ?? 0;
+        final avatar = userData['avatar'];
+        return {
+          'point': userPoint ?? 0,
+          'avatar': avatar ?? '',
+        };
       } else {
         print('API isteği başarısız: ${response.statusCode}');
-        return 0;
+        return {
+          'point': 0,
+          'avatar': '',
+        };
       }
     } catch (error) {
       print('API isteği sırasında hata oluştu: $error');
-      return 0;
+      return {
+        'point': 0,
+        'avatar': '',
+      };
     }
   }
+
 
   Future<List<Package>> fetchCategories(int userId) async {
     final response = await http.get(
@@ -167,7 +222,9 @@ class ApiService {
     final prefs = await SharedPreferences.getInstance();
     final key = 'words_$classroomId';
     final wordsCached = prefs.getString(key);
+    print('wordsCached');
 
+    print(wordsCached);
     if (wordsCached != null) {
       // Cache'den okuma
       List<dynamic> wordsJson = json.decode(wordsCached);
@@ -359,6 +416,66 @@ class ApiService {
     }
   }
 
+  Future<void> fetchStarWordsAllSystem(int userId) async {
+    var url = Uri.parse('https://kelibu.net/api/starredwords');
+
+    var response = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Custom-Header': privacyKey.privacyKeyVariable, // Adding the custom header
+      },
+      body: json.encode({
+        'userid': userId,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      var jsonResponse = json.decode(response.body);
+      print('Response JSON: $jsonResponse'); // JSON yanıtını konsola yazdır
+      List<dynamic> starredWords = jsonResponse; // Doğrudan listeyi işliyoruz
+
+      final prefs = await SharedPreferences.getInstance();
+      for (var word in starredWords) {
+        try {
+          int wordId = word['word_id'];
+          int studySetId = word['study_set_id'];
+          int categoryId = word['category_id'];
+
+          String key = _generateKey(categoryId, studySetId);
+          List<String>? existingWords = List<String>.from(_getStringListSafe(prefs, key) ?? []);
+
+          if (!existingWords.contains(wordId.toString())) {
+            existingWords.add(wordId.toString());
+            await prefs.setStringList(key, existingWords);
+          } else {
+          }
+        } catch (e) {
+          print('Error processing word: $word, error: $e');
+        }
+      }
+    } else {
+      throw Exception('Yıldızlı kelimeler yüklenirken bir hata oluştu: ${response.body}');
+    }
+  }
+
+
+
+  List<String>? _getStringListSafe(SharedPreferences prefs, String key) {
+    try {
+      final dynamic value = prefs.get(key);
+      if (value is List) {
+        return value.cast<String>();
+      }
+      return null;
+    } catch (e) {
+      print('Error getting string list for key $key: $e');
+      return null;
+    }
+  }
+
+
+
   Future<List<WordDetail>> fetchWordsDetail(List<int> wordIds) async {
     // Assuming words.csv is formatted with id,word,meaning,[image],[type],...
     String wordsFilePath = 'assets/Model/words.csv';
@@ -485,7 +602,90 @@ class ApiService {
       return false; // Başarısız olduğunda false dön
     }
   }
-  Future<List<WordDetail>> fetchWordsDetailStar(int classroomId, List<int> studySetId) async {
+  Future<void> syncStarredWordsWithServer(int userId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final keys = prefs.getKeys();
+
+    List<Map<String, dynamic>> dataToSend = [];
+
+    for (String key in keys) {
+      if (key.startsWith('starredWords')) {
+        List<String>? starredWordsList = prefs.getStringList(key);
+        if (starredWordsList != null) {
+          var parts = key.split('_');
+          if (parts.length >= 3) {
+            // Düzenli ifade ile sadece sayısal kısımları çıkar
+            int? categoryId = int.tryParse(RegExp(r'\d+').firstMatch(parts[1])?.group(0) ?? '');
+            int? studySetId = int.tryParse(RegExp(r'\d+').firstMatch(parts[2])?.group(0) ?? '');
+
+            if (categoryId != null && studySetId != null) { // Only add if both IDs could be parsed successfully
+              dataToSend.add({
+                'category_id': categoryId,
+                'study_set_id': studySetId,
+                'words': starredWordsList
+              });
+            }
+          }
+        }
+      }
+    }
+
+    var response = await http.post(
+      Uri.parse('https://kelibu.net/api/sync_starred_words'),
+      headers: {
+        "Content-Type": "application/json",
+        'X-Custom-Header': privacyKey.privacyKeyVariable, // Custom header added
+      },
+      body: json.encode({
+        "user_id": userId,
+        "starred_words": dataToSend
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      print("Starred words synced successfully");
+      updateSharedPreferences(json.decode(response.body)['starred_words']);
+      print(json.decode(response.body)['starred_words']);
+    } else {
+      print("Failed to sync starred words: ${response.body}");
+    }
+  }
+
+  void updateSharedPreferences(List<dynamic> starredWords) async {
+    final prefs = await SharedPreferences.getInstance();
+    final keys = prefs.getKeys();
+
+    for (String key in keys) {
+      if (key.startsWith('starredWords')) {
+        // Bu anahtara ait yıldızlanmış kelimelerin listesini göster
+        print(key);
+      }
+    }
+    print('starredWords');
+
+    print(starredWords);
+    for (var wordData in starredWords) {
+      // Anahtar üretilir
+      String key = _generateKey(wordData['c_id'], wordData['study_set_id']);
+      print('Key: $key');
+
+      // Burada ilk kelime ID'si alınıyor ve string olarak saklanıyor
+      if (wordData['words'] != null && wordData['words'].isNotEmpty) {
+        String firstWordId = wordData['words'][0].toString();
+        print('Word ID: $firstWordId');
+
+        // SharedPreferences'a tek bir kelime ID'si olarak kaydediliyor
+        await prefs.setString(key, firstWordId);
+      }
+    }
+}
+  String _generateKey(int classroomId, int studySetId) {
+    // Kelimenin benzersizliğini sağlayacak bir key üretiyoruz
+    return 'starredWords_classroomId:${classroomId}_studySetId:${studySetId}';
+  }
+
+
+Future<List<WordDetail>> fetchWordsDetailStar(int classroomId, List<int> studySetId) async {
     final service = StarredWordsService();
     // Yıldızlanmış kelime ID'lerini al
     Set<int> starredWordIds = await service.loadClassroomStarredWordsAll(classroomId, studySetId);
@@ -518,6 +718,7 @@ class ApiService {
       url,
       headers: {
         'Content-Type': 'application/json',
+        'X-Custom-Header': privacyKey.privacyKeyVariable, // Custom header added
       },
       body: json.encode({
         'word_id': wordId,

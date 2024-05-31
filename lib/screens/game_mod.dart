@@ -161,7 +161,14 @@ class _GameModeScreenState extends State<GameModeScreen> with WidgetsBindingObse
 
   @override
   Widget build(BuildContext context) {
+    var screenSize = MediaQuery.of(context).size;
+    int gridCount = screenSize.width > 600 ? 4 : 2;  // Tablet için 4, telefon için 2 sütun
+    double aspectRatio = screenSize.width > 600 ? 1.5 : 2;  // Tablet için daha geniş tile'lar
+    bool isTablet = screenSize.width > 600;
+    bool yatayEkran =  MediaQuery.of(context).size.aspectRatio > 1.5;
 
+    int childAspectRatio = isTablet ? 4 : 2;
+    double crossAxisCount =  yatayEkran ? 4:2;
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     int currentUserId = userProvider.userId;
     if (wordsFuture == null) {
@@ -226,6 +233,8 @@ class _GameModeScreenState extends State<GameModeScreen> with WidgetsBindingObse
                       future: wordsFuture, // Burada Future<List<WordDetail>> türünde bir Future bekleniyor
                       builder: (context, snapshot) {
                         if (snapshot.hasData) {
+                          print('snapshot.data');
+                          print(snapshot.data);
                           // Eğer snapshot içinde veri varsa, bu verileri QuizScreen'e gönder
                           return KelimeOyunu(
                             words: snapshot.data!, // wordsFuture'den gelen veriler
@@ -289,9 +298,10 @@ class _GameModeScreenState extends State<GameModeScreen> with WidgetsBindingObse
             ),
             Expanded(
               flex: 1,
+
               child: GridView.count(
-                crossAxisCount: 2,
-                childAspectRatio: 2 ,
+                crossAxisCount: childAspectRatio,
+                childAspectRatio: crossAxisCount ,
                 children: <Widget>[
                   _buildGameModeTile(context, "Öğren", Colors.blue, Icons.school, TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18), () {
                     Navigator.of(context).push(
@@ -481,10 +491,10 @@ class _GameModeScreenState extends State<GameModeScreen> with WidgetsBindingObse
   Widget _buildGameModeTile(BuildContext context, String title, Color color, IconData? icon, TextStyle textStyle, [VoidCallback? onTap]) {
     // Ekran boyutuna göre dinamik değerler
     double screenWidth = MediaQuery.of(context).size.width;
-    double padding = screenWidth < 600 ? 8.0 : 16.0; // Ekran boyutuna göre padding ayarı
-    double iconSize = screenWidth < 600 ? 30 : 40; // Ekran boyutuna göre ikon boyutu
+    double padding = screenWidth < 600 ? 8.0 : 10.0; // Ekran boyutuna göre padding ayarı
+    double iconSize = screenWidth < 600 ? 30 : 30; // Ekran boyutuna göre ikon boyutu
     double fontSize = screenWidth < 600 ? textStyle.fontSize ?? 18 : ((textStyle.fontSize ?? 18) + 4); // Ekran boyutuna göre font boyutu
-
+    double tileFontSize = screenWidth < 600 ? 18 : 22;  // Ekran genişliğine göre font boyutu
     return Padding(
       padding: EdgeInsets.all(padding), // Dinamik dış boşluk ekleme
       child: Card(

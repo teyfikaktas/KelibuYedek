@@ -18,7 +18,6 @@ class _ContactFormPageState extends State<ContactFormPage> {
 
   Future<void> sendMessage() async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
-
     var url = Uri.parse('https://kelibu.net/api/send-message');
     var message = '$_selectedCategory  $_description';
     var response = await http.post(

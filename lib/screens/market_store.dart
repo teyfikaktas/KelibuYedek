@@ -5,9 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:kelibu/providers/user_provider.dart';
 import 'package:provider/provider.dart';
-
 import 'dart:convert';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:kelibu/variables.dart';
 
 import '../main.dart';

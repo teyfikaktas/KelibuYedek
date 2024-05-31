@@ -93,8 +93,8 @@ class _StudyScreenState extends State<StudyScreen> {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     userID = userProvider.userId;
     int currentPoints = userProvider.point; // Mevcut puanı al ve int'e çevir. Eğer çevrilemezse 0 varsay.
-    userProvider.addPoint((currentPoints + 3)); // Puanı 3 artır ve güncelle.
-    ApiService().updateUserPointTimePeriod(userProvider.userId, currentPoints,3); // API üzerinden puanı güncelleyin
+    userProvider.addPoint((currentPoints + 1)); // Puanı 3 artır ve güncelle.
+    ApiService().updateUserPointTimePeriod(userProvider.userId, currentPoints,1); // API üzerinden puanı güncelleyin
 
     _sentencePageController = PageController(initialPage: 0);
     for (var word in widget.words) {

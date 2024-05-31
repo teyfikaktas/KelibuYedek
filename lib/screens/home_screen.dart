@@ -1,28 +1,128 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
-import 'package:kelibu/Models/wordDetaik.dart';
+import 'package:flutter/services.dart';
+import 'package:kelibu/screens/settings_screen.dart';
+import 'package:kelibu/screens/study_screen_star.dart';
 import 'package:provider/provider.dart';
 import 'package:kelibu/variables.dart';
-
 import '../Models/category.dart';
+import '../Models/wordDetaik.dart';
 import '../providers/user_provider.dart';
-import 'flashy_tab_bar2.dart'; // FlashyTabBar dosyanızın yolu
-import 'package:kelibu/api.dart'; // ApiService dosyanızın yolu
+import 'package:kelibu/api.dart';
 import 'package:kelibu/screens/WordListScreen.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:auto_size_text/auto_size_text.dart';
-import 'package:hive_flutter/hive_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-// Add path_provider package
-import 'package:google_fonts/google_fonts.dart'; // Google Fonts'u import edin
+import 'package:google_fonts/google_fonts.dart';
 import 'package:shimmer/shimmer.dart';
-import 'dart:math';
 import '../screens/leader_screen.dart';
 import 'package:getwidget/getwidget.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:csv/csv.dart';
 
-import 'package:http/http.dart' as http;
-import 'dart:convert';
+import 'RaceScreen.dart';
+import 'library_star.dart';
+
+class RaceScreen extends StatefulWidget {
+  const RaceScreen({Key? key}) : super(key: key);
+
+  @override
+  _RaceScreenState createState() => _RaceScreenState();
+}
+
+class _RaceScreenState extends State<RaceScreen> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(seconds: 2),
+      vsync: this,
+    )..repeat(reverse: true);
+    _animation = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeInOut,
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Colors.pink.shade300, Colors.purple.shade900],
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: <Widget>[
+            Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: ScaleTransition(
+                scale: _animation,
+                child: Icon(
+                  Icons.videogame_asset,
+                  size: 60,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+            Expanded(
+              child: Text(
+                'Canlı Yarış',
+                style: GoogleFonts.pressStart2p(
+                  textStyle: TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+              ),
+            ),
+            Container(
+              margin: const EdgeInsets.all(8.0),
+              height: 60,
+              width: 60,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Image.asset('assets/logo.png'),
+              ),
+            ),
+            IconButton(
+              icon: Icon(Icons.arrow_forward_ios, color: Colors.white, size: 30),
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (context) => RaceScreenBuild()),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class WordOfTheDay {
   final String term;
   final String definition;
@@ -39,50 +139,7 @@ class WordOfTheDay {
   }
 }
 
-class MyListItem extends StatefulWidget {
-  final String title;
-  final VoidCallback onTap;
-
-  const MyListItem({Key? key, required this.title, required this.onTap}) : super(key: key);
-
-  @override
-  _MyListItemState createState() => _MyListItemState();
-}
-
-class _MyListItemState extends State<MyListItem> {
-  bool _isTapped = false;
-  final FlutterTts flutterTts = FlutterTts();
-
-  void speak(String text) async {
-    print("object");
-    await flutterTts.setLanguage('en-US');
-    await flutterTts.setSpeechRate(0.5);
-    await flutterTts.setVolume(1.0);
-    await flutterTts.setPitch(1.0);
-    await flutterTts.speak(text);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        setState(() => _isTapped = !_isTapped);
-        widget.onTap();
-        speak("widget.title"); // Kelimenin okunmasını sağla
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 500),
-        color: _isTapped ? Colors.grey : Colors.white,
-        child: GFListTile(
-          titleText: widget.title,
-          icon: Icon(Icons.arrow_forward_ios, size: 16),
-        ),
-      ),
-    );
-  }
-}
-
-  Future<WordOfTheDay> fetchWordOfTheDay() async {
+Future<WordOfTheDay> fetchWordOfTheDay() async {
   final uri = Uri.parse('https://kelibu.net/api/daily-word');
   final response = await http.get(uri, headers: {
     "X-Custom-Header": privacyKey.privacyKeyVariable, // İsteğinize eklemek istediğiniz header
@@ -95,15 +152,6 @@ class _MyListItemState extends State<MyListItem> {
   }
 }
 
-
-void _onItemSelected(int index, BuildContext context) {
-  if (index == 1) { // Liderlik tab'ı seçildiğinde
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (context) => const LeaderboardPage()),
-    );
-  }
-}
-
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -113,67 +161,192 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
+  WordOfTheDay? _wordOfTheDay;
   Future<List<Package>>? packagesFuture;
   bool isExpanded = false;
   int _userPoint = 0;
-  bool _showMore = false; // "Daha Fazla Göster" seçeneğinin gösterilip gösterilmeyeceğini kontrol eder
   final FlutterTts flutterTts = FlutterTts();
+  bool isInitialized = false;
+  bool _isDataLoaded = false;
 
   @override
   void initState() {
     super.initState();
     _fetchData();
+    _loadWordOfTheDay();
     _getPoint();
   }
-  
+
+  Future<void> initializeData() async {
+    showLoadingIndicator();
+    await syncStarredWords();
+    hideLoadingIndicator();
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_isDataLoaded) {
+      _isDataLoaded = true;
+    }
+  }
+
+  Future<void> _initializeData() async {
+    await syncStarredWords();
+    if (mounted) setState(() {});
+  }
+
+  Future<void> syncStarredWords() async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    try {
+      await ApiService().syncStarredWordsWithServer(userProvider.userId);
+      print('Starred words synced successfully.');
+    } catch (e) {
+      print('Failed to sync starred words: $e');
+    }
+  }
+
+  void showLoadingIndicator() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return Dialog(
+          child: new Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              new CircularProgressIndicator(),
+              new Text("Sistemde gerekli ayarlar yapılıyor..."),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void hideLoadingIndicator() {
+    Navigator.pop(context);
+  }
+
+  Future<void> _loadWordOfTheDay() async {
+    try {
+      _wordOfTheDay = await fetchWordOfTheDay();
+      await _saveWordToPrefs(_wordOfTheDay);
+    } catch (error) {
+      print('API Error, loading word from prefs: $error');
+      _wordOfTheDay = await _loadWordFromPrefs();
+    }
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _saveWordToPrefs(WordOfTheDay? word) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (word != null) {
+      await prefs.setString('word_term', word.term);
+      await prefs.setString('word_definition', word.definition);
+      if (word.type != null) {
+        await prefs.setString('word_type', word.type!);
+      }
+    }
+  }
+
+  Future<void> savePackagesToPrefs(List<Package> packages) async {
+    final prefs = await SharedPreferences.getInstance();
+    String encodedData = json.encode(packages.map((package) => package.toJson()).toList());
+    await prefs.setString('packages', encodedData);
+  }
+
+  Future<List<Package>> loadPackagesFromPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    String? encodedData = prefs.getString('packages');
+    if (encodedData != null) {
+      List<dynamic> decodedData = json.decode(encodedData);
+      return decodedData.map((packageJson) => Package.fromJson(packageJson)).toList();
+    }
+    return [];
+  }
+
+  Future<WordOfTheDay?> _loadWordFromPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final term = prefs.getString('word_term');
+    final definition = prefs.getString('word_definition');
+    final type = prefs.getString('word_type');
+    if (term != null && definition != null) {
+      return WordOfTheDay(term: term, definition: definition, type: type);
+    }
+    return null;
+  }
+
   void _getPoint() async {
     int userId = Provider.of<UserProvider>(context, listen: false).userId;
-    print('hash');
     String hash = await Provider.of<UserProvider>(context, listen: false).getUsernameHash();
-    print(hash);
-
-    int userPoint = await ApiService().fetchUserPoint(userId);
-
-    Provider.of<UserProvider>(context, listen: false).addPoint(userPoint);
+    try {
+      Map<String, dynamic> userData = await ApiService().fetchUserPoint(userId);
+      int userPoint = userData['point'];
+      print('User Point: $userPoint');
+      Provider.of<UserProvider>(context, listen: false).addPoint(userPoint);
+    } catch (error) {
+      print("Error fetching user point: $error");
+    }
   }
-  void _fetchData() {
+
+  void _fetchData() async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     int currentUserId = userProvider.userId;
-    print('fetchdata');
-    // Kullanıcı puanını al
-    ApiService().fetchUserPoint(currentUserId).then((userPoint) {
+    ApiService().fetchStarWordsAllSystem(currentUserId);
+    ApiService().fetchUserPoint(currentUserId).then((userData) {
       setState(() {
-        _userPoint = userPoint;
-        UserProvider().addPoint(_userPoint);
-
+        _userPoint = userData['point'];
+        String newAvatarUrl = userData['avatar'];
+        userProvider.addPoint(_userPoint);
+        userProvider.updateUserAvatarUrl(newAvatarUrl);
       });
     }).catchError((error) {
-      print("Error fetching user point: $error");
+      print("Error fetching user data: $error");
     });
-    print('object');
+
     String hash = userProvider.getUsernameHash().toString();
-    packagesFuture = ApiService().fetchCategories(currentUserId);
+    print('User hash: $hash');
+    fetchPackages(currentUserId);
   }
+
+  void fetchPackages(int userId) async {
+    try {
+      List<Package> packages = await ApiService().fetchCategories(userId);
+      await savePackagesToPrefs(packages);
+      setState(() {
+        packagesFuture = Future.value(packages);
+      });
+    } catch (error) {
+      print("API Error, loading packages from prefs: $error");
+      List<Package> packages = await loadPackagesFromPrefs();
+      setState(() {
+        packagesFuture = Future.value(packages);
+      });
+    }
+  }
+
   void fetchUserPoints() {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     int currentUserId = userProvider.userId;
-    ApiService().fetchUserPoint(currentUserId).then((userPoint) {
+
+    ApiService().fetchUserPoint(currentUserId).then((userData) {
       setState(() {
-        _userPoint = userPoint;
+        _userPoint = userData['point'];
       });
     }).catchError((error) {
-      print("Error fetching user point: $error");
+      print("Error fetching user data: $error");
     });
   }
 
-
   void speak(String text) async {
-    await flutterTts.setLanguage('en-US'); // Seslendirme dilini ayarla
-    await flutterTts.setSpeechRate(0.5); // Konuşma hızını ayarla
-    await flutterTts.setVolume(1.0); // Ses seviyesini ayarla
-    await flutterTts.setPitch(1.0); // Ses tonunu ayarla
+    await flutterTts.setLanguage('en-US');
+    await flutterTts.setSpeechRate(0.5);
+    await flutterTts.setVolume(1.0);
+    await flutterTts.setPitch(1.0);
 
-    await flutterTts.speak(text); // Metni ses olarak çal
+    await flutterTts.speak(text);
   }
 
   @override
@@ -181,34 +354,185 @@ class _HomeScreenState extends State<HomeScreen> {
     final userProvider = Provider.of<UserProvider>(context);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFEFAF6), // Arka plan rengini burada ayarlayın
+      backgroundColor: const Color(0xFFFEFAF6),
       body: SafeArea(
-        child: Column(
+        child: Stack(
           children: [
-            Expanded(child: _buildUserInfoSection(userProvider)),
-            Expanded(child: buildGFCard((String text) => speak(text))
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  height: 120,
+                  child: _buildUserInfoSection(userProvider),
+                ),
+                SearchPanel(),
+                Container(
+                  height: 180,
+                  child: buildWordCard((String text) => speak(text)),
+                ),
+                SizedBox(height: 20),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: ElevatedButton(
+                    onPressed: () {
+                      setState(() {
+                        isExpanded = !isExpanded;
+                      });
+                    },
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.label, color: Colors.pinkAccent),
+                            SizedBox(width: 8),
+                            Text("Kelime Setlerine Çalış"),
+                          ],
+                        ),
+                        Icon(Icons.arrow_forward, color: Colors.white),
+                      ],
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      primary: Colors.pink[100],
+                      onPrimary: Colors.white,
+                      textStyle: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      padding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      minimumSize: Size(double.infinity, 50), // Butonun genişliği ekranı kaplasın
+                      elevation: 5,
+                    ).copyWith(
+                      elevation: MaterialStateProperty.resolveWith<double>(
+                            (Set<MaterialState> states) {
+                          if (states.contains(MaterialState.pressed)) {
+                            return 10;
+                          }
+                          return 5;
+                        },
+                      ),
+                      shadowColor: MaterialStateProperty.all(Colors.black.withOpacity(0.2)),
+                    ),
+                  ),
+                ),
+              ],
             ),
-    Expanded(
-              child: PackageListWidget(packagesFuture: ApiService().fetchCategories(userProvider.userId))
-              ,
-            ),
+            if (isExpanded)
+              AnimatedOpacity(
+                opacity: isExpanded ? 1.0 : 0.0,
+                duration: Duration(milliseconds: 300),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                  child: GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        isExpanded = false;
+                      });
+                    },
+                    child: Container(
+                      color: Colors.black.withOpacity(0.5),
+                      child: Align(
+                        alignment: Alignment.topCenter,
+                        child: Container(
+                          height: MediaQuery.of(context).size.height * 0.6,
+                          width: MediaQuery.of(context).size.width * 0.9,
+                          margin: EdgeInsets.only(top: 60),
+                          padding: EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.grey.withOpacity(0.5),
+                                spreadRadius: 5,
+                                blurRadius: 7,
+                                offset: Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Container(
+                                          padding: EdgeInsets.all(8.0),
+                                          decoration: BoxDecoration(
+                                            color: Colors.pink.shade50,
+                                            borderRadius: BorderRadius.circular(12.0),
+                                          ),
+                                          child: Icon(Icons.library_books, color: Colors.pink.shade700, size: 28),
+                                        ),
+                                        SizedBox(width: 12),
+                                        Text(
+                                          "Kelime Setleri",
+                                          style: GoogleFonts.nunito(
+                                            fontSize: 24,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.pink.shade700,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    InkWell(
+                                      onTap: () {
+                                        setState(() {
+                                          isExpanded = false;
+                                        });
+                                      },
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: Container(
+                                        padding: EdgeInsets.all(8.0),
+                                        decoration: BoxDecoration(
+                                          color: Colors.pink.shade100,
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Icon(Icons.close, color: Colors.pink.shade700, size: 28),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                SizedBox(height: 10),
+                                Expanded(
+                                  child: PackageListWidget(
+                                    packagesFuture: ApiService().fetchCategories(userProvider.userId),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
     );
   }
+
   Widget _buildUserInfoSection(UserProvider userProvider) {
     return Container(
-      margin: EdgeInsets.all(16.w),
-      padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 20.h),
+      margin: EdgeInsets.all(12),
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20.r),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.2),
-            spreadRadius: 2,
-            blurRadius: 4,
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 1,
+            blurRadius: 3,
             offset: Offset(0, 2),
           ),
         ],
@@ -216,244 +540,201 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Row(
         children: [
           CircleAvatar(
-            radius: 30.r,
+            radius: 24,
             backgroundImage: NetworkImage('https://kelibu.net/storage/${userProvider.avatar}'),
             backgroundColor: Colors.grey[300],
           ),
-          SizedBox(width: 16.w),
+          SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'Hoşgeldiniz, ${userProvider.username}',
-                  style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.bold, color: Colors.black54),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black54),
                 ),
-                SizedBox(height: 4.h),
+                SizedBox(height: 2),
                 Text(
                   'Puanınız: ${userProvider.point}',
-                  style: TextStyle(fontSize: 16.sp, color: Colors.grey[700]),
+                  style: TextStyle(fontSize: 14, color: Colors.grey[700]),
                 ),
               ],
             ),
           ),
           IconButton(
-            icon: Icon(Icons.notifications, color: Colors.black54, size: 24.sp),
+            icon: Icon(Icons.settings, color: Colors.black54, size: 30),
             onPressed: () {
-              // Bildirim butonu işlevi
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => SettingsPage(),
+                ),
+              );
             },
           ),
         ],
       ),
     );
   }
-  Widget _buildPackageList() {
-    return FutureBuilder<List<Package>>(
-      future: packagesFuture,
+
+  Widget buildWordCard(Function(String) onSpeak) {
+    return FutureBuilder<WordOfTheDay>(
+      future: fetchWordOfTheDay(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return _buildShimmerEffect();
+          return Center(child: CircularProgressIndicator());
         } else if (snapshot.hasError) {
-          return Center(child: Text("Hata: ${snapshot.error}"));
-        } else if (snapshot.hasData && snapshot.data!.isNotEmpty) {
-          var packages = snapshot.data!;
-          var visiblePackages = packages;
-
-          if (!_showMore && packages.length > 2) {
-            visiblePackages = packages.sublist(0, 2);
-          }
-
-          return SingleChildScrollView(
-            child: Container(
-              width: MediaQuery.of(context).size.width, // Tüm ekran genişliğini kullan
-              child: Padding(
-                padding: EdgeInsets.only(
-                  left: MediaQuery.of(context).size.width * 0.1, // Sol taraftan %10 boşluk bırak
-                  right: MediaQuery.of(context).size.width * 0.1, // Sağ taraftan %10 boşluk bırak
+          return Text('Error: ${snapshot.error}');
+        } else {
+          return Container(
+            margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.5),
+                  spreadRadius: 1,
+                  blurRadius: 3,
+                  offset: Offset(0, 2),
                 ),
-                child: Stack(
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start, // İçerikleri sol tarafa hizala
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.only(top: 15, bottom: 15),
-                          child: Text(
-                            "Kelime Setleri",
-                            style: GoogleFonts.nunito(
-                              color: Colors.blueGrey,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 24,
-                            ),
-                          ),
-                        ),
-                        ...visiblePackages.map((package) => _buildListItem(package)).toList(),
-                      ],
+              ],
+            ),
+            child: Padding(
+              padding: EdgeInsets.all(10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Günün Kelimesi',
+                    style: GoogleFonts.nunito(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blueGrey,
                     ),
-                    Positioned(
-                      top: 0, // En üst
-                      right: 0, // En sol
-                      child: IconButton(
-                        icon: Icon(_showMore ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down),
-                        onPressed: () {
-                          setState(() {
-                            _showMore = !_showMore;
-                          });
+                  ),
+                  Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () {
+                          if (snapshot.data != null) {
+                            onSpeak(snapshot.data!.term);
+                          }
                         },
+                        child: Icon(Icons.volume_up, color: Colors.redAccent, size: 24),
+                      ),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          snapshot.data?.term ?? 'Yükleniyor...',
+                          style: GoogleFonts.nunito(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blueGrey,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    snapshot.data?.definition ?? 'Tanım yüklenemedi',
+                    style: GoogleFonts.nunito(
+                      fontSize: 14,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  if (snapshot.data?.type != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        'Tip: ${snapshot.data!.type}',
+                        style: GoogleFonts.nunito(
+                          fontSize: 12,
+                          color: Colors.black54,
+                        ),
                       ),
                     ),
-                  ],
-                ),
+                  SizedBox(height: 10),
+                ],
               ),
             ),
-          );
-        } else {
-          return Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 15),
-                child: Text(
-                  "Kelime Setleri",
-                  style: GoogleFonts.nunito(
-                    color: Colors.blueGrey,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 24,
-                  ),
-                ),
-              ),
-              Text("Kategori verisi yok", style: TextStyle(fontSize: 16)),
-            ],
           );
         }
       },
     );
   }
+}
 
-  Widget _buildListItem(Package package) {
-    // Bu fonksiyon, verilen paket için bir liste öğesi widget'ı oluşturur.
+class PackageListWidget extends StatelessWidget {
+  final Future<List<Package>> packagesFuture;
+
+  const PackageListWidget({Key? key, required this.packagesFuture}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<Package>>(
+      future: packagesFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Center(child: CircularProgressIndicator());
+        } else if (snapshot.hasError) {
+          return Center(child: Text("Hata: ${snapshot.error}"));
+        } else if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+          var packages = snapshot.data!;
+          return ListView.builder(
+            itemCount: packages.length,
+            itemBuilder: (context, index) {
+              return _buildListItem(context, packages[index]);
+            },
+          );
+        } else {
+          return Center(child: Text("Kategori verisi yok"));
+        }
+      },
+    );
+  }
+
+  Widget _buildListItem(BuildContext context, Package package) {
     return InkWell(
       onTap: () => _onListItemTap(context, package.classroom?.id ?? 0, package.classroom?.title ?? 'Varsayılan Başlık'),
       child: Card(
         margin: const EdgeInsets.all(8.0),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16.0),
+        ),
+        color: Colors.white,
         child: ListTile(
+          leading: CircleAvatar(
+            backgroundColor: Colors.pink.shade50,
+            child: Icon(Icons.library_books, color: Colors.pink.shade700),
+          ),
           title: Text(
             package.classroom?.title ?? 'Varsayılan Başlık',
             style: GoogleFonts.poppins(
-              color: Colors.black87,
-              fontWeight: FontWeight.w500,
+              color: Colors.pink.shade700,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ),
       ),
     );
   }
-  Widget buildGFCard(Function(String) onSpeak) { // Callback parametresi ekleme
-    return FutureBuilder<WordOfTheDay>(
-      future: fetchWordOfTheDay(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          // LogoLoadingIndicator tanımınız burada olmalı.
-          return CircularProgressIndicator(); // Yer tutucu olarak kullanıldı.
-        } else if (snapshot.hasError) {
-          return Text('Error: ${snapshot.error}');
-        } else {
-          return Container(
-            margin: EdgeInsets.symmetric(horizontal: 1.w, vertical: 1.h),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12.r),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.withOpacity(0.5),
-                  spreadRadius: 1,
-                  blurRadius: 4,
-                  offset: Offset(0, 2),
-                ),
-              ],
-            ),
-            child: GFCard(
-              boxFit: BoxFit.cover,
-              content: Padding(
-                padding: EdgeInsets.all(8.r),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        GestureDetector(
-                          onTap: () {
-                            if (snapshot.hasData) {
-                              onSpeak(snapshot.data!.term); // Callback'i çağırma
-                            }
-                          },
-                          child: GFAvatar(
-                            backgroundColor: Colors.redAccent,
-                            child: Icon(Icons.volume_up, color: Colors.white, size: 12.sp),
-                          ),
-                        ),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              AutoSizeText(
-                                'Günün Kelimesi',
-                                style: GoogleFonts.nunito(
-                                  fontSize: 16.sp,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.blueGrey,
-                                ),
-                                maxLines: 1,
-                                minFontSize: 10,
-                              ),
-                              AutoSizeText(
-                                snapshot.data?.term ?? '',
-                                style: GoogleFonts.nunito(
-                                  fontSize: 14.sp,
-                                  color: Colors.redAccent,
-                                ),
-                                maxLines: 1,
-                                minFontSize: 8,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    AutoSizeText(
-                      snapshot.data?.definition ?? '',
-                      style: GoogleFonts.nunito(fontSize: 12.sp, color: Colors.black87),
-                      maxLines: 3,
-                      minFontSize: 6,
-                    ),
-                    AutoSizeText(
-                      snapshot.data?.type ?? 'Tip bilgisi verilmemiştir',
-                      style: GoogleFonts.nunito(fontSize: 12.sp, color: Colors.black54),
-                      maxLines: 1,
-                      minFontSize: 6,
-                    ),
-                  ],
-                ),
-              ),
-              borderRadius: BorderRadius.all(Radius.circular(12.r)),
-            ),
-          );
-        }
-      },
-    );
-  }
 
   void _onListItemTap(BuildContext context, int categoryId, String categoryName) async {
-    // Öğeye dokunulduğunda animasyonlu grileşme efekti
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Yükleniyor...'),
-        duration: Duration(milliseconds: 5),
-      ),
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return Center(
+          child: CircularProgressIndicator(),
+        );
+      },
     );
 
     await Future.delayed(const Duration(milliseconds: 500));
+
+    Navigator.of(context).pop(); // Close the loading dialog
 
     Navigator.of(context).push(MaterialPageRoute(
       builder: (context) => WordListScreen(
@@ -461,44 +742,8 @@ class _HomeScreenState extends State<HomeScreen> {
         categoryName: categoryName,
       ),
     ));
-    // İsteğe bağlı olarak ek işlevsellikler eklenebilir
   }
-
-  Widget _buildShimmerEffect() {
-      return Shimmer.fromColors(
-        baseColor: Colors.grey[300]!,
-        highlightColor: Colors.grey[100]!,
-        child: ListView.builder(
-          itemCount: 6,
-          itemBuilder: (_, __) => const Padding(
-            padding: EdgeInsets.all(8.0),
-            child: Row(
-              children: [
-                CircleAvatar(),
-                SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      DecoratedBox(
-                        decoration: BoxDecoration(color: Colors.grey),
-                        child: SizedBox(width: double.infinity, height: 10),
-                      ),
-                      SizedBox(height: 5),
-                      DecoratedBox(
-                        decoration: BoxDecoration(color: Colors.grey),
-                        child: SizedBox(width: double.infinity, height: 10),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-  }
+}
 
 class WordCard {
   final int id;
@@ -525,153 +770,128 @@ class WordCard {
 }
 
 
-
-
-class PackageListWidget extends StatefulWidget {
-  final Future<List<Package>> packagesFuture;
-
-  const PackageListWidget({Key? key, required this.packagesFuture}) : super(key: key);
-
+class SearchPanel extends StatefulWidget {
   @override
-  _PackageListWidgetState createState() => _PackageListWidgetState();
+  _SearchPanelState createState() => _SearchPanelState();
 }
 
-class _PackageListWidgetState extends State<PackageListWidget> {
-  bool _showMore = false;
+class _SearchPanelState extends State<SearchPanel> {
+  TextEditingController _searchController = TextEditingController();
+
+  Future<void> searchWord(String term) async {
+    final csvData = await rootBundle.loadString('assets/Model/words.csv');
+    final converter = CsvToListConverter(eol: '\n');
+    List<List<dynamic>> csvList = converter.convert(csvData);
+
+    List<dynamic>? matchedWord;
+    for (var row in csvList) {
+      if (row[1] == term) {
+        matchedWord = row;
+        break;
+      }
+    }
+
+    if (matchedWord != null) {
+      WordDetail wordDetail = WordDetail(
+        id: int.parse(matchedWord[0].toString()),
+        word: matchedWord[1].toString(),
+        meaning: matchedWord[2].toString(),
+        type: matchedWord[4]?.toString(),
+        image: matchedWord[3]?.toString(),
+        collocations: [],
+        derivations: [],
+        synonyms: [],
+      );
+
+      List<WordDetail> allWords = [wordDetail];
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => LibraryDart(
+            words: allWords,
+            classroomId: 0,
+            studySetId: 0,
+          ),
+        ),
+      );
+      await ApiService().fetchAndAttachCollocations(allWords);
+      await ApiService().fetchAndAttachDerivations(allWords);
+      await ApiService().fetchAndAttachSynonymsToWordDetail(allWords);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Kelime bulunamadı')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<Package>>(
-      future: widget.packagesFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return _buildShimmerEffect();
-        } else if (snapshot.hasError) {
-          return Center(child: Text("Hata: ${snapshot.error}"));
-        } else if (snapshot.hasData && snapshot.data!.isNotEmpty) {
-          var packages = snapshot.data!;
-          var visiblePackages = packages;
-
-          if (!_showMore && packages.length > 2) {
-            visiblePackages = packages.sublist(0, 2);
-          }
-
-          return SingleChildScrollView(
-            child: Container(
-              width: MediaQuery.of(context).size.width,
-              child: Padding(
-                padding: EdgeInsets.only(
-                  left: MediaQuery.of(context).size.width * 0.1,
-                  right: MediaQuery.of(context).size.width * 0.1,
-                ),
-                child: Stack(
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.only(top: 15, bottom: 15),
-                          child: Text(
-                            "Kelime Setleri",
-                            style: GoogleFonts.nunito(
-                              color: Colors.blueGrey,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 24,
-                            ),
-                          ),
-                        ),
-                        ...visiblePackages.map((package) => _buildListItem(package)).toList(),
-                      ],
-                    ),
-                    Positioned(
-                      top: 0,
-                      right: 0,
-                      child: IconButton(
-                        icon: Icon(_showMore ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down),
-                        onPressed: () {
-                          setState(() {
-                            _showMore = !_showMore;
-                          });
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        } else {
-          return Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+    return Container(
+      margin: EdgeInsets.all(16.0),
+      padding: EdgeInsets.all(16.0),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12.0),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.5),
+            spreadRadius: 1,
+            blurRadius: 3,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 15),
-                child: Text(
-                  "Kelime Setleri",
-                  style: GoogleFonts.nunito(
-                    color: Colors.blueGrey,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 24,
-                  ),
+              Icon(Icons.library_books, color: Colors.blueGrey, size: 30.0),
+              SizedBox(width: 8.0),
+              Text(
+                'Kelibu Sözlük',
+                style: GoogleFonts.nunito(
+                  fontSize: 24.0,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blueGrey,
                 ),
               ),
-              Text("Kategori verisi yok", style: TextStyle(fontSize: 16)),
             ],
-          );
-        }
-      },
-    );
-  }
-
-  Widget _buildListItem(Package package) {
-    // Bu fonksiyon, verilen paket için bir liste öğesi widget'ı oluşturur.
-    return InkWell(
-      onTap: () => _onListItemTap(context, package.classroom?.id ?? 0, package.classroom?.title ?? 'Varsayılan Başlık'),
-      child: Card(
-        margin: const EdgeInsets.all(8.0),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16.0), // Daha oval kenarlar için
-        ),
-        color: Colors.lightBlueAccent.shade100, // Açık pembe arka plan rengi
-        child: ListTile(
-          leading: CircleAvatar(
-            // Sol taraftaki asset logo
-            backgroundColor: Colors.transparent, // Logo arka planı şeffaf
-            child: Image.asset('assets/logo.png'), // Asset yolunuzu buraya girin
           ),
-          title: Text(
-            package.classroom?.title ?? 'Varsayılan Başlık',
-            style: GoogleFonts.poppins(
-              color: Colors.white, // Beyaz metin rengi
-              fontWeight: FontWeight.w500,
-            ),
+          SizedBox(height: 16.0),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: 'Kelime ara...',
+                    suffixIcon: IconButton(
+                      icon: Icon(Icons.search),
+                      onPressed: () {
+                        searchWord(_searchController.text);
+                      },
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12.0),
+                    ),
+                  ),
+                  onSubmitted: (value) {
+                    searchWord(value);
+                  },
+                ),
+              ),
+              SizedBox(width: 8.0),
+              IconButton(
+                icon: Icon(Icons.clear, color: Colors.redAccent),
+                onPressed: () {
+                  _searchController.clear();
+                },
+              ),
+            ],
           ),
-        ),
+          SizedBox(height: 8.0),
+        ],
       ),
     );
-  }
-  void _onListItemTap(BuildContext context, int categoryId, String categoryName) async {
-    // Öğeye dokunulduğunda animasyonlu grileşme efekti
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Yükleniyor...'),
-        duration: Duration(milliseconds: 5),
-      ),
-    );
-
-    await Future.delayed(const Duration(milliseconds: 500));
-
-    Navigator.of(context).push(MaterialPageRoute(
-      builder: (context) => WordListScreen(
-        categoryId: categoryId,
-        categoryName: categoryName,
-      ),
-    ));
-    // İsteğe bağlı olarak ek işlevsellikler eklenebilir
-  }
-
-  Widget _buildShimmerEffect() {
-    // Shimmer efekti için yer tutucu widget
-    return Container(); // Örnek amaçlı boş bir container dönüyoruz.
   }
 }

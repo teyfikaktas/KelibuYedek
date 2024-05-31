@@ -9,20 +9,9 @@ import 'package:kelibu/providers/user_provider.dart';
 import 'package:kelibu/Models/user.dart';
 import 'package:getwidget/getwidget.dart';
 import 'package:auto_size_text/auto_size_text.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'loadingIndicator.dart';
-
-import 'dart:math';
-import 'package:flutter/material.dart';
-import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:kelibu/api.dart';
-import 'package:provider/provider.dart';
-import 'package:kelibu/providers/user_provider.dart';
-import 'package:kelibu/Models/user.dart';
-import 'package:getwidget/getwidget.dart';
-import 'package:auto_size_text/auto_size_text.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class LeaderboardPage extends StatefulWidget {
   const LeaderboardPage({Key? key}) : super(key: key);
@@ -39,80 +28,149 @@ class _LeaderboardPageState extends State<LeaderboardPage> with SingleTickerProv
   final ScrollController _scrollController = ScrollController();
   bool _isUserRankComputed = false;
   String? _code;
+  bool _isGroupMode = false; // To toggle between group and general leaderboard
+  bool _isGroupSettingsVisible = false; // To toggle visibility of group settings
+  final TextEditingController _groupCodeController = TextEditingController(); // Controller for the group code text field
+  bool _showGroupSettingsHint = false; // To control the visibility of the hint pop-up
+  bool _isGroupEmpty = false; // To check if group is empty
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
     _tabController.addListener(_handleTabSelection);
-    _loadData('all_time'); // default period
+    _loadData('all_time');
     _initPreferences();
+    _checkFirstTime();
   }
 
   Future<void> _initPreferences() async {
     final prefs = await SharedPreferences.getInstance();
     _code = prefs.getString('leaderboard_code');
     if (_code != null) {
-      setState(() {});
+      setState(() {
+        _isGroupMode = true;
+      });
       _loadData(_code!);
+    }
+  }
+
+  Future<void> _checkFirstTime() async {
+    final prefs = await SharedPreferences.getInstance();
+    bool? isFirstTime = prefs.getBool('isFirstTime') ?? true;
+    if (isFirstTime) {
+      setState(() {
+        _showGroupSettingsHint = true;
+      });
+      await prefs.setBool('isFirstTime', false);
     }
   }
 
   void _setCode(String newCode) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('leaderboard_code', newCode);
-    _code = newCode;
-    _loadData(_code!);
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+
+    final response = await ApiService().joinGroup(newCode, userProvider.userId.toString());
+
+    if (response['success']) {
+      await prefs.setString('leaderboard_code', newCode);
+      setState(() {
+        _code = newCode;
+        _isGroupMode = true;
+      });
+      _loadData(newCode);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(response['message']),
+      ));
+    }
   }
 
   void _removeCode() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('leaderboard_code');
-    _code = null;
+    setState(() {
+      _code = null;
+      _isGroupMode = false;
+    });
     _loadData('all_time');
   }
 
   void _handleTabSelection() {
     if (_tabController.indexIsChanging) {
+      String selectedPeriod = 'all_time';
       switch (_tabController.index) {
         case 0:
-          _loadData('all_time');
+          selectedPeriod = 'all_time';
           break;
         case 1:
-          _loadData('daily');
+          selectedPeriod = 'daily';
           break;
         case 2:
-          _loadData('weekly');
+          selectedPeriod = 'weekly';
           break;
         case 3:
-          _loadData('monthly');
+          selectedPeriod = 'monthly';
           break;
       }
+      _loadData(selectedPeriod);
     }
   }
 
   void _loadData(String timePeriod) async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final currentUserId = userProvider.userId;
-    _futureLeaderboardData = ApiService().fetchUsersNew(_code ?? "", timePeriod);
+    _futureLeaderboardData = ApiService().fetchUsersNew(_isGroupMode ? (_code ?? "") : "", timePeriod);
     List<User> users = await _futureLeaderboardData;
+
+    if (_isGroupMode && (_code == null || users.isEmpty)) {
+      setState(() {
+        _isGroupEmpty = true;
+      });
+    } else {
+      setState(() {
+        _isGroupEmpty = false;
+      });
+    }
+
     int currentUserIndex = users.indexWhere((user) => user.id == currentUserId);
 
     if (currentUserIndex != -1 && currentUserIndex < 150) {
       userRank = currentUserIndex + 1;
-    } else {
-      userRank = null; // User not found in the current period's leaderboard
-    }
-    _isUserRankComputed = true;
-
-    if (mounted) {
-      setState(() {});
-      if (userRank != null) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          scrollToUserRank(currentUserIndex);
+      _isUserRankComputed = true;
+      if (mounted) {
+        setState(() {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            scrollToUserRank(currentUserIndex);
+          });
         });
       }
+    } else {
+      userRank = null;
     }
+  }
+
+  void scrollToUserRank(int index) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (userRank == null || !_scrollController.hasClients || index >= 50) {
+        return;
+      }
+      var itemPositionOffset = 104.0 * index;
+      var screenHeight = MediaQuery.of(context).size.height;
+      var centeredPositionOffset = itemPositionOffset - (screenHeight / 2) + (104.0 / 2);
+      final offset = max(centeredPositionOffset, 0.0);
+      _scrollController.animateTo(
+        offset,
+        duration: const Duration(seconds: 3),
+        curve: Curves.easeOutQuad,
+      );
+    });
+  }
+
+  void _dismissHint() {
+    setState(() {
+      _showGroupSettingsHint = false;
+    });
   }
 
   @override
@@ -138,54 +196,177 @@ class _LeaderboardPageState extends State<LeaderboardPage> with SingleTickerProv
               Tab(text: 'Ay'),
             ],
           ),
-          actions: <Widget>[
+          actions: [
+            Switch(
+              value: _isGroupMode,
+              onChanged: (value) {
+                setState(() {
+                  _isGroupMode = value;
+                  if (_isGroupMode && _code != null) {
+                    _loadData(_code!);
+                  } else {
+                    _loadData('all_time');
+                  }
+                });
+              },
+              activeColor: Colors.pink,
+              inactiveThumbColor: Colors.grey,
+              inactiveTrackColor: Colors.grey[300],
+            ),
+            Text(
+              _isGroupMode ? 'Grup' : 'Genel',
+              style: TextStyle(
+                color: Colors.pink,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
             IconButton(
-              icon: Icon(Icons.add),
-              onPressed: _code == null ? () async {
-                TextEditingController codeController = TextEditingController();
-                bool shouldRefresh = await showDialog(
-                  context: context,
-                  builder: (BuildContext context) {
-                    return AlertDialog(
-                      title: const Text("Enter Code"),
-                      content: TextField(
-                        controller: codeController,
-                        decoration: const InputDecoration(hintText: "Code"),
-                      ),
-                      actions: <Widget>[
-                        TextButton(
-                          onPressed: () {
-                            Navigator.of(context).pop(false);
-                          },
-                          child: const Text('Cancel'),
-                        ),
-                        TextButton(
-                          onPressed: () {
-                            if (codeController.text.isNotEmpty) {
-                              _setCode(codeController.text);
-                              Navigator.of(context).pop(true);
-                            }
-                          },
-                          child: const Text('Save'),
-                        ),
-                      ],
-                    );
-                  },
-                );
-                if (shouldRefresh) {
-                  _loadData(_code!);
-                }
-              } : null,
+              icon: Icon(Icons.group, color: Colors.pink),
+              onPressed: () {
+                setState(() {
+                  _isGroupSettingsVisible = !_isGroupSettingsVisible;
+                });
+              },
             ),
           ],
         ),
-        body: TabBarView(
-          controller: _tabController,
+        body: Stack(
           children: [
-            LeaderboardList(timePeriod: 'all_time', code: _code),
-            LeaderboardList(timePeriod: 'daily', code: _code),
-            LeaderboardList(timePeriod: 'weekly', code: _code),
-            LeaderboardList(timePeriod: 'monthly', code: _code),
+            Column(
+              children: [
+                if (_isGroupSettingsVisible)
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _groupCodeController,
+                                decoration: InputDecoration(
+                                  labelText: 'Grup Kodu',
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12.0),
+                                  ),
+                                  filled: true,
+                                  fillColor: Colors.white,
+                                  prefixIcon: Icon(Icons.group, color: Colors.pink),
+                                ),
+                              ),
+                            ),
+                            SizedBox(width: 8),
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                primary: Colors.pink, // Background color
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              onPressed: () {
+                                if (_groupCodeController.text.isNotEmpty) {
+                                  _setCode(_groupCodeController.text);
+                                }
+                              },
+                              child: Text(
+                                'Gruba Katıl',
+                                style: TextStyle(color: Colors.white),
+                              ),
+                            ),
+                            if (_code != null)
+                              IconButton(
+                                icon: Icon(Icons.clear, color: Colors.red),
+                                onPressed: _removeCode,
+                              ),
+                          ],
+                        ),
+                        if (_code != null)
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Text(
+                              'Bir gruptasınız: $_code',
+                              style: TextStyle(
+                                color: Colors.black54,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        if (_code != null)
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                primary: Colors.red, // Background color
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              onPressed: _removeCode,
+                              child: Text(
+                                'Gruptan Ayrıl',
+                                style: TextStyle(color: Colors.white),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                Expanded(
+                  child: TabBarView(
+                    controller: _tabController,
+                    children: [
+                      LeaderboardList(timePeriod: 'all_time', code: _isGroupMode ? _code : "", scrollController: _scrollController),
+                      LeaderboardList(timePeriod: 'daily', code: _isGroupMode ? _code : "", scrollController: _scrollController),
+                      LeaderboardList(timePeriod: 'weekly', code: _isGroupMode ? _code : "", scrollController: _scrollController),
+                      LeaderboardList(timePeriod: 'monthly', code: _isGroupMode ? _code : "", scrollController: _scrollController),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            if (_isGroupEmpty)
+              Center(
+                child: Text(
+                  'Grubunuz bulunmamaktadır, lütfen bir grup ekleyin.',
+                  style: TextStyle(color: Colors.black54, fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ),
+            if (_showGroupSettingsHint)
+              Positioned(
+                bottom: 16.0,
+                left: 16.0,
+                right: 16.0,
+                child: GestureDetector(
+                  onTap: _dismissHint,
+                  child: Container(
+                    padding: EdgeInsets.all(16.0),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withOpacity(0.9),
+                      borderRadius: BorderRadius.circular(12.0),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Grup sağ köşedeki grup simgesine tıklayarak yapabilirsiniz.',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16.0,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        Icon(
+                          Icons.check_circle,
+                          color: Colors.white,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
         bottomSheet: userRank != null && _isUserRankComputed
@@ -204,43 +385,17 @@ class _LeaderboardPageState extends State<LeaderboardPage> with SingleTickerProv
           ),
         )
             : SizedBox.shrink(),
-        floatingActionButton: _code != null
-            ? FloatingActionButton(
-          onPressed: _removeCode,
-          tooltip: 'Remove Code',
-          child: Icon(Icons.remove),
-        )
-            : null,
       ),
     );
   }
-
-  void scrollToUserRank(int index) async {
-    if (userRank == null) return; // No rank to scroll to
-
-    await Future.delayed(const Duration(milliseconds: 100));
-
-    if (_scrollController.hasClients) {
-      var itemPositionOffset = 104.0 * index;
-      var screenHeight = MediaQuery.of(context).size.height;
-      var centeredPositionOffset = itemPositionOffset - (screenHeight / 2) + (104.0 / 2);
-      final offset = max(centeredPositionOffset, 0.0);
-
-      _scrollController.animateTo(
-        offset,
-        duration: const Duration(seconds: 2),
-        curve: Curves.easeInOut,
-      );
-    }
-  }
 }
-
 
 class LeaderboardList extends StatelessWidget {
   final String timePeriod;
   final String? code;
+  final ScrollController scrollController;
 
-  const LeaderboardList({Key? key, required this.timePeriod, this.code}) : super(key: key);
+  const LeaderboardList({Key? key, required this.timePeriod, this.code, required this.scrollController}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -256,6 +411,7 @@ class LeaderboardList extends StatelessWidget {
         } else {
           return AnimationLimiter(
             child: ListView.builder(
+              controller: scrollController,
               itemCount: snapshot.data!.length,
               itemBuilder: (context, index) {
                 return AnimationConfiguration.staggeredList(
@@ -325,7 +481,7 @@ class LeaderboardList extends StatelessWidget {
       ),
       color: backgroundColor,
       margin: EdgeInsets.all(8),
-      padding: EdgeInsets.symmetric(vertical: 8, horizontal:16),
+      padding: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
     );
   }
 
