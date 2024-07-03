@@ -5,6 +5,8 @@ import 'dart:convert';
 import 'package:kelibu/providers/user_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:kelibu/variables.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 class ContactFormPage extends StatefulWidget {
   @override
   _ContactFormPageState createState() => _ContactFormPageState();
@@ -15,6 +17,20 @@ class _ContactFormPageState extends State<ContactFormPage> {
   String _selectedCategory = 'Genel Sıkıntı';
   final List<String> _categories = ['Genel Sıkıntı', 'Hata Bildirimi', 'Görüş ve Öneri'];
   String _description = '';
+  bool _isDarkMode = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDarkModePreference();
+  }
+
+  Future<void> _loadDarkModePreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _isDarkMode = prefs.getBool("darkMode") ?? false;
+    });
+  }
 
   Future<void> sendMessage() async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
@@ -40,20 +56,31 @@ class _ContactFormPageState extends State<ContactFormPage> {
       print('Mesaj gönderilirken bir hata oluştu: ${response.body}');
     }
   }
+
   @override
   Widget build(BuildContext context) {
+    final themeColors = _isDarkMode ? darkModeColors : lightModeColors;
+    final backgroundColor = themeColors["background"];
+    final textColor = themeColors["text"];
+    final inputBackgroundColor = themeColors["inputBackground"];
+    final buttonBackgroundColor = themeColors["buttonBackground"];
+    final buttonTextColor = themeColors["buttonText"];
+    final appBarColor = _isDarkMode ? Colors.black : Colors.white;
+    final appBarTextColor = _isDarkMode ? Colors.white : Colors.pink;
+    final iconColor = _isDarkMode ? Colors.white : Colors.pink;
+
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: appBarColor,
         title: Text(
           'İletişim Formu',
           style: GoogleFonts.poppins(
-            color: Colors.pink,
+            color: appBarTextColor,
             fontWeight: FontWeight.bold,
           ),
         ),
         iconTheme: IconThemeData(
-          color: Colors.pink,
+          color: iconColor,
         ),
       ),
       body: Padding(
@@ -67,9 +94,9 @@ class _ContactFormPageState extends State<ContactFormPage> {
               DropdownButtonFormField(
                 decoration: InputDecoration(
                   labelText: 'Kategori Seçin',
-                  fillColor: Colors.white,
+                  fillColor: inputBackgroundColor,
                   filled: true,
-                  labelStyle: GoogleFonts.lato(color: Colors.pink, fontWeight: FontWeight.bold),
+                  labelStyle: GoogleFonts.lato(color: textColor, fontWeight: FontWeight.bold),
                   border: OutlineInputBorder(
                     borderSide: BorderSide(color: Colors.pink, width: 3.0),
                     borderRadius: BorderRadius.circular(8),
@@ -86,7 +113,7 @@ class _ContactFormPageState extends State<ContactFormPage> {
                     child: Text(
                       category,
                       style: GoogleFonts.lato(
-                        color: Colors.pinkAccent, // Seçeneklerin yazı rengi
+                        color: textColor, // Seçeneklerin yazı rengi
                         fontSize: 16, // Yazı boyutu
                       ),
                     ),
@@ -97,18 +124,18 @@ class _ContactFormPageState extends State<ContactFormPage> {
                     _selectedCategory = newValue.toString();
                   });
                 },
-                dropdownColor: Colors.white, // Açılır menü arka plan rengi
+                dropdownColor: inputBackgroundColor, // Açılır menü arka plan rengi
                 iconEnabledColor: Colors.pink, // Açılır menü ikon rengi
-                style: GoogleFonts.lato(color: Colors.black), // Seçildikten sonra gösterilen metin rengi
+                style: GoogleFonts.lato(color: textColor), // Seçildikten sonra gösterilen metin rengi
               ),
               SizedBox(height: 20),
               TextFormField(
                 decoration: InputDecoration(
                   labelText: 'Açıklamanız',
                   alignLabelWithHint: true,
-                  fillColor: Colors.white,
+                  fillColor: inputBackgroundColor,
                   filled: true,
-                  labelStyle: GoogleFonts.lato(color: Colors.pink),
+                  labelStyle: GoogleFonts.lato(color: textColor),
                   border: OutlineInputBorder(
                     borderSide: BorderSide(color: Colors.pink, width: 3.0),
                     borderRadius: BorderRadius.circular(8),
@@ -130,6 +157,7 @@ class _ContactFormPageState extends State<ContactFormPage> {
                   }
                   return null;
                 },
+                style: TextStyle(color: textColor),
               ),
               SizedBox(height: 20),
               ElevatedButton(
@@ -143,8 +171,8 @@ class _ContactFormPageState extends State<ContactFormPage> {
                 },
                 child: Text('Gönder'),
                 style: ElevatedButton.styleFrom(
-                  primary: Colors.pink, // Buton arka planı
-                  onPrimary: Colors.white, // Buton yazı rengi
+                  primary: buttonBackgroundColor, // Buton arka planı
+                  onPrimary: buttonTextColor, // Buton yazı rengi
                   padding: EdgeInsets.symmetric(horizontal: 32, vertical: 12), // İç boşluk
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8), // Kenarlık yuvarlaklığı
@@ -155,7 +183,7 @@ class _ContactFormPageState extends State<ContactFormPage> {
           ),
         ),
       ),
+      backgroundColor: backgroundColor, // Arka plan rengi
     );
   }
-
 }

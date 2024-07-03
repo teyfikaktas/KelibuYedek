@@ -9,6 +9,7 @@ import 'package:kelibu/screens/home_screen.dart';
 import 'package:kelibu/providers/language_provider.dart';
 
 import 'package:audioplayers/audioplayers.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/user_provider.dart';
 import 'package:provider/provider.dart';
 import '../providers/volume_provider.dart';
@@ -23,6 +24,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:audioplayers/audioplayers.dart';
 import 'package:back_button_interceptor/back_button_interceptor.dart';
+
+import '../variables.dart';
 
 
 class QuizCard extends StatefulWidget {
@@ -117,6 +120,7 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
   ValueNotifier<bool> isSortOn = ValueNotifier(true);
   ValueNotifier<bool> refresh_off = ValueNotifier(true);
   ValueNotifier<bool> isTurkish = ValueNotifier(false); // Türkçe için false, İngilizce için true
+  bool _isDarkMode = false; // Dark mode durumu
 
   Map<int, bool?> questionStatuses = {};
 
@@ -144,7 +148,12 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
       await audioPlayer.play(BytesSource(bytes));
     }
   }
-
+  Future<void> _loadDarkModePreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _isDarkMode = prefs.getBool("darkMode") ?? false;
+    });
+  }
   bool showStarredOnly = false; // Yıldızlı kelimeleri gösterme durumunu tutacak
 
   void resetQuiz() {
@@ -335,6 +344,7 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
   @override
   void initState() {
     super.initState();
+    _loadDarkModePreference(); // Dark mode tercihlerini yükle
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final userProvider = Provider.of<UserProvider>(context, listen: false);
@@ -461,6 +471,8 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
     }
   }
   void _openBottomSheet() async {
+    final colors = _isDarkMode ? darkModeColors : lightModeColors;
+
     var currentTerm = questions[currentQuestionIndex].term;
     var sentences = await _fetchSentenceForTerm(currentTerm);
     int currentPage = 0;
@@ -487,7 +499,7 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
                 child: Container(
                   width: MediaQuery.of(context).size.width,
                   decoration: BoxDecoration(
-                    color: Colors.pink.shade100,
+                    color: colors["background"],
                     borderRadius: const BorderRadius.only(
                       topLeft: Radius.circular(20),
                       topRight: Radius.circular(20),
@@ -500,7 +512,7 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
                       children: [
                         Text(
                           "${currentPage + 1} / ${sentences.length}",
-                          style: const TextStyle(color: Colors.white, fontSize: 16),
+                          style:  TextStyle(color: colors["borderColor"], fontSize: 16),
                         ),
                         Expanded(
                           child: PageView.builder(
@@ -520,7 +532,7 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
                                     style: GoogleFonts.poppins(
                                       fontSize: 18,
                                       fontWeight: FontWeight.bold,
-                                      color: Colors.white.withOpacity(0.7),
+                                      color: colors["borderColor"],
                                     ),
                                     textAlign: TextAlign.center,
                                   ),
@@ -751,6 +763,7 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
   }
   Widget _buildQuestionContent(QuizQuestion question) {
     ValueNotifier<bool> isStarredNotifier = ValueNotifier<bool>(starredStatus[question.id] ?? false);
+    final colors = _isDarkMode ? darkModeColors : lightModeColors;
 
     return Padding(
       padding: const EdgeInsets.all(16.0),
@@ -766,7 +779,7 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                   decoration: BoxDecoration(
-                    color: Colors.white, // Background color of the container
+                    color: colors["background"],
                     borderRadius: BorderRadius.circular(30.0), // Rounded corners
                     boxShadow: [
                       BoxShadow(
@@ -782,7 +795,13 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
                     child: FittedBox(
                       child: Text(
                         question.term, // The term or question text
-                        style: CustomTextStyle.title,
+                        style: TextStyle(
+                          fontSize: 26, // Biraz daha büyük
+                          fontWeight: FontWeight.bold,
+                          color: colors["text"], // Açık pembe renk
+                          letterSpacing: 1.2,
+                        ),
+
                       ),
                     ),
                   ),
@@ -914,6 +933,8 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = _isDarkMode ? darkModeColors : lightModeColors;
+
     double screenWidth = MediaQuery.of(context).size.width;
     double screenHeight = MediaQuery.of(context).size.height;
     // Eğer sorular yüklenmemişse, bir yükleniyor göstergesi göster
@@ -948,10 +969,11 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
     child:
       SafeArea(
       child: Scaffold(
+        backgroundColor: colors["background"],
         appBar: AppBar(
-          backgroundColor: const Color(0xFFFEFAF6), // Arka plan rengini burada ayarlayın
+          backgroundColor: colors["background"],
           leading: IconButton(
-            icon: Icon(Icons.arrow_back_ios),
+            icon: Icon(Icons.arrow_back_ios,color: colors["text"]),
             onPressed: () async {
               final shouldPop = await showDialog<bool>(
                 context: context,
@@ -1018,7 +1040,7 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
                             style: GoogleFonts.openSans(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
-                              color: Colors.grey, // "Puan:" metni gri renkte
+                              color: colors["text"],
                             ),
                           ),
                           TextSpan(
@@ -1026,7 +1048,7 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
                             style: GoogleFonts.openSans(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
-                              color: Colors.black, // Skor değeri siyah renkte
+                              color: colors["text"],
                             ),
                           ),
                         ],
@@ -1041,11 +1063,11 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
                         children: [
                           TextSpan(
                             text: '${currentQuestionIndex + 1}',
-                            style: const TextStyle(color: Colors.grey), // Mevcut soru numarası gri renkte
+                            style:  TextStyle(color: colors["text"]), // Toplam soru sayısı siyah renkte
                           ),
                           TextSpan(
                             text: ' / ${questions.length}',
-                            style: const TextStyle(color: Colors.black), // Toplam soru sayısı siyah renkte
+                            style:  TextStyle(color: colors["text"]), // Toplam soru sayısı siyah renkte
                           ),
                         ],
                       ),
@@ -1056,7 +1078,7 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFADADD), // Pastel pembe arka plan
+                  color:  colors["buttonBackground"],
                   borderRadius: BorderRadius.circular(30.0), // Yuvarlak köşeler
                   boxShadow: [
                     BoxShadow(
@@ -1076,7 +1098,7 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
                         return IconButton(
                           icon: Icon(
                             value ? Icons.visibility_off : Icons.visibility, // İkon durumunu ters çevir
-                            color: Colors.pink,
+                            color: colors["text"],
                           ),
                           onPressed: () {
                             showCustomFlushbar(
@@ -1094,7 +1116,7 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
                         return IconButton(
                           icon: Icon(
                             Icons.refresh, // Aynı ikonu kullan
-                            color: value ? Colors.pink : Colors.grey, // Açık ise mavi, kapalı ise gri
+                            color: value ?                            colors["text"] : Colors.grey, // Açık ise mavi, kapalı ise gri
                           ),
                           onPressed: () {
                             showCustomFlushbar(
@@ -1114,7 +1136,7 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
                         return IconButton(
                           icon: Icon(
                             value ? Icons.volume_up : Icons.volume_off, // İkon durumunu ters çevir
-                            color: Colors.pink,
+                            color: colors["text"],
                           ),
                           onPressed: () {
                             showCustomFlushbar(
@@ -1131,8 +1153,8 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
                     IconButton(
                       icon: Icon(
                         isTurkish.value ? Icons.language : Icons.translate, // Sıralama veya karıştırma ikonu
-                        color: Colors.pink,
-                      ),
+                        color:                           colors["text"] ,
+                    ),
                       onPressed: () {
                         isTurkish.value = !isTurkish.value;
                         _changeLang();
@@ -1145,11 +1167,11 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
                       },
                     ),
                     IconButton(
-                      icon: const Icon(Icons.menu),
+                        icon:  Icon(Icons.menu, color:   colors["text"] ),
                       onPressed: _openBottomSheet,
                     ),
                     IconButton(
-                      icon: const Icon(Icons.hearing, color: Colors.pink,),
+                      icon:  Icon(Icons.hearing, color:   colors["text"]                      ),
                       onPressed: () {
                         _speak();
                       },

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/material.dart';
 import 'package:kelibu/Models/wordDetaik.dart'; // WordDetail modelinizin importu
 import 'package:kelibu/api.dart';
 import 'package:kelibu/screens/flash_card.dart'; // FlashCardScreen sayfasının importu
@@ -7,12 +6,13 @@ import 'package:kelibu/providers/user_provider.dart'; // UserProvider importu
 import 'package:provider/provider.dart';
 import 'package:kelibu/screens/quiz.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:kelibu/api.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:back_button_interceptor/back_button_interceptor.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../shared_preferences/shared_preferences.dart';
+import '../variables.dart';
 import 'loadingIndicator.dart';
 
 class CustomLoadingIndicator extends StatelessWidget {
@@ -20,7 +20,7 @@ class CustomLoadingIndicator extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: SpinKitChasingDots( // Circle türündeki yükleme göstergesi
-        color: Colors.blue, // Yükleme göstergesi rengi
+        color: Theme.of(context).primaryColor, // Yükleme göstergesi rengi
         size: 50.0, // Yükleme göstergesi boyutu
       ),
     );
@@ -59,6 +59,8 @@ class _StudyScreenState extends State<StudyScreen> {
   Map<int, PageController> _sentencePageControllers = {};
   Map<int, List<String>> exampleSentences = {}; // Yeni değişken
   Map<int, ValueNotifier<int>> _currentSentenceIndices = {};
+  bool _isDarkMode = false; // Dark mode durumu
+
   bool myInterceptor(bool stopDefaultButtonEvent, RouteInfo info) {
     _showExitConfirmationDialog();
     return true;
@@ -84,11 +86,17 @@ class _StudyScreenState extends State<StudyScreen> {
       ),
     ).then((value) => value ?? false ? Navigator.of(context).pop(true) : null);
   }
+  Future<void> _loadDarkModePreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _isDarkMode = prefs.getBool("darkMode") ?? false;
+    });
+  }
   @override
   void initState() {
     super.initState();
     _pageController = PageController(initialPage: 0);
-
+    _loadDarkModePreference();
     filteredWords = widget.words; // Başlangıçta tüm kelimeleri göster
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     userID = userProvider.userId;
@@ -165,150 +173,150 @@ class _StudyScreenState extends State<StudyScreen> {
   Widget build(BuildContext context) {
     return
       WillPopScope(
-        onWillPop: () async {
-      Navigator.of(context).pop(true);
-      // Sistem tarafından ek bir pop işlemi yapılmasını engellemek için false dön
-      return false;
-    },
-    child: SafeArea(
-      child: Scaffold(
-        backgroundColor: const Color(0xFFFEFAF6), // Arka plan rengini burada ayarlayın
-        appBar: AppBar(
-          title: ValueListenableBuilder<int>(
-            valueListenable: _selectedPageIndex,
-            builder: (_, currentPageIndex, __) {
-              // Yıldızlı kelime modu aktif olduğunda, yıldızlı kelimelerin sayısını kullan
-              int wordCount = _showOnlyStarred ? getDisplayedWords().length : widget.words.length;
-              return Text(
-                'Kelime Öğren (${currentPageIndex + 1}/$wordCount)',
-                style: GoogleFonts.roboto(color: Colors.white, fontWeight: FontWeight.bold),
-              );
-            },
-          ),
-          backgroundColor: Colors.teal,
-          leading: IconButton(
-            icon: Icon(Icons.arrow_back),
-            onPressed: () => Navigator.of(context).pop(),
-          ),
-          actions: <Widget>[
-            Builder(
-              builder: (context) => IconButton(
-                icon: Icon(Icons.menu),
-                onPressed: () {
-                  Scaffold.of(context).openDrawer();
-                  setState(() {
-                    _showOnlyStarred = false;
-                  });
-                },
-              ),
-            ),
-            IconButton(
-              icon: Icon(_showOnlyStarred ? Icons.star : Icons.star_border),
-              onPressed: () {
-                setState(() {
-                  _showOnlyStarred = !_showOnlyStarred;
-                  if (_showOnlyStarred) {
-                    // Yıldızlı kelimeler listesini al
-                    List<WordDetail> starredWords = getDisplayedWords();
-                    // Eğer yıldızlı kelime varsa, ilk yıldızlı kelimenin indeksine git
-                    if (starredWords.isNotEmpty) {
-                      int firstStarredWordIndex = widget.words.indexOf(starredWords.first);
-                      _pageController.jumpToPage(firstStarredWordIndex);
-                      _selectedPageIndex.value = firstStarredWordIndex; // Sayfa indeksini güncelle
-                      // İlk yıldızlı kelimeyi seslendir
-                      speak(starredWords.first.word);
-                    }
-                  } else {
-                    // Yıldızlı kelime modu kapalıysa, ilk sayfaya dön
-                    _pageController.jumpToPage(0);
-                    _selectedPageIndex.value = 0; // Sayfa indeksini sıfırla
-                    // İlk kelimeyi seslendir
-                    if (widget.words.isNotEmpty) {
-                      speak(widget.words.first.word);
-                    }
-                  }
-                });
-              },
-            ),
-          ],
-        ),
-        drawer: Drawer(
-          child: ValueListenableBuilder<int>(
-            valueListenable: _selectedPageIndex,
-            builder: (context, value, child) {
-              return Column(
-                children: [
-                  SafeArea( // SafeArea eklemesi
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: TextField(
-                        controller: _searchController, // Kontrolcüyü kullanarak kelime arama
-                        decoration: InputDecoration(
-                          hintText: 'Kelime Ara',
-                          prefixIcon: Icon(Icons.search),
-                        ),
-                        onChanged: (searchQuery) {
-                          // Kelime arama işlemini burada yapabilirsiniz
-                          filterWords(searchQuery);
-                        },
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: ListView.builder(
-                      itemCount: getDisplayedWords().length, // Yıldızlı kelimeleri filtreleyerek itemCount'u ayarlayın
-                      itemBuilder: (context, index) {
-                        WordDetail word = filteredWords[index];
-                        return ListTile(
-                          title: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  word.word,
-                                  style: TextStyle(
-                                    color: value == index ? Colors.blue : Colors.black,
-                                  ),
-                                ),
-                              ),
-                              // Yıldızlı durumu göstermek için bir ikon ekleyin
-                              ValueListenableBuilder<bool>(
-                                valueListenable: starredNotifiers[word.id] ?? ValueNotifier(false),
-                                builder: (_, isStarred, __) {
-                                  return Icon(
-                                    isStarred ? Icons.star : Icons.star_border, // Yıldızlı ise dolu yıldız, değilse boş yıldız ikonu
-                                    color: isStarred ? Colors.yellow : Colors.grey, // Yıldızlı ise sarı, değilse gri renk
-                                  );
-                                },
-                              ),
-                            ],
-                          ),
-                          onTap: () {
-                            Navigator.of(context).pop(true); // Drawer'ı kapat
-                            int originalIndex = widget.words.indexOf(word);
-                            _targetPageIndex = index;  // Hedef kelimenin indeksini ayarla
-
-                            _pageController.animateToPage(
-                              originalIndex,
-                              duration: Duration(milliseconds: 500), // Sayfa geçiş süresi
-                              curve: Curves.easeInOut, // Animasyon eğrisi
-                            );
-                            setState(() {
-                              currentWordIndex = originalIndex; // Geçerli kelimenin indeksini güncelle
-                            });
-                          },
-                        );
+          onWillPop: () async {
+            Navigator.of(context).pop(true);
+            // Sistem tarafından ek bir pop işlemi yapılmasını engellemek için false dön
+            return false;
+          },
+          child: SafeArea(
+            child: Scaffold(
+              backgroundColor: _isDarkMode ? darkModeColors["background"] : lightModeColors["background"],
+              appBar: AppBar(
+                title: ValueListenableBuilder<int>(
+                  valueListenable: _selectedPageIndex,
+                  builder: (_, currentPageIndex, __) {
+                    // Yıldızlı kelime modu aktif olduğunda, yıldızlı kelimelerin sayısını kullan
+                    int wordCount = _showOnlyStarred ? getDisplayedWords().length : widget.words.length;
+                    return Text(
+                      'Kelime Öğren (${currentPageIndex + 1}/$wordCount)',
+                      style: GoogleFonts.roboto(color: Colors.white, fontWeight: FontWeight.bold),
+                    );
+                  },
+                ),
+                backgroundColor: Colors.teal,
+                leading: IconButton(
+                  icon: Icon(Icons.arrow_back),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+                actions: <Widget>[
+                  Builder(
+                    builder: (context) => IconButton(
+                      icon: Icon(Icons.menu),
+                      onPressed: () {
+                        Scaffold.of(context).openDrawer();
+                        setState(() {
+                          _showOnlyStarred = false;
+                        });
                       },
                     ),
                   ),
+                  IconButton(
+                    icon: Icon(_showOnlyStarred ? Icons.star : Icons.star_border),
+                    onPressed: () {
+                      setState(() {
+                        _showOnlyStarred = !_showOnlyStarred;
+                        if (_showOnlyStarred) {
+                          // Yıldızlı kelimeler listesini al
+                          List<WordDetail> starredWords = getDisplayedWords();
+                          // Eğer yıldızlı kelime varsa, ilk yıldızlı kelimenin indeksine git
+                          if (starredWords.isNotEmpty) {
+                            int firstStarredWordIndex = widget.words.indexOf(starredWords.first);
+                            _pageController.jumpToPage(firstStarredWordIndex);
+                            _selectedPageIndex.value = firstStarredWordIndex; // Sayfa indeksini güncelle
+                            // İlk yıldızlı kelimeyi seslendir
+                            speak(starredWords.first.word);
+                          }
+                        } else {
+                          // Yıldızlı kelime modu kapalıysa, ilk sayfaya dön
+                          _pageController.jumpToPage(0);
+                          _selectedPageIndex.value = 0; // Sayfa indeksini sıfırla
+                          // İlk kelimeyi seslendir
+                          if (widget.words.isNotEmpty) {
+                            speak(widget.words.first.word);
+                          }
+                        }
+                      });
+                    },
+                  ),
                 ],
-              );
-            },
-          ),
-        ),
-        body: isLoading ? Center(child: LogoLoadingIndicator()) : buildPageView(),
-      
-      ),
-    ));
+              ),
+              drawer: Drawer(
+                child: ValueListenableBuilder<int>(
+                  valueListenable: _selectedPageIndex,
+                  builder: (context, value, child) {
+                    return Column(
+                      children: [
+                        SafeArea( // SafeArea eklemesi
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: TextField(
+                              controller: _searchController, // Kontrolcüyü kullanarak kelime arama
+                              decoration: InputDecoration(
+                                hintText: 'Kelime Ara',
+                                prefixIcon: Icon(Icons.search),
+                              ),
+                              onChanged: (searchQuery) {
+                                // Kelime arama işlemini burada yapabilirsiniz
+                                filterWords(searchQuery);
+                              },
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: ListView.builder(
+                            itemCount: getDisplayedWords().length, // Yıldızlı kelimeleri filtreleyerek itemCount'u ayarlayın
+                            itemBuilder: (context, index) {
+                              WordDetail word = filteredWords[index];
+                              return ListTile(
+                                title: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        word.word,
+                                        style: TextStyle(
+                                          color: value == index ? Colors.blue : Colors.black,
+                                        ),
+                                      ),
+                                    ),
+                                    // Yıldızlı durumu göstermek için bir ikon ekleyin
+                                    ValueListenableBuilder<bool>(
+                                      valueListenable: starredNotifiers[word.id] ?? ValueNotifier(false),
+                                      builder: (_, isStarred, __) {
+                                        return Icon(
+                                          isStarred ? Icons.star : Icons.star_border, // Yıldızlı ise dolu yıldız, değilse boş yıldız ikonu
+                                          color: isStarred ? Colors.yellow : Colors.grey, // Yıldızlı ise sarı, değilse gri renk
+                                        );
+                                      },
+                                    ),
+                                  ],
+                                ),
+                                onTap: () {
+                                  Navigator.of(context).pop(true); // Drawer'ı kapat
+                                  int originalIndex = widget.words.indexOf(word);
+                                  _targetPageIndex = index;  // Hedef kelimenin indeksini ayarla
+
+                                  _pageController.animateToPage(
+                                    originalIndex,
+                                    duration: Duration(milliseconds: 500), // Sayfa geçiş süresi
+                                    curve: Curves.easeInOut, // Animasyon eğrisi
+                                  );
+                                  setState(() {
+                                    currentWordIndex = originalIndex; // Geçerli kelimenin indeksini güncelle
+                                  });
+                                },
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+              body: isLoading ? Center(child: LogoLoadingIndicator()) : buildPageView(),
+
+            ),
+          ));
   }
   Widget buildPageView() {
     List<WordDetail> displayedWords = getDisplayedWords();
@@ -407,7 +415,7 @@ class _StudyScreenState extends State<StudyScreen> {
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
-                        color: Colors.grey[800], // Metin rengi
+                        color: _isDarkMode ? darkModeColors["text"] : lightModeColors["text"], // Metin rengi
                         fontFamily: 'Roboto', // Yazı tipi
                       ),
                     ),
@@ -449,11 +457,11 @@ class _StudyScreenState extends State<StudyScreen> {
             ),
             Text(
               '${word.type}',
-              style: GoogleFonts.roboto(fontSize: 18, color: Colors.black87),
+              style: GoogleFonts.roboto(fontSize: 18, color: _isDarkMode ? darkModeColors["text"] : lightModeColors["text"]),
             ),
             Text(
               word.meaning,
-              style: GoogleFonts.roboto(fontSize: 24, color: Colors.black54),
+              style: GoogleFonts.roboto(fontSize: 24, color: _isDarkMode ? darkModeColors["text"] : lightModeColors["text"]),
             ),
             SizedBox(height: 30),
             Text(
@@ -504,7 +512,7 @@ class _StudyScreenState extends State<StudyScreen> {
           padding: const EdgeInsets.all(8.0),
           child: Text(
             term,
-            style: GoogleFonts.roboto(fontSize: 18, color: Colors.black87),
+            style: GoogleFonts.roboto(fontSize: 18, color: _isDarkMode ? darkModeColors["text"] : lightModeColors["text"]),
           ),
         ),
         Padding(
@@ -565,7 +573,7 @@ class _StudyScreenState extends State<StudyScreen> {
                   margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
                   padding: const EdgeInsets.all(10.0),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: _isDarkMode ? darkModeColors["cardBackground"] : lightModeColors["cardBackground"],
                     borderRadius: BorderRadius.circular(10.0),
                     boxShadow: [
                       BoxShadow(
@@ -580,11 +588,11 @@ class _StudyScreenState extends State<StudyScreen> {
                     leading: Icon(Icons.group_work, color: Colors.teal),
                     title: Text(
                       collocation.definition,
-                      style: GoogleFonts.roboto(fontSize: 18, fontWeight: FontWeight.bold),
+                      style: GoogleFonts.roboto(fontSize: 18, fontWeight: FontWeight.bold, color: _isDarkMode ? darkModeColors["text"] : lightModeColors["text"]),
                     ),
                     subtitle: collocation.anlam != null ? Text(
                       collocation.anlam!,
-                      style: GoogleFonts.roboto(fontSize: 16),
+                      style: GoogleFonts.roboto(fontSize: 16, color: _isDarkMode ? darkModeColors["text"] : lightModeColors["text"]),
                     ) : null,
                   ),
                 ),
@@ -634,7 +642,7 @@ class _StudyScreenState extends State<StudyScreen> {
       margin: const EdgeInsets.only(bottom: 10.0),
       padding: const EdgeInsets.all(10.0),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _isDarkMode ? darkModeColors["cardBackground"] : lightModeColors["cardBackground"],
         borderRadius: BorderRadius.circular(10.0),
         boxShadow: [
           BoxShadow(
@@ -666,11 +674,11 @@ class _StudyScreenState extends State<StudyScreen> {
                   leading: Icon(icon, color: iconColor),
                   title: Text(
                     derivation.definition,
-                    style: GoogleFonts.roboto(fontSize: 18, fontWeight: FontWeight.bold),
+                    style: GoogleFonts.roboto(fontSize: 18, fontWeight: FontWeight.bold, color: _isDarkMode ? darkModeColors["text"] : lightModeColors["text"]),
                   ),
                   subtitle: derivation.anlam != null ? Text(
                     derivation.anlam!,
-                    style: GoogleFonts.roboto(fontSize: 16),
+                    style: GoogleFonts.roboto(fontSize: 16, color: _isDarkMode ? darkModeColors["text"] : lightModeColors["text"]),
                   ) : null,
                 ),
               ),
@@ -695,7 +703,7 @@ class _StudyScreenState extends State<StudyScreen> {
                 child: Container(
                   margin: EdgeInsets.all(8.0),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: _isDarkMode ? darkModeColors["cardBackground"] : lightModeColors["cardBackground"],
                     borderRadius: BorderRadius.circular(15.0),
                     boxShadow: [
                       BoxShadow(
@@ -710,7 +718,7 @@ class _StudyScreenState extends State<StudyScreen> {
                     padding: const EdgeInsets.all(16.0),
                     child: Text(
                       sentences[index],
-                      style: GoogleFonts.roboto(fontSize: 18, color: Colors.black87),
+                      style: GoogleFonts.roboto(fontSize: 18, color: _isDarkMode ? darkModeColors["text"] : lightModeColors["text"]),
                       textAlign: TextAlign.center,
                     ),
                   ),

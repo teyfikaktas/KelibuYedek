@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/material.dart';
 import 'package:kelibu/Models/wordDetaik.dart'; // WordDetail modelinizin importu
 import 'package:kelibu/api.dart';
 import 'package:kelibu/screens/flash_card.dart'; // FlashCardScreen sayfasının importu
@@ -7,19 +6,20 @@ import 'package:kelibu/providers/user_provider.dart'; // UserProvider importu
 import 'package:provider/provider.dart';
 import 'package:kelibu/screens/quiz.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:kelibu/api.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:back_button_interceptor/back_button_interceptor.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../shared_preferences/shared_preferences.dart';
+import '../variables.dart';
 
 class CustomLoadingIndicator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
       child: SpinKitChasingDots( // Circle türündeki yükleme göstergesi
-        color: Colors.blue, // Yükleme göstergesi rengi
+        color: Theme.of(context).primaryColor, // Yükleme göstergesi rengi
         size: 50.0, // Yükleme göstergesi boyutu
       ),
     );
@@ -59,11 +59,20 @@ class _StudyScreenState extends State<StudyScreenStar> {
   Map<int, List<String>> exampleSentences = {}; // Yeni değişken
   Map<int, ValueNotifier<int>> _currentSentenceIndices = {};
   int _targetPageIndex = -1;  // Hedef kelimenin indeksini saklamak için bir değişken
+  bool _isDarkMode = false; // Dark mode durumu
+
+  Future<void> _loadDarkModePreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _isDarkMode = prefs.getBool("darkMode") ?? false;
+    });
+  }
 
   bool myInterceptor(bool stopDefaultButtonEvent, RouteInfo info) {
     _showExitConfirmationDialog();
     return true;
   }
+
   void _showExitConfirmationDialog() {
     showDialog<bool>(
       context: context,
@@ -85,6 +94,7 @@ class _StudyScreenState extends State<StudyScreenStar> {
       ),
     ).then((value) => value ?? false ? Navigator.of(context).pop(true) : null);
   }
+
   @override
   void initState() {
     super.initState();
@@ -99,6 +109,7 @@ class _StudyScreenState extends State<StudyScreenStar> {
     for (var word in widget.words) {
       _sentencePageControllers[word.id] = PageController(initialPage: 0);
     }
+    _loadDarkModePreference();
     loadExampleSentences();
 
     // İlk kelimenin seslendirilmesi için ekleme
@@ -111,6 +122,7 @@ class _StudyScreenState extends State<StudyScreenStar> {
 
   int itemsPerPage = 5; // Her seferinde yüklenecek kelime sayısı
   int currentPage = 0; // Başlangıçta yüklenecek sayfa numarası
+
   List<WordDetail> getDisplayedWords() {
     // Eğer yıldızlı kelimeleri göster seçeneği aktifse, yalnızca yıldızlı kelimelerin listesini döndür
     if (_showOnlyStarred) {
@@ -119,6 +131,7 @@ class _StudyScreenState extends State<StudyScreenStar> {
     // Değilse, tüm kelimeleri döndür
     return widget.words;
   }
+
   Future<void> loadExampleSentences() async {
     try {
       List<String> terms = widget.words.map((word) => word.word).toList();
@@ -137,6 +150,7 @@ class _StudyScreenState extends State<StudyScreenStar> {
       });
     }
   }
+
   @override
   void dispose() {
     _pageController.dispose();
@@ -149,13 +163,13 @@ class _StudyScreenState extends State<StudyScreenStar> {
 // Kontrolcüyü temizle
     super.dispose();
   }
+
   void speak(String text) async {
     print(text);
     await flutterTts.setLanguage("en-US");
     await flutterTts.awaitSpeakCompletion(true);
     await flutterTts.speak(text);
   }
-
 
   Future<void> loadStarredWords() async {
     try {
@@ -170,20 +184,18 @@ class _StudyScreenState extends State<StudyScreenStar> {
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
     return WillPopScope(
-        onWillPop: () async {
-          // Cihazın geri tuşuna basıldığında yapılacak işlem
-          Navigator.of(context).pop('true');
-          // false döndürmek geri tuşunun varsayılan işlevini engeller, true ise izin verir.
-          return true;
-        },
-       child:
-       SafeArea(
-         child: Scaffold(
-          backgroundColor: Colors.white,
+      onWillPop: () async {
+        // Cihazın geri tuşuna basıldığında yapılacak işlem
+        Navigator.of(context).pop('true');
+        // false döndürmek geri tuşunun varsayılan işlevini engeller, true ise izin verir.
+        return true;
+      },
+      child: SafeArea(
+        child: Scaffold(
+          backgroundColor: _isDarkMode ? darkModeColors["background"] : lightModeColors["background"],
           appBar: AppBar(
             title: ValueListenableBuilder<int>(
               valueListenable: _selectedPageIndex,
@@ -249,7 +261,7 @@ class _StudyScreenState extends State<StudyScreenStar> {
                                   child: Text(
                                     word.word,
                                     style: TextStyle(
-                                      color: value == index ? Colors.blue : Colors.black,
+                                      color: value == index ? Colors.blue : _isDarkMode ? darkModeColors["text"] : lightModeColors["text"],
                                     ),
                                   ),
                                 ),
@@ -281,11 +293,11 @@ class _StudyScreenState extends State<StudyScreenStar> {
             ),
           ),
           body: isLoading ? Center(child: CustomLoadingIndicator()) : buildPageView(),
-         
-             ),
-       ),
-     );
+        ),
+      ),
+    );
   }
+
   Widget buildPageView() {
     List<WordDetail> displayedWords = getDisplayedWords();
     return PageView.builder(
@@ -299,12 +311,13 @@ class _StudyScreenState extends State<StudyScreenStar> {
 
         // Yıldızlı kelimeleri göster seçeneği aktifse ve yıldızlı kelimeler varsa, yalnızca bu kelimeleri seslendir
         List<WordDetail> displayedWords = getDisplayedWords();
-        if(_showOnlyStarred && displayedWords.isNotEmpty) {
+        if (_showOnlyStarred && displayedWords.isNotEmpty) {
           if (_shouldSpeak) {
-          }if (index == _targetPageIndex) {  // Eğer hedef kelimeye ulaşıldıysa
-            _targetPageIndex = -1;  // Hedef indeksi sıfırla
-            speak(displayedWords[index].word); // Yıldızlı kelimeyi seslendir
-            _shouldSpeak = true;  // Gelecek sayfa değişiklikleri için seslendirme yeteneğini aktif et
+            if (index == _targetPageIndex) {  // Eğer hedef kelimeye ulaşıldıysa
+              _targetPageIndex = -1;  // Hedef indeksi sıfırla
+              speak(displayedWords[index].word); // Yıldızlı kelimeyi seslendir
+              _shouldSpeak = true;  // Gelecek sayfa değişiklikleri için seslendirme yeteneğini aktif et
+            }
           }
         } else if (!_showOnlyStarred) {
           if (index == _targetPageIndex) {  // Eğer hedef kelimeye ulaşıldıysa
@@ -317,11 +330,12 @@ class _StudyScreenState extends State<StudyScreenStar> {
         var userProvider = Provider.of<UserProvider>(context, listen: false);
         int currentPoints = userProvider.point; // Mevcut puanı al ve int'e çevir. Eğer çevrilemezse 0 varsay.
         userProvider.addPoint((currentPoints + 1)); // Puanı 3 artır ve güncelle.
-        await ApiService().updateUserPointTimePeriod(userProvider.userId, currentPoints,1); // API üzerinden puanı güncelleyin
+        await ApiService().updateUserPointTimePeriod(userProvider.userId, currentPoints, 1); // API üzerinden puanı güncelleyin
         _currentSentenceIndex.value = 0; // Bu satırı ekleyin.
       },
     );
   }
+
   void _toggleStarStatus() {
     starredStatusWord.value = !starredStatusWord.value;
     setState(() {
@@ -349,8 +363,7 @@ class _StudyScreenState extends State<StudyScreenStar> {
               height: 100,
               errorBuilder: (BuildContext context, Object exception, StackTrace? stackTrace) {
                 // Burada resim yüklenemediğinde gösterilecek alternatif bir resmi belirleyebilirsiniz.
-                return Image.asset('assets/logo.png',                   width: 100,
-                  height: 100,);
+                return Image.asset('assets/logo.png', width: 100, height: 100);
               },
             ),
 
@@ -381,15 +394,15 @@ class _StudyScreenState extends State<StudyScreenStar> {
                 ),
                 onPressed: () => _toggleStarDelete(word),
               )
-         ],
+            ],
           ),
           Text(
             '${word.type}',
-            style: GoogleFonts.roboto(fontSize: 18, color: Colors.black87),
+            style: GoogleFonts.roboto(fontSize: 18, color: _isDarkMode ? darkModeColors["text"] : lightModeColors["text"]),
           ),
           Text(
             word.meaning,
-            style: GoogleFonts.roboto(fontSize: 24, color: Colors.black54),
+            style: GoogleFonts.roboto(fontSize: 24, color: _isDarkMode ? darkModeColors["text"] : lightModeColors["text"]),
           ),
           SizedBox(height: 30),
           Text(
@@ -413,7 +426,6 @@ class _StudyScreenState extends State<StudyScreenStar> {
     );
   }
 
-
   void _toggleStar(WordDetail word, ValueNotifier<bool> isStarredNotifier) async {
     try {
       // API çağrısını yap
@@ -435,14 +447,13 @@ class _StudyScreenState extends State<StudyScreenStar> {
   void _toggleStarDelete(WordDetail word) {
     starredStatusWord.value = false;
     StarredWordsService().removeWordFromAllById(word.id);
-
-    }
-
+  }
 
   void _updateStarredWordCount() {
     int newCount = starredStatus.values.where((isStarred) => isStarred).length;
     animatedStarredCount.value = newCount; // Bu satırı ekledim
   }
+
   Future<List<String>> _fetchSentenceForTerm(String term) async {
     try {
       var response = await ApiService().fetchExampleSentences(term);
@@ -465,7 +476,7 @@ class _StudyScreenState extends State<StudyScreenStar> {
           padding: const EdgeInsets.all(8.0),
           child: Text(
             term,
-            style: GoogleFonts.roboto(fontSize: 18, color: Colors.black87),
+            style: GoogleFonts.roboto(fontSize: 18, color: _isDarkMode ? darkModeColors["text"] : lightModeColors["text"]),
           ),
         ),
         Padding(
@@ -478,6 +489,7 @@ class _StudyScreenState extends State<StudyScreenStar> {
       ],
     );
   }
+
   Widget buildSynonymsSection(List<Synonym> synonyms) {
     // Synonym nesnelerini 'tanim' özelliğine göre filtrele
     var uniqueSynonyms = synonyms.map((s) => s.tanim).toSet().map(
@@ -498,6 +510,7 @@ class _StudyScreenState extends State<StudyScreenStar> {
       )).toList(),
     );
   }
+
   Widget buildCollocationsSection(List<Collocation> collocations) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -526,7 +539,7 @@ class _StudyScreenState extends State<StudyScreenStar> {
                   margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
                   padding: const EdgeInsets.all(10.0),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: _isDarkMode ? darkModeColors["cardBackground"] : lightModeColors["cardBackground"],
                     borderRadius: BorderRadius.circular(10.0),
                     boxShadow: [
                       BoxShadow(
@@ -541,11 +554,11 @@ class _StudyScreenState extends State<StudyScreenStar> {
                     leading: Icon(Icons.group_work, color: Colors.teal),
                     title: Text(
                       collocation.definition,
-                      style: GoogleFonts.roboto(fontSize: 18, fontWeight: FontWeight.bold),
+                      style: GoogleFonts.roboto(fontSize: 18, fontWeight: FontWeight.bold, color: _isDarkMode ? darkModeColors["text"] : lightModeColors["text"]),
                     ),
                     subtitle: collocation.anlam != null ? Text(
                       collocation.anlam!,
-                      style: GoogleFonts.roboto(fontSize: 16),
+                      style: GoogleFonts.roboto(fontSize: 16, color: _isDarkMode ? darkModeColors["text"] : lightModeColors["text"]),
                     ) : null,
                   ),
                 ),
@@ -574,7 +587,6 @@ class _StudyScreenState extends State<StudyScreenStar> {
             "Türemeler",
             style: GoogleFonts.roboto(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.teal),
           ),
-
         ),
         if (verbs.isNotEmpty) buildDerivationList("Fiiller", verbs, Icons.run_circle, Colors.lightBlueAccent),
         if (nouns.isNotEmpty) buildDerivationList("İsimler", nouns, Icons.account_balance, Colors.amber),
@@ -595,7 +607,7 @@ class _StudyScreenState extends State<StudyScreenStar> {
       margin: const EdgeInsets.only(bottom: 10.0),
       padding: const EdgeInsets.all(10.0),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _isDarkMode ? darkModeColors["cardBackground"] : lightModeColors["cardBackground"],
         borderRadius: BorderRadius.circular(10.0),
         boxShadow: [
           BoxShadow(
@@ -627,11 +639,11 @@ class _StudyScreenState extends State<StudyScreenStar> {
                   leading: Icon(icon, color: iconColor),
                   title: Text(
                     derivation.definition,
-                    style: GoogleFonts.roboto(fontSize: 18, fontWeight: FontWeight.bold),
+                    style: GoogleFonts.roboto(fontSize: 18, fontWeight: FontWeight.bold, color: _isDarkMode ? darkModeColors["text"] : lightModeColors["text"]),
                   ),
                   subtitle: derivation.anlam != null ? Text(
                     derivation.anlam!,
-                    style: GoogleFonts.roboto(fontSize: 16),
+                    style: GoogleFonts.roboto(fontSize: 16, color: _isDarkMode ? darkModeColors["text"] : lightModeColors["text"]),
                   ) : null,
                 ),
               ),
@@ -656,7 +668,7 @@ class _StudyScreenState extends State<StudyScreenStar> {
                 child: Container(
                   margin: EdgeInsets.all(8.0),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: _isDarkMode ? darkModeColors["cardBackground"] : lightModeColors["cardBackground"],
                     borderRadius: BorderRadius.circular(15.0),
                     boxShadow: [
                       BoxShadow(
@@ -671,7 +683,7 @@ class _StudyScreenState extends State<StudyScreenStar> {
                     padding: const EdgeInsets.all(16.0),
                     child: Text(
                       sentences[index],
-                      style: GoogleFonts.roboto(fontSize: 18, color: Colors.black87),
+                      style: GoogleFonts.roboto(fontSize: 18, color: _isDarkMode ? darkModeColors["text"] : lightModeColors["text"]),
                       textAlign: TextAlign.center,
                     ),
                   ),
@@ -704,6 +716,7 @@ class _StudyScreenState extends State<StudyScreenStar> {
       ],
     );
   }
+
   void filterWords(String query) {
     setState(() {
       filteredWords = widget.words.where((word) {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import 'package:kelibu/api.dart';
 import 'package:kelibu/providers/connectivity.dart';
+import 'package:kelibu/providers/darkmodeprovider.dart';
 import 'package:kelibu/providers/socket.dart';
 import 'package:kelibu/screens/RaceScreen.dart';
 import 'package:path_provider/path_provider.dart' as path_provider;
@@ -50,6 +51,8 @@ void main() async {
       ChangeNotifierProvider(create: (context) => StarredWordsProvider()),
       ChangeNotifierProvider(create: (context) => VolumeProvider()),
       ChangeNotifierProvider(create: (context) => LanguageProvider()),
+      ChangeNotifierProvider(create: (context) => DarkModeProvider()),
+
     ],
     child: const MyApp(),
   ));
@@ -162,7 +165,7 @@ class _SplashScreenState extends State<SplashScreen> {
 }
 
 class MainScreen extends StatefulWidget {
-  const MainScreen({super.key});
+  MainScreen({super.key});
 
   @override
   _MainScreenState createState() => _MainScreenState();
@@ -174,6 +177,7 @@ Future<void> _clearSharedPreferences() async {
   print("Tüm SharedPreferences verileri silindi.");
 }
 
+
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
 
@@ -184,17 +188,13 @@ class _MainScreenState extends State<MainScreen> {
     Icons.star,
   ];
 
-  // IndexedStack yerine, sayfaların bir listesi
   final List<Widget> _pages = [
     const HomeScreen(),
     const LeaderboardPage(),
     MarketPage(),
- //   SettingsPage(),
     const StarredWordsScreen(),
-    // Diğer sayfalarınız burada listelenir
   ];
 
-  // Sayfa oluşturmak için bir yöntem
   Widget _getPage(int index) {
     return _pages[index];
   }
@@ -207,17 +207,19 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final darkModeProvider = Provider.of<DarkModeProvider>(context);
+
     return Scaffold(
-      backgroundColor: const Color(0xFFFEFAF6),
+      backgroundColor: darkModeProvider.isDarkMode ? Colors.black : const Color(0xFFFEFAF6),
       body: _getPage(_selectedIndex),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {{
+        onPressed: () {
           Navigator.of(context).push(MaterialPageRoute(
             builder: (context) => RaceScreenBuild(),
           ));
-        }},
-        child: Icon(Icons.videogame_asset,color: Colors.pink),
-        backgroundColor: Colors.white,
+        },
+        child: Icon(Icons.videogame_asset, color: Colors.pink),
+        backgroundColor: darkModeProvider.isDarkMode ? Colors.grey[850] : Colors.white,
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: AnimatedBottomNavigationBar(
@@ -225,7 +227,7 @@ class _MainScreenState extends State<MainScreen> {
         activeIndex: _selectedIndex,
         gapLocation: GapLocation.center,
         notchSmoothness: NotchSmoothness.smoothEdge,
-        backgroundColor: Colors.white,
+        backgroundColor: darkModeProvider.isDarkMode ? Colors.grey[850] : Colors.white,
         leftCornerRadius: 32,
         rightCornerRadius: 32,
         activeColor: Colors.pink,

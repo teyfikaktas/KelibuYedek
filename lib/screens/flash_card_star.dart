@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:swiping_card_deck/swiping_card_deck.dart';
 import 'package:flip_card/flip_card.dart';
 import 'package:kelibu/Models/wordDetaik.dart';
@@ -12,6 +13,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:another_flushbar/flushbar.dart';
 import 'package:auto_size_text/auto_size_text.dart';
 import 'package:back_button_interceptor/back_button_interceptor.dart';
+
+import '../variables.dart';
 class ScoreDisplay extends StatelessWidget {
   final ValueNotifier<int> userPointsNotifier; // Now expects a ValueNotifier
 
@@ -143,7 +146,7 @@ class _AnimatedProgressBarState extends State<AnimatedProgressBar>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _progressAnimation;
-  bool _isMenuOpen = false; // Menü durumunu kontrol etmek için bir değişken
+  bool _isDarkMode = false;
 
   @override
   void initState() {
@@ -162,18 +165,26 @@ class _AnimatedProgressBarState extends State<AnimatedProgressBar>
       });
 
     _animationController.forward();
+    _loadDarkModePreference();
+  }
+
+  Future<void> _loadDarkModePreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _isDarkMode = prefs.getBool("darkMode") ?? false;
+    });
   }
 
   void toggleAnimation(bool isMenuOpen) {
     setState(() {
-      _isMenuOpen = isMenuOpen;
-      if (_isMenuOpen) {
+      if (isMenuOpen) {
         _animationController.stop(); // Menü açıldığında animasyonu durdur
       } else {
         _animationController.forward(); // Menü kapandığında animasyonu devam ettir
       }
     });
   }
+
   @override
   void didUpdateWidget(AnimatedProgressBar oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -197,8 +208,10 @@ class _AnimatedProgressBarState extends State<AnimatedProgressBar>
 
   @override
   Widget build(BuildContext context) {
+    final colors = _isDarkMode ? darkModeColors : lightModeColors;
     double screenWidth = MediaQuery.of(context).size.width;
     double screenHeight = MediaQuery.of(context).size.height;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
       child: Stack(
@@ -207,9 +220,9 @@ class _AnimatedProgressBarState extends State<AnimatedProgressBar>
             width: widget.width != double.infinity
                 ? widget.width
                 : MediaQuery.of(context).size.width - 32,
-            height: screenHeight*0.02, // Yükseklik
+            height: screenHeight * 0.02, // Yükseklik
             decoration: BoxDecoration(
-              color: const Color(0xFFFFD1DC), // Açık pembe arka plan rengi
+              color: colors["progressBackground"] ?? Colors.grey, // Dark mode veya light mode arka plan rengi
               borderRadius: BorderRadius.circular(10), // Yuvarlatılmış köşeler
               boxShadow: [
                 BoxShadow(
@@ -224,8 +237,11 @@ class _AnimatedProgressBarState extends State<AnimatedProgressBar>
               widthFactor: _progressAnimation.value,
               child: Container(
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Colors.pink, Colors.purple], // İki renkli gradient
+                  gradient: LinearGradient(
+                    colors: [
+                      colors["progressForegroundStart"] ?? Colors.pink,
+                      colors["progressForegroundEnd"] ?? Colors.purple
+                    ], // Dark mode veya light mode gradient renkleri
                     begin: Alignment.centerLeft,
                     end: Alignment.centerRight,
                   ),
@@ -242,7 +258,7 @@ class _AnimatedProgressBarState extends State<AnimatedProgressBar>
                 children: [
                   Text(
                     "${widget.currentIndex}/${widget.total}",
-                    style: const TextStyle(color: Colors.white),
+                    style: TextStyle(color: colors["text"] ?? Colors.black), // Dark mode veya light mode metin rengi
                   ),
                   // Diğer widget'lar veya boş bir widget olabilir
                 ],
@@ -297,53 +313,59 @@ class CustomProgressBar extends StatelessWidget {
   }
 }
 class MyVolumeControl extends StatefulWidget {
-  const MyVolumeControl({super.key});
+  const MyVolumeControl({Key? key}) : super(key: key);
 
   @override
   MyVolumeControlState createState() => MyVolumeControlState();
 }
 
 class MyVolumeControlState extends State<MyVolumeControl> {
+  bool _isDarkMode = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDarkModePreference();
+  }
+
+  Future<void> _loadDarkModePreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() => _isDarkMode = prefs.getBool("darkMode") ?? false);
+  }
+
   @override
   Widget build(BuildContext context) {
-    // VolumeProvider'dan bir örnek al
     final volumeProvider = Provider.of<VolumeProvider>(context);
+    final colors = _isDarkMode ? darkModeColors : lightModeColors;
 
     return IconButton(
       icon: Icon(
-        // VolumeProvider üzerinden isVolumeOn özelliğine eriş
         volumeProvider.isVolumeOn ? Icons.volume_up : Icons.volume_off,
-        color: Colors.pink,
+        color: colors["inputBackground"],
       ),
-      onPressed: () {
-        volumeProvider.toggleVolume();
-        showCustomFlushbar(
-            context,
-            volumeProvider.isVolumeOn ? "Ses açıldı" : "Ses kapandı"
-        );
-      },
+      onPressed: () => _toggleVolume(volumeProvider, context),
     );
   }
 
-  void showCustomFlushbar(BuildContext context, String message) {
+  void _toggleVolume(VolumeProvider volumeProvider, BuildContext context) {
+    volumeProvider.toggleVolume();
+    _showCustomFlushbar(
+        context,
+        volumeProvider.isVolumeOn ? "Ses açıldı" : "Ses kapandı"
+    );
+  }
+
+  void _showCustomFlushbar(BuildContext context, String message) {
     Flushbar(
       message: message,
-      icon: Image.asset(
-        'assets/logo.png',
-        width: 56.0,
-        height: 56.0,
-      ),
+      icon: Image.asset('assets/logo.png', width: 56.0, height: 56.0),
       duration: const Duration(seconds: 3),
       flushbarPosition: FlushbarPosition.TOP,
       backgroundColor: Colors.blueGrey[100]!,
       margin: const EdgeInsets.all(8),
       borderRadius: BorderRadius.circular(8),
       boxShadows: const [
-        BoxShadow(
-          color: Colors.black45,
-          offset: Offset(3, 3),
-          blurRadius: 3,
-        ),
+        BoxShadow(color: Colors.black45, offset: Offset(3, 3), blurRadius: 3),
       ],
       forwardAnimationCurve: Curves.easeInOutCubic,
       reverseAnimationCurve: Curves.easeInOutCubic,
@@ -356,6 +378,7 @@ class CardImage extends StatelessWidget {
   final String imageUrl;
   final ValueNotifier<bool> isVisibleNotifier;
   final bool isImageShow;
+  final Color backgroundColor; // Yeni parametre
 
   const CardImage({
     Key? key,
@@ -363,6 +386,7 @@ class CardImage extends StatelessWidget {
     required this.imageUrl,
     required this.isVisibleNotifier,
     required this.isImageShow,
+    required this.backgroundColor, // Yeni parametre
   }) : super(key: key);
 
   @override
@@ -370,50 +394,51 @@ class CardImage extends StatelessWidget {
     return ValueListenableBuilder<bool>(
       valueListenable: isVisibleNotifier,
       builder: (context, isVisible, child) {
-        return Stack(
-          alignment: Alignment.center,
-          children: <Widget>[
-            if (isImageShow)
-              AnimatedOpacity(
-                opacity: isVisible ? 1.0 : 0.0,
-                duration: const Duration(milliseconds: 500),
-                child: SizedBox(
-                  width: double.infinity,
-                  height: MediaQuery.of(context).size.width * 0.7,
-                  child:             Image.network(
-                    imageUrl,
-                    width: 100,
-                    height: 100,
-                    errorBuilder: (BuildContext context, Object exception, StackTrace? stackTrace) {
-                      // Burada resim yüklenemediğinde gösterilecek alternatif bir resmi belirleyebilirsiniz.
-                      return Image.asset('assets/logo.png',                   width: 100,
-                        height: 100,);
-                    },
+        return Container(
+          color: backgroundColor, // Arka plan rengini burada ayarlıyoruz
+          child: Stack(
+            alignment: Alignment.center,
+            children: <Widget>[
+              if (isImageShow)
+                AnimatedOpacity(
+                  opacity: isVisible ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 500),
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: MediaQuery.of(context).size.width * 0.7,
+                    child: Image.network(
+                      imageUrl,
+                      width: 100,
+                      height: 100,
+                      errorBuilder: (BuildContext context, Object exception, StackTrace? stackTrace) {
+                        // Burada resim yüklenemediğinde gösterilecek alternatif bir resmi belirleyebilirsiniz.
+                        return Image.asset('assets/logo.png', width: 100, height: 100);
+                      },
+                    ),
+                  ),
+                ),
+              Positioned(
+                bottom: 20,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  color: Colors.white.withOpacity(0.7),
+                  width: MediaQuery.of(context).size.width * 0.7,
+                  child: AutoSizeText(
+                    text,
+                    style: TextStyle(
+                      fontSize: MediaQuery.of(context).size.width * 0.03, // Başlangıç font büyüklüğü
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                    textAlign: TextAlign.center,
+                    minFontSize: 8, // Minimum font büyüklüğü
+                    maxLines: 5, // Maksimum satır sayısı
+                    overflow: TextOverflow.ellipsis, // Taşma durumunda nasıl davranılacağı
                   ),
                 ),
               ),
-            Positioned(
-              bottom: 20,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                color: Colors.white.withOpacity(0.7),
-                width: MediaQuery.of(context).size.width * 0.7,
-                child: AutoSizeText(
-                  text,
-                  style: TextStyle(
-                    fontSize: MediaQuery.of(context).size.width * 0.03, // Başlangıç font büyüklüğü
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                  textAlign: TextAlign.center,
-                  minFontSize: 8, // Minimum font büyüklüğü
-                  maxLines:5, // Maksimum satır sayısı
-                  overflow: TextOverflow.ellipsis, // Taşma durumunda nasıl davranılacağı
-                ),
-              ),
-
-            ),
-          ],
+            ],
+          ),
         );
       },
     );
@@ -458,14 +483,15 @@ class _FlashCardStarScreenState extends State<FlashCardStarScreen> with SingleTi
   int userID= 2;
   late UserProvider userProvider;
   ValueNotifier<int> pointValueNotife = ValueNotifier(0);
+  bool _isDarkMode = false;
 
   Future<void> onCardSwiped() async {
     int newPoint = userProvider.point;
 
-    newPoint += 3; // Örnek olarak 3 puan ekleyin
-    pointValueNotife.value +=3;
+    newPoint += 1; // Örnek olarak 3 puan ekleyin
+    pointValueNotife.value +=1;
 
-    await ApiService().updateUserPointTimePeriod(userProvider.userId, newPoint,3); // API üzerinden puanı güncelleyin
+    await ApiService().updateUserPointTimePeriod(userProvider.userId, newPoint,1); // API üzerinden puanı güncelleyin
     userProvider.addPoint(newPoint); // UserProvider'daki puanı güncelleyin
 
   }
@@ -475,6 +501,12 @@ class _FlashCardStarScreenState extends State<FlashCardStarScreen> with SingleTi
   bool myInterceptor(bool stopDefaultButtonEvent, RouteInfo info) {
     _showExitConfirmationDialog();
     return true;
+  }
+  Future<void> _loadDarkModePreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _isDarkMode = prefs.getBool("darkMode") ?? false;
+    });
   }
   void _showExitConfirmationDialog() {
     showDialog<bool>(
@@ -512,6 +544,7 @@ class _FlashCardStarScreenState extends State<FlashCardStarScreen> with SingleTi
       }
     });
     _loadStarredStatus();
+    _loadDarkModePreference();
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 500),
@@ -664,6 +697,9 @@ class _FlashCardStarScreenState extends State<FlashCardStarScreen> with SingleTi
 
   @override
   Widget build(BuildContext context) {
+
+    final colors = _isDarkMode ? darkModeColors : lightModeColors;
+
     userProvider = Provider.of<UserProvider>(context, listen: false);
     // Card listesi oluşturma
     List<Card> cardDeck = widget.words.map((word) {
@@ -678,13 +714,13 @@ class _FlashCardStarScreenState extends State<FlashCardStarScreen> with SingleTi
             return false;
           },
           child: Scaffold(
-            backgroundColor: const Color(0xFFFEFAF6), // Arka plan rengini burada ayarlayın
+            backgroundColor: colors["background"], // Arka plan rengini burada ayarlayın
 
             appBar: AppBar(
-              backgroundColor: const Color(0xFFFEFAF6), // Arka plan rengini burada ayarlayın
+              backgroundColor: colors["background"], // Arka plan rengini burada ayarlayın
 
               leading: IconButton(
-                icon: const Icon(Icons.arrow_back),
+                icon: Icon(Icons.arrow_back_ios,color: colors["text"]),
                 onPressed: () => Navigator.of(context).pop(),
               ),
               actions: [
@@ -722,7 +758,7 @@ class _FlashCardStarScreenState extends State<FlashCardStarScreen> with SingleTi
                         // Menü
                         Container(
                           decoration: BoxDecoration(
-                            color: const Color(0xFFFADADD), // Pastel pembe arka plan
+                            color: colors["borderColor"], // Pastel pembe arka plan
                             borderRadius: BorderRadius.circular(30.0), // Yuvarlak köşeler
                             boxShadow: [
                               BoxShadow(
@@ -743,7 +779,7 @@ class _FlashCardStarScreenState extends State<FlashCardStarScreen> with SingleTi
                                   return IconButton(
                                     icon: Icon(
                                       value ? Icons.visibility : Icons.visibility_off,
-                                      color: Colors.pink,
+                                      color: colors["text"],
                                     ),
                                     onPressed: () {
                                       isVisibilityOn.value = !value;
@@ -761,7 +797,7 @@ class _FlashCardStarScreenState extends State<FlashCardStarScreen> with SingleTi
                                 child: IconButton(
                                   icon: Icon(
                                     isShuffled ? Icons.sort : Icons.shuffle,
-                                    color: Colors.pink,
+                                    color: colors["text"],
                                   ),
                                   onPressed: () {
                                     setState(() {
@@ -791,7 +827,7 @@ class _FlashCardStarScreenState extends State<FlashCardStarScreen> with SingleTi
                                         languageProvider.isEnglish
                                             ? Icons.language
                                             : Icons.translate,
-                                        color: Colors.pink,
+                                        color: colors["inputBackground"],
                                       ),
                                       onPressed: () {
                                         languageProvider.toggleLanguage();
@@ -812,7 +848,7 @@ class _FlashCardStarScreenState extends State<FlashCardStarScreen> with SingleTi
                               ),
                               // Beşinci IconButton
                               IconButton(
-                                icon: const Icon(Icons.hearing, color: Colors.pink,),
+                                icon:  Icon(Icons.hearing,color: colors["inputBackground"],),
                                 onPressed: () {
                                   _speak();
                                 },
@@ -879,6 +915,8 @@ class _FlashCardStarScreenState extends State<FlashCardStarScreen> with SingleTi
   }
 
   Card _buildCard(String? type,String englishWord, String turkishWord, String? imageUrl, int wordId, WordDetail word, GlobalKey<FlipCardState> cardKey) {
+    final colors = _isDarkMode ? darkModeColors : lightModeColors;
+
     String fullImageUrl = imageUrl != null
         ? "https://cloud.phdakademi.com/uploads/kelibu.net/$imageUrl"
         : "https://kelibu.net/images/defaultimage.png";
@@ -919,6 +957,7 @@ class _FlashCardStarScreenState extends State<FlashCardStarScreen> with SingleTi
                     front: Consumer<LanguageProvider>(
                       builder: (context, languageProvider, child) =>
                           CardImage(
+                              backgroundColor: colors["borderColor"]!,
                               text: languageProvider.isEnglish ? englishWord : turkishWord,
                               imageUrl: fullImageUrl,
                               isVisibleNotifier: isVisibilityOn,
@@ -932,6 +971,7 @@ class _FlashCardStarScreenState extends State<FlashCardStarScreen> with SingleTi
                             alignment: Alignment.center,
                             children: <Widget>[
                               CardImage(
+                                  backgroundColor: colors["borderColor"]!,
                                   text: languageProvider.isEnglish ? turkishWord : englishWord,
                                   imageUrl: fullImageUrl,
                                   isVisibleNotifier: isVisibilityOn,

@@ -1,5 +1,4 @@
 import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -10,7 +9,7 @@ import 'package:kelibu/Models/user.dart';
 import 'package:getwidget/getwidget.dart';
 import 'package:auto_size_text/auto_size_text.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
+import '../variables.dart';
 import 'loadingIndicator.dart';
 
 class LeaderboardPage extends StatefulWidget {
@@ -33,6 +32,7 @@ class _LeaderboardPageState extends State<LeaderboardPage> with SingleTickerProv
   final TextEditingController _groupCodeController = TextEditingController(); // Controller for the group code text field
   bool _showGroupSettingsHint = false; // To control the visibility of the hint pop-up
   bool _isGroupEmpty = false; // To check if group is empty
+  bool _isDarkMode = false; // To control dark mode
 
   @override
   void initState() {
@@ -42,6 +42,7 @@ class _LeaderboardPageState extends State<LeaderboardPage> with SingleTickerProv
     _loadData('all_time');
     _initPreferences();
     _checkFirstTime();
+    _loadDarkModePreference(); // Load dark mode preference
   }
 
   Future<void> _initPreferences() async {
@@ -53,6 +54,13 @@ class _LeaderboardPageState extends State<LeaderboardPage> with SingleTickerProv
       });
       _loadData(_code!);
     }
+  }
+
+  Future<void> _loadDarkModePreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _isDarkMode = prefs.getBool("darkMode") ?? false;
+    });
   }
 
   Future<void> _checkFirstTime() async {
@@ -173,22 +181,41 @@ class _LeaderboardPageState extends State<LeaderboardPage> with SingleTickerProv
     });
   }
 
+  void _toggleGroupMode(bool isGroupMode) async {
+    setState(() {
+      _isGroupMode = isGroupMode;
+    });
+    _loadData('all_time');
+  }
+
+  Future<void> _toggleDarkMode(bool isDarkMode) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool("darkMode", isDarkMode);
+    setState(() {
+      _isDarkMode = isDarkMode;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    final colors = _isDarkMode ? darkModeColors : lightModeColors;
+
     return SafeArea(
       child: Scaffold(
-        backgroundColor: const Color(0xFFFEFAF6),
+        backgroundColor: colors["background"],
         appBar: AppBar(
-          backgroundColor: const Color(0xFFFEFAF6),
+          backgroundColor: colors["background"],
           title: Text(
             'Liderlik Tablosu',
             style: GoogleFonts.poppins(
-              color: Colors.pink,
+              color: colors["text"],
               fontWeight: FontWeight.bold,
             ),
           ),
           bottom: TabBar(
             controller: _tabController,
+            labelColor: colors["text"],
+            unselectedLabelColor: colors["unselectedText"],
             tabs: const [
               Tab(text: 'Tümü'),
               Tab(text: 'Günlük'),
@@ -200,14 +227,7 @@ class _LeaderboardPageState extends State<LeaderboardPage> with SingleTickerProv
             Switch(
               value: _isGroupMode,
               onChanged: (value) {
-                setState(() {
-                  _isGroupMode = value;
-                  if (_isGroupMode && _code != null) {
-                    _loadData(_code!);
-                  } else {
-                    _loadData('all_time');
-                  }
-                });
+                _toggleGroupMode(value);
               },
               activeColor: Colors.pink,
               inactiveThumbColor: Colors.grey,
@@ -250,7 +270,7 @@ class _LeaderboardPageState extends State<LeaderboardPage> with SingleTickerProv
                                     borderRadius: BorderRadius.circular(12.0),
                                   ),
                                   filled: true,
-                                  fillColor: Colors.white,
+                                  fillColor: colors["inputBackground"],
                                   prefixIcon: Icon(Icons.group, color: Colors.pink),
                                 ),
                               ),
@@ -286,7 +306,7 @@ class _LeaderboardPageState extends State<LeaderboardPage> with SingleTickerProv
                             child: Text(
                               'Bir gruptasınız: $_code',
                               style: TextStyle(
-                                color: Colors.black54,
+                                color: colors["text"],
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -316,10 +336,10 @@ class _LeaderboardPageState extends State<LeaderboardPage> with SingleTickerProv
                   child: TabBarView(
                     controller: _tabController,
                     children: [
-                      LeaderboardList(timePeriod: 'all_time', code: _isGroupMode ? _code : "", scrollController: _scrollController),
-                      LeaderboardList(timePeriod: 'daily', code: _isGroupMode ? _code : "", scrollController: _scrollController),
-                      LeaderboardList(timePeriod: 'weekly', code: _isGroupMode ? _code : "", scrollController: _scrollController),
-                      LeaderboardList(timePeriod: 'monthly', code: _isGroupMode ? _code : "", scrollController: _scrollController),
+                      LeaderboardList(timePeriod: 'all_time', code: _isGroupMode ? _code : "", scrollController: _scrollController, isDarkMode: _isDarkMode),
+                      LeaderboardList(timePeriod: 'daily', code: _isGroupMode ? _code : "", scrollController: _scrollController, isDarkMode: _isDarkMode),
+                      LeaderboardList(timePeriod: 'weekly', code: _isGroupMode ? _code : "", scrollController: _scrollController, isDarkMode: _isDarkMode),
+                      LeaderboardList(timePeriod: 'monthly', code: _isGroupMode ? _code : "", scrollController: _scrollController, isDarkMode: _isDarkMode),
                     ],
                   ),
                 ),
@@ -329,7 +349,7 @@ class _LeaderboardPageState extends State<LeaderboardPage> with SingleTickerProv
               Center(
                 child: Text(
                   'Grubunuz bulunmamaktadır, lütfen bir grup ekleyin.',
-                  style: TextStyle(color: Colors.black54, fontSize: 16, fontWeight: FontWeight.bold),
+                  style: TextStyle(color: colors["text"], fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ),
             if (_showGroupSettingsHint)
@@ -371,7 +391,7 @@ class _LeaderboardPageState extends State<LeaderboardPage> with SingleTickerProv
         ),
         bottomSheet: userRank != null && _isUserRankComputed
             ? Container(
-          color: Colors.blueGrey[100],
+          color: colors["bottomSheetBackground"],
           height: 50,
           child: Center(
             child: Text(
@@ -379,7 +399,7 @@ class _LeaderboardPageState extends State<LeaderboardPage> with SingleTickerProv
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 16,
-                color: Colors.black54,
+                color: colors["bottomSheetText"],
               ),
             ),
           ),
@@ -394,11 +414,13 @@ class LeaderboardList extends StatelessWidget {
   final String timePeriod;
   final String? code;
   final ScrollController scrollController;
+  final bool isDarkMode;
 
-  const LeaderboardList({Key? key, required this.timePeriod, this.code, required this.scrollController}) : super(key: key);
+  const LeaderboardList({Key? key, required this.timePeriod, this.code, required this.scrollController, required this.isDarkMode}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    final colors = isDarkMode ? darkModeColors : lightModeColors;
     Future<List<User>> users = ApiService().fetchUsersNew(code ?? "", timePeriod);
 
     return FutureBuilder<List<User>>(
@@ -407,7 +429,7 @@ class LeaderboardList extends StatelessWidget {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Center(child: const LogoLoadingIndicator());
         } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const Text('No data available');
+          return const Text('No data available', style: TextStyle(color: Colors.grey));
         } else {
           return AnimationLimiter(
             child: ListView.builder(
@@ -420,7 +442,7 @@ class LeaderboardList extends StatelessWidget {
                   child: SlideAnimation(
                     verticalOffset: 50.0,
                     child: FadeInAnimation(
-                      child: _buildUserTile(snapshot.data![index], index + 1),
+                      child: _buildUserTile(snapshot.data![index], index + 1, colors, isDarkMode),
                     ),
                   ),
                 );
@@ -432,8 +454,8 @@ class LeaderboardList extends StatelessWidget {
     );
   }
 
-  Widget _buildUserTile(User user, int rank) {
-    Color backgroundColor = _getBackgroundColorForRank(rank);
+  Widget _buildUserTile(User user, int rank, Map<String, Color> colors, bool isDarkMode) {
+    Color? backgroundColor = _getBackgroundColorForRank(rank, colors, isDarkMode);
 
     Widget rankIndicator = _getRankIndicator(rank);
 
@@ -460,14 +482,20 @@ class LeaderboardList extends StatelessWidget {
           Expanded(
             child: AutoSizeText(
               user.name,
-              style: TextStyle(fontWeight: FontWeight.bold),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: (rank <= 3 && isDarkMode) ? Colors.black : colors["text"],
+              ),
               minFontSize: 10,
               maxLines: 1,
             ),
           ),
           AutoSizeText(
             '$cityInfo, $teamInfo',
-            style: TextStyle(fontSize: 12),
+            style: TextStyle(
+              fontSize: 12,
+              color: (rank <= 3 && isDarkMode) ? Colors.black : colors["text"],
+            ),
             minFontSize: 10,
             maxLines: 1,
           ),
@@ -475,7 +503,11 @@ class LeaderboardList extends StatelessWidget {
       ),
       subTitle: AutoSizeText(
         '${user.point} Points',
-        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        style: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.bold,
+          color: (rank <= 3 && isDarkMode) ? Colors.black : colors["text"],
+        ),
         minFontSize: 12,
         maxLines: 1,
       ),
@@ -485,16 +517,29 @@ class LeaderboardList extends StatelessWidget {
     );
   }
 
-  Color _getBackgroundColorForRank(int rank) {
-    switch (rank) {
-      case 1:
-        return Colors.yellow[100]!;
-      case 2:
-        return Colors.grey[100]!;
-      case 3:
-        return Colors.brown[100]!;
-      default:
-        return Colors.white;
+  Color? _getBackgroundColorForRank(int rank, Map<String, Color> colors, bool isDarkMode) {
+    if (isDarkMode) {
+      switch (rank) {
+        case 1:
+          return Colors.yellow[800]!;
+        case 2:
+          return Colors.grey[800]!;
+        case 3:
+          return Colors.brown[800]!;
+        default:
+          return colors["background"];
+      }
+    } else {
+      switch (rank) {
+        case 1:
+          return Colors.yellow[100]!;
+        case 2:
+          return Colors.grey[100]!;
+        case 3:
+          return Colors.brown[100]!;
+        default:
+          return colors["background"];
+      }
     }
   }
 
@@ -502,7 +547,7 @@ class LeaderboardList extends StatelessWidget {
     if (rank <= 3) {
       return Icon(
         Icons.emoji_events,
-        color: rank == 1 ? Colors.yellow : rank == 2 ? Colors.grey : Colors.brown,
+        color: rank == 1 ? Colors.yellow : rank == 2 ? Colors.grey : rank == 3 ? Colors.brown : Colors.black,
         size: 16,
       );
     } else {

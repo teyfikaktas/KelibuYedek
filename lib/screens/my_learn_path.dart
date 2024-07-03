@@ -1,22 +1,18 @@
-import 'dart:io';
 import 'dart:math';
-
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:kelibu/Models/wordDetaik.dart';
 import 'package:provider/provider.dart';
-import '../Models/category.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../Models/wordDetaik.dart';
 import '../providers/user_provider.dart';
-import '../shared_preferences/shared_preferences.dart';
-import 'flashy_tab_bar2.dart'; // FlashyTabBar dosyanızın yolu
-import 'package:kelibu/api.dart'; // ApiService dosyanızın yolu
-import 'package:kelibu/screens/WordListScreen.dart';
+import 'package:kelibu/api.dart';
 import 'package:kelibu/screens/study_screen_star.dart';
+import '../shared_preferences/shared_preferences.dart';
+import '../variables.dart';
 import 'game_screen_star.dart';
 import 'loadingIndicator.dart';
-import 'study_screen.dart'; // StudyScreen'i içe aktar
 import 'package:flutter_tts/flutter_tts.dart';
-import 'package:google_fonts/google_fonts.dart'; // Google Fonts'u import edin
+import 'package:google_fonts/google_fonts.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class CustomCircleAvatar extends StatelessWidget {
   final String? imageUrl;
@@ -30,38 +26,11 @@ class CustomCircleAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<bool>(
-      future: _checkImageUrl(imageUrl),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.done) {
-          if (snapshot.hasError || !(snapshot.data ?? false)) {
-            return CircleAvatar(
-              backgroundImage: AssetImage(assetImagePath),
-            );
-          } else {
-            return CircleAvatar(
-              backgroundImage: NetworkImage(imageUrl!),
-            );
-          }
-        } else {
-          return CircleAvatar(
-            backgroundImage: AssetImage(assetImagePath),
-          );
-        }
-      },
+    return CircleAvatar(
+      backgroundImage: imageUrl != null && imageUrl!.isNotEmpty
+          ? CachedNetworkImageProvider(imageUrl!)
+          : AssetImage(assetImagePath) as ImageProvider,
     );
-  }
-
-  Future<bool> _checkImageUrl(String? url) async {
-    if (url == null || url.isEmpty) return false;
-    try {
-      final httpClient = HttpClient();
-      final request = await httpClient.getUrl(Uri.parse(url));
-      final response = await request.close();
-      return response.statusCode == 200;
-    } catch (e) {
-      return false;
-    }
   }
 }
 
@@ -77,27 +46,36 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
   List<WordDetail> words = [];
   List<WordDetail> filteredWords = [];
   TextEditingController searchController = TextEditingController();
-  bool isLoading = true; // Yükleme durumunu takip etmek için
+  bool isLoading = true;
   late StarredWordsService _starredWordsService;
-  var starredWordsList = "";
   late List<WordDetail> wordDetails;
-  var starredWordsSet = "";
   String starredWordsString = "";
   final FlutterTts flutterTts = FlutterTts();
+  bool _isDarkMode = false;
 
   @override
   void initState() {
     super.initState();
-    _starredWordsService = StarredWordsService(); // StarredWordsService nesnesini başlat
+    _starredWordsService = StarredWordsService();
+    WidgetsBinding.instance.addObserver(this);
+    _initialize();
+  }
 
-    WidgetsBinding.instance.addObserver(this); // Observer'ı ekleyin
-    print('starwords');
-    fetchWords();
+  Future<void> _initialize() async {
+    await _loadDarkModePreference();
+    await fetchWords();
+  }
+
+  Future<void> _loadDarkModePreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _isDarkMode = prefs.getBool("darkMode") ?? false;
+    });
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this); // Observer'ı kaldırın
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
@@ -105,76 +83,60 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.resumed) {
-      // Sayfa odaklandığında (aktif hale geldiğinde) verileri yeniden yükle
-      setState(() {
-        isLoading = true; // Yükleme durumunu true yap
-      });
-      fetchWords().then((_) {
-        // Asenkron işlem tamamlandığında isLoading'i güncelle
-        if (mounted) {
-          setState(() {
-            isLoading = false;
-          });
-        }
-      }).catchError((error) {
-        // Hata durumunda da isLoading'i güncelle
-        if (mounted) {
-          setState(() {
-            isLoading = false;
-          });
-        }
-      });
+      fetchWords();
     }
   }
 
   Future<void> fetchWords() async {
-    UserProvider userProvider = Provider.of<UserProvider>(context, listen: false);
-    int userId = userProvider.userId;
-    var starredWordsSet = await _starredWordsService.loadAllStarredWordsAll(); // Yıldızlı kelimelerin setini çek
-    print('starredWordsSet');
-    var starredWordsList = starredWordsSet.toList(); // Set'i liste haline getir
-    starredWordsString = starredWordsList.join(', '); // Listeyi virgülle ayrılmış string'e çevir
+    setState(() {
+      isLoading = true;
+    });
+    try {
+      UserProvider userProvider = Provider.of<UserProvider>(context, listen: false);
+      var starredWordsSet = await _starredWordsService.loadAllStarredWordsAll();
+      var starredWordsList = starredWordsSet.toList(); // Set'i List'e dönüştürme
+      starredWordsString = starredWordsList.join(', ');
 
-    print(starredWordsString);
-    // Kelime ID'lerini yazdır
-    var wordIds = starredWordsList.map((word) => word).toList(); // Kelime ID'lerini listele
-    print("Yüklenen yıldızlı kelime ID'leri: $wordIds"); // ID'leri yazdır
-
-    wordDetails = await ApiService().fetchWordsDetail(starredWordsList); // Detayları API'den çek
-    if (mounted) {
+      wordDetails = await ApiService().fetchWordsDetail(starredWordsList);
       setState(() {
         words = wordDetails;
         filteredWords = wordDetails;
-        isLoading = false; // Veriler yüklendikten sonra yükleme durumunu false yap
+        isLoading = false;
+      });
+    } catch (error) {
+      setState(() {
+        isLoading = false;
       });
     }
   }
 
   void filterWords(String query) {
-    if (query.isNotEmpty) {
-      List<WordDetail> tempList = words.where((word) => word.word.toLowerCase().contains(query.toLowerCase())).toList();
-      setState(() => filteredWords = tempList);
-    } else {
-      setState(() => filteredWords = words);
-    }
+    setState(() {
+      filteredWords = query.isNotEmpty
+          ? words.where((word) => word.word.toLowerCase().contains(query.toLowerCase())).toList()
+          : words;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    final colors = _isDarkMode ? darkModeColors : lightModeColors;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFFEFAF6),
+      backgroundColor: colors["background"]!,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: colors["background"]!,
         title: Text(
           'Yıldızlı Kelimelerim',
           style: GoogleFonts.poppins(
-            color: Colors.pink,
+            color: colors["text"]!,
             fontWeight: FontWeight.bold,
           ),
         ),
         actions: [
           IconButton(
             icon: Icon(isPageView ? Icons.view_list : Icons.dashboard),
+            color: colors["text"]!,
             onPressed: () {
               setState(() {
                 isPageView = !isPageView;
@@ -187,7 +149,7 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
           ),
         ],
         iconTheme: IconThemeData(
-          color: Colors.pink,
+          color: colors["text"]!,
         ),
       ),
       body: isLoading
@@ -196,29 +158,41 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
         children: [
           if (isPageView)
             Padding(
-              padding: const EdgeInsets.all(8.0),
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
               child: TextField(
                 controller: searchController,
                 decoration: InputDecoration(
                   labelText: "Ara",
                   hintText: "Kelime ara...",
-                  prefixIcon: Icon(Icons.search),
+                  prefixIcon: Icon(Icons.search, color: colors["text"]!),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.all(Radius.circular(25.0)),
+                    borderSide: BorderSide(color: colors["cardBorder"]!, width: 1.5),
                   ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(25.0)),
+                    borderSide: BorderSide(color: colors["cardBorder"]!, width: 1.5),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(25.0)),
+                    borderSide: BorderSide(color: colors["background"]!, width: 2.0),
+                  ),
+                  fillColor: colors["inputBackground"],
+                  filled: true,
+                  hintStyle: TextStyle(color: colors["unselectedText"]),
                 ),
                 onChanged: filterWords,
+                style: TextStyle(color: colors["text"]),
               ),
             ),
           Expanded(
-            child: isPageView ? buildListView() : buildPageView(),
+            child: isPageView ? buildListView(colors) : buildPageView(colors),
           ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        heroTag: 'floating_button_${Random().nextInt(1000)}', // Benzersiz bir etiket verin
+        heroTag: 'floating_button_${Random().nextInt(1000)}',
         onPressed: () {
-          print(starredWordsString);
           Navigator.of(context).push(MaterialPageRoute(
             builder: (context) => GameModeStarScreen(
               studySetName: starredWordsString,
@@ -229,33 +203,30 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
         },
         child: Icon(
           Icons.videogame_asset,
-          size: 30,  // İkonun boyutunu artır
+          size: 30,
         ),
-        backgroundColor: Colors.pink,  // Arka plan rengini değiştir
-        foregroundColor: Colors.white,  // İkon ve yazı rengini beyaz yap
+        backgroundColor: colors["buttonBackground"],
+        foregroundColor: colors["buttonText"],
         tooltip: 'Yıldızlı Kelimelere Çalış',
-        elevation: 8.0,  // Gölge miktarını artır
+        elevation: 8.0,
         shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15.0)  // Kenarları yuvarlat
+          borderRadius: BorderRadius.circular(15.0),
         ),
       ),
     );
   }
 
-  Widget buildPageView() {
-    // Sayfa görünümü widget'ı
+  Widget buildPageView(Map<String, Color> colors) {
     return PageView.builder(
       itemCount: words.length,
       itemBuilder: (context, index) {
         final word = words[index];
-        // Sayfa görünümü için widget oluşturma
-        return buildWordCard(word, index);
+        return buildWordCard(word, index, colors);
       },
     );
   }
 
-  Widget buildListView() {
-    // Liste görünümü widget'ı
+  Widget buildListView(Map<String, Color> colors) {
     return ListView.builder(
       itemCount: filteredWords.length,
       itemBuilder: (context, index) {
@@ -265,8 +236,14 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
             imageUrl: word.image != null ? "https://cloud.phdakademi.com/uploads/kelibu.net/${word.image}" : "",
             assetImagePath: "assets/logo.png",
           ),
-          title: Text(word.word, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-          subtitle: Text(word.meaning),
+          title: Text(
+            word.word,
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: colors["text"]),
+          ),
+          subtitle: Text(
+            word.meaning,
+            style: TextStyle(color: colors["text"]),
+          ),
           onTap: () {
             Navigator.of(context).push(
               MaterialPageRoute(
@@ -277,9 +254,7 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
                 ),
               ),
             ).then((value) {
-              // Eğer pop işlemi sırasında bir değer döndürüldüyse (örneğin, kullanıcı bir işlem yaptıysa), sayfanın durumunu güncelleyin
               if (value != null) {
-                print('geri döndü,');
                 fetchWords();
               }
             });
@@ -293,32 +268,40 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
     await flutterTts.speak(text);
   }
 
-  Widget buildWordCard(WordDetail word, int index) {
+  Widget buildWordCard(WordDetail word, int index, Map<String, Color> colors) {
     try {
-      // Kart görünümü için widget
       return Hero(
-        tag: 'word_card_$index', // Benzersiz bir etiket verin
+        tag: 'word_card_$index',
         child: Card(
           margin: EdgeInsets.all(8),
+          color: colors["cardBackground"],
           child: Column(
             children: [
               Expanded(
-                child: Image.network(
-                  word.image != null ? "https://cloud.phdakademi.com/uploads/kelibu.net/${word.image}" : "https://kelibu.net/images/defaultimage.png",
+                child: CachedNetworkImage(
+                  imageUrl: word.image != null ? "https://cloud.phdakademi.com/uploads/kelibu.net/${word.image}" : "https://kelibu.net/images/defaultimage.png",
                   fit: BoxFit.cover,
+                  placeholder: (context, url) => CircularProgressIndicator(),
+                  errorWidget: (context, url, error) => Icon(Icons.error),
                 ),
               ),
               Padding(
                 padding: const EdgeInsets.all(8.0),
-                child: Text(word.word, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                child: Text(
+                  word.word,
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: colors["text"]),
+                ),
               ),
               Padding(
                 padding: const EdgeInsets.all(8.0),
-                child: Text(word.meaning, style: TextStyle(fontSize: 16)),
+                child: Text(
+                  word.meaning,
+                  style: TextStyle(fontSize: 16, color: colors["text"]),
+                ),
               ),
               IconButton(
-                icon: Icon(Icons.volume_up),
-                onPressed: () => speak(word.word), // Seslendirme fonksiyonunu çağır
+                icon: Icon(Icons.volume_up, color: colors["text"]),
+                onPressed: () => speak(word.word),
               ),
             ],
           ),
@@ -326,7 +309,6 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
       );
     } catch (e) {
       print('Hata oluştu: $e');
-      // Hata durumunda bir boş Container veya başka bir widget döndürebilirsiniz
       return SizedBox();
     }
   }

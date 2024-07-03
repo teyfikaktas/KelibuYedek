@@ -37,6 +37,8 @@ class _MyHomePageState extends State<MyHomePage> {
   String _username = ''; // Kullanıcı adı saklamak için
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  bool _passwordVisible = false;
+
   void _logout() {
     setState(() {
       _isLoggedIn = false;
@@ -45,6 +47,7 @@ class _MyHomePageState extends State<MyHomePage> {
       _passwordController.clear();
     });
   }
+
   Future<void> login(String username, String password) async {
     final response = await http.post(
       Uri.parse('https://kelibu.net/api/login'),
@@ -129,10 +132,20 @@ class _MyHomePageState extends State<MyHomePage> {
             padding: const EdgeInsets.all(8.0),
             child: TextField(
               controller: _passwordController,
-              obscureText: true,
-              decoration: const InputDecoration(
-                border: OutlineInputBorder(),
+              obscureText: !_passwordVisible,
+              decoration: InputDecoration(
+                border: const OutlineInputBorder(),
                 labelText: 'Şifre',
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _passwordVisible ? Icons.visibility : Icons.visibility_off,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _passwordVisible = !_passwordVisible;
+                    });
+                  },
+                ),
               ),
             ),
           ),

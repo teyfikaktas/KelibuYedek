@@ -7,6 +7,8 @@ import 'package:kelibu/variables.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
+import 'package:shared_preferences/shared_preferences.dart';
+
 class AccountPage extends StatefulWidget {
   @override
   _AccountPageState createState() => _AccountPageState();
@@ -25,6 +27,7 @@ class _AccountPageState extends State<AccountPage> {
   late TextEditingController _currentPasswordController;
   late TextEditingController _newPasswordController;
   late TextEditingController _confirmNewPasswordController;
+  bool _isDarkMode = false;
 
   bool _isPasswordPanelExpanded = false;
 
@@ -42,6 +45,8 @@ class _AccountPageState extends State<AccountPage> {
     _currentPasswordController = TextEditingController();
     _newPasswordController = TextEditingController();
     _confirmNewPasswordController = TextEditingController();
+
+    _loadDarkModePreference();
   }
 
   @override
@@ -83,308 +88,224 @@ class _AccountPageState extends State<AccountPage> {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(errorMessage)));
     }
   }
+
+  Future<void> _loadDarkModePreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _isDarkMode = prefs.getBool("darkMode") ?? false;
+    });
+  }
+
+  InputDecoration _buildInputDecoration(String labelText, IconData iconData, Color fillColor, Color textColor) {
+    return InputDecoration(
+      labelText: labelText,
+      labelStyle: GoogleFonts.lato(color: textColor),
+      fillColor: fillColor,
+      filled: true,
+      prefixIcon: Icon(iconData, color: textColor),
+      border: OutlineInputBorder(
+        borderSide: BorderSide(color: textColor, width: 3.0),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderSide: BorderSide(color: textColor, width: 3.0),
+        borderRadius: BorderRadius.circular(8),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final themeColors = _isDarkMode ? darkModeColors : lightModeColors;
+    final textColor = themeColors["text"]!;
+    final fillColor = themeColors["inputBackground"]!;
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: _isDarkMode ? Colors.black : Colors.white,
         title: Text(
           'Hesap Bilgileri',
           style: GoogleFonts.poppins(
-            color: Colors.pink,
+            color: textColor,
             fontWeight: FontWeight.bold,
           ),
         ),
         iconTheme: IconThemeData(
-          color: Colors.pink,
+          color: textColor,
         ),
       ),
-      body:
-      Theme(
+      body: Theme(
         data: ThemeData(
-          primaryColor: Colors.white54,
+          primaryColor: themeColors["cardBackground"],
         ),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              children: [
-                CircleAvatar(
-                  radius: 60,
-                  backgroundImage: NetworkImage('https://kelibu.net/storage/${userProvider.avatar}'),
-                ),
-                SizedBox(height: 20),
-              TextFormField(
-                controller: _nameController,
-                readOnly: true,
-                decoration: InputDecoration(
-                  labelText: 'İsim',
-                  fillColor: Colors.white,
-                  filled: true,
-                  prefixIcon: Icon(Icons.person, color: Colors.pinkAccent),
-                  focusedBorder: OutlineInputBorder( // Odaklanıldığında kenarlık
-                    borderSide: BorderSide(color: Colors.pinkAccent, width: 3.0),
-                    borderRadius: BorderRadius.circular(8),
+        child: Container(
+          color: _isDarkMode ? Colors.black : Colors.white, // Genel arka plan rengi
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                children: [
+                  CircleAvatar(
+                    radius: 60,
+                    backgroundImage: NetworkImage('https://kelibu.net/storage/${userProvider.avatar}'),
                   ),
-                ),
-
-              ),
-                SizedBox(height: 10),
-                TextFormField(
-                  controller: _emailController,
-                  readOnly: true, // Bu alanı değiştirilemez yapar
-                  validator: (value) => value != null && !value.contains('@') ? 'Geçerli bir email giriniz' : null,
-                  decoration: InputDecoration(
-                    labelText: 'Email',
-                    labelStyle: GoogleFonts.lato(color: Colors.pink), // Google Fonts kullanarak label stilini belirleyin
-                    fillColor: Colors.white, // Arka plan rengi
-                    filled: true, // fillColor'i etkinleştirir
-                    border: OutlineInputBorder( // Kenarlık stilini özelleştir
-                      borderSide: BorderSide(color: Colors.pink, width: 3.0), // Pembe kenarlık
-                      borderRadius: BorderRadius.circular(8), // Kenarlık yuvarlaklığı
-                    ),
-                    focusedBorder: OutlineInputBorder( // Odaklanıldığında kenarlık
-                      borderSide: BorderSide(color: Colors.pinkAccent, width: 3.0),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    prefixIcon: Icon(Icons.email, color: Colors.pinkAccent), // İkon ve ikonun rengi
+                  SizedBox(height: 20),
+                  TextFormField(
+                    controller: _nameController,
+                    readOnly: true,
+                    style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black),
+                    decoration: _buildInputDecoration('İsim', Icons.person, fillColor, textColor),
                   ),
-                ),
-                SizedBox(height: 10),
-                TextFormField(
-                  controller: _ageController,
-                  decoration: InputDecoration(
-                    labelText: 'Yaş',
-                    labelStyle: GoogleFonts.lato(color: Colors.pink), // Google Fonts kullanarak label stilini belirleyin
-                    fillColor: Colors.white, // Arka plan rengi
-                    filled: true, // fillColor'i etkinleştirir
-                    border: OutlineInputBorder( // Kenarlık stilini özelleştir
-                      borderSide: BorderSide(color: Colors.pink, width: 3.0), // Pembe kenarlık
-                      borderRadius: BorderRadius.circular(8), // Kenarlık yuvarlaklığı
-                    ),
-                    focusedBorder: OutlineInputBorder( // Odaklanıldığında kenarlık
-                      borderSide: BorderSide(color: Colors.pinkAccent, width: 3.0),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    prefixIcon: Icon(Icons.cake, color: Colors.pinkAccent), // İkon ve ikonun rengi
+                  SizedBox(height: 10),
+                  TextFormField(
+                    controller: _emailController,
+                    readOnly: true,
+                    validator: (value) => value != null && !value.contains('@') ? 'Geçerli bir email giriniz' : null,
+                    style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black),
+                    decoration: _buildInputDecoration('Email', Icons.email, fillColor, textColor),
                   ),
-                ),
-                SizedBox(height: 10),
-                TextFormField(
-                  controller: _teamController,
-                  decoration: InputDecoration(
-                    labelText: 'Takım',
-                    labelStyle: GoogleFonts.lato(color: Colors.pink), // Google Fonts kullanarak label stilini belirleyin
-                    fillColor: Colors.white, // Arka plan rengi
-                    filled: true, // fillColor'i etkinleştirir
-                    border: OutlineInputBorder( // Kenarlık stilini özelleştir
-                      borderSide: BorderSide(color: Colors.pink, width: 3.0), // Pembe kenarlık
-                      borderRadius: BorderRadius.circular(8), // Kenarlık yuvarlaklığı
-                    ),
-                    focusedBorder: OutlineInputBorder( // Odaklanıldığında kenarlık
-                      borderSide: BorderSide(color: Colors.pinkAccent, width: 3.0),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    prefixIcon: Icon(Icons.group, color: Colors.pinkAccent), // İkon ve ikonun rengi
+                  SizedBox(height: 10),
+                  TextFormField(
+                    controller: _ageController,
+                    style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black),
+                    decoration: _buildInputDecoration('Yaş', Icons.cake, fillColor, textColor),
                   ),
-                ),
-                SizedBox(height: 10),
-                TextFormField(
-                  controller: _cityController,
-                  decoration: InputDecoration(
-                    labelText: 'Şehir',
-                    labelStyle: GoogleFonts.lato(color: Colors.pink), // Google Fonts kullanarak label stilini belirleyin
-                    fillColor: Colors.white, // Arka plan rengi
-                    filled: true, // fillColor'i etkinleştirir
-                    border: OutlineInputBorder( // Kenarlık stilini özelleştir
-                      borderSide: BorderSide(color: Colors.pink, width: 3.0), // Pembe kenarlık
-                      borderRadius: BorderRadius.circular(8), // Kenarlık yuvarlaklığı
-                    ),
-                    focusedBorder: OutlineInputBorder( // Odaklanıldığında kenarlık
-                      borderSide: BorderSide(color: Colors.pinkAccent, width: 3.0),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    prefixIcon: Icon(Icons.location_city, color: Colors.pinkAccent), // İkon ve ikonun rengi
+                  SizedBox(height: 10),
+                  TextFormField(
+                    controller: _teamController,
+                    style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black),
+                    decoration: _buildInputDecoration('Takım', Icons.group, fillColor, textColor),
                   ),
-                ),
-                SizedBox(height: 10),
-                TextFormField(
-                  controller: _phoneNumberController,
-                  readOnly: false, // Kullanıcıların giriş yapabilmesi için bu alanı düzenlenebilir hale getirir
-                  keyboardType: TextInputType.phone, // Klavyeyi telefon numarası girişine uygun hale getirir
-                  decoration: InputDecoration(
-                    labelText: 'Telefon Numarası',
-                    labelStyle: GoogleFonts.lato(color: Colors.pink), // Google Fonts kullanarak label stilini belirleyin
-                    fillColor: Colors.white, // Arka plan rengi
-                    filled: true, // fillColor'i etkinleştirir
-                    border: OutlineInputBorder( // Kenarlık stilini özelleştir
-                      borderSide: BorderSide(color: Colors.pink, width: 3.0), // Pembe kenarlık
-                      borderRadius: BorderRadius.circular(8), // Kenarlık yuvarlaklığı
-                    ),
-                    focusedBorder: OutlineInputBorder( // Odaklanıldığında kenarlık
-                      borderSide: BorderSide(color: Colors.pinkAccent, width: 3.0),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    prefixIcon: Icon(Icons.phone, color: Colors.pinkAccent), // İkon ve ikonun rengi
+                  SizedBox(height: 10),
+                  TextFormField(
+                    controller: _cityController,
+                    style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black),
+                    decoration: _buildInputDecoration('Şehir', Icons.location_city, fillColor, textColor),
                   ),
-                ),
-                SizedBox(height: 20),
-                ExpansionPanelList(
-                  expansionCallback: (int index, bool isExpanded) {
-                    setState(() {
-                      _isPasswordPanelExpanded = !_isPasswordPanelExpanded;
-                    });
-                  },
-                  children: [
-                    ExpansionPanel(
-                      headerBuilder: (BuildContext context, bool isExpanded) {
-                        return ListTile(
-                          title: Text(
-                            'Şifre Değiştir',
-                            style: TextStyle(color: Colors.pink), // Başlık rengini özelleştir
-                          ),
-                        );
-                      },
-                      body: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Form(
-                          key: _passwordFormKey,
-                          child: Column(
-                            children: [
-                              TextFormField(
-                                controller: _currentPasswordController,
-                                decoration: InputDecoration(
-                                  labelText: 'Eski Şifre',
-                                  labelStyle: GoogleFonts.lato(color: Colors.pink),
-                                  fillColor: Colors.white,
-                                  filled: true,
-                                  border: OutlineInputBorder(
-                                    borderSide: BorderSide(color: Colors.pink, width: 3.0),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderSide: BorderSide(color: Colors.pinkAccent, width: 3.0),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  prefixIcon: Icon(Icons.lock_outline, color: Colors.pinkAccent),
-                                ),
-                                obscureText: true,
+                  SizedBox(height: 10),
+                  TextFormField(
+                    controller: _phoneNumberController,
+                    keyboardType: TextInputType.phone,
+                    style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black),
+                    decoration: _buildInputDecoration('Telefon Numarası', Icons.phone, fillColor, textColor),
+                  ),
+                  SizedBox(height: 20),
+                  ExpansionPanelList(
+                    expansionCallback: (int index, bool isExpanded) {
+                      setState(() {
+                        _isPasswordPanelExpanded = !_isPasswordPanelExpanded;
+                      });
+                    },
+                    children: [
+                      ExpansionPanel(
+                        headerBuilder: (BuildContext context, bool isExpanded) {
+                          return Container(
+                            color: _isDarkMode ? Colors.black : Colors.white, // Arka plan rengini ayarlama
+                            child: ListTile(
+                              title: Text(
+                                'Şifre Değiştir',
+                                style: TextStyle(color: textColor),
                               ),
-                              SizedBox(height: 10), // Alanlar arası boşluk
-                              TextFormField(
-                                controller: _newPasswordController,
-                                decoration: InputDecoration(
-                                  labelText: 'Yeni Şifre',
-                                  labelStyle: GoogleFonts.lato(color: Colors.pink),
-                                  fillColor: Colors.white,
-                                  filled: true,
-                                  border: OutlineInputBorder(
-                                    borderSide: BorderSide(color: Colors.pink, width: 3.0),
-                                    borderRadius: BorderRadius.circular(8),
+                            ),
+                          );
+                        },
+                        body: Container(
+                          color: _isDarkMode ? Colors.black : Colors.white, // Arka plan rengini ayarlama
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Form(
+                              key: _passwordFormKey,
+                              child: Column(
+                                children: [
+                                  TextFormField(
+                                    controller: _currentPasswordController,
+                                    decoration: _buildInputDecoration('Eski Şifre', Icons.lock_outline, fillColor, textColor),
+                                    obscureText: true,
+                                    style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black),
                                   ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderSide: BorderSide(color: Colors.pinkAccent, width: 3.0),
-                                    borderRadius: BorderRadius.circular(8),
+                                  SizedBox(height: 10),
+                                  TextFormField(
+                                    controller: _newPasswordController,
+                                    decoration: _buildInputDecoration('Yeni Şifre', Icons.lock, fillColor, textColor),
+                                    obscureText: true,
+                                    style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black),
                                   ),
-                                  prefixIcon: Icon(Icons.lock, color: Colors.pinkAccent),
-                                ),
-                                obscureText: true,
+                                  SizedBox(height: 10),
+                                  TextFormField(
+                                    controller: _confirmNewPasswordController,
+                                    decoration: _buildInputDecoration('Yeni Şifreyi Onayla', Icons.lock, fillColor, textColor),
+                                    obscureText: true,
+                                    style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black),
+                                  ),
+                                  SizedBox(height: 20),
+                                  ElevatedButton(
+                                    onPressed: () {
+                                      if (_passwordFormKey.currentState!.validate()) {
+                                        updatePassword();
+                                      }
+                                    },
+                                    child: Text("Şifreyi Değiştir"),
+                                    style: ElevatedButton.styleFrom(
+                                      primary: _isDarkMode ? Colors.black : Colors.white, // Buton arka plan rengi
+                                      onPrimary: _isDarkMode ? Colors.white : Colors.black, // Buton yazı rengi
+                                    ),
+                                  ),
+                                ],
                               ),
-                              SizedBox(height: 10), // Alanlar arası boşluk
-                              TextFormField(
-                                controller: _confirmNewPasswordController,
-                                decoration: InputDecoration(
-                                  labelText: 'Yeni Şifreyi Onayla',
-                                  labelStyle: GoogleFonts.lato(color: Colors.pink),
-                                  fillColor: Colors.white,
-                                  filled: true,
-                                  border: OutlineInputBorder(
-                                    borderSide: BorderSide(color: Colors.pink, width: 3.0),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderSide: BorderSide(color: Colors.pinkAccent, width: 3.0),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  prefixIcon: Icon(Icons.lock, color: Colors.pinkAccent),
-                                ),
-                                obscureText: true,
-                              ),
-                              SizedBox(height: 20),
-                              ElevatedButton(
-                                onPressed: () {
-                                  if (_passwordFormKey.currentState!.validate()) {
-                                    // Şifre güncelleme işlemini burada yap
-                                    updatePassword();
-                                  }
-                                },
-                                child: Text('Şifreyi Değiştir'),
-                                style: ElevatedButton.styleFrom(
-                                  primary: Colors.pink, // Buton arka planı
-                                  onPrimary: Colors.white, // Buton yazı rengi
-                                ),
-                              ),
-                            ],
+                            ),
                           ),
                         ),
+                        isExpanded: _isPasswordPanelExpanded,
                       ),
-                      isExpanded: _isPasswordPanelExpanded,
+                    ],
+                  ),
+                  SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: updateUserInformation,
+                    child: Text(
+                      "Bilgileri Güncelle",
+                      style: TextStyle(
+                        color: themeColors["buttonText"],
+                        fontSize: 16,
+                      ),
                     ),
-                  ],
-                )
-        ,
-                SizedBox(height: 20),
-                ElevatedButton(
-                  onPressed: updateUserInformation,
-                  child: Text(
-                    'Bilgileri Güncelle',
-                    style: TextStyle(
-                      color: Colors.white, // Buton yazı rengi
-                      fontSize: 16, // Yazı boyutu
+                    style: ElevatedButton.styleFrom(
+                      primary: themeColors["buttonBackground"],
+                      onPrimary: themeColors["buttonText"],
+                      padding: EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      elevation: 5,
                     ),
                   ),
-                  style: ElevatedButton.styleFrom(
-                    primary: Colors.pink, // Buton arka planı
-                    onPrimary: Colors.white, // (Bu ayar metin rengini etkiler, yukarıdaki Text widget'ında direkt belirtildiyse gerekli olmayabilir)
-                    padding: EdgeInsets.symmetric(horizontal: 32, vertical: 12), // İç boşluk
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8), // Kenarlık yuvarlaklığı
-                    ),
-                    elevation: 5, // Gölgelendirme
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
       ),
     );
   }
-  Future<void> updateUserInformation() async {
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
 
-    // Mevcut yılı al
+  Future updateUserInformation() async {
+    final userProvider = Provider.of(context, listen: false);
     int currentYear = DateTime.now().year;
-    // Kullanıcıdan alınan yaş bilgisini int'e çevir
     int age = int.tryParse(_ageController.text) ?? 0;
-    // Doğum yılını hesapla
     int birthYear = currentYear - age;
 
-    // API endpoint URL
     final Uri apiUrl = Uri.parse('https://kelibu.net/api/updateUserInfo');
 
-    // HTTP POST isteği için header ve body
     final headers = <String, String>{
       'Content-Type': 'application/json; charset=UTF-8',
-      'X-Custom-Header': privacyKey.privacyKeyVariable, // Custom header added
+      'X-Custom-Header': privacyKey.privacyKeyVariable,
     };
     final body = jsonEncode({
       'user_id': userProvider.userId.toString(),
       'name': _nameController.text,
-      'birth_year': birthYear.toString(), // Doğum yılı hesaplanarak gönderiliyor
+      'birth_year': birthYear.toString(),
       'team': _teamController.text,
       'city': _cityController.text,
     });
@@ -393,7 +314,6 @@ class _AccountPageState extends State<AccountPage> {
       final response = await http.post(apiUrl, headers: headers, body: body);
 
       if (response.statusCode == 200) {
-        // İşlem başarılı
         final responseBody = jsonDecode(response.body);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(responseBody['message'] ?? 'Bilgiler başarıyla güncellendi')),
@@ -411,10 +331,8 @@ class _AccountPageState extends State<AccountPage> {
           birthYear,
           _teamController.text.isEmpty ? null : _teamController.text,
         );
-        // Provider güncellemelerini bildir
         userProvider.notifyListeners();
       } else {
-        // İşlem başarısız, hata mesajı göster
         final responseBody = jsonDecode(response.body);
         print(responseBody);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -428,5 +346,4 @@ class _AccountPageState extends State<AccountPage> {
       );
     }
   }
-
 }

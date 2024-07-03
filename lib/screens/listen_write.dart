@@ -8,6 +8,9 @@ import 'package:provider/provider.dart';
 import '../api.dart';
 import '../providers/user_provider.dart'; // Adjust the path to your UserProvider
 import 'package:awesome_dialog/awesome_dialog.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../variables.dart';
 
 class ListenAndWriteScreen extends StatefulWidget {
   final List<WordDetail> words;
@@ -30,9 +33,9 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> {
   bool isButtonClicked = false; // Butona tıklanma durumunu takip eder.
   Color buttonColor = Colors.pink; // Butonun varsayılan rengi
   late UserProvider userProvider;
+  bool _isDarkMode = false; // Dark mode durumu
 
   late ValueNotifier<int> _userPoints; // Kullanıcı puanı için ValueNotifier
-
 
   @override
   void initState() {
@@ -40,6 +43,14 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> {
     _userPoints = ValueNotifier<int>(Provider.of<UserProvider>(context, listen: false).point);
 
     WidgetsBinding.instance.addPostFrameCallback((_) => _speakCurrentWord());
+    _loadDarkModePreference();
+  }
+
+  Future<void> _loadDarkModePreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _isDarkMode = prefs.getBool("darkMode") ?? false;
+    });
   }
 
   @override
@@ -52,6 +63,7 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> {
     await flutterTts.setLanguage("en-US");
     await flutterTts.speak(word);
   }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -59,6 +71,7 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> {
     userProvider = Provider.of<UserProvider>(context);
     _userPoints = ValueNotifier<int>(userProvider.point); // Adjusted the initialization to this point.
   }
+
   Future<void> _speakCurrentWord() async {
     correctWord = widget.words[currentWordIndex].word.toLowerCase();
     correctWordMeaning = widget.words[currentWordIndex].meaning.toLowerCase();
@@ -67,6 +80,7 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> {
     await _speak(correctWord);
     setState(() {}); // This will trigger a UI update to display the correctWord and its length.
   }
+
   void _checkAnswer() async {
     bool correct = textEditingController.text.trim().toLowerCase() == correctWord;
     setState(() {
@@ -80,13 +94,12 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> {
     });
 
     if (correct) {
-
       int newPoint = userProvider.point;
       newPoint = newPoint + 3;
       userProvider.addPoint(3); // UserProvider üzerinden puanı artır
       _userPoints.value = userProvider.point; // UserProvider'daki güncel puanı ValueNotifier ile eşitle
-      await ApiService().updateUserPointTimePeriod(userProvider.userId, newPoint,3); // API üzerinden puanı güncelleyin
-      userProvider.addPoint(newPoint); // UserProvider'daki puanı güncelleyin      Provider.of<UserProvider>(context, listen: false).addPoint(Provider.of<UserProvider>(context, listen: false).point + 5);
+      await ApiService().updateUserPointTimePeriod(userProvider.userId, newPoint, 3); // API üzerinden puanı güncelleyin
+      userProvider.addPoint(newPoint); // UserProvider'daki puanı güncelleyin
       AwesomeDialog(
         context: context,
         dialogType: DialogType.success,
@@ -110,6 +123,7 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> {
 
     textEditingController.clear();
   }
+
   void _proceedToNextWord() {
     if (currentWordIndex < widget.words.length - 1) {
       setState(() {
@@ -129,7 +143,6 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> {
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
     String fullImageUrl = widget.words[currentWordIndex].image != null
@@ -139,16 +152,16 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: _isDarkMode ? darkModeColors["background"] : Colors.white,
         title: Text(
           'Dinle ve Yaz',
           style: GoogleFonts.poppins(
-            color: Colors.pink,
+            color: _isDarkMode ? darkModeColors["text"] : Colors.pink,
             fontWeight: FontWeight.bold,
           ),
         ),
         iconTheme: IconThemeData(
-          color: Colors.pink,
+          color: _isDarkMode ? darkModeColors["text"] : Colors.pink,
         ),
         actions: [
           Padding(
@@ -156,8 +169,13 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> {
             child: ValueListenableBuilder<int>(
               valueListenable: _userPoints,
               builder: (_, value, __) => Chip(
-                label: Text('Puan: $value'),
-                backgroundColor: Colors.white54,
+                label: Text(
+                  'Puan: $value',
+                  style: TextStyle(
+                    color: _isDarkMode ? darkModeColors["text"] : lightModeColors["text"],
+                  ),
+                ),
+                backgroundColor: _isDarkMode ? darkModeColors["cardBackground"] : Colors.white54,
               ),
             ),
           ),
@@ -166,13 +184,12 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> {
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Card(
-          color: Colors.white,
+          color: _isDarkMode ? darkModeColors["cardBackground"] : Colors.white,
           child: Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Image.asset('assets/logo.png', height: 50),
                 SizedBox(height: 20),
                 Image.network(
                   fullImageUrl,
@@ -180,7 +197,7 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> {
                   height: 100,
                   errorBuilder: (BuildContext context, Object exception, StackTrace? stackTrace) {
                     // Burada resim yüklenemediğinde gösterilecek alternatif bir resmi belirleyebilirsiniz.
-                    return Image.asset('assets/logo.png',                   width: 100,);
+                    return Image.asset('assets/logo.png', width: 100, height: 100);
                   },
                 ),
                 SizedBox(height: 20),
@@ -190,7 +207,7 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> {
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: Colors.pink,
+                    color: _isDarkMode ? darkModeColors["text"] : Colors.pink,
                   ),
                 ),
                 SizedBox(height: 20),
@@ -201,16 +218,17 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> {
                         controller: textEditingController,
                         decoration: InputDecoration(
                           labelText: 'Cevabınız.',
-                          labelStyle: TextStyle(color: Colors.pink),
-                          focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.pink)),
+                          labelStyle: TextStyle(color: _isDarkMode ? darkModeColors["text"] : Colors.pink),
+                          focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: _isDarkMode ? darkModeColors["text"]! : Colors.pink)),
                           border: OutlineInputBorder(),
                           filled: true,
-                          fillColor: Colors.pink.shade50,
+                          fillColor: _isDarkMode ? darkModeColors["inputBackground"] : Colors.pink.shade50,
                         ),
+                        style: TextStyle(color: _isDarkMode ? darkModeColors["text"] : Colors.black),
                       ),
                     ),
                     IconButton(
-                      icon: Icon(Icons.volume_up, color: Colors.pink),
+                      icon: Icon(Icons.volume_up, color: _isDarkMode ? darkModeColors["iconColor"] : Colors.pink),
                       onPressed: () => _speak(correctWord),
                     ),
                   ],
@@ -234,6 +252,4 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> {
       ),
     );
   }
-
-  }
-
+}

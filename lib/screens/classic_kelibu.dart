@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:kelibu/Models/wordDetaik.dart';
 import 'package:kelibu/api.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/user_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:percent_indicator/circular_percent_indicator.dart';
@@ -13,6 +14,7 @@ import 'package:kelibu/providers/volume_provider.dart';
 import 'package:back_button_interceptor/back_button_interceptor.dart';
 
 import '../shared_preferences/shared_preferences.dart';
+import '../variables.dart';
 
 class WordData {
   final int id;
@@ -22,14 +24,12 @@ class WordData {
   WordData({required this.id, required this.meaning, this.imageUrl = ''});
 }
 
-
 class KelimeOyunu extends StatefulWidget {
   final int classroomId;
   final int studySetId;
-
-  final List<WordDetail> words; // Words listesi için yeni parametre
-  bool isStarredMode = false; // Yıldız modunun aktif olup olmadığını kontrol etmek için
-  List<WordDetail> starredWords = []; // Yıldızlı kelimelerin listesi
+  final List<WordDetail> words;
+  bool isStarredMode = false;
+  List<WordDetail> starredWords = [];
 
   KelimeOyunu({Key? key, required this.classroomId, required this.studySetId, required this.words}) : super(key: key);
 
@@ -39,32 +39,30 @@ class KelimeOyunu extends StatefulWidget {
 
 class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin, WidgetsBindingObserver {
   late ConfettiController _confettiController;
-  double kalanZamanSaniye = 15; // Yeni eklenen değişken, toplam kalan zamanı saklar.
-  int totalWordsCount = 0; // Oyun başladığında ve yıldız moduna geçildiğinde toplam kelime sayısını tutacak
-
-  int puan = 0; // Puan göstergesi için
-  late Timer zamanlayici; // Zaman çubuğu için zamanlayıcı
-  double zamanCubuguDegeri = 1.0; // Zaman çubuğu değeri (1.0 tam dolu, 0.0 boş)
+  double kalanZamanSaniye = 15;
+  int totalWordsCount = 0;
+  int puan = 0;
+  late Timer zamanlayici;
+  double zamanCubuguDegeri = 1.0;
   late AnimationController scoreAnimationController;
   late Animation<Offset> scoreSlideAnimation;
   OverlayEntry? scoreOverlayEntry;
-  Map<String, String> kelimeler = {
-  };
-  late Color correctOptionColor; // Doğru seçenek rengi
-  late Color wrongOptionColor; // Yanlış seçenek rengi
-  late Color centerCardColor; // Merkez kartı için yeni renk değişkeni
-  FlutterTts flutterTts = FlutterTts(); // FlutterTts nesnesi.
+  Map<String, String> kelimeler = {};
+  late Color correctOptionColor;
+  late Color wrongOptionColor;
+  late Color centerCardColor;
+  FlutterTts flutterTts = FlutterTts();
 
-  late Color defaultOptionColor; // Varsayılan seçenek rengi
-  late Map<int, Color> optionColors; // Her seçenek için renk haritası
+  late Color defaultOptionColor;
+  late Map<int, Color> optionColors;
   Color rastgeleAcikRenkUret() {
     final rand = Random();
-    // Daha açık renkler için daha yüksek RGB değerleri
-    final r = 200 + rand.nextInt(56); // 200-255 arası
-    final g = 200 + rand.nextInt(56); // 200-255 arası
-    final b = 200 + rand.nextInt(56); // 200-255 arası
+    final r = 200 + rand.nextInt(12);
+    final g = 200 + rand.nextInt(12);
+    final b = 200 + rand.nextInt(12);
     return Color.fromRGBO(r, g, b, 1);
   }
+
   String aktifKelime = '';
   List<String> secenekler = [];
   Map<String, int> kelimeDogruSayac = {};
@@ -77,7 +75,6 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
   late AnimationController scoreTextAnimationController;
   late Animation<Offset> scoreTextSlideAnimation;
   OverlayEntry? scoreTextOverlayEntry;
-  // Animation for displaying learned words
   late AnimationController _learnedWordsAnimationController;
   late Animation<Offset> _slideAnimation;
   Map<String, Color> secenekRenkleri = {};
@@ -85,40 +82,38 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
     _showExitConfirmationDialog();
     return true;
   }
+
   void _showExitConfirmationDialog() {
     showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Çıkmak istediğinize emin misiniz?'),
-        content: Text("Bu işlem geri alınamaz."),
+        title: Text('Çıkmak istediğinize emin misiniz?', style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black)),
+        content: Text("Bu işlem geri alınamaz.", style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black)),
+        backgroundColor: _isDarkMode ? Colors.black : Colors.white,
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: Text('Hayır'),
+            child: Text('Hayır', style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black)),
           ),
           TextButton(
             onPressed: () {
               Navigator.of(context).pop(true);
             },
-            child: Text('Evet'),
+            child: Text('Evet', style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black)),
           ),
         ],
       ),
     ).then((value) => value ?? false ? Navigator.of(context).pop(true) : null);
   }
+
   Future<void> fetchStarredWords() async {
     final service = StarredWordsService();
-
     List<int> wordIds = widget.words.map((e) => e.id).toList();
     try {
-      // Yerel depolamadan yıldızlı kelimelerin listesini çek
       Set<int> starredWordsSet = await service.loadStarredWords(widget.classroomId, widget.studySetId);
       List<WordDetail> tempStarredWords = [];
-
-      // Yıldızlı kelimeleri filtrele
       wordIds.forEach((id) {
         if (starredWordsSet.contains(id)) {
-          // Yıldızlı olan kelimeyi bul
           widget.words.forEach((word) {
             if (word.id == id) {
               tempStarredWords.add(word);
@@ -139,10 +134,9 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-
-    flutterTts.setLanguage("en-US"); // Dil ayarı, ihtiyacınıza göre değiştirin.
-    flutterTts.setSpeechRate(0.5); // Konuşma hızı, ihtiyacınıza göre ayarlayın.
-    // Öncelikle AnimationController'ları initialize edin
+    flutterTts.setLanguage("en-US");
+    flutterTts.setSpeechRate(0.5);
+    _loadDarkModePreference();
     scoreAnimationController = AnimationController(
       vsync: this,
       duration: Duration(milliseconds: 500),
@@ -157,7 +151,7 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
 
     scoreTextAnimationController = AnimationController(
       vsync: this,
-      duration: Duration(milliseconds: 1500), // Süreyi ihtiyacınıza göre ayarlayın
+      duration: Duration(milliseconds: 1500),
     );
     scoreTextSlideAnimation = Tween<Offset>(
       begin: Offset(0, -1),
@@ -185,10 +179,9 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
       curve: Curves.easeOut,
     ));
 
-    // Kullanıcı verilerini almak ve diğer başlangıç ayarları
     UserProvider userProviderPoint = Provider.of<UserProvider>(context, listen: false);
     print(userProviderPoint.point);
-    score = userProviderPoint.point; // Eğer çevirme başarısız olursa varsayılan olarak 0 değerini kullan
+    score = userProviderPoint.point;
 
     centerCardColor = rastgeleAcikRenkUret();
     correctOptionColor = Colors.lightGreenAccent;
@@ -208,29 +201,28 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
     zamanlayiciyiBaslat();
     secenekleriYenile();
     totalWordsCount = widget.words.length;
-
   }
 
   void showScoreAnimation(String scoreText) {
-    int scoreChange = int.parse(scoreText); // Puan değişimini al
-    Color animationColor = scoreChange >= 0 ? Colors.green : Colors.red; // Puan artışı veya azalışına göre renk belirle
+    int scoreChange = int.parse(scoreText);
+    Color animationColor = scoreChange >= 0 ? Colors.green : Colors.red;
     scoreOverlayEntry = OverlayEntry(
       builder: (context) => Positioned(
         top: MediaQuery.of(context).size.height / 2,
         left: MediaQuery.of(context).size.width / 2,
         child: Material(
-          color: Colors.transparent, // Şeffaf arkaplan
+          color: Colors.transparent,
           child: SlideTransition(
             position: scoreSlideAnimation,
             child: Container(
               padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
               decoration: BoxDecoration(
-                color: Colors.transparent, // Puan değişimine göre renk belirle
+                color: Colors.transparent,
                 borderRadius: BorderRadius.circular(30),
               ),
               child: Text(
                 scoreText,
-                style: TextStyle(fontSize: 24.0, color: animationColor, fontWeight: FontWeight.bold), // Yeşil yazı rengi
+                style: TextStyle(fontSize: 24.0, color: animationColor, fontWeight: FontWeight.bold),
               ),
             ),
           ),
@@ -247,9 +239,10 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
       });
     });
   }
+
   void showScoreTextAnimation(String scoreText) {
     if (scoreTextOverlayEntry != null) {
-      scoreTextOverlayEntry!.remove(); // Eğer bir önceki overlay varsa kaldır
+      scoreTextOverlayEntry!.remove();
     }
 
     scoreTextOverlayEntry = OverlayEntry(
@@ -288,30 +281,26 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
     });
   }
 
-
-
   void zamanlayiciyiBaslat({bool kalanZamandanDevamEt = false}) {
     if (!kalanZamandanDevamEt) {
-      kalanZamanSaniye = 15; // Yeni soruda zamanı sıfırla
+      kalanZamanSaniye = 15;
     }
-    zamanCubuguDegeri = kalanZamanSaniye / 15; // Görsel zaman çubuğunu güncelle
+    zamanCubuguDegeri = kalanZamanSaniye / 15;
     zamanlayici = Timer.periodic(Duration(seconds: 1), (Timer timer) {
       setState(() {
         if (kalanZamanSaniye > 0) {
           kalanZamanSaniye -= 1;
           zamanCubuguDegeri = kalanZamanSaniye / 15;
         } else {
-          zamanCubuguDegeri = 0; // Değeri 0'ın altına düşürme
-          timer.cancel(); // Zaman dolduğunda zamanlayıcıyı durdur
-          _isOptionSelectable = false; // Tıklama işlevselliğini devre dışı bırak
-          // Doğru cevabı işaretle
+          zamanCubuguDegeri = 0;
+          timer.cancel();
+          _isOptionSelectable = false;
           int correctIndex = secenekler.indexOf(kelimeler[aktifKelime]!);
           setState(() {
             optionColors[correctIndex] = correctOptionColor;
           });
-          // 1 saniye sonra bir sonraki soruya geç
           Future.delayed(Duration(seconds: 1), () {
-            _isOptionSelectable = true; // Tıklama işlevselliğini tekrar etkinleştir
+            _isOptionSelectable = true;
             secenekleriYenile();
           });
         }
@@ -322,61 +311,51 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    zamanlayici.cancel(); // Zamanlayıcıyı temizle
+    zamanlayici.cancel();
     _animationController.dispose();
     _learnedWordsAnimationController.dispose();
-    zamanlayici.cancel(); // Zamanlayıcıyı temizle
+    zamanlayici.cancel();
     scoreAnimationController.dispose();
-    scoreTextAnimationController.dispose(); // Yeni eklenen controller'ı dispose edin
-
+    scoreTextAnimationController.dispose();
     _confettiController.dispose();
-
     super.dispose();
   }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.paused) {
-      // Uygulama arka plana geçtiğinde zamanlayıcıyı durdurun ve kalan süreyi kaydedin
       zamanlayici.cancel();
-      // Kalan süreyi sakla
     } else if (state == AppLifecycleState.resumed) {
-      // Uygulama tekrar ön plana geldiğinde zamanlayıcıyı kaldığı yerden başlatın
-      zamanlayiciyiBaslat(kalanZamandanDevamEt: true); // Kalan zaman parametresi ile zamanlayıcıyı başlat
+      zamanlayiciyiBaslat(kalanZamandanDevamEt: true);
     }
   }
+
   void resetGame() {
-    // Oyunun başlangıç durumuna geri döndürülmesi gereken tüm değişkenleri sıfırla
     setState(() {
-
       tamamlananKelimeler.clear();
-      kalanZamanSaniye = 15; // Kalan zamanı sıfırla
-      zamanCubuguDegeri = 1.0; // Zaman çubuğu değerini sıfırla
-      tamamlananKelimeler.clear(); // Tamamlanan kelimeler listesini temizle
-      kelimeDogruSayac.clear(); // Her kelimenin doğru sayacını temizle
-      _isOptionSelectable = true; // Seçeneklerin seçilebilirliğini tekrar etkinleştir
-      // Yıldızlı kelimeler modu aktif ise yıldızlı kelimeleri tekrar yükle
-
-      // Oyunu yeniden başlatmak için gerekli diğer işlemler
-      secenekleriYenile(); // Seçenekleri ve aktif kelimeyi yenile
-      // Zamanlayıcıyı başlat
+      kalanZamanSaniye = 15;
+      zamanCubuguDegeri = 1.0;
+      tamamlananKelimeler.clear();
+      kelimeDogruSayac.clear();
+      _isOptionSelectable = true;
+      secenekleriYenile();
       if (zamanlayici.isActive) {
-        zamanlayici.cancel(); // Eğer zamanlayıcı aktifse, önce iptal et
+        zamanlayici.cancel();
       }
-      zamanlayiciyiBaslat(); // Zamanlayıcıyı yeniden başlat
+      zamanlayiciyiBaslat();
     });
 
-    // Konuşma motorunu sıfırla (opsiyonel)
     flutterTts.stop();
   }
 
   void showCompletionDialog() {
     showDialog(
       context: context,
-      barrierDismissible: false, // Kullanıcı dışarıya dokunarak dialogu kapatamaz
-      builder: (BuildContext dialogContext) { // Dialog için yeni bir context oluşturuldu.
+      barrierDismissible: false,
+      builder: (BuildContext dialogContext) {
         return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.0)), // Daha yuvarlak köşeler
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.0)),
           child: Container(
             padding: EdgeInsets.all(20),
             decoration: BoxDecoration(
@@ -414,8 +393,8 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
                     textStyle: TextStyle(fontSize: 16),
                   ),
                   onPressed: () {
-                    Navigator.of(dialogContext).pop(); // İlk olarak dialog'u kapat.
-                    Navigator.of(context).popUntil((route) => route.isFirst); // Navigasyon stack'indeki ilk sayfaya dön
+                    Navigator.of(dialogContext).pop();
+                    Navigator.of(context).popUntil((route) => route.isFirst);
                   },
                 ),
                 SizedBox(height: 10),
@@ -427,37 +406,26 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
     );
   }
 
-
   void returnToHomePage() {
-
-    Navigator.of(context).pop(); // Varsayılan olarak bir önceki sayfaya dön
+    Navigator.of(context).pop();
   }
-  bool isStarredMode = false; // Yıldız modunun aktif olup olmadığını kontrol etmek için
-  List<WordDetail> starredWords = []; // Yıldızlı kelimelerin listesi
-  void checkCompletionAndShowDialog() {
-    // Oyun moduna göre kontrol etmek için kalan kelimelerin sayısını hesaplayın
-    int remainingWords = isStarredMode ? starredWords.length : widget.words.length;
 
-    // Eğer tamamlanan kelime sayısı kalan kelime sayısına eşitse veya fazlaysa, oyun tamamlanmıştır
+  bool isStarredMode = false;
+  List<WordDetail> starredWords = [];
+  void checkCompletionAndShowDialog() {
+    int remainingWords = isStarredMode ? starredWords.length : widget.words.length;
     if (tamamlananKelimeler.length > totalWordsCount) {
-      showCompletionDialog(); // Bitiş ekranını göster
+      showCompletionDialog();
     }
   }
-
 
   void secenekleriYenile() {
     setState(() {
       print(tamamlananKelimeler.length);
-      // Yıldız moduna göre kelimeleri seç
       List<WordDetail> currentWords = isStarredMode ? starredWords : widget.words;
-
       List<WordDetail> filteredWords = currentWords.where((word) => !tamamlananKelimeler.contains(word.word)).toList();
-
-      // Yıldızlı kelimeler veya tüm kelimelerden rastgele bir kelime seç
       if (filteredWords.isNotEmpty) {
         aktifKelime = filteredWords[Random().nextInt(filteredWords.length)].word;
-
-        // Seçenekleri oluştur
         List<String> tumSecenekler = filteredWords.map((e) => e.meaning).toList()..shuffle();
         int listSize = tumSecenekler.length;
         secenekler = tumSecenekler.sublist(0, min(8, listSize));
@@ -465,51 +433,46 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
           secenekler[Random().nextInt(secenekler.length)] = kelimeler[aktifKelime]!;
         }
         secenekler.shuffle();
-
-        // Renkleri ve diğer değişkenleri sıfırla
         optionColors.clear();
-        for (int i = 0; i < secenekler.length+1; i++) {
+        for (int i = 0; i < secenekler.length + 1; i++) {
           optionColors[i] = defaultOptionColor;
         }
-
-        // Zamanlayıcıyı sıfırla ve yeniden başlat
         if (zamanlayici.isActive) {
-          zamanlayici.cancel(); // Mevcut zamanlayıcıyı iptal et
+          zamanlayici.cancel();
         }
-        zamanlayiciyiBaslat(); // Zamanlayıcıyı yeniden başlat
-
-        // Aktif kelimenin söylenmesi
+        zamanlayiciyiBaslat();
         flutterTts.speak(aktifKelime);
       } else {
-        _showCompletionMessage(); // Kullanıcıya tebrik mesajı göster
-
+        _showCompletionMessage();
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(isStarredMode ? 'Yıldızlı kelime kalmadı!' : 'Tüm kelimeler soruldu!'),
         ));
       }
     });
   }
+
   void _showCompletionMessage() {
     showDialog(
       context: context,
-      barrierDismissible: false, // Kullanıcı dialog dışına tıklayarak kapatamaz
+      barrierDismissible: false,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text("Tebrikler!"),
-          content: Text("Tüm kelimeleri başarıyla tamamladınız."),
+          title: Text("Tebrikler!", style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black)),
+          content: Text("Tüm kelimeleri başarıyla tamamladınız.", style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black)),
+          backgroundColor: _isDarkMode ? Colors.black : Colors.white,
           actions: <Widget>[
             TextButton(
-              child: Text("Tekrar Oyna"),
+              child: Text("Tekrar Oyna", style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black)),
               onPressed: () {
-                Navigator.of(context).pop(); // Dialog'u kapat
-                _restartGame(); // Oyunu yeniden başlat
+                Navigator.of(context).pop();
+                _restartGame();
               },
             ),
             TextButton(
-              child: Text("Bir Önceki Sayfaya Dön"),
+              child: Text("Bir Önceki Sayfaya Dön", style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black)),
               onPressed: () {
-                Navigator.of(context).pop(); // Dialog'u kapat
-                Navigator.of(context).pop(); // Bir önceki sayfaya dön
+                Navigator.of(context).pop();
+                Navigator.of(context).pop();
               },
             ),
           ],
@@ -518,10 +481,8 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
     );
   }
 
-
   void _restartGame() {
     setState(() {
-      // Temel değişkenlerin sıfırlanması
       puan = 0;
       kalanZamanSaniye = 15;
       zamanCubuguDegeri = 1.0;
@@ -531,289 +492,286 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
       tamamlananKelimeler.clear();
       optionColors.clear();
       _isOptionSelectable = true;
-
-      // Yıldızlı kelimeler listesini ve modunu sıfırla
-      isStarredMode = false; // Varsayılan olarak yıldız modunu pasif yap
-      starredWords.clear(); // Yıldızlı kelimeler listesini temizle
-
-      // Oyunu yeniden başlatmak için gereken diğer değişkenler burada sıfırlanabilir.
-
-      // Zamanlayıcıyı yeniden başlat
+      isStarredMode = false;
+      starredWords.clear();
       if (zamanlayici.isActive) {
-        zamanlayici.cancel(); // Eğer zamanlayıcı aktifse, iptal et
+        zamanlayici.cancel();
       }
-      zamanlayiciyiBaslat(); // Zamanlayıcıyı yeniden başlat
-
-      // Seçenekleri ve aktif kelimeyi yenile
+      zamanlayiciyiBaslat();
       secenekleriYenile();
+    });
+  }
 
-      // Oyunun görsel ve işlevsel durumunu sıfırla
-      // Eğer kullanıyorsanız, ConfettiController veya benzeri animasyonları da resetleyebilirsiniz
+  bool _isDarkMode = false;
+
+  void _toggleDarkMode() {
+    setState(() {
+      _isDarkMode = !_isDarkMode;
+    });
+  }
+  Future<void> _loadDarkModePreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _isDarkMode = prefs.getBool("darkMode") ?? false;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    return
-      WillPopScope(
-          onWillPop: () async {
-            Navigator.of(context).pop(true);
-            // Sistem tarafından ek bir pop işlemi yapılmasını engellemek için false dön
-            return false;
-          },
-    child:
-      SafeArea(
-      child: Scaffold(
-        appBar: AppBar(
+    final colors = _isDarkMode ? darkModeColors : lightModeColors;
 
-          title: Text('Klasik Kelibu'),
-
-        ),
-        body: Column(
-          children: [
-            // AppBar içerisinde, diğer widget'larınızın yanına ekleyin
-// AppBar içerisinde, diğer widget'larınızın yanına ekleyin
-            IconButton(
-              icon: Icon(isStarredMode ? Icons.star : Icons.star_border),
-              onPressed: () async {
-                if (!isStarredMode) {
-                  // Yıldız modu aktif değilse, yıldızlı kelimeleri çek
-                  await fetchStarredWords();
-                }
-                setState(() {
-                  isStarredMode = !isStarredMode;
-                  // Yıldız moduna geçişte ve çıkışta toplam kelime sayısını güncelle
-                  totalWordsCount = isStarredMode ? starredWords.length : widget.words.length;
-                  if (isStarredMode && starredWords.isEmpty) {
-                    // Eğer yıldız moduna geçildiğinde yıldızlı kelime yoksa, kullanıcıyı bilgilendir
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('En az 1 yıldızlı kelimeniz olması gerekmektedir.'),
-                      ),
-                    );
-                    // Yıldızlı moddan çık
-                    isStarredMode = false;
-                  } else {
-                    // Yıldızlı mod aktifse ve yıldızlı kelimeler varsa, oyunu yıldızlı kelimelerle yenile
-                    secenekleriYenile();
-                  }
-                });
-              },
-            ),
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-      // AppBar içindeki FloatingActionButton widget'ını güncelleyin
-                  FloatingActionButton(
-                    onPressed: () {
-                      // VolumeProvider'a erişim ve mute durumunu değiştirme
-                      final volumeProvider = Provider.of<VolumeProvider>(context, listen: false);
-                      volumeProvider.toggleVolume();
-                      // flutterTts setVolume işlevini kullanarak sesi aç/kapat
-                      flutterTts.setVolume(volumeProvider.isVolumeOn ? 0 : 1);
-                    },
-                    child: Consumer<VolumeProvider>(
-                      builder: (context, volumeProvider, child) {
-                        return Icon(
-                          volumeProvider.isVolumeOn ? Icons.volume_off : Icons.volume_up,
-                          color: Colors.white,
-                        );
-                      },
-                    ),
-                    backgroundColor: Colors.teal,
-                    elevation: 8.0,
-                    hoverElevation: 10.0,
-                    splashColor: Colors.greenAccent,
-                    tooltip: 'Sesi Aç/Kapat',
-                  ),
-                  RichText(
-                    text: TextSpan(
-                      children: [
-                        WidgetSpan(
-                          child: Icon(Icons.star, size: 24, color: Colors.amber), // Puan simgesi olarak yıldız ikonu
-                        ),
-                        TextSpan(
-                          text: ' Puan: $score',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.teal,
-                            letterSpacing: 1.2, // Harfler arası boşluk
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  CircularPercentIndicator(
-                    radius: 30.0, // Daha küçük bir yarıçap
-                    lineWidth: 4.0, // Daha ince bir çizgi genişliği
-                    animation: true, // Yüzde değişikliğinde animasyon etkisi
-                    percent: zamanCubuguDegeri, // Zamanlayıcı değeri (0.0 ile 1.0 arasında)
-                    center: Text(
-                      "${(15 * zamanCubuguDegeri).round()}s",
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.teal[800]), // Daha küçük ve kalın font
-                    ),
-                    circularStrokeCap: CircularStrokeCap.round, // Daha yumuşak uçlar
-                    progressColor: Colors.teal, // İlerleme rengi olarak tema rengini kullan
-                    backgroundColor: Colors.teal.shade100, // Arka plan rengi
-                    footer: Padding(
-                      padding: const EdgeInsets.only(top: 8.0),
-                      child: Text(
-                        'Kalan Süre', // Zamanlayıcının altında açıklama
-                        style: TextStyle(fontSize: 10, color: Colors.teal[800]),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: GridView.builder(
-                padding: EdgeInsets.all(16),
-                shrinkWrap: true,
-                itemCount: max(secenekler.length + 2, 10), // Ortadaki kart için +1 ekleyin ve en az 9 olacak şekilde ayarlayın
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
-                  crossAxisSpacing: 10.0,
-                  mainAxisSpacing: 10.0,
-                ),
-                itemBuilder: (BuildContext context, int index) {
-                  // Orta kartı kontrol et
-                  if (index == 4) {
-                    return Card(
-                      color: centerCardColor,
-                      child: Center(
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  aktifKelime,
-                                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.teal),
-                                  textAlign: TextAlign.center,
-                                ),
-                                Text(
-                                  '${kelimeDogruSayac[aktifKelime] ?? 0}/3',
-                                  style: TextStyle(color: Colors.teal.shade800),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
-                  } else {
-                    // Orta kartın index'ini dikkate alarak seçenekler listesinin index'ini ayarla
-                    int optionIndex = index < 4 ? index : index - 1;
-
-                    // Eğer seçenekler listesi bu index için bir değer içermiyorsa boş bir Container döndür
-                    if (optionIndex >= secenekler.length) {
-                      return Container();
-                    }
-
-                    // Seçenek kartları için mantık
-                    String secenek = secenekler[optionIndex];
-                    return AnimatedContainer(
-                      duration: Duration(milliseconds: 300),
-                      color: optionColors[optionIndex], // Burada optionIndex kullanılmalı
-                      child: InkWell(
-                        onTap: () => handleOptionTap(secenek, optionIndex), // Burada optionIndex doğru şekilde kullanılıyor
-                        child: Center(
-                          child: Text(
-                            secenek,
-                            style: TextStyle(fontSize: 18, color: Colors.teal.shade800),
-                          ),
-                        ),
-                      ),
-                    );
-                  }
-                },
-              ),
-            ),
-            Align(
-              alignment: Alignment.topCenter,
-              child: ConfettiWidget(
-                confettiController: _confettiController,
-                blastDirectionality: BlastDirectionality.explosive,
-                shouldLoop: false,
-                colors: const [Colors.green, Colors.blue, Colors.orange, Colors.purple],
-                numberOfParticles: 30,
-              ),
-            ),
-          ],
-        ),
-        bottomNavigationBar: BottomAppBar(
-          color: Colors.teal,
-          child: Container(
-            height: 60.0,
-            padding: EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: <Widget>[
-                TextButton(
-                  onPressed: () => showLearnedWordsModal(context),
-                  child: Text('Öğrenilen Kelimeleri Göster', style: TextStyle(color: Colors.white)),
-                ),
-                Text(
-                  isStarredMode ? '${tamamlananKelimeler.length} / ${totalWordsCount}' : '${tamamlananKelimeler.length} / ${totalWordsCount}',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+    return WillPopScope(
+        onWillPop: () async {
+          Navigator.of(context).pop(true);
+          return false;
+        },
+        child: SafeArea(
+          child: Scaffold(
+            backgroundColor: _isDarkMode ? Colors.black12 : Colors.white,
+            appBar: AppBar(
+              title: Text('Klasik Kelibu', style: TextStyle(color: _isDarkMode ? Colors.black : Colors.white)),
+              actions: [
+                IconButton(
+                  icon: Icon(_isDarkMode ? Icons.wb_sunny : Icons.nights_stay),
+                  onPressed: _toggleDarkMode,
+                  color: _isDarkMode ? Colors.black : Colors.black,
                 ),
               ],
             ),
+            body: Column(
+              children: [
+                IconButton(
+                  icon: Icon(isStarredMode ? Icons.star : Icons.star_border),
+                  onPressed: () async {
+                    if (!isStarredMode) {
+                      await fetchStarredWords();
+                    }
+                    setState(() {
+                      isStarredMode = !isStarredMode;
+                      totalWordsCount = isStarredMode ? starredWords.length : widget.words.length;
+                      if (isStarredMode && starredWords.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('En az 1 yıldızlı kelimeniz olması gerekmektedir.', style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black)),
+                            backgroundColor: _isDarkMode ? Colors.black : Colors.white,
+                          ),
+                        );
+                        isStarredMode = false;
+                      } else {
+                        secenekleriYenile();
+                      }
+                    });
+                  },
+                  color: _isDarkMode ? Colors.white : Colors.black,
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      FloatingActionButton(
+                        onPressed: () {
+                          final volumeProvider = Provider.of<VolumeProvider>(context, listen: false);
+                          volumeProvider.toggleVolume();
+                          flutterTts.setVolume(volumeProvider.isVolumeOn ? 0 : 1);
+                        },
+                        child: Consumer<VolumeProvider>(
+                          builder: (context, volumeProvider, child) {
+                            return Icon(
+                              volumeProvider.isVolumeOn ? Icons.volume_off : Icons.volume_up,
+                              color: Colors.white,
+                            );
+                          },
+                        ),
+                        backgroundColor: _isDarkMode ? Colors.indigo : Colors.teal,
+                        elevation: 8.0,
+                        hoverElevation: 10.0,
+                        splashColor: Colors.greenAccent,
+                        tooltip: 'Sesi Aç/Kapat',
+                      ),
+                      RichText(
+                        text: TextSpan(
+                          children: [
+                            WidgetSpan(
+                              child: Icon(Icons.star, size: 24, color: Colors.amber),
+                            ),
+                            TextSpan(
+                              text: ' Puan: $score',
+                              style: TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                                color: _isDarkMode ? Colors.white : Colors.teal,
+                                letterSpacing: 1.2,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      CircularPercentIndicator(
+                        radius: 30.0,
+                        lineWidth: 4.0,
+                        animation: true,
+                        percent: zamanCubuguDegeri,
+                        center: Text(
+                          "${(15 * zamanCubuguDegeri).round()}s",
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: _isDarkMode ? Colors.white : Colors.teal,
+                          ),
+                        ),
+                        circularStrokeCap: CircularStrokeCap.round,
+                        progressColor: _isDarkMode ? Colors.indigo : Colors.teal,
+                        backgroundColor: _isDarkMode ? Colors.indigo.shade100 : Colors.teal.shade100,
+                        footer: Padding(
+                          padding: const EdgeInsets.only(top: 8.0),
+                          child: Text(
+                            'Kalan Süre',
+                            style: TextStyle(fontSize: 10, color: _isDarkMode ? Colors.white : Colors.teal[800]),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: GridView.builder(
+                    padding: EdgeInsets.all(16),
+                    shrinkWrap: true,
+                    itemCount: max(secenekler.length + 2, 10),
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 3,
+                      crossAxisSpacing: 10.0,
+                      mainAxisSpacing: 10.0,
+                    ),
+                    itemBuilder: (BuildContext context, int index) {
+                      if (index == 4) {
+                        return Card(
+                          color: centerCardColor,
+                          child: Center(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      aktifKelime,
+                                      style: TextStyle(
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.bold,
+                                        color: _isDarkMode ? Colors.white : Colors.teal,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                    Text(
+                                      '${kelimeDogruSayac[aktifKelime] ?? 0}/3',
+                                      style: TextStyle(color: _isDarkMode ? Colors.white : Colors.teal.shade800),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      } else {
+                        int optionIndex = index < 4 ? index : index - 1;
+                        if (optionIndex >= secenekler.length) {
+                          return Container();
+                        }
+                        String secenek = secenekler[optionIndex];
+                        return AnimatedContainer(
+                          duration: Duration(milliseconds: 300),
+                          color: optionColors[optionIndex],
+                          child: InkWell(
+                            onTap: () => handleOptionTap(secenek, optionIndex),
+                            child: Center(
+                              child: Text(
+                                secenek,
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  color: _isDarkMode ? Colors.black45 : Colors.teal.shade800,
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      }
+                    },
+                  ),
+                ),
+                Align(
+                  alignment: Alignment.topCenter,
+                  child: ConfettiWidget(
+                    confettiController: _confettiController,
+                    blastDirectionality: BlastDirectionality.explosive,
+                    shouldLoop: false,
+                    colors: const [Colors.green, Colors.blue, Colors.orange, Colors.purple],
+                    numberOfParticles: 30,
+                  ),
+                ),
+              ],
+            ),
+            bottomNavigationBar: BottomAppBar(
+              color: _isDarkMode ? Colors.indigo : Colors.teal,
+              child: Container(
+                height: 60.0,
+                padding: EdgeInsets.symmetric(horizontal: 20),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: <Widget>[
+                    TextButton(
+                      onPressed: () => showLearnedWordsModal(context),
+                      child: Text('Öğrenilen Kelimeleri Göster', style: TextStyle(color: Colors.white)),
+                    ),
+                    Text(
+                      isStarredMode ? '${tamamlananKelimeler.length} / ${totalWordsCount}' : '${tamamlananKelimeler.length} / ${totalWordsCount}',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         ),
-      ),
-    ));
+      );
   }
 
   void showModal(BuildContext context) {
     showPlatformDialog(
       context: context,
       builder: (BuildContext dialogContext) => BasicDialogAlert(
-        title: Text("Ayarlar"),
+        title: Text("Ayarlar", style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            // İkonları yan yana yerleştirmek için Row widget'ı kullanılıyor.
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                // Ses Kapatma İkonu
                 IconButton(
                   icon: Icon(Icons.volume_off),
                   onPressed: () {
-                    // Ses kapatma işlevi
-                    Navigator.pop(dialogContext); // Diyalogu kapat
+                    Navigator.pop(dialogContext);
                   },
                 ),
-                // Türkçe/İngilizce Çeviri İkonu
                 IconButton(
                   icon: Icon(Icons.translate),
                   onPressed: () {
-                    // Dil değiştirme işlevi
-                    Navigator.pop(dialogContext); // Diyalogu kapat
+                    Navigator.pop(dialogContext);
                   },
                 ),
-                // Resim Gösterme İkonu
                 IconButton(
                   icon: Icon(Icons.image),
                   onPressed: () {
-                    // Resim gösterme işlevi
-                    Navigator.pop(dialogContext); // Diyalogu kapat
+                    Navigator.pop(dialogContext);
                   },
                 ),
-                // Yıldız İkonu
                 IconButton(
                   icon: Icon(Icons.star),
                   onPressed: () {
-                    // Favorilere ekleme işlevi
-                    Navigator.pop(dialogContext); // Diyalogu kapat
+                    Navigator.pop(dialogContext);
                   },
                 ),
               ],
@@ -822,9 +780,9 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
         ),
         actions: <Widget>[
           BasicDialogAction(
-            title: Text("Kapat"),
+            title: Text("Kapat", style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black)),
             onPressed: () {
-              Navigator.pop(dialogContext); // Diyalogu kapat
+              Navigator.pop(dialogContext);
             },
           ),
         ],
@@ -838,11 +796,12 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
       isScrollControlled: true,
       builder: (BuildContext context) {
         return Container(
+          color: _isDarkMode ? Colors.black : Colors.white,
           padding: EdgeInsets.all(8),
           height: MediaQuery.of(context).size.height * 0.5,
           child: ListView(
             children: tamamlananKelimeler.map((kelime) => ListTile(
-              title: Text(kelime),
+              title: Text(kelime, style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black)),
               trailing: Icon(Icons.check, color: Colors.green),
             )).toList(),
           ),
@@ -851,22 +810,13 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
     );
   }
 
-  bool _isOptionSelectable = true; // Seçeneklerin seçilebilirliğini kontrol etmek için
+  bool _isOptionSelectable = true;
 
   void handleOptionTap(String secenek, int index) {
     if (!_isOptionSelectable) return;
-
     final bool isCorrect = secenek == kelimeler[aktifKelime];
-    // Doğru cevabın index'i, secenekler listesindeki konumu
     int correctIndex = secenekler.indexOf(kelimeler[aktifKelime]!);
-
-    // GridView'da ortadaki kelimenin dikkate alınması gerekiyor, bu yüzden tıklanan seçeneğin gerçek indeksi ayarlanmalı
-    // Orta kart (indeksi her zaman 4 olan) sonrası seçenekler için indeks düzeltmesi
     int optionIndex = index;
-
-    // Doğru cevabın da GridView içerisindeki yerini düzeltmek için benzer bir düzeltme yapılmalı
-    // Bu durum, doğru cevap ortadaki karttan sonra bir seçenekse önem kazanır
-
     int remainingSeconds = (15 * zamanCubuguDegeri).round();
     int pointChange = isCorrect ? remainingSeconds : -remainingSeconds;
 
@@ -875,8 +825,7 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
       if (isCorrect) {
         kelimeDogruSayac[aktifKelime] = (kelimeDogruSayac[aktifKelime] ?? 0) + 1;
         score += pointChange;
-        optionColors[optionIndex] = correctOptionColor; // Doğru seçeneği işaretle
-        score += pointChange;
+        optionColors[optionIndex] = correctOptionColor;
         if (kelimeDogruSayac[aktifKelime]! >= 3) {
           tamamlananKelimeler.add(aktifKelime);
           if (isStarredMode) {
@@ -884,22 +833,18 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
           }
           _confettiController.play();
           showScoreTextAnimation(aktifKelime);
-          score += 30; // Ekstra puan
+          score += 30;
         }
-      }
-       else {
+      } else {
         kelimeDogruSayac[aktifKelime] = 0;
         score += pointChange;
-        optionColors[optionIndex] = wrongOptionColor; // Yanlış seçeneği işaretle
-        optionColors[correctIndex] = correctOptionColor; // Doğru seçeneği işaretle
-
+        optionColors[optionIndex] = wrongOptionColor;
+        optionColors[correctIndex] = correctOptionColor;
       }
 
-      // Puan güncellemesi ve animasyonlar
       showScoreAnimation('${pointChange > 0 ? '+' : ''}$pointChange');
-      _updateUserScore(score,pointChange);
+      _updateUserScore(score, pointChange);
 
-      // Bir sonraki soruya geçiş
       Future.delayed(Duration(milliseconds: 1000), () {
         setState(() {
           _isOptionSelectable = true;
@@ -909,13 +854,13 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
       });
     });
   }
-  Future<void> _updateUserScore(int score,int pointChange) async {
 
+  Future<void> _updateUserScore(int score, int pointChange) async {
     try {
       UserProvider userProvider = Provider.of<UserProvider>(context, listen: false);
-      userID =userProvider.userId;
-      print("userid"+userID.toString());
-      await ApiService().updateUserPointTimePeriod(userID, score,pointChange);
+      userID = userProvider.userId;
+      print("userid" + userID.toString());
+      await ApiService().updateUserPointTimePeriod(userID, score, pointChange);
       userProvider.addPoint(score);
       print("Puan güncellendi: $score");
     } catch (e) {
@@ -925,7 +870,7 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
 
   void showFeedback({required bool isCorrect}) {
     final snackBar = SnackBar(
-      content: Text(isCorrect ? 'Doğru!' : 'Yanlış! Doğru cevap: ${kelimeler[aktifKelime]}'),
+      content: Text(isCorrect ? 'Doğru!' : 'Yanlış! Doğru cevap: ${kelimeler[aktifKelime]}', style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black)),
       backgroundColor: isCorrect ? Colors.green : Colors.red,
     );
     ScaffoldMessenger.of(context).showSnackBar(snackBar);

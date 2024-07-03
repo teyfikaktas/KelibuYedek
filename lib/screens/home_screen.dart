@@ -1,5 +1,5 @@
 import 'dart:ui';
-
+import 'package:animated_toggle_switch/animated_toggle_switch.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:kelibu/screens/settings_screen.dart';
@@ -22,7 +22,8 @@ import 'package:getwidget/getwidget.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:csv/csv.dart';
-
+import 'package:provider/provider.dart';
+import '../providers/darkmodeprovider.dart';
 import 'RaceScreen.dart';
 import 'library_star.dart';
 
@@ -142,7 +143,7 @@ class WordOfTheDay {
 Future<WordOfTheDay> fetchWordOfTheDay() async {
   final uri = Uri.parse('https://kelibu.net/api/daily-word');
   final response = await http.get(uri, headers: {
-    "X-Custom-Header": privacyKey.privacyKeyVariable, // İsteğinize eklemek istediğiniz header
+    "X-Custom-Header": privacyKey.privacyKeyVariable,
   });
 
   if (response.statusCode == 200) {
@@ -168,6 +169,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final FlutterTts flutterTts = FlutterTts();
   bool isInitialized = false;
   bool _isDataLoaded = false;
+  bool _isDarkMode = false;
 
   @override
   void initState() {
@@ -175,6 +177,19 @@ class _HomeScreenState extends State<HomeScreen> {
     _fetchData();
     _loadWordOfTheDay();
     _getPoint();
+    _loadDarkModePreference();
+  }
+
+  Future<void> _loadDarkModePreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _isDarkMode = prefs.getBool("darkMode") ?? false;
+    });
+  }
+
+  Future<void> _saveDarkModePreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool("darkMode", _isDarkMode);
   }
 
   Future<void> initializeData() async {
@@ -190,11 +205,6 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!_isDataLoaded) {
       _isDataLoaded = true;
     }
-  }
-
-  Future<void> _initializeData() async {
-    await syncStarredWords();
-    if (mounted) setState(() {});
   }
 
   Future<void> syncStarredWords() async {
@@ -213,11 +223,11 @@ class _HomeScreenState extends State<HomeScreen> {
       barrierDismissible: false,
       builder: (BuildContext context) {
         return Dialog(
-          child: new Row(
+          child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              new CircularProgressIndicator(),
-              new Text("Sistemde gerekli ayarlar yapılıyor..."),
+              CircularProgressIndicator(),
+              Text("Sistemde gerekli ayarlar yapılıyor..."),
             ],
           ),
         );
@@ -352,20 +362,53 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final userProvider = Provider.of<UserProvider>(context);
+    final colors = _isDarkMode ? darkModeColors : lightModeColors;
+    final darkModeProvider = Provider.of<DarkModeProvider>(context);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFEFAF6),
+      backgroundColor: colors["background"],
       body: SafeArea(
         child: Stack(
           children: [
             Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Spacer(),
+                      AnimatedToggleSwitch<bool>.dual(
+                        current: _isDarkMode,
+                        first: false,
+                        second: true,
+                        height: 30,
+                        indicatorSize: Size(30, 30),
+                        onChanged: (b) async {
+                          await _toggleDarkMode(b);
+
+                          darkModeProvider.toggleDarkMode();
+
+                          setState(() {
+                            _isDarkMode = b;
+                          });
+                        },
+                        iconBuilder: (value) => value
+                            ? Icon(Icons.nightlight_round, color: Colors.white)
+                            : Icon(Icons.wb_sunny, color: Colors.yellow[700]),
+                        textBuilder: (value) => value
+                            ? Center(child: Text('', style: TextStyle(color: Colors.white)))
+                            : Center(child: Text('', style: TextStyle(color: Colors.black))),
+                      ),
+                    ],
+                  ),
+                ),
                 Container(
                   height: 120,
                   child: _buildUserInfoSection(userProvider),
                 ),
-                SearchPanel(),
+                SearchPanel(isDarkMode: _isDarkMode),
                 Container(
                   height: 180,
                   child: buildWordCard((String text) => speak(text)),
@@ -384,7 +427,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       children: [
                         Row(
                           children: [
-                            Icon(Icons.label, color: Colors.pinkAccent),
+                            Icon(Icons.label, color: Colors.white),
                             SizedBox(width: 8),
                             Text("Kelime Setlerine Çalış"),
                           ],
@@ -393,8 +436,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       ],
                     ),
                     style: ElevatedButton.styleFrom(
-                      primary: Colors.pink[100],
-                      onPrimary: Colors.white,
+                      primary: colors["buttonBackground"],
+                      onPrimary: colors["buttonText"],
                       textStyle: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -403,19 +446,21 @@ class _HomeScreenState extends State<HomeScreen> {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      minimumSize: Size(double.infinity, 50), // Butonun genişliği ekranı kaplasın
+                      minimumSize: Size(double.infinity, 50),
                       elevation: 5,
-                    ).copyWith(
-                      elevation: MaterialStateProperty.resolveWith<double>(
-                            (Set<MaterialState> states) {
-                          if (states.contains(MaterialState.pressed)) {
-                            return 10;
-                          }
-                          return 5;
-                        },
-                      ),
-                      shadowColor: MaterialStateProperty.all(Colors.black.withOpacity(0.2)),
                     ),
+                  ),
+                ),
+                Spacer(),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 32.0),
+                  child: Text(
+                    "© PhD Akademi tarafından geliştirilmiştir.",
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: colors["text"],
+                    ),
+                    textAlign: TextAlign.center,
                   ),
                 ),
               ],
@@ -442,7 +487,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           margin: EdgeInsets.only(top: 60),
                           padding: EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: colors["background"],
                             borderRadius: BorderRadius.circular(16),
                             boxShadow: [
                               BoxShadow(
@@ -466,10 +511,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                         Container(
                                           padding: EdgeInsets.all(8.0),
                                           decoration: BoxDecoration(
-                                            color: Colors.pink.shade50,
+                                            color: colors["iconBackground"],
                                             borderRadius: BorderRadius.circular(12.0),
                                           ),
-                                          child: Icon(Icons.library_books, color: Colors.pink.shade700, size: 28),
+                                          child: Icon(Icons.library_books, color: colors["iconColor"], size: 28),
                                         ),
                                         SizedBox(width: 12),
                                         Text(
@@ -477,7 +522,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                           style: GoogleFonts.nunito(
                                             fontSize: 24,
                                             fontWeight: FontWeight.bold,
-                                            color: Colors.pink.shade700,
+                                            color: colors["text"],
                                           ),
                                         ),
                                       ],
@@ -492,10 +537,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                       child: Container(
                                         padding: EdgeInsets.all(8.0),
                                         decoration: BoxDecoration(
-                                          color: Colors.pink.shade100,
+                                          color: colors["iconBackground"],
                                           borderRadius: BorderRadius.circular(12),
                                         ),
-                                        child: Icon(Icons.close, color: Colors.pink.shade700, size: 28),
+                                        child: Icon(Icons.close, color: colors["iconColor"], size: 28),
                                       ),
                                     ),
                                   ],
@@ -522,15 +567,17 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildUserInfoSection(UserProvider userProvider) {
+    final colors = _isDarkMode ? darkModeColors : lightModeColors;
+
     return Container(
       margin: EdgeInsets.all(12),
       padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colors["background"],
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: colors["shadowColor"] ?? Colors.grey,
             spreadRadius: 1,
             blurRadius: 3,
             offset: Offset(0, 2),
@@ -542,7 +589,7 @@ class _HomeScreenState extends State<HomeScreen> {
           CircleAvatar(
             radius: 24,
             backgroundImage: NetworkImage('https://kelibu.net/storage/${userProvider.avatar}'),
-            backgroundColor: Colors.grey[300],
+            backgroundColor: colors["avatarBackground"],
           ),
           SizedBox(width: 12),
           Expanded(
@@ -551,18 +598,18 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 Text(
                   'Hoşgeldiniz, ${userProvider.username}',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black54),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: colors["text"]),
                 ),
                 SizedBox(height: 2),
                 Text(
                   'Puanınız: ${userProvider.point}',
-                  style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+                  style: TextStyle(fontSize: 14, color: colors["text"]),
                 ),
               ],
             ),
           ),
           IconButton(
-            icon: Icon(Icons.settings, color: Colors.black54, size: 30),
+            icon: Icon(Icons.settings, color: colors["iconColor"], size: 30),
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
@@ -576,7 +623,15 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Future<void> _toggleDarkMode(bool isDarkMode) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool("darkMode", isDarkMode);
+  }
+
+
   Widget buildWordCard(Function(String) onSpeak) {
+    final colors = _isDarkMode ? darkModeColors : lightModeColors;
+
     return FutureBuilder<WordOfTheDay>(
       future: fetchWordOfTheDay(),
       builder: (context, snapshot) {
@@ -588,11 +643,11 @@ class _HomeScreenState extends State<HomeScreen> {
           return Container(
             margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: colors["background"],
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.grey.withOpacity(0.5),
+                  color: colors["shadowColor"] ?? Colors.grey,
                   spreadRadius: 1,
                   blurRadius: 3,
                   offset: Offset(0, 2),
@@ -609,7 +664,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     style: GoogleFonts.nunito(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
-                      color: Colors.blueGrey,
+                      color: colors["text"],
                     ),
                   ),
                   Row(
@@ -620,7 +675,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             onSpeak(snapshot.data!.term);
                           }
                         },
-                        child: Icon(Icons.volume_up, color: Colors.redAccent, size: 24),
+                        child: Icon(Icons.volume_up, color: colors["iconColor"], size: 24),
                       ),
                       SizedBox(width: 8),
                       Expanded(
@@ -629,7 +684,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           style: GoogleFonts.nunito(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            color: Colors.blueGrey,
+                            color: colors["text"],
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -641,7 +696,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     snapshot.data?.definition ?? 'Tanım yüklenemedi',
                     style: GoogleFonts.nunito(
                       fontSize: 14,
-                      color: Colors.black87,
+                      color: colors["text"],
                     ),
                   ),
                   if (snapshot.data?.type != null)
@@ -651,7 +706,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         'Tip: ${snapshot.data!.type}',
                         style: GoogleFonts.nunito(
                           fontSize: 12,
-                          color: Colors.black54,
+                          color: colors["text"],
                         ),
                       ),
                     ),
@@ -666,36 +721,58 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-class PackageListWidget extends StatelessWidget {
+class PackageListWidget extends StatefulWidget {
   final Future<List<Package>> packagesFuture;
 
   const PackageListWidget({Key? key, required this.packagesFuture}) : super(key: key);
 
   @override
+  _PackageListWidgetState createState() => _PackageListWidgetState();
+}
+
+class _PackageListWidgetState extends State<PackageListWidget> {
+  bool _isDarkMode = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDarkModePreference();
+  }
+
+  Future<void> _loadDarkModePreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _isDarkMode = prefs.getBool("darkMode") ?? false;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final colors = _isDarkMode ? darkModeColors : lightModeColors;
+
     return FutureBuilder<List<Package>>(
-      future: packagesFuture,
+      future: widget.packagesFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Center(child: CircularProgressIndicator());
         } else if (snapshot.hasError) {
-          return Center(child: Text("Hata: ${snapshot.error}"));
+          return Center(child: Text("Hata: ${snapshot.error}", style: TextStyle(color: colors["text"])));
         } else if (snapshot.hasData && snapshot.data!.isNotEmpty) {
           var packages = snapshot.data!;
           return ListView.builder(
             itemCount: packages.length,
             itemBuilder: (context, index) {
-              return _buildListItem(context, packages[index]);
+              return _buildListItem(context, packages[index], colors);
             },
           );
         } else {
-          return Center(child: Text("Kategori verisi yok"));
+          return Center(child: Text("Kategori verisi yok", style: TextStyle(color: colors["text"])));
         }
       },
     );
   }
 
-  Widget _buildListItem(BuildContext context, Package package) {
+  Widget _buildListItem(BuildContext context, Package package, Map<String, Color> colors) {
     return InkWell(
       onTap: () => _onListItemTap(context, package.classroom?.id ?? 0, package.classroom?.title ?? 'Varsayılan Başlık'),
       child: Card(
@@ -703,16 +780,16 @@ class PackageListWidget extends StatelessWidget {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16.0),
         ),
-        color: Colors.white,
+        color: colors["cardBackground"],
         child: ListTile(
           leading: CircleAvatar(
-            backgroundColor: Colors.pink.shade50,
-            child: Icon(Icons.library_books, color: Colors.pink.shade700),
+            backgroundColor: colors["iconBackground"],
+            child: Icon(Icons.library_books, color: colors["iconColor"]),
           ),
           title: Text(
             package.classroom?.title ?? 'Varsayılan Başlık',
             style: GoogleFonts.poppins(
-              color: Colors.pink.shade700,
+              color: colors["text"],
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -734,7 +811,7 @@ class PackageListWidget extends StatelessWidget {
 
     await Future.delayed(const Duration(milliseconds: 500));
 
-    Navigator.of(context).pop(); // Close the loading dialog
+    Navigator.of(context).pop();
 
     Navigator.of(context).push(MaterialPageRoute(
       builder: (context) => WordListScreen(
@@ -744,33 +821,34 @@ class PackageListWidget extends StatelessWidget {
     ));
   }
 }
-
 class WordCard {
   final int id;
-  final String? type; // type alanını nullable yaptık
+  final String? type;
   final String terim;
   final String tanim;
 
   WordCard({
     required this.id,
-    this.type, // required kaldırıldı çünkü nullable
+    this.type,
     required this.terim,
     required this.tanim,
   });
 
-  // JSON'dan bir WordCard örneği oluşturmak için fabrika yapıcı.
   factory WordCard.fromJson(Map<String, dynamic> json) {
     return WordCard(
       id: json['id'],
-      type: json['type'], // JSON'dan gelen type null olabilir
+      type: json['type'],
       terim: json['terim'],
       tanim: json['tanim'],
     );
   }
 }
 
-
 class SearchPanel extends StatefulWidget {
+  final bool isDarkMode;
+
+  const SearchPanel({Key? key, required this.isDarkMode}) : super(key: key);
+
   @override
   _SearchPanelState createState() => _SearchPanelState();
 }
@@ -825,15 +903,17 @@ class _SearchPanelState extends State<SearchPanel> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = widget.isDarkMode ? darkModeColors : lightModeColors;
+
     return Container(
       margin: EdgeInsets.all(16.0),
       padding: EdgeInsets.all(16.0),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colors["background"],
         borderRadius: BorderRadius.circular(12.0),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.5),
+            color: colors["shadowColor"] ?? Colors.grey.withOpacity(0.5),
             spreadRadius: 1,
             blurRadius: 3,
             offset: Offset(0, 2),
@@ -845,14 +925,14 @@ class _SearchPanelState extends State<SearchPanel> {
         children: [
           Row(
             children: [
-              Icon(Icons.library_books, color: Colors.blueGrey, size: 30.0),
+              Icon(Icons.library_books, color: colors["text"] ?? Colors.blueGrey, size: 30.0),
               SizedBox(width: 8.0),
               Text(
                 'Kelibu Sözlük',
                 style: GoogleFonts.nunito(
                   fontSize: 24.0,
                   fontWeight: FontWeight.bold,
-                  color: Colors.blueGrey,
+                  color: colors["text"] ?? Colors.blueGrey,
                 ),
               ),
             ],
@@ -865,14 +945,16 @@ class _SearchPanelState extends State<SearchPanel> {
                   controller: _searchController,
                   decoration: InputDecoration(
                     hintText: 'Kelime ara...',
+                    hintStyle: TextStyle(color: colors["text"] ?? Colors.black),
                     suffixIcon: IconButton(
-                      icon: Icon(Icons.search),
+                      icon: Icon(Icons.search, color: colors["text"] ?? Colors.black),
                       onPressed: () {
                         searchWord(_searchController.text);
                       },
                     ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12.0),
+                      borderSide: BorderSide(color: colors["borderColor"] ?? Colors.grey),
                     ),
                   ),
                   onSubmitted: (value) {

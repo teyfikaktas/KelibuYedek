@@ -125,6 +125,13 @@ class ApiService {
   }
 
   Future<void> updateUserPointTimePeriod(int userId, int newPoint, int timePoint) async {
+    print('newPoint');
+
+    print(newPoint);
+    print('timePoint');
+
+    print(timePoint);
+
     var url = Uri.parse('https://kelibu.net/api/user/new/updateUserPoint');
     var response = await http.post(
       url,

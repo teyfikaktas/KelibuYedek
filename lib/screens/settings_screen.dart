@@ -4,12 +4,12 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:path/path.dart' as p;
-import 'package:provider/provider.dart';
 import 'package:image/image.dart' as img;
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:kelibu/variables.dart'; // FTP bilgilerini içeren dosyayı import et
+import 'package:provider/provider.dart';
 import '../api.dart';
 import '../providers/user_provider.dart';
 import 'about_screen.dart';
@@ -19,6 +19,7 @@ import 'privary_policy.dart';
 import 'profile_setting.dart';
 import 'package:hive/hive.dart';
 import 'package:kelibu/main.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SettingsPage extends StatefulWidget {
   @override
@@ -27,6 +28,20 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   bool _isUploading = false;
+  bool _isDarkMode = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDarkModePreference();
+  }
+
+  Future<void> _loadDarkModePreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _isDarkMode = prefs.getBool("darkMode") ?? false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,19 +51,26 @@ class _SettingsPageState extends State<SettingsPage> {
     double screenHeight = MediaQuery.of(context).size.height;
     double screenWidth = MediaQuery.of(context).size.width;
 
+    final themeColors = _isDarkMode ? darkModeColors : lightModeColors;
+    final backgroundColor = themeColors["background"];
+    final textColor = themeColors["text"];
+    final buttonBackgroundColor = themeColors["buttonBackground"];
+    final buttonTextColor = themeColors["buttonText"];
+    final iconColor = themeColors["iconColor"];
+
     return Scaffold(
-      backgroundColor: const Color(0xFFFEFAF6), // Arka plan rengini burada ayarlayın
+      backgroundColor: backgroundColor, // Arka plan rengini burada ayarlayın
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: backgroundColor,
         title: Text(
           'Profilim',
           style: GoogleFonts.poppins(
-            color: Colors.pink,
+            color: textColor,
             fontWeight: FontWeight.bold,
           ),
         ),
         iconTheme: IconThemeData(
-          color: Colors.pink,
+          color: iconColor,
         ),
       ),
       body: SafeArea(
@@ -93,40 +115,75 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                     SizedBox(height: MediaQuery.of(context).size.height * 0.02),
                     // SettingsItem widget'ları ve diğer elemanlar burada yer alıyor.
-                    SettingsItem(Icons.settings, 'Hesap Bilgileri', onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => AccountPage()),
-                      );
-                    }),
-                    SettingsItem(Icons.info_outline, 'Hakkımızda', onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => AboutPage()),
-                      );
-                    }),
-                    SettingsItem(Icons.settings, 'İletişim ve Sorun Bildir', onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => ContactFormPage()),
-                      );
-                    }),
-                    SettingsItem(Icons.book, 'Hüküm ve Koşullar', onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => TermsAndConditionsPage()),
-                      );
-                    }),
-                    SettingsItem(Icons.privacy_tip, 'Gizlilik Sözleşmesi', onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => PrivacyPolicyPage()),
-                      );
-                    }),
-                    SettingsItem(Icons.delete, 'Hesabımı Sil', onTap: () {
-                      _confirmDeleteAccount(context, userProvider);
-                    }),
-                    SettingsItem(Icons.exit_to_app, 'Çıkış Yap', onTap: () => logout(context)),
+                    SettingsItem(
+                      icon: Icons.settings,
+                      title: 'Hesap Bilgileri',
+                      isDarkMode: _isDarkMode,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => AccountPage()),
+                        );
+                      },
+                    ),
+                    SettingsItem(
+                      icon: Icons.info_outline,
+                      title: 'Hakkımızda',
+                      isDarkMode: _isDarkMode,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => AboutPage()),
+                        );
+                      },
+                    ),
+                    SettingsItem(
+                      icon: Icons.settings,
+                      title: 'İletişim ve Sorun Bildir',
+                      isDarkMode: _isDarkMode,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => ContactFormPage()),
+                        );
+                      },
+                    ),
+                    SettingsItem(
+                      icon: Icons.book,
+                      title: 'Hüküm ve Koşullar',
+                      isDarkMode: _isDarkMode,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => TermsAndConditionsPage()),
+                        );
+                      },
+                    ),
+                    SettingsItem(
+                      icon: Icons.privacy_tip,
+                      title: 'Gizlilik Sözleşmesi',
+                      isDarkMode: _isDarkMode,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => PrivacyPolicyPage()),
+                        );
+                      },
+                    ),
+                    SettingsItem(
+                      icon: Icons.delete,
+                      title: 'Hesabımı Sil',
+                      isDarkMode: _isDarkMode,
+                      onTap: () {
+                        _confirmDeleteAccount(context, userProvider);
+                      },
+                    ),
+                    SettingsItem(
+                      icon: Icons.exit_to_app,
+                      title: 'Çıkış Yap',
+                      isDarkMode: _isDarkMode,
+                      onTap: () => logout(context),
+                    ),
                   ],
                 ),
               ),
@@ -143,6 +200,7 @@ class _SettingsPageState extends State<SettingsPage> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
+          backgroundColor: _isDarkMode ? Colors.black : Colors.white, // Dialog arka plan rengi
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20), // Yuvarlak köşeler
           ),
@@ -151,13 +209,14 @@ class _SettingsPageState extends State<SettingsPage> {
             style: GoogleFonts.roboto(
               fontSize: 20, // Başlık font boyutu
               fontWeight: FontWeight.bold, // Başlık font kalınlığı
-              color: Colors.pink, // Başlık font rengi
+              color: _isDarkMode ? Colors.white : Colors.pink, // Başlık font rengi
             ),
           ),
           content: Text(
             'Hesabınızı silmek istediğinize emin misiniz? Bu işlem geri alınamaz.',
             style: GoogleFonts.roboto(
               fontSize: 16, // İçerik font boyutu
+              color: _isDarkMode ? Colors.white : Colors.black, // İçerik font rengi
             ),
           ),
           actions: <Widget>[
@@ -218,9 +277,9 @@ class _SettingsPageState extends State<SettingsPage> {
       final box = await Hive.openBox<bool>('loginBox');
 
       print('isLoggedIn durumu false olarak güncelleniyor...');
-      await box.put('isLoggedIn', false);
-      print('isLoggedIn durumu başarıyla güncellendi.');
-
+    await
+    box.put("isLoggedIn", false);
+      print("isLoggedIn durumu başarıyla güncellendi.");
       Provider.of<UserProvider>(context, listen: false).logout();
 
       Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (context) => SplashScreen()));
@@ -230,10 +289,9 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  Future<void> _selectImage(BuildContext context) async {
+  Future _selectImage(BuildContext context) async {
     final ImagePicker _picker = ImagePicker();
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-
     if (image != null) {
       final File imageFile = File(image.path);
       final fileSize = await imageFile.length();
@@ -277,10 +335,9 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  Future<File> compressImage(File file, {int minWidth = 256, int minHeight = 256}) async {
+  Future compressImage(File file, {int minWidth = 256, int minHeight = 256}) async {
     final img.Image? image = img.decodeImage(await file.readAsBytes());
     img.Image resized = image!;
-
     // Eğer resim belirlenen minimum değerlerden büyükse, yeniden boyutlandır
     if (image.width < minWidth || image.height < minHeight) {
       resized = img.copyResize(image, width: minWidth, height: minHeight);
@@ -289,7 +346,7 @@ class _SettingsPageState extends State<SettingsPage> {
       resized = img.copyResize(image, width: image.width, height: image.height);
     }
 
-    // Yeniden boyutlandırılmış resmi geçici bir dosyaya yaz
+// Yeniden boyutlandırılmış resmi geçici bir dosyaya yaz
     final Directory tempDir = await getTemporaryDirectory();
     final String targetPath = p.join(tempDir.path, "temp_${DateTime.now().millisecondsSinceEpoch}.jpg");
     final File newImageFile = File(targetPath)..writeAsBytesSync(img.encodeJpg(resized, quality: 85));
@@ -297,10 +354,9 @@ class _SettingsPageState extends State<SettingsPage> {
     return newImageFile;
   }
 
-  Future<void> uploadImageAndUpdateAvatar(File imageFile) async {
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
+  Future uploadImageAndUpdateAvatar(File imageFile) async {
+    final userProvider = Provider.of(context, listen: false);
     Uri uri = Uri.parse("https://www.kelibu.net/api/updateAvatar");
-
     var request = http.MultipartRequest("POST", uri)
       ..fields['user_id'] = userProvider.userId.toString()
       ..files.add(await http.MultipartFile.fromPath('avatar', imageFile.path))
@@ -330,12 +386,12 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  String _createRandomFileName(String filePath) {
+  String createRandomFileName(String filePath) {
     final extension = p.extension(filePath); // Dosyanın uzantısını al
     final rand = Random();
     final randomNumber = rand.nextInt(10000); // 0 ile 9999 arasında rastgele bir sayı üret
     final timestamp = DateTime.now().millisecondsSinceEpoch; // Zaman damgası
-    return 'image_${timestamp}_$randomNumber$extension'; // Örnek: image_1625496728934_1234.jpg
+    return "image${timestamp}_$randomNumber$extension"; // Örnek: image_1625496728934_1234.jpg
   }
 
   void _showUploadingDialog() {
@@ -344,21 +400,27 @@ class _SettingsPageState extends State<SettingsPage> {
       barrierDismissible: false, // Kullanıcı dialog dışına dokunarak kapatamaz
       builder: (BuildContext context) {
         return Dialog(
-          backgroundColor: Colors.white, // Beyaz arka plan
+          backgroundColor: _isDarkMode ? Colors.black : Colors.white, // Dialog arka plan rengi
           child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
+              mainAxisSize: MainAxisSize.min,
+              children: [
               SizedBox(height: 20),
-              Text("Profil resmi değiştirme süresinde lütfen bekleyin", textAlign: TextAlign.center),
-              SizedBox(height: 20),
-              // Logo ve dönme animasyonu
-
-              CircularProgressIndicator(),
-              SizedBox(height: 20),
-              Text("Profil resminiz güncelleniyor", textAlign: TextAlign.center),
-              SizedBox(height: 20),
-            ],
-          ),
+          Text(
+          "Profil resmi değiştirme süresinde lütfen bekleyin",
+          textAlign: TextAlign.center,
+          style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black), // Yazı rengi
+        ),
+        SizedBox(height: 20),
+        CircularProgressIndicator(),
+        SizedBox(height: 20),
+        Text(
+        "Profil resminiz güncelleniyor",
+        textAlign: TextAlign.center,
+        style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black), // Yazı rengi
+        ),
+        SizedBox(height: 20),
+        ],
+        ),
         );
       },
     );
@@ -369,37 +431,42 @@ class SettingsItem extends StatelessWidget {
   final IconData icon;
   final String title;
   final VoidCallback? onTap;
+  final bool isDarkMode;
 
-  const SettingsItem(this.icon, this.title, {Key? key, this.onTap}) : super(key: key);
+  const SettingsItem({required this.icon, required this.title, this.onTap, required this.isDarkMode, Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    final themeColors = isDarkMode ? darkModeColors : lightModeColors;
+    final textColor = themeColors["text"];
+    final iconColor = themeColors["iconColor"];
+    final backgroundColor = themeColors["background"];
     return Padding(
-      padding: const EdgeInsets.all(8.0),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white, // Arka plan rengi beyaz olarak ayarlandı
-          border: Border.all(
-            color: Colors.grey,
-            width: 1.0,
-          ),
-          borderRadius: BorderRadius.circular(8.0), // Daha oval kenarlar için
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: ListTile(
-            leading: Icon(icon, color: Colors.pink), // İkon rengi pembe
-            title: Text(
-              title,
-              style: GoogleFonts.poppins(
-                color: Colors.pink, // Yazı rengi pembe olarak ayarlandı
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            onTap: onTap,
-          ),
-        ),
-      ),
+    padding: const EdgeInsets.all(8.0),
+    child: Container(
+    decoration: BoxDecoration(
+    color: backgroundColor, // Arka plan rengi
+    border: Border.all(
+    color: Colors.grey,
+    width: 1.0,
+    ),
+    borderRadius: BorderRadius.circular(8.0), // Daha oval kenarlar için
+    ),
+    child: Padding(
+    padding: const EdgeInsets.all(8.0),
+    child: ListTile(
+    leading: Icon(icon, color: iconColor), // İkon rengi
+    title: Text(
+    title,
+    style: GoogleFonts.poppins(
+    color: textColor, // Yazı rengi
+    fontWeight: FontWeight.bold,
+    ),
+    ),
+    onTap: onTap,
+    ),
+    ),
+    ),
     );
   }
 }

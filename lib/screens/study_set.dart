@@ -6,14 +6,15 @@ import 'package:kelibu/screens/game_mod.dart'; // GameModeScreen dosyanızın yo
 import 'package:kelibu/screens/game_screen_star.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../event.dart';
 import '../event_bus.dart';
 import '../providers/user_provider.dart';
 import '../shared_preferences/shared_preferences.dart';
 import 'loadingIndicator.dart'; // GameModeScreen dosyanızın yolu
+import '../variables.dart'; // variables.dart dosyasını dahil edin
 
-// GameModeScreen dosyanızın yolu
 class CustomLoadingIndicator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -38,21 +39,23 @@ class StudySetListScreen extends StatefulWidget {
 class _StudySetListScreenState extends State<StudySetListScreen> {
   Map<int, int> starredWordCounts = {}; // Her study set için yıldızlanmış kelime sayısını tutacak bir map
   ValueNotifier<Map<int, int>> starredWordCountsNotifier = ValueNotifier({});
-
   Future<List<StudySet>>? studySetsFuture;
   List<StudySet>? studySets; // Yeni eklenen değişken
   List<int> studySetIds = []; // `null` olabilirliği kaldırıldı, doğrudan bir liste oluşturuldu
+  bool _isDarkMode = false; // Dark mode kontrolü
+
   @override
   void initState() {
     super.initState();
     appEventBus.on<StarredWordsChangedEvent>().listen((event) async {
-        await loadStarredWordsCounts(); // Yıldızlanmış kelimelerin sayısını yeniden yükle
+      await loadStarredWordsCounts(); // Yıldızlanmış kelimelerin sayısını yeniden yükle
     });
     loadStarredWordsCounts();
+    _loadDarkModePreference();
 
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     int userID = userProvider.userId;
-    studySetsFuture = ApiService().fetchStudySets(widget.classroomId, widget.wordid,userID.toString());
+    studySetsFuture = ApiService().fetchStudySets(widget.classroomId, widget.wordid, userID.toString());
     studySetsFuture!.then((sets) {
       setState(() {
         studySets = sets; // studySets değişkenini güncelle
@@ -60,6 +63,13 @@ class _StudySetListScreenState extends State<StudySetListScreen> {
       studySets?.forEach((studySet) {
         studySetIds.add(studySet.id);
       });
+    });
+  }
+
+  Future<void> _loadDarkModePreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _isDarkMode = prefs.getBool("darkMode") ?? false;
     });
   }
 
@@ -77,28 +87,28 @@ class _StudySetListScreenState extends State<StudySetListScreen> {
     // ValueNotifier'ı güncelle
     starredWordCountsNotifier.value = tempStarredWordCounts;
   }
+
   @override
   Widget build(BuildContext context) {
+    final colors = _isDarkMode ? darkModeColors : lightModeColors;
+
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-
-      home:
-      Scaffold(
-        backgroundColor: const Color(0xFFFEFAF6), // Arka plan rengini burada ayarlayın
+      home: Scaffold(
+        backgroundColor: colors["background"], // Arka plan rengini burada ayarlayın
 
         appBar: AppBar(
-          backgroundColor: Colors.white,
-          title:  Text(
+          backgroundColor: colors["background"],
+          title: Text(
             'Setler',
             style: GoogleFonts.poppins(
-              color: Colors.pink,
+              color: colors["text"],
               fontWeight: FontWeight.bold,
             ),
           ),
           leading: IconButton(
-            color: Colors.pink,
+            color: colors["text"],
             icon: Icon(Icons.arrow_back),
-
             onPressed: () {
               Navigator.of(context).pop();
             },
@@ -108,7 +118,7 @@ class _StudySetListScreenState extends State<StudySetListScreen> {
           child: Column(
             children: [
               Expanded(
-                child: buildBody(),
+                child: buildBody(colors),
               ),
             ],
           ),
@@ -117,7 +127,7 @@ class _StudySetListScreenState extends State<StudySetListScreen> {
           onPressed: () {
             navigateToGameModeStarScreen();
           },
-          icon: Icon(Icons.star, color: Colors.yellowAccent), // Adjust icon color for better visibility
+          icon: Icon(Icons.star, color: _isDarkMode ? Colors.amber : Colors.yellowAccent), // Adjust icon color for better visibility
           label: Text(
             'Yıldızlanmış Kelimelere Çalış',
             style: TextStyle(
@@ -126,18 +136,18 @@ class _StudySetListScreenState extends State<StudySetListScreen> {
               fontSize: 16, // Increase font size for better readability
             ),
           ),
-          backgroundColor: Colors.lightBlueAccent, // Use a more vibrant color for the background
+          backgroundColor: _isDarkMode ? Colors.teal[800] : Colors.lightBlueAccent, // Use a more vibrant color for the background
           elevation: 10.0, // Increase elevation for a more pronounced shadow
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20.0), // Make the button more rounded
             side: BorderSide(color: Colors.white, width: 2.5), // Make the border more prominent
           ),
         ),
-
         floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       ),
     );
   }
+
   Future<void> navigateToGameModeStarScreen() async {
     try {
       showDialog(
@@ -156,7 +166,7 @@ class _StudySetListScreenState extends State<StudySetListScreen> {
       final userProvider = Provider.of<UserProvider>(context, listen: false);
       // Asenkron işleminizi burada gerçekleştirin
       String idString = studySetIds.join(', ');
-      print('studytsets'+idString);
+      print('studytsets' + idString);
       // İşlem tamamlandığında yükleme göstergesini kapat
       Navigator.of(context).pop();
 
@@ -182,6 +192,7 @@ class _StudySetListScreenState extends State<StudySetListScreen> {
       print('Hata: $e');
     }
   }
+
   void reloadStudySets() {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     int userID = userProvider.userId;
@@ -196,8 +207,8 @@ class _StudySetListScreenState extends State<StudySetListScreen> {
       });
     });
   }
-  Widget buildBody() {
 
+  Widget buildBody(Map<String, Color> colors) {
     return FutureBuilder<List<StudySet>>(
       future: studySetsFuture,
       builder: (context, snapshot) {
@@ -205,18 +216,18 @@ class _StudySetListScreenState extends State<StudySetListScreen> {
           return Center(
             child: const LogoLoadingIndicator(), // Merkeze alınmış LogoLoadingIndicator
           );
-        }else if (snapshot.hasError) {
-          return Center(child: Text("Hata: ${snapshot.error}"));
+        } else if (snapshot.hasError) {
+          return Center(child: Text("Hata: ${snapshot.error}", style: TextStyle(color: colors["text"])));
         } else if (snapshot.hasData) {
-          return buildStudySetList(snapshot.data!);
+          return buildStudySetList(snapshot.data!, colors);
         } else {
-          return const Center(child: Text("Study set listesi yok"));
+          return  Center(child: Text("Study set listesi yok", style: TextStyle(color: colors["text"])));
         }
       },
     );
   }
 
-  Widget buildStudySetList(List<StudySet> studySets) {
+  Widget buildStudySetList(List<StudySet> studySets, Map<String, Color> colors) {
     // ValueListenableBuilder'ı doğrudan döndür
     return ValueListenableBuilder<Map<int, int>>(
       valueListenable: starredWordCountsNotifier,
@@ -230,13 +241,13 @@ class _StudySetListScreenState extends State<StudySetListScreen> {
                 borderRadius: BorderRadius.circular(15),
               ),
               elevation: 5,
-              color: Colors.lightBlue.shade50,
+              color: colors["cardBackground"],
               margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
               child: ListTile(
                 contentPadding: EdgeInsets.symmetric(vertical: 10, horizontal: 16),
                 leading: CircleAvatar(
-                  backgroundColor: Colors.blue.shade900,
-                  child: Icon(Icons.book, color: Colors.white),
+                  backgroundColor: colors["iconBackground"],
+                  child: Icon(Icons.book, color: colors["iconColor"]),
                 ),
                 title: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -246,7 +257,7 @@ class _StudySetListScreenState extends State<StudySetListScreen> {
                         studySet.name,
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          color: Colors.blue.shade800,
+                          color: colors["text"],
                           fontSize: 16,
                         ),
                         overflow: TextOverflow.ellipsis,
@@ -261,7 +272,7 @@ class _StudySetListScreenState extends State<StudySetListScreen> {
                             '${starredWordCounts[studySet.id] ?? 0}',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
-                              color: Colors.blue.shade800,
+                              color: colors["text"],
                               fontSize: 16,
                             ),
                           ),
@@ -272,7 +283,7 @@ class _StudySetListScreenState extends State<StudySetListScreen> {
                 ),
                 subtitle: Text(
                   'Bu sette ${studySet.words.split(',').length} kelime var.',
-                  style: TextStyle(color: Colors.black54, fontSize: 14),
+                  style: TextStyle(color: colors["text"], fontSize: 14),
                 ),
                 onTap: () {
                   Navigator.of(context).push(
@@ -285,7 +296,6 @@ class _StudySetListScreenState extends State<StudySetListScreen> {
                     ),
                   ); // Bu kapatma parantezi eksikti
                 },
-
               ),
             );
           },

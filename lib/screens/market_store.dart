@@ -7,6 +7,7 @@ import 'package:kelibu/providers/user_provider.dart';
 import 'package:provider/provider.dart';
 import 'dart:convert';
 import 'package:kelibu/variables.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../main.dart';
 
@@ -19,11 +20,13 @@ class MarketPage extends StatefulWidget {
 
 class _MarketPageState extends State<MarketPage> {
   List<Map<String, dynamic>> products = [];
+  bool _isDarkMode = false; // Dark mode kontrolü
 
   @override
   void initState() {
     super.initState();
     fetchProducts();
+    _loadDarkModePreference(); // Dark mode tercih yüklemesi
   }
 
   Future<void> fetchProducts() async {
@@ -47,6 +50,13 @@ class _MarketPageState extends State<MarketPage> {
     } else {
       throw Exception('Failed to load products');
     }
+  }
+
+  Future<void> _loadDarkModePreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _isDarkMode = prefs.getBool("darkMode") ?? false;
+    });
   }
 
   Future<void> buyProduct(String productId) async {
@@ -85,7 +95,6 @@ class _MarketPageState extends State<MarketPage> {
                 onPressed: () {
                   Navigator.of(context).pop();
                   Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => MainScreen()));
-
                 },
               ),
             ],
@@ -168,10 +177,12 @@ class _MarketPageState extends State<MarketPage> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = _isDarkMode ? darkModeColors : lightModeColors;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFFEFAF6),
+      backgroundColor: colors["background"]!,
       appBar: AppBar(
-        backgroundColor: Colors.pink[50],
+        backgroundColor: colors["background"]!,
         flexibleSpace: SafeArea(
           child: Stack(
             alignment: Alignment.centerLeft,
@@ -180,7 +191,7 @@ class _MarketPageState extends State<MarketPage> {
                 child: Text(
                   "Kelibu'nun tüm setleri kısa süreli olarak öğrencilerimize ücretsizdir, PhD Akademi Eğitim hayatınızda başarılar diler!",
                   style: GoogleFonts.poppins(
-                    color: Colors.black,
+                    color: colors["text"]!,
                     fontWeight: FontWeight.bold,
                   ),
                   textAlign: TextAlign.center,
@@ -190,7 +201,7 @@ class _MarketPageState extends State<MarketPage> {
           ),
         ),
         iconTheme: IconThemeData(
-          color: Colors.white,
+          color: colors["text"]!,
         ),
       ),
       body: Padding(
@@ -231,12 +242,12 @@ class _MarketPageState extends State<MarketPage> {
                 }
               },
               child: Card(
-                color: Colors.white,
+                color: colors["cardBackground"]!,
                 clipBehavior: Clip.antiAlias,
                 elevation: 5,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
-                  side: BorderSide(color: Colors.pink.shade100, width: 1),
+                  side: BorderSide(color: colors["cardBorder"]!, width: 1),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -254,7 +265,7 @@ class _MarketPageState extends State<MarketPage> {
                       child: Text(
                         product["title"],
                         style: GoogleFonts.poppins(
-                          color: Colors.pink.shade600,
+                          color: colors["text"]!,
                           fontWeight: FontWeight.bold,
                         ),
                         maxLines: 2,
