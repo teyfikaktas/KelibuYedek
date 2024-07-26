@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kelibu/Models/wordDetaik.dart';
 import 'dart:math';
 import 'dart:async';
@@ -8,7 +9,9 @@ import 'package:kelibu/api.dart';
 import 'package:kelibu/providers/language_provider.dart';
 import 'package:kelibu/screens/home_screen.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:kelibu/screens/video_player.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../globalDart/urls.dart';
 import '../providers/user_provider.dart';
 import 'package:provider/provider.dart';
 import '../providers/volume_provider.dart';
@@ -18,11 +21,119 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:io';
 import 'dart:typed_data';
 import '../variables.dart';
-
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import '../shared_preferences/shared_preferences.dart';
+import 'package:fl_chart/fl_chart.dart';
+import 'package:percent_indicator/percent_indicator.dart';
+import 'package:auto_size_text/auto_size_text.dart';
 
+
+class ScoreDisplay extends StatefulWidget {
+  final ValueNotifier<int> userPointsNotifier;
+
+  const ScoreDisplay({Key? key, required this.userPointsNotifier}) : super(key: key);
+
+  @override
+  _ScoreDisplayState createState() => _ScoreDisplayState();
+}
+
+class _ScoreDisplayState extends State<ScoreDisplay> with TickerProviderStateMixin {
+  late AnimationController _colorController;
+  late Animation<Color?> _colorAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _colorController = AnimationController(
+      duration: const Duration(milliseconds: 1000),
+      vsync: this,
+    );
+
+    _colorAnimation = ColorTween(
+      begin: Colors.green,
+      end: Colors.transparent,
+    ).animate(_colorController);
+
+    widget.userPointsNotifier.addListener(_onScoreChanged);
+  }
+
+  void _onScoreChanged() {
+    _colorController.forward(from: 0.0);
+  }
+
+  @override
+  void dispose() {
+    _colorController.dispose();
+    widget.userPointsNotifier.removeListener(_onScoreChanged);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final backgroundColor = isDarkMode ? Colors.grey[900] : Colors.white;
+    final textColor = isDarkMode ? Colors.white : Colors.black87;
+    final iconColor = isDarkMode ? Colors.amber[400] : Colors.amber[600];
+    final borderColor = isDarkMode ? Colors.grey[700] : Colors.grey[300];
+
+    return AnimatedBuilder(
+      animation: _colorAnimation,
+      builder: (context, child) {
+        return Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: backgroundColor,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: borderColor!,
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: _colorAnimation.value ?? Colors.transparent,
+                blurRadius: 10,
+                spreadRadius: 2,
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: iconColor!.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.add_circle,
+                  size: 18,
+                  color: iconColor,
+                ),
+              ),
+              const SizedBox(width: 8),
+              ValueListenableBuilder<int>(
+                valueListenable: widget.userPointsNotifier,
+                builder: (context, value, child) {
+                  return Text(
+                    "$value",
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: textColor,
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
 class QuizCard extends StatefulWidget {
   final String question;
   final Duration duration;
@@ -80,23 +191,29 @@ class _QuizCardState extends State<QuizCard> {
     );
   }
 }
-
 class QuizScreen extends StatefulWidget {
   final int classroomId;
   final int studySetId;
   final List<WordDetail> words;
+  final bool isStarredMode; // Yeni eklenen parametre
 
   const QuizScreen({
     Key? key,
     required this.words,
-    required this.classroomId, // Yeni parametre
-    required this.studySetId, // Yeni parametre
+    required this.classroomId,
+    required this.studySetId,
+    this.isStarredMode = false, // Varsayılan değer false olarak ayarlandı
   }) : super(key: key);
+
   @override
   _QuizScreenState createState() => _QuizScreenState();
 }
 
 class _QuizScreenState extends State<QuizScreen> {
+  int jokerCount = 3;
+  bool isFiftyFiftyUsed = false;
+  bool isDoubleAnswerUsed = false;
+  bool isTimeExtensionUsed = false;
   int currentQuestionIndex = 0;
   PageController _pageController = PageController();
   final ScrollController _navBarScrollController = ScrollController();
@@ -107,6 +224,8 @@ class _QuizScreenState extends State<QuizScreen> {
   ValueNotifier<bool> isTurkish = ValueNotifier(true);
   ValueNotifier<int> starredWordCountNotifier = ValueNotifier(0);
   bool _isDarkMode = false; // Dark mode durumu
+  ValueNotifier<int> pointValueNotifier = ValueNotifier(0);
+  bool isMenuVisible = true;
 
 
   bool myInterceptor(bool stopDefaultButtonEvent, RouteInfo info) {
@@ -141,10 +260,171 @@ class _QuizScreenState extends State<QuizScreen> {
   int _pausedTime = 0;
   int score = 0;
   ValueNotifier<Color> backgroundColorNotifier = ValueNotifier(Colors.blue);
+  Widget _buildJokerButton() {
+    return GestureDetector(
+      onTap: _showJokerOptions,
+      child: Container(
+        padding: EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.orange,
+          shape: BoxShape.circle,
+        ),
+        child: Icon(Icons.add, color: Colors.white),
+      ),
+    );
+  }
+  void _showJokerOptions() {
+    final colors = _isDarkMode ? darkModeColors : lightModeColors;
 
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext context) {
+        return Container(
+          decoration: BoxDecoration(
+            color: colors['cardBackground'],
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                height: 5,
+                width: 40,
+                margin: EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  color: colors['unselectedText'],
+                  borderRadius: BorderRadius.circular(2.5),
+                ),
+              ),
+              Text(
+                'Joker Seçenekleri',
+                style: GoogleFonts.poppins(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: colors['text'],
+                ),
+              ),
+              SizedBox(height: 20),
+              _buildJokerOption(
+                icon: Icons.content_cut,
+                title: '50/50',
+                subtitle: 'İki yanlış şıkkı kaldır',
+                color: Colors.blue,
+                isEnabled: !isFiftyFiftyUsed,
+                onTap: () {
+                  _useFiftyFifty();
+                  if (!isFiftyFiftyUsed) Navigator.pop(context);
+                },
+              ),
+              _buildJokerOption(
+                icon: Icons.replay,
+                title: 'Çifte Cevap',
+                subtitle: 'İki kez cevaplama hakkı',
+                color: Colors.green,
+                isEnabled: !isDoubleAnswerUsed,
+                onTap: () {
+                  _useDoubleAnswer();
+                  if (!isDoubleAnswerUsed) Navigator.pop(context);
+                },
+              ),
+              _buildJokerOption(
+                icon: Icons.timer,
+                title: 'Süre Uzatma',
+                subtitle: '15 saniye ekle',
+                color: Colors.orange,
+                isEnabled: !isTimeExtensionUsed,
+                onTap: () {
+                  _useTimeExtension();
+                  if (!isTimeExtensionUsed) Navigator.pop(context);
+                },
+              ),
+              SizedBox(height: 20),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildJokerOption({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+    required bool isEnabled,
+    required VoidCallback onTap,
+  }) {
+    final colors = _isDarkMode ? darkModeColors : lightModeColors;
+
+    return Opacity(
+      opacity: isEnabled ? 1.0 : 0.5,
+      child: ListTile(
+        enabled: isEnabled,
+        onTap: isEnabled ? onTap : null,
+        leading: Container(
+          padding: EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.2),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: color),
+        ),
+        title: Text(
+          title,
+          style: GoogleFonts.poppins(
+            fontWeight: FontWeight.bold,
+            color: colors['text'],
+          ),
+        ),
+        subtitle: Text(
+          subtitle,
+          style: GoogleFonts.poppins(
+            color: colors['unselectedText'],
+          ),
+        ),
+        trailing: Icon(
+          Icons.arrow_forward_ios,
+          color: isEnabled ? colors['iconColor'] : colors['unselectedText'],
+          size: 16,
+        ),
+      ),
+    );
+  }
+
+  void _useFiftyFifty() {
+    if (!isFiftyFiftyUsed) {
+      setState(() {
+        isFiftyFiftyUsed = true;
+        var currentQuestion = questions[currentQuestionIndex];
+        var wrongOptions = currentQuestion.options.where((option) =>
+        currentQuestion.options.indexOf(option) != currentQuestion.correctOptionIndex).toList();
+        wrongOptions.shuffle();
+        wrongOptions.take(2).forEach((wrongOption) {
+          currentQuestion.options.remove(wrongOption);
+        });
+      });
+      Navigator.pop(context); // Bottom sheet'i kapat
+      showCustomFlushbar(context, "50/50 jokeri kullanıldı!");
+    } else {
+      showCustomFlushbar(context, "50/50 jokeri zaten kullanıldı!");
+    }
+  }
+  void _useTimeExtension() {
+    if (!isTimeExtensionUsed) {
+      setState(() {
+        isTimeExtensionUsed = true;
+        _remainingTime += 15;
+      });
+      Navigator.pop(context); // Joker menüsünü kapat
+      showCustomFlushbar(context, "Süre 15 saniye uzatıldı!");
+    } else {
+      showCustomFlushbar(context, "Süre uzatma jokeri zaten kullanıldı!");
+    }
+  }
   Future<void> playSoundCorrect(String path) async {
     AudioPlayer audioPlayer = AudioPlayer();
-    await audioPlayer.setVolume(0.2);
+    await audioPlayer.setVolume(0.1);
 
     if (!kIsWeb) {
       ByteData data = await rootBundle.load(path);
@@ -163,6 +443,7 @@ class _QuizScreenState extends State<QuizScreen> {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _isDarkMode = prefs.getBool("darkMode") ?? false;
+      colors = _isDarkMode ? darkModeColors : lightModeColors;
     });
   }
   bool showStarredOnly = false;
@@ -178,8 +459,19 @@ class _QuizScreenState extends State<QuizScreen> {
       startTimer();
     });
   }
-
-  void toggleStarredOnly() {
+  bool doubleAnswerActive = false;
+  void _useDoubleAnswer() {
+    setState(() {
+      if (!isDoubleAnswerUsed) {
+        isDoubleAnswerUsed = true;
+        doubleAnswerActive = true;
+        Navigator.pop(context); // Joker menüsünü kapat
+        showCustomFlushbar(context, "Çifte cevap hakkı aktif!");
+      } else {
+        showCustomFlushbar(context, "Çifte cevap jokeri zaten kullanıldı!");
+      }
+    });
+  }  void toggleStarredOnly() {
     setState(() {
       resetOptionColors();
       showStarredOnly = !showStarredOnly;
@@ -216,6 +508,7 @@ class _QuizScreenState extends State<QuizScreen> {
   Map<int, ValueNotifier<bool>> starredNotifiers = {};
   Map<int, bool> starredStatus = {};
   int userID = 2;
+  bool isShuffled = false;
 
   ValueNotifier<int> animatedStarredCount = ValueNotifier(0);
   Map<int, Color> optionColors = {};
@@ -223,12 +516,17 @@ class _QuizScreenState extends State<QuizScreen> {
   ValueNotifier<bool> isVisibilityOn = ValueNotifier(true);
   Timer? _timer;
   int _remainingTime = 15;
+  bool isStarredMode = false;
 
   ValueNotifier<bool> get isStarredNotifier {
     int questionId = questions[currentQuestionIndex].id;
     return starredNotifiers[questionId] ?? ValueNotifier(false);
   }
-
+  Future<void> _speakWord(String word) async {
+    await flutterTts.setLanguage("en-US");
+    await flutterTts.setPitch(1.0);
+    await flutterTts.speak(word);
+  }
   _speak() async {
     final volumeProvider = Provider.of<VolumeProvider>(context, listen: false);
 
@@ -242,7 +540,49 @@ class _QuizScreenState extends State<QuizScreen> {
       isSpeaking = false;
     }
   }
-
+  Widget _buildTimerWidget() {
+    final colors = _isDarkMode ? darkModeColors : lightModeColors;
+    return Container(
+      width: 60,
+      height: 60,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: colors["background"],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 8,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          SizedBox(
+            width: 50,
+            height: 50,
+            child: CircularProgressIndicator(
+              value: _remainingTime / 15,
+              strokeWidth: 5,
+              backgroundColor: Colors.grey[300],
+              valueColor: AlwaysStoppedAnimation<Color>(
+                _remainingTime > 5 ? Colors.green : Colors.red,
+              ),
+            ),
+          ),
+          Text(
+            '$_remainingTime',
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: colors["text"],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
   void _scrollToSelectedQuestion() {
     double selectedQuestionOffset = currentQuestionIndex * 50.0;
     _navBarScrollController.animateTo(
@@ -262,7 +602,9 @@ class _QuizScreenState extends State<QuizScreen> {
     _timer = Timer.periodic(const Duration(seconds: 1), (Timer timer) {
       if (_remainingTime == 0) {
         _timer?.cancel();
-        _showCorrectAnswerAndGoToNextQuestion();
+        if (!isReviewingQuestion) {
+          _showCorrectAnswerAndGoToNextQuestion();
+        }
       } else {
         setState(() {
           _remainingTime--;
@@ -271,46 +613,67 @@ class _QuizScreenState extends State<QuizScreen> {
     });
   }
 
-  void _shuffleOrSortWords() async {
-    List<WordDetail> newWords;
-    showCustomFlushbar(context, isSortOn.value ? "Liste Sıralandı." : "Liste Karıştırıldı.");
-    if (isSortOn.value) {
-      newWords = List<WordDetail>.from(widget.words)..sort((a, b) => a.id.compareTo(b.id));
-    } else {
-      newWords = List<WordDetail>.from(widget.words)..shuffle();
-    }
-
-    List<QuizQuestion> newQuestions = await generateQuizQuestions(newWords, isTurkish);
-
+  void _shuffleOrSortWords() {
     setState(() {
-      questions = newQuestions;
+      if (isShuffled) {
+        questions.shuffle();
+      } else {
+        questions.sort((a, b) => a.id.compareTo(b.id));
+      }
       currentQuestionIndex = 0;
-      _pageController.jumpToPage(currentQuestionIndex);
+      _pageController.jumpToPage(0);
     });
   }
 
-  void _changeLang() async {
-    List<WordDetail> newWords;
-    showCustomFlushbar(context, isTurkish.value ? "Türkçe Mod açıldı." : "İngilizce Mod açıldı.");
-    if (isSortOn.value) {
-      newWords = List<WordDetail>.from(widget.words)..sort((a, b) => a.id.compareTo(b.id));
-    } else {
-      newWords = List<WordDetail>.from(widget.words)..shuffle();
-    }
-    List<QuizQuestion> newQuestions = await generateQuizQuestions(newWords, isTurkish);
+  void _changeLang() {
+    setState(() {
+      isTurkish.value = !isTurkish.value;
+      _initializeQuiz();
+    });
+  }
+  late Map<String, Color> colors;
+
+  void _initializeQuiz() async {
+    var sortedWords = List<WordDetail>.from(widget.words)..shuffle();
+    var generatedQuestions = await generateQuizQuestions(sortedWords, isTurkish);
 
     setState(() {
-      questions = newQuestions;
+      questions = generatedQuestions;
       currentQuestionIndex = 0;
-      _pageController.jumpToPage(currentQuestionIndex);
+      _pageController.jumpToPage(0);
     });
+  }
+  void _updateUserScore(int newScore) async {
+    try {
+      UserProvider userProvider = Provider.of<UserProvider>(context, listen: false);
+      int point = userProvider.point.toInt();
+      userProvider.addPoint(point + 5);
+      await ApiService().updateUserPointTimePeriod(userID, newScore, 5);
+      pointValueNotifier.value = newScore;
+    } catch (e) {
+      print("Puan güncelleme hatası: $e");
+    }
   }
 
   @override
   void initState() {
     super.initState();
     _loadStarredStatusAsync();
-    _loadDarkModePreference(); // Dark mode tercihlerini yükle
+    _loadDarkModePreference().then((_) {
+      setState(() {
+        colors = _isDarkMode ? darkModeColors : lightModeColors;
+      });
+    });
+    isStarredMode = widget.isStarredMode;
+
+    pointValueNotifier.value = score;
+    Future.microtask(() {
+      UserProvider userProviderPoint = Provider.of<UserProvider>(context, listen: false);
+      setState(() {
+        score = userProviderPoint.point;
+        pointValueNotifier.value = score;
+      });
+    });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final userProvider = Provider.of<UserProvider>(context, listen: false);
@@ -353,16 +716,6 @@ class _QuizScreenState extends State<QuizScreen> {
     ));
     _timer?.cancel();
   }
-
-  void _initializeQuiz() async {
-    var sortedWords = List<WordDetail>.from(widget.words)..sort((a, b) => a.id.compareTo(b.id));
-    var generatedQuestions = await generateQuizQuestions(sortedWords, isTurkish);
-
-    setState(() {
-      questions = generatedQuestions;
-    });
-  }
-
   void _updateStarredWordCount(ValueNotifier<bool> isStarredNotifier) {
     int newCount = starredWordCountNotifier.value;
     if (isStarredNotifier.value) {
@@ -374,11 +727,144 @@ class _QuizScreenState extends State<QuizScreen> {
     }
     starredWordCountNotifier.value = newCount;
   }
+  int _currentHighlightIndex = -1;
+  bool _isReading = false;
 
-  Future<void> _speakSentence(String sentence) async {
-    await flutterTts.setLanguage("en-US");
-    await flutterTts.setPitch(1.0);
-    await flutterTts.speak(sentence);
+  Widget _buildControlPanel(Map<String, Color> colors, BuildContext context) {
+    return AnimatedContainer(
+      duration: Duration(milliseconds: 300),
+      height: isMenuVisible ? 80 : 0,
+      child: SingleChildScrollView(
+        child: Container(
+          margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: colors["borderColor"],
+            borderRadius: BorderRadius.circular(30),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 10,
+                spreadRadius: 5,
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: <Widget>[
+              _buildControlButton(
+                  isVisibilityOn.value ? Icons.visibility : Icons.visibility_off,
+                  colors["inputBackground"]!,
+                      () {
+                    setState(() {
+                      isVisibilityOn.value = !isVisibilityOn.value;
+                    });
+                    showCustomFlushbar(
+                      context,
+                      isVisibilityOn.value ? "Resim açıldı" : "Resim kapandı",
+                    );
+                  }
+              ),
+              _buildControlButton(isShuffled ? Icons.sort : Icons.shuffle, colors["inputBackground"]!, () {
+                setState(() {
+                  isShuffled = !isShuffled;
+                  _shuffleOrSortWords();
+                });
+              }),
+              Consumer<LanguageProvider>(
+                builder: (context, languageProvider, child) {
+                  return _buildControlButton(
+                    languageProvider.isEnglish ? Icons.language : Icons.translate,
+                    colors["inputBackground"]!,
+                        () {
+                      setState(() {
+                        languageProvider.toggleLanguage();
+                        _changeLang();
+                      });
+                    },
+                  );
+                },
+              ),
+              _buildControlButton(
+                  Provider.of<VolumeProvider>(context).isVolumeOn
+                      ? Icons.volume_up
+                      : Icons.volume_off,
+                  colors["inputBackground"]!,
+                      () {
+                    final volumeProvider = Provider.of<VolumeProvider>(context, listen: false);
+                    setState(() {
+                      volumeProvider.toggleVolume();
+                    });
+                    showCustomFlushbar(
+                      context,
+                      volumeProvider.isVolumeOn ? "Ses açıldı" : "Ses kapatıldı",
+                    );
+                  }
+              ),
+              _buildControlButton(Icons.hearing, colors["inputBackground"]!, _speak),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildControlButton(IconData icon, Color color, VoidCallback onPressed) {
+    return IconButton(
+      icon: Icon(icon, color: color),
+      onPressed: onPressed,
+    );
+  }
+
+  void _toggleMenu() {
+    setState(() {
+      isMenuVisible = !isMenuVisible;
+    });
+  }
+
+  Widget _buildStarredWordsButton() {
+    final colors = _isDarkMode ? darkModeColors : lightModeColors;
+    return GestureDetector(
+      onTap: toggleStarredOnly,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: _isDarkMode ? Colors.grey[800] : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Icon(
+              showStarredOnly ? Icons.star : Icons.star_border,
+              color: showStarredOnly ? Colors.amber : colors["text"],
+              size: 20,
+            ),
+            const SizedBox(width: 4),
+            ValueListenableBuilder<int>(
+              valueListenable: starredWordCountNotifier,
+              builder: (context, count, child) {
+                return Text(
+                  '$count',
+                  style: GoogleFonts.lato(
+                    color: colors["text"],
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                );
+              },
+            )
+          ],
+        ),
+      ),
+    );
   }
 
   Future<List<String>> _fetchSentenceForTerm(String term) async {
@@ -392,98 +878,6 @@ class _QuizScreenState extends State<QuizScreen> {
     } catch (e) {
       print('Hata: $e');
       return ["Cümle yüklenemedi"];
-    }
-  }
-
-  void _openBottomSheet() async {
-    final colors = _isDarkMode ? darkModeColors : lightModeColors;
-
-    var currentTerm = questions[currentQuestionIndex].term;
-    var sentences = await _fetchSentenceForTerm(currentTerm);
-    int currentPage = 0;
-    var pageController = PageController();
-    _pausedTime = _remainingTime;
-    _timer?.cancel();
-
-    // Bottom sheet açılmadan önce tüm uygulama üzerindeki tıklamaları devre dışı bırak
-    setState(() {
-      _isBottomSheetOpen = true;
-    });
-
-    await showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (BuildContext bc) {
-        return GestureDetector(
-          onTap: () {},
-          behavior: HitTestBehavior.opaque,
-          child: StatefulBuilder(
-            builder: (BuildContext context, StateSetter setState) {
-              return FractionallySizedBox(
-                heightFactor: 0.2,
-                child: Container(
-                  width: MediaQuery.of(context).size.width,
-                  decoration: BoxDecoration(
-                    color: colors["background"],
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(20),
-                      topRight: Radius.circular(20),
-                    ),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          "${currentPage + 1} / ${sentences.length}",
-                          style:  TextStyle(color: colors["borderColor"], fontSize: 16),
-                        ),
-                        Expanded(
-                          child: PageView.builder(
-                            controller: pageController,
-                            itemCount: sentences.length,
-                            onPageChanged: (int index) {
-                              setState(() {
-                                currentPage = index;
-                              });
-                            },
-                            itemBuilder: (context, index) {
-                              return GestureDetector(
-                                onTap: () => _speakSentence(sentences[index]),
-                                child: Center(
-                                  child: Text(
-                                    sentences[index],
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                      color: colors["borderColor"],
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-        );
-      },
-    ).then((_) {
-      // Bottom sheet kapatıldığında tıklamaları tekrar etkinleştir
-      setState(() {
-        _isBottomSheetOpen = false;
-      });
-    });
-
-    if (_isBottomSheetOpen) {
-      startTimer(resumeFromPausedTime: true);
     }
   }
 
@@ -511,15 +905,22 @@ class _QuizScreenState extends State<QuizScreen> {
     });
   }
 
-  void _toggleStar(int word, ValueNotifier<bool> isStarredNotifier) async {
+  void _toggleStar(int wordId, ValueNotifier<bool> isStarredNotifier) async {
     final service = StarredWordsService();
     final newStatus = !isStarredNotifier.value;
 
-    await service.toggleWordStarStatus(word, newStatus, widget.classroomId, widget.studySetId);
+    await service.toggleWordStarStatus(wordId, newStatus, widget.classroomId, widget.studySetId);
 
-    isStarredNotifier.value = newStatus;
-    starredStatus[word] = newStatus;
-    _updateStarredWordCount(isStarredNotifier);
+    setState(() {
+      isStarredNotifier.value = newStatus;
+      starredStatus[wordId] = newStatus;
+      _recalculateStarredWordCount();
+    });
+  }
+
+  void _recalculateStarredWordCount() {
+    int count = starredStatus.values.where((isStarred) => isStarred).length;
+    starredWordCountNotifier.value = count;
   }
 
   @override
@@ -536,27 +937,36 @@ class _QuizScreenState extends State<QuizScreen> {
 
   void _answerQuestion(int selectedIndex) {
     var correctIndex = questions[currentQuestionIndex].correctOptionIndex;
-    questions[currentQuestionIndex].userAnswer = selectedIndex;
     bool isCorrect = selectedIndex == correctIndex;
-    int penalty = 15 - _remainingTime;
-    if (isCorrect) {
-      print("correct");
-      score += 5;
-    } else {
-      if (penalty <= 10) score -= 5;
-      else score -= 2;
+
+    if (!isCorrect && doubleAnswerActive) {
+      // İlk yanlış cevap, ikinci şansı ver
+      doubleAnswerActive = false;
+      showCustomFlushbar(context, "Yanlış cevap! İkinci şansınızı kullanın.");
+      return;
     }
+
+    questions[currentQuestionIndex].userAnswer = selectedIndex;
+    int timeTaken = 15 - _remainingTime;
+
+    if (isCorrect) {
+      int pointsEarned = 5 + (15 - timeTaken);
+      score += pointsEarned;
+    } else {
+      score -= 2;
+    }
+
     questionStatuses[currentQuestionIndex] = isCorrect;
     _updateUserScore(score);
 
     setState(() {
-      optionColors[selectedIndex] = selectedIndex == correctIndex ? const Color(0xFF4CA64C) : const Color(0xFFFF4C4C);
-      if (selectedIndex != correctIndex) {
+      optionColors[selectedIndex] = isCorrect ? const Color(0xFF4CA64C) : const Color(0xFFFF4C4C);
+      if (!isCorrect) {
         optionColors[correctIndex] = const Color(0xFF4CA64C);
       }
     });
 
-    if (selectedIndex == correctIndex) {
+    if (isCorrect) {
       playSoundCorrect('assets/correct.wav');
     } else {
       playSoundCorrect('assets/wrong.wav');
@@ -579,18 +989,234 @@ class _QuizScreenState extends State<QuizScreen> {
       }
     });
   }
+  Widget _buildAnswerPanel() {
+    return Container(
+      height: 50,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: questions.length,
+        itemBuilder: (context, index) {
+          final question = questions[index];
+          final isAnswered = question.userAnswer != null;
+          final isCorrect = question.isAnsweredCorrectly;
 
-  Future<void> _updateUserScore(int score) async {
-    try {
-      UserProvider userProvider = Provider.of<UserProvider>(context, listen: false);
-      int point = userProvider.point.toInt();
-      userProvider.addPoint(point + 5);
-      await ApiService().updateUserPointTimePeriod(userID, score, 5);
-    } catch (e) {
-      print("Puan güncelleme hatası: $e");
-    }
+          return GestureDetector(
+            onTap: () => _showQuestionReview(index),
+            child: Container(
+              width: 50,
+              margin: EdgeInsets.symmetric(horizontal: 5),
+              decoration: BoxDecoration(
+                color: isAnswered
+                    ? (isCorrect ? Colors.green : Colors.red)
+                    : Colors.grey,
+                borderRadius: BorderRadius.circular(25),
+              ),
+              child: Center(
+                child: Text(
+                  '${index + 1}',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
 
+  bool isReviewingQuestion = false;
+
+  Widget _buildAnswerHistoryButton() {
+    return IconButton(
+      icon: Icon(Icons.history, color: colors["text"]),
+      onPressed: _showAnswerHistory,
+    );
+  }
+
+  void _showAnswerHistory() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.6,
+          minChildSize: 0.2,
+          maxChildSize: 0.9,
+          builder: (_, controller) {
+            return Container(
+              decoration: BoxDecoration(
+                color: colors["background"],
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    height: 5,
+                    width: 40,
+                    margin: EdgeInsets.symmetric(vertical: 10),
+                    decoration: BoxDecoration(
+                      color: colors["text"]!.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(2.5),
+                    ),
+                  ),
+                  Padding(
+                    padding: EdgeInsets.symmetric(vertical: 15),
+                    child: Text(
+                      "Cevap Geçmişim",
+                      style: GoogleFonts.poppins(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: colors["text"],
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: ListView.builder(
+                      controller: controller,
+                      itemCount: currentQuestionIndex + 1,
+                      itemBuilder: (context, index) {
+                        final question = questions[index];
+                        final isAnswered = question.userAnswer != null;
+                        final isCorrect = question.isAnsweredCorrectly;
+                        final isCurrent = index == currentQuestionIndex;
+
+                        return Card(
+                          margin: EdgeInsets.symmetric(vertical: 8, horizontal: 15),
+                          elevation: 3,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(15),
+                            side: isCurrent ? BorderSide(color: colors["text"]!, width: 2) : BorderSide.none,
+                          ),
+                          color: isCurrent ? colors["buttonBackground"]!.withOpacity(0.3) : colors["buttonBackground"],
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(15),
+                            onTap: () {
+                              Navigator.pop(context);
+                              _showQuestionReview(index);
+                            },
+                            child: Padding(
+                              padding: EdgeInsets.all(15),
+                              child: Row(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 25,
+                                    backgroundColor: isAnswered
+                                        ? (isCorrect ? Colors.green : Colors.red)
+                                        : Colors.grey,
+                                    child: Text(
+                                      '${index + 1}',
+                                      style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                                  SizedBox(width: 15),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          question.term,
+                                          style: GoogleFonts.poppins(
+                                            color: colors["text"],
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 16,
+                                          ),
+                                        ),
+                                        if (isAnswered)
+                                          Text(
+                                            isCorrect ? "Doğru" : "Yanlış",
+                                            style: GoogleFonts.poppins(
+                                              color: isCorrect ? Colors.green : Colors.red,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                  Icon(
+                                    Icons.chevron_right,
+                                    color: colors["text"],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showQuestionReview(int index) {
+    if (index > currentQuestionIndex) return; // Gelecek soruları gösterme
+
+    isReviewingQuestion = true;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext context) {
+        final size = MediaQuery.of(context).size;
+        return Container(
+          height: size.height * 0.9,
+          decoration: BoxDecoration(
+            color: colors["background"],
+            borderRadius: BorderRadius.vertical(top: Radius.circular(size.width * 0.05)),
+          ),
+          child: Column(
+            children: [
+              Container(
+                height: size.height * 0.005,
+                width: size.width * 0.1,
+                margin: EdgeInsets.symmetric(vertical: size.height * 0.015),
+                decoration: BoxDecoration(
+                  color: colors["text"]!.withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(size.height * 0.0025),
+                ),
+              ),
+              Expanded(
+                child: _buildQuestionContent(questions[index], size),
+              ),
+              Padding(
+                  padding: EdgeInsets.all(size.width * 0.05),
+                  child: ElevatedButton(
+                    child: Text(
+                      'Quize Dön',
+                      style: GoogleFonts.poppins(
+                        fontSize: size.width * 0.04,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      primary: colors["buttonBackground"],
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(size.width * 0.08),
+                      ),
+                      padding: EdgeInsets.symmetric(
+                          horizontal: size.width * 0.08,
+                          vertical: size.height * 0.02
+                      ),
+                    ),
+                    onPressed: () {
+                      isReviewingQuestion = false;
+                      Navigator.pop(context);
+                    },
+                  )
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
   void _loadStarredStatusAsync() async {
     final service = StarredWordsService();
     final starredWordIds = await service.loadStarredWords(widget.classroomId, widget.studySetId);
@@ -611,202 +1237,344 @@ class _QuizScreenState extends State<QuizScreen> {
     starredWordCountNotifier.value = newStarredCount;
   }
 
-  Widget _buildOption(String option, int index, int correctIndex, int? userAnswer) {
-    Color bgColor;
-    Color textColor = Colors.black;
 
-    if (userAnswer == null) {
-      bgColor = Colors.white;
-    } else if (index == correctIndex) {
-      bgColor = Colors.green;
-      textColor = Colors.white;
-    } else if (index == userAnswer) {
-      bgColor = Colors.red;
-      textColor = Colors.white;
-    } else {
-      bgColor = Colors.white;
-    }
-
-    double width = MediaQuery.of(context).size.width;
-    double height = MediaQuery.of(context).size.height;
-
-    return Padding(
-      padding: EdgeInsets.only(bottom: height * 0.02),
-      child: GestureDetector(
-        onTap: () {
-          if (questions[currentQuestionIndex].userAnswer == null) {
-            _answerQuestion(index);
-          }
-        },
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
-          width: width * 0.8,
-          height: height * 0.05,
-          decoration: BoxDecoration(
-            color: bgColor,
-            borderRadius: BorderRadius.circular(8),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.grey.withOpacity(0.5),
-                spreadRadius: 3,
-                blurRadius: 7,
-                offset: const Offset(0, 3),
-              ),
-            ],
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.start,
-            children: [
-              Image.asset('assets/logo.png', width: 45, height: 45),
-              Expanded(
-                child: Text(
-                  option,
-                  style: GoogleFonts.poppins(
-                    fontSize: width * 0.03,
-                    fontWeight: FontWeight.bold,
-                    color: textColor,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildQuestionContent(QuizQuestion question) {
+  Widget _buildQuestionContent(QuizQuestion question, Size size) {
     final colors = _isDarkMode ? darkModeColors : lightModeColors;
 
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                  decoration: BoxDecoration(
-                    color: colors["background"],
-                    borderRadius: BorderRadius.circular(30.0),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.withOpacity(0.5),
-                        spreadRadius: 3,
-                        blurRadius: 7,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
-                  ),
-                  child: Align(
-                    alignment: Alignment.center,
-                    child: FittedBox(
-                      child: Text(
-                        question.term,
-                        style: TextStyle(
-                          fontSize: 26, // Biraz daha büyük
-                          fontWeight: FontWeight.bold,
-                          color: colors["text"], // Açık pembe renk
-                          letterSpacing: 1.2,
-                        ),
-                      ),
-                    ),
-                  ),
+    return SingleChildScrollView(
+      child: Padding(
+        padding: EdgeInsets.all(size.width * 0.04),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildQuestionHeader(question, size),
+            SizedBox(height: size.height * 0.02),
+            _buildImage(question.image, size),
+            SizedBox(height: size.height * 0.02),
+            ...List.generate(
+              question.options.length,
+                  (index) => Padding(
+                padding: EdgeInsets.only(bottom: size.height * 0.01),
+                child: _buildOption(
+                  question.options[index],
+                  index,
+                  question.correctOptionIndex,
+                  question.userAnswer,
+                  size,
                 ),
               ),
-            ],
-          ),
-          _buildImage(question.image?.isEmpty ?? true ? null : question.image!),
-          ListView.builder(
-            physics: NeverScrollableScrollPhysics(),
-            shrinkWrap: true,
-            itemCount: question.options.length,
-            itemBuilder: (context, index) {
-              return _buildOption(question.options[index], index, question.correctOptionIndex, question.userAnswer);
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildImage(String? imageUrl) {
-    if (imageUrl == null) {
-      return Image.asset('assets/logo.png', fit: BoxFit.cover);
-    }
-
-    return AnimatedCrossFade(
-
-      duration: const Duration(milliseconds: 500),
-      firstChild: AspectRatio(
-        aspectRatio: 16 / 9,
-        child: Image.network(
-          'https://cloud.phdakademi.com/uploads/kelibu.net/$imageUrl',
-          fit: BoxFit.contain,
-          loadingBuilder: (context, child, loadingProgress) {
-            if (loadingProgress == null) return child;
-            return const Center(child: CircularProgressIndicator());
-          },
-          errorBuilder: (context, error, stackTrace) => Opacity(
-            opacity: 0.1,
-            child: Image.asset('assets/logo.png'),
-          ),
+            ),
+          ],
         ),
       ),
-      secondChild: Image.asset(
-        'assets/logo.png',
-        fit: BoxFit.cover,
-      ),
-      crossFadeState: isVisibilityOn.value ? CrossFadeState.showFirst : CrossFadeState.showSecond,
     );
-  }
-
-
-
-  Widget _buildTimer() {
+  }  Widget _buildQuestionHeader(QuizQuestion question, Size size) {
     final colors = _isDarkMode ? darkModeColors : lightModeColors;
 
-    return Stack(
-      alignment: Alignment.center,
-      children: <Widget>[
-        SizedBox(
-          width: 40,
-          height: 40,
-          child: CircularProgressIndicator(
-            value: _remainingTime / 15,
-            strokeWidth: 8.0,
-            valueColor: const AlwaysStoppedAnimation<Color>(Colors.pink),
-            backgroundColor: colors["text"],
+    return Row(
+      children: [
+        Expanded(
+          child: Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: size.width * 0.04,
+              vertical: size.height * 0.015,
+            ),
+            decoration: BoxDecoration(
+              color: colors["buttonBackground"],
+              borderRadius: BorderRadius.circular(size.width * 0.03),
+            ),
+            child: AutoSizeText(
+              question.term,
+              style: GoogleFonts.poppins(
+                fontSize: size.width * 0.04,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+              minFontSize: 10,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+            ),
           ),
         ),
-        Text(
-          '$_remainingTime',
-          style:  TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 10,
-            color:  colors["text"],
-          ),
-        ),
+        SizedBox(width: size.width * 0.02),
+        isStarredMode
+            ? const SizedBox.shrink()
+            : _buildStarIcon(question.id),
       ],
     );
   }
-
   Widget _buildStarIcon(int wordId) {
     return ValueListenableBuilder<bool>(
       valueListenable: starredNotifiers[wordId]!,
       builder: (context, isStarred, _) {
         return IconButton(
-          icon: Icon(isStarred ? Icons.star : Icons.star_border, color: isStarred ? Colors.yellow : Colors.grey),
+          icon: Icon(
+            isStarred ? Icons.star : Icons.star_border,
+            color: isStarred ? Colors.amber : Colors.grey,
+            size: 30,
+          ),
           onPressed: () {
-            _toggleStar(wordId, isStarredNotifier);
+            _toggleStar(wordId, starredNotifiers[wordId]!);
           },
         );
       },
+    );
+  }
+  void _showExampleSentence(QuizQuestion question) {
+    final colors = _isDarkMode ? darkModeColors : lightModeColors;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setStateModal) {
+            return DraggableScrollableSheet(
+              initialChildSize: 0.6,
+              minChildSize: 0.3,
+              maxChildSize: 0.9,
+              builder: (_, controller) {
+                return Container(
+                  decoration: BoxDecoration(
+                    color: colors["background"],
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.2),
+                        blurRadius: 15,
+                        spreadRadius: 5,
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // ... Diğer widget'lar aynı kalacak ...
+                      Expanded(
+                        child: FutureBuilder<List<String>>(
+                          future: _fetchSentenceForTerm(question.term),
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState == ConnectionState.waiting) {
+                              return Center(child: CircularProgressIndicator(color: colors["buttonBackground"]));
+                            } else if (snapshot.hasError) {
+                              return Center(
+                                child: Text(
+                                  "Hata oluştu: ${snapshot.error}",
+                                  style: GoogleFonts.poppins(color: Colors.red, fontSize: 16),
+                                ),
+                              );
+                            } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                              return Center(
+                                child: Text(
+                                  "Örnek cümle bulunamadı. Kelimemiz biraz utangaç galiba!",
+                                  style: GoogleFonts.poppins(
+                                    fontStyle: FontStyle.italic,
+                                    color: colors["text"]!.withOpacity(0.7),
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              );
+                            } else {
+                              return Column(
+                                children: [
+                                  Padding(
+                                    padding: EdgeInsets.all(16),
+                                    child: Text(
+                                      "Şimdilik ${snapshot.data!.length} harika örnek bulduk! 🎉\nDaha fazlası yolda, kelimemiz popülerlik kazanıyor!",
+                                      style: GoogleFonts.poppins(
+                                        color: colors["text"],
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: ListView.builder(
+                                      controller: controller,
+                                      itemCount: snapshot.data!.length,
+                                      itemBuilder: (context, index) {
+                                        return GestureDetector(
+                                          onTap: () {
+                                            if (!_isReading) {
+                                              _speakAndHighlight(snapshot.data![index], question.term, setStateModal);
+                                            }
+                                          },
+                                          child: Card(
+                                            elevation: 0,
+                                            margin: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                            color: colors["background"],
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(15),
+                                              side: BorderSide(color: colors["buttonBackground"]!.withOpacity(0.2)),
+                                            ),
+                                            child: Padding(
+                                              padding: EdgeInsets.all(20),
+                                              child: HighlightedText(
+                                                text: snapshot.data![index],
+                                                highlightedWord: question.term,
+                                                currentHighlightIndex: _currentHighlightIndex,
+                                                baseStyle: GoogleFonts.poppins(
+                                                  fontSize: 16,
+                                                  color: colors["text"],
+                                                  height: 1.5,
+                                                ),
+                                                highlightStyle: GoogleFonts.poppins(
+                                                  fontSize: 16,
+                                                  color: Colors.blue,
+                                                  fontWeight: FontWeight.bold,
+                                                  height: 1.5,
+                                                ),
+                                                currentWordStyle: GoogleFonts.poppins(
+                                                  fontSize: 16,
+                                                  color: Colors.red,
+                                                  fontWeight: FontWeight.bold,
+                                                  height: 1.5,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              );
+                            }
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+  void _speakAndHighlight(String sentence, String highlightWord, StateSetter setStateModal) async {
+
+
+    await _speakSentence(sentence);  // Tüm cümleyi oku
+
+  }
+  Future<void> _speakSentence(String sentence) async {
+    await flutterTts.setLanguage("en-US");
+    await flutterTts.setPitch(1.0);
+    await flutterTts.speak(sentence);
+  }
+
+
+
+  Widget _buildImage(String? imageUrl, Size size) {
+    if (imageUrl == null) {
+      return SizedBox();
+    }
+
+    return AnimatedOpacity(
+      duration: const Duration(milliseconds: 500),
+      opacity: isVisibilityOn.value ? 1.0 : 0.0,
+      child: Container(
+        height: size.height * 0.25,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(size.width * 0.03),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 5,
+              spreadRadius: 2,
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(size.width * 0.03),
+          child: Image.network(
+            'https://cloud.phdakademi.com/uploads/kelibu.net/$imageUrl',
+            fit: BoxFit.fill,
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) return child;
+              return Center(child: CircularProgressIndicator());
+            },
+            errorBuilder: (context, error, stackTrace) => Image.asset(
+              'assets/logo.png',
+              fit: BoxFit.cover,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+  Widget _buildOption(String option, int index, int correctIndex, int? userAnswer, Size size) {
+    final colors = _isDarkMode ? darkModeColors : lightModeColors;
+    bool isSelected = userAnswer == index;
+    bool isCorrect = index == correctIndex;
+    Color bgColor = colors["buttonBackground"]!;
+    Color textColor = colors["inputBackground"]!;
+
+    if (userAnswer != null) {
+      if (isSelected) {
+        bgColor = isCorrect ? Colors.green : Colors.red;
+        textColor = Colors.white;
+      } else if (isCorrect) {
+        bgColor = Colors.green;
+        textColor = Colors.white;
+      }
+    }
+
+    return GestureDetector(
+      onTap: () {
+        if (userAnswer == null) {
+          _answerQuestion(index);
+        }
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        padding: EdgeInsets.symmetric(
+          horizontal: size.width * 0.04,
+          vertical: size.height * 0.015,
+        ),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(size.width * 0.03),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 5,
+              spreadRadius: 2,
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Text(
+              String.fromCharCode(65 + index),
+              style: GoogleFonts.poppins(
+                fontSize: size.width * 0.04,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            SizedBox(width: size.width * 0.03),
+            Expanded(
+              child: AutoSizeText(
+                option,
+                style: GoogleFonts.poppins(
+                  fontSize: size.width * 0.035,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.white,
+                ),
+                minFontSize: 10,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -820,288 +1588,204 @@ class _QuizScreenState extends State<QuizScreen> {
 
   @override
   Widget build(BuildContext context) {
-    double screenWidth = MediaQuery.of(context).size.width;
+    final size = MediaQuery.of(context).size;
     final colors = _isDarkMode ? darkModeColors : lightModeColors;
+
     if (questions.isEmpty) {
-      return const Scaffold(
+      return Scaffold(
         backgroundColor: const Color(0xFFFEFAF6),
         body: Center(child: CircularProgressIndicator()),
       );
     }
+    if (hasEnoughWords()) {
+      return Scaffold(
+        backgroundColor: colors["background"],
+        appBar: AppBar(
+          title: Text('Öğren Modu'),
+          backgroundColor: colors["buttonBackground"],
+        ),
+        body: Center(
+          child: _buildWarningWidget(),
+        ),
+      );
+    }
 
-    var currentQuestion = questions[currentQuestionIndex];
-    return WillPopScope(
-      onWillPop: () async {
-        Navigator.of(context).pop(true);
-        return false;
-      },
-      child: SafeArea(
-        child: Scaffold(
-          backgroundColor: colors["background"],
-          appBar: AppBar(
-            backgroundColor: colors["background"],
-            leading: IconButton(
-              icon: Icon(Icons.arrow_back_ios,color: colors["text"]),
-              onPressed: () async {
-                final shouldPop = await showDialog<bool>(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    titlePadding: EdgeInsets.only(top: 20.0, left: 20.0, right: 20.0, bottom: 10.0),
-                    title: Row(
-                      children: <Widget>[
-                        Image.asset('assets/logo.png', width: 40, height: 40),
-                        SizedBox(width: 16),
-                        Expanded(
-                          child: Text(
-                            'Çıkmak istediğinize emin misiniz?',
-                            style: TextStyle(
-                              fontSize: 18.0,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    content: Text("Bu işlem geri alınamaz. Devam etmek istiyor musunuz?"),
-                    actions: <Widget>[
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(false),
-                        child: Text('Hayır', style: TextStyle(color: Colors.red)),
-                      ),
-                      TextButton(
-                        onPressed: () async {
-                          try {
-                            await ApiService().updateUserPointTimePeriod(userID, score, 0);
-                            Navigator.of(context).pop(true);
-                          } catch (e) {
-                            print("Puan güncelleme hatası: $e");
-                            Navigator.of(context).pop(true);
-                          }
-                        },
-                        child: Text('Evet', style: TextStyle(color: Colors.green)),
-                      ),
-                    ],
-                  ),
-                );
-                if (shouldPop ?? false) {
-                  Navigator.of(context).pop();
-                }
-              },
+    return Scaffold(
+      backgroundColor: colors["background"],
+      floatingActionButton: _buildJokerButton(),
+      appBar: _buildAppBar(colors),
+      body: SafeArea(
+        child: Column(
+          children: <Widget>[
+            _buildInfoBar(colors),
+            _buildControlPanel(colors, context),
+            Expanded(
+              child: _buildWordCards(size),
             ),
-            title: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                ValueListenableBuilder<Color>(
-                  valueListenable: backgroundColorNotifier,
-                  builder: (context, color, _) {
-                    return Container(
-                      padding: EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: color,
-                        borderRadius: BorderRadius.circular(10),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.grey.withOpacity(0.5),
-                            spreadRadius: 2,
-                            blurRadius: 3,
-                            offset: Offset(3, 3),
-                          ),
-                        ],
-                      ),
-                      child: GestureDetector(
-                        onTap: toggleStarredOnly,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.star,
-                              color: Colors.yellow,
-                              size: screenWidth * 0.05,
-                            ),
-                            AnimatedSwitcher(
-                              duration: const Duration(milliseconds: 500),
-                              child: Text(
-                                '${starredWordCountNotifier.value}',
-                                key: ValueKey<int>(starredWordCountNotifier.value),
-                                style: GoogleFonts.lato(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: screenWidth * 0.04,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-                SizedBox(width: 10),
-                _buildTimer(),
-              ],
-            ),
-            centerTitle: true,
-            actions: [
-              _buildStarIcon(currentQuestion.id),
-            ],
-          ),
-          body: SafeArea(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      RichText(
-                        text: TextSpan(
-                          children: [
-                            TextSpan(
-                              text: 'Puan: ',
-                              style: GoogleFonts.openSans(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: colors["text"],
-                              ),
-                            ),
-                            TextSpan(
-                              text: '$score',
-                              style: GoogleFonts.openSans(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: colors["text"],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Text.rich(
-                        TextSpan(
-                          style: GoogleFonts.openSans(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          children: [
-                            TextSpan(
-                              text: '${currentQuestionIndex + 1}',
-                              style:  TextStyle( color: colors["text"]),
-                            ),
-                            TextSpan(
-                              text: ' / ${questions.length}',
-                              style:  TextStyle( color: colors["text"]),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                  decoration: BoxDecoration(
-                    color:  colors["buttonBackground"],
-                    borderRadius: BorderRadius.circular(30.0),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: <Widget>[
-                      ValueListenableBuilder<bool>(
-                        valueListenable: isVisibilityOn,
-                        builder: (context, value, child) {
-                          return IconButton(
-                            icon: Icon(
-                              value ? Icons.visibility_off : Icons.visibility,
-                              color: colors["text"],
-                            ),
-                            onPressed: () {
-                              showCustomFlushbar(context, isVisibilityOn.value ? "Resim Gizleniyor." : "Resim Gösteriliyor.");
-                              isVisibilityOn.value = !value;
-                            },
-                          );
-                        },
-                      ),
-                      ValueListenableBuilder<bool>(
-                        valueListenable: isRefreshOn,
-                        builder: (context, value, child) {
-                          return IconButton(
-                            icon: Icon(
-                              Icons.refresh,
-                              color: value ? colors["text"] : Colors.grey,
-                            ),
-                            onPressed: () {
-                              showCustomFlushbar(context, isSortOn.value ? "Liste Sıralandı." : "Liste Karıştırıldı.");
-                              isSortOn.value = !isSortOn.value;
-                              _shuffleOrSortWords();
-                              _timer?.cancel();
-                            },
-                          );
-                        },
-                      ),
-                      ValueListenableBuilder<bool>(
-                        valueListenable: isMuteOn,
-                        builder: (context, value, child) {
-                          return IconButton(
-                            icon: Icon(
-                              value ? Icons.volume_up : Icons.volume_off,
-                              color: colors["text"],
-                            ),
-                            onPressed: () {
-                              showCustomFlushbar(context, isMuteOn.value ? "Seslendirme kapanıyor." : "Seslendirme açılıyor.");
-                              isMuteOn.value = !value;
-                              final volumeProvider = Provider.of<VolumeProvider>(context, listen: false);
-                              volumeProvider.toggleVolume();
-                            },
-                          );
-                        },
-                      ),
-                      IconButton(
-                        icon: Icon(
-                          isTurkish.value ? Icons.language : Icons.translate,
-                          color: colors["text"],
-                        ),
-                        onPressed: () {
-                          isTurkish.value = !isTurkish.value;
-                          _changeLang();
-                          showCustomFlushbar(context, isTurkish.value ? "Dil İngilizce oldu." : "Dil Türkçe oldu.");
-                          _timer?.cancel();
-                          startTimer();
-                        },
-                      ),
-                      IconButton(
-                        icon:  Icon(Icons.menu,color: colors["text"]),
-                        onPressed: _openBottomSheet,
-                      ),
-                      IconButton(
-                        icon:  Icon(Icons.hearing, color: colors["text"]),
-                        onPressed: () {
-                          _speak();
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: PageView.builder(
-                    controller: _pageController,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: questions.length,
-                    itemBuilder: (context, index) {
-                      return _buildQuestionContent(questions[index]);
-                    },
-                  ),
-                ),
-                _buildQuestionNavigationBar(),
-              ],
-            ),
-          ),
+          ],
         ),
       ),
     );
   }
+  PreferredSizeWidget _buildAppBar(Map<String, Color> colors) {
+    return AppBar(
+      backgroundColor: colors["background"],
+      elevation: 0,
+      title: Text(
+        "Öğren Modu",
+        style: GoogleFonts.poppins(
+          color: colors["text"],
+          fontWeight: FontWeight.bold,
+          fontSize: 20,
+        ),
+      ),
+      actions: [
+        IconButton(
+          icon: Icon(Icons.help, color: Colors.green),
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => VideoPlayerScreen(videoUrl: AppUrls.learn)),
+            );
+          },
+        ),
+      ],
+    );
+  }
+  Widget _buildInfoBar(Map<String, Color> colors) {
+    return Container(
+      padding: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+      decoration: BoxDecoration(
+        color: colors["background"],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            offset: Offset(0, -2),
+            blurRadius: 4,
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          _buildStarredWordsButton(),
+          Text(
+            "${currentQuestionIndex + 1}/${questions.length}",
+            style: GoogleFonts.poppins(
+              color: colors["text"],
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
+          ),
+          _buildTimerWidget(),
+          ScoreDisplay(userPointsNotifier: pointValueNotifier),
+          _buildAnswerHistoryButton(),
+          IconButton(
+            icon: Icon(
+              isMenuVisible ? Icons.menu_open : Icons.menu,
+              color: colors["text"],
+            ),
+            onPressed: _toggleMenu,
+          ),
+        ],
+      ),
+    );
+  }
 
-  Widget _buildQuestionNavigationBar() {
+
+  Widget _buildRoundedIconButton(IconData icon, Color color, VoidCallback onPressed) {
+    return ElevatedButton(
+      onPressed: onPressed,
+      style: ElevatedButton.styleFrom(
+        primary: color,
+        shape: CircleBorder(),
+        padding: EdgeInsets.all(12.sp),
+      ),
+      child: Icon(icon, color: Colors.white, size: 24.sp),
+    );
+  }
+  bool hasEnoughWords() {
+    return questions.length <5;
+  }
+  Widget _buildWarningWidget() {
+    return Container(
+      padding: EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.amber[100],
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.amber.withOpacity(0.3),
+            blurRadius: 10,
+            offset: Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.warning_amber_rounded,
+            size: 100,
+            color: Colors.amber[800],
+          ),
+          SizedBox(height: 20),
+          Text(
+            'Ups! Kelimelerimiz Kaçmış!',
+            style: GoogleFonts.poppins(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.amber[800],
+            ),
+          ),
+          SizedBox(height: 10),
+          Text(
+            'Öğren modundan en yüksek verimi almanız için en az 4 yıldızlı kelime gerekiyor. Haydi, biraz daha kelime ekleyelim!',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              color: Colors.amber[900],
+            ),
+          ),
+          SizedBox(height: 20),
+          ElevatedButton(
+            child: Text('Kelime Ekle'),
+            onPressed: () {
+              // Kelime ekleme sayfasına yönlendirme
+            },
+            style: ElevatedButton.styleFrom(
+              primary: Colors.amber[700],
+              onPrimary: Colors.white,
+              padding: EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(30),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  Widget _buildWordCards(Size size) {
+    return PageView.builder(
+      itemCount: questions.length,
+      controller: _pageController,
+      physics: NeverScrollableScrollPhysics(), // Kullanıcının kaydırmasını engelle
+      onPageChanged: (index) {
+        setState(() {
+          currentQuestionIndex = index;
+        });
+        startTimer(); // Yeni soru için timer'ı başlat
+        _speak();
+        if (currentQuestionIndex == questions.length - 1) {
+         // _showCompletionDialog();
+        }
+      },
+      itemBuilder: (context, index) {
+        return _buildQuestionContent(questions[index], size);
+      },
+    );
+  }  Widget _buildQuestionNavigationBar() {
     final colors = _isDarkMode ? darkModeColors : lightModeColors;
 
     return SizedBox(
@@ -1155,27 +1839,49 @@ class _QuizScreenState extends State<QuizScreen> {
   }
 
   void showCustomFlushbar(BuildContext context, String message) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
     Flushbar(
-      message: message,
-      icon: Image.asset(
-        'assets/logo.png',
-        width: 56.0,
-        height: 56.0,
+      messageText: Text(
+        message,
+        style: GoogleFonts.poppins(
+          color: isDarkMode ? Colors.white : Colors.black87,
+          fontSize: 16,
+          fontWeight: FontWeight.w500,
+        ),
       ),
-      duration: const Duration(seconds: 3),
+      icon: Container(
+        margin: const EdgeInsets.only(left: 8, right: 8),
+        child: CircleAvatar(
+          backgroundColor: Colors.white,
+          radius: 20,
+          child: ClipOval(
+            child: Image.asset(
+              'assets/logo.png',
+              width: 30,
+              height: 30,
+              fit: BoxFit.cover,
+            ),
+          ),
+        ),
+      ),
+      duration: const Duration(seconds: 2),
       flushbarPosition: FlushbarPosition.TOP,
-      backgroundColor: Colors.blueGrey[100]!,
-      margin: const EdgeInsets.all(8),
-      borderRadius: BorderRadius.circular(8),
-      boxShadows: const [
+      backgroundColor: isDarkMode ? Colors.grey[800]! : Colors.white,
+      boxShadows: [
         BoxShadow(
-          color: Colors.black45,
-          offset: Offset(3, 3),
-          blurRadius: 3,
+          color: Colors.black12,
+          offset: Offset(0, 3),
+          blurRadius: 6,
         ),
       ],
-      forwardAnimationCurve: Curves.easeInOutCubic,
-      reverseAnimationCurve: Curves.easeInOutCubic,
+      borderRadius: BorderRadius.circular(12),
+      margin: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+      animationDuration: Duration(milliseconds: 400),
+      forwardAnimationCurve: Curves.easeOutCirc,
+      reverseAnimationCurve: Curves.easeInCirc,
+      leftBarIndicatorColor: Colors.green,
     ).show(context);
   }
 }
@@ -1231,78 +1937,376 @@ Future<List<QuizQuestion>> generateQuizQuestions(List<WordDetail> words, ValueNo
   return questions;
 }
 
-class QuizResultsScreen extends StatelessWidget {
+class QuizResultsScreen extends StatefulWidget {
   final List<QuizQuestion> questions;
 
-  QuizResultsScreen({required this.questions});
+  const QuizResultsScreen({Key? key, required this.questions}) : super(key: key);
+
+  @override
+  _QuizResultsScreenState createState() => _QuizResultsScreenState();
+}
+
+class _QuizResultsScreenState extends State<QuizResultsScreen> {
+  bool showOnlyIncorrect = false;
+  bool isDarkMode = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDarkModePreference();
+  }
+
+  Future<void> _loadDarkModePreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      isDarkMode = prefs.getBool('darkMode') ?? false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    int correctAnswers = questions.where((q) => q.isAnsweredCorrectly).length;
-    int incorrectAnswers = questions.length - correctAnswers;
+    int correctAnswers = widget.questions.where((q) => q.isAnsweredCorrectly).length;
+    int totalQuestions = widget.questions.length;
+    double successRate = correctAnswers / totalQuestions;
 
-    bool _isDarkMode = false; // Dark mode durumu
-
-
-    final colors = _isDarkMode ? darkModeColors : lightModeColors;
-
+    List<QuizQuestion> displayedQuestions = showOnlyIncorrect
+        ? widget.questions.where((q) => !q.isAnsweredCorrectly).toList()
+        : widget.questions;
     return Scaffold(
-      backgroundColor: colors["background"],
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: Text('Quiz Sonuçları', style: GoogleFonts.nunito(fontSize: 20, fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: Text('Quiz Sonuçları',
+            style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : Colors.black)),
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: isDarkMode ? Colors.white : Colors.black),
+          onPressed: () => Navigator.pop(context),
+        ),
         actions: [
           IconButton(
-            icon: Icon(Icons.home),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => HomeScreen()),
-              );
-            },
+            icon: Icon(isDarkMode ? Icons.light_mode : Icons.dark_mode,
+                color: isDarkMode ? Colors.white : Colors.black),
+            onPressed: _toggleDarkMode,
+          ),
+          IconButton(
+            icon: Icon(Icons.home, color: isDarkMode ? Colors.white : Colors.black),
+            onPressed: () => Navigator.pushReplacementNamed(context, '/home'),
           )
         ],
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            Padding(
-              padding: EdgeInsets.all(16.0),
-              child: Column(
-                children: [
-                  Text('Doğru Cevap Sayısı: $correctAnswers', style: GoogleFonts.nunito(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green)),
-                  SizedBox(height: 8),
-                  Text('Yanlış Cevap Sayısı: $incorrectAnswers', style: GoogleFonts.nunito(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.red)),
-                ],
-              ),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: isDarkMode
+                ? [Colors.grey[900]!, Colors.grey[800]!]
+                : [Colors.blue.shade800, Colors.purple.shade800],
+          ),
+        ),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildSuccessRateIndicator(successRate),
+                const SizedBox(height: 32),
+                _buildResultsSummary(correctAnswers, totalQuestions - correctAnswers),
+                const SizedBox(height: 32),
+                _buildResultsChart(correctAnswers, totalQuestions - correctAnswers),
+                const SizedBox(height: 32),
+                _buildIncorrectOnlySwitch(),
+                const SizedBox(height: 16),
+                Text('Soru Detayları',
+                    style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : Colors.black)),
+                const SizedBox(height: 16),
+                _buildQuestionsList(displayedQuestions),
+              ],
             ),
-            Divider(),
-            ListView.builder(
-              shrinkWrap: true,
-              physics: NeverScrollableScrollPhysics(),
-              itemCount: questions.length,
-              itemBuilder: (context, index) {
-                final question = questions[index];
-                bool isCorrect = question.isAnsweredCorrectly;
-                return Card(
-                  margin: EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-                  child: ListTile(
-                    leading: CircleAvatar(
-                      child: Text('${index + 1}', style: GoogleFonts.nunito(color: Colors.white)),
-                      backgroundColor: isCorrect ? Colors.green : Colors.red,
-                    ),
-                    title: Text(question.term, style: GoogleFonts.nunito(fontWeight: FontWeight.bold)),
-                    subtitle: Text('Doğru Cevap: ${question.options[question.correctOptionIndex]}', style: GoogleFonts.nunito()),
-                    trailing: Icon(
-                      isCorrect ? Icons.check_circle_outline : Icons.highlight_off,
-                      color: isCorrect ? Colors.green : Colors.red,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSuccessRateIndicator(double successRate) {
+    return Center(
+      child: Container(
+        width: 200,
+        height: 200,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: isDarkMode ? Colors.grey[800] : Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 10,
+              spreadRadius: 5,
+            ),
+          ],
+        ),
+        child: CircularPercentIndicator(
+          radius: 80.0,
+          lineWidth: 15.0,
+          percent: successRate,
+          center: Text(
+            '${(successRate * 100).toStringAsFixed(1)}%',
+            style: GoogleFonts.poppins(fontSize: 36, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : Colors.black),
+          ),
+          progressColor: Colors.greenAccent,
+          backgroundColor: isDarkMode ? Colors.white24 : Colors.black12,
+          circularStrokeCap: CircularStrokeCap.round,
+          animation: true,
+          animationDuration: 1500,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildResultsSummary(int correct, int incorrect) {
+    return Column(
+      children: [
+        _buildResultBar('Doğru', correct, widget.questions.length, Colors.greenAccent),
+        const SizedBox(height: 16),
+        _buildResultBar('Yanlış', incorrect, widget.questions.length, Colors.redAccent),
+      ],
+    );
+  }
+
+  Widget _buildResultBar(String label, int count, int total, Color color) {
+    double percentage = count / total;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: GoogleFonts.poppins(fontSize: 16, color: isDarkMode ? Colors.white70 : Colors.black54)),
+        const SizedBox(height: 8),
+        Container(
+          height: 24,
+          decoration: BoxDecoration(
+            color: isDarkMode ? Colors.white24 : Colors.black12,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Stack(
+            children: [
+              FractionallySizedBox(
+                widthFactor: percentage,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: color,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+              Positioned.fill(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 8.0),
+                    child: Text(
+                      '$count',
+                      style: GoogleFonts.poppins(color: isDarkMode ? Colors.white : Colors.black, fontWeight: FontWeight.bold),
                     ),
                   ),
-                );
-              },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildResultsChart(int correct, int incorrect) {
+    return Container(
+      height: 150,
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDarkMode ? Colors.grey[800] : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            spreadRadius: 5,
+          ),
+        ],
+      ),
+      child: PieChart(
+        PieChartData(
+          sectionsSpace: 0,
+          centerSpaceRadius: 30,
+          sections: [
+            PieChartSectionData(
+              color: Colors.greenAccent,
+              value: correct.toDouble(),
+              title: 'Doğru',
+              radius: 60,
+              titleStyle: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : Colors.black),
+            ),
+            PieChartSectionData(
+              color: Colors.redAccent,
+              value: incorrect.toDouble(),
+              title: 'Yanlış',
+              radius: 60,
+              titleStyle: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : Colors.black),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildIncorrectOnlySwitch() {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: isDarkMode ? Colors.grey[800] : Colors.white,
+        borderRadius: BorderRadius.circular(30),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            spreadRadius: 5,
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            'Sadece Yanlış Soruları Göster',
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: isDarkMode ? Colors.white : Colors.black,
+            ),
+          ),
+          Switch.adaptive(
+            value: showOnlyIncorrect,
+            onChanged: (value) {
+              setState(() {
+                showOnlyIncorrect = value;
+              });
+            },
+            activeColor: Colors.redAccent,
+            activeTrackColor: Colors.redAccent.withOpacity(0.5),
+            inactiveThumbColor: isDarkMode ? Colors.grey : Colors.blue,
+            inactiveTrackColor: isDarkMode ? Colors.grey.withOpacity(0.5) : Colors.blue.withOpacity(0.5),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuestionsList(List<QuizQuestion> questions) {
+    return ListView.separated(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: questions.length,
+      separatorBuilder: (context, index) => const SizedBox(height: 12),
+      itemBuilder: (context, index) {
+        final question = questions[index];
+        return _buildQuestionItem(question, index);
+      },
+    );
+  }
+
+  Widget _buildQuestionItem(QuizQuestion question, int index) {
+    return Container(
+      decoration: BoxDecoration(
+        color: isDarkMode ? Colors.grey[800]!.withOpacity(0.3) : Colors.white.withOpacity(0.8),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 5,
+            spreadRadius: 1,
+          ),
+        ],
+      ),
+      child: ExpansionTile(
+        leading: CircleAvatar(
+          backgroundColor: question.isAnsweredCorrectly ? Colors.greenAccent : Colors.redAccent,
+          child: Text('${index + 1}',
+              style: GoogleFonts.poppins(color: isDarkMode ? Colors.black : Colors.white, fontWeight: FontWeight.bold)),
+        ),
+        title: Text(question.term,
+            style: GoogleFonts.poppins(fontWeight: FontWeight.w500, fontSize: 16, color: isDarkMode ? Colors.white : Colors.black)),
+        subtitle: Text(
+          question.isAnsweredCorrectly ? 'Doğru' : 'Yanlış',
+          style: GoogleFonts.poppins(
+              color: question.isAnsweredCorrectly ? Colors.greenAccent : Colors.redAccent,
+              fontWeight: FontWeight.w500
+          ),
+        ),
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Doğru Cevap:',
+                  style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white70 : Colors.black54),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  question.options[question.correctOptionIndex],
+                  style: GoogleFonts.poppins(fontSize: 16, color: isDarkMode ? Colors.white : Colors.black),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _toggleDarkMode() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      isDarkMode = !isDarkMode;
+      prefs.setBool('darkMode', isDarkMode);
+    });
+  }
+}
+class HighlightedText extends StatelessWidget {
+  final String text;
+  final String highlightedWord;
+  final int currentHighlightIndex;
+  final TextStyle baseStyle;
+  final TextStyle highlightStyle;
+  final TextStyle currentWordStyle;
+
+  const HighlightedText({
+    Key? key,
+    required this.text,
+    required this.highlightedWord,
+    required this.currentHighlightIndex,
+    required this.baseStyle,
+    required this.highlightStyle,
+    required this.currentWordStyle,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    List<TextSpan> spans = [];
+    List<String> words = text.split(' ');
+
+    for (int i = 0; i < words.length; i++) {
+      if (words[i].toLowerCase().contains(highlightedWord.toLowerCase())) {
+        spans.add(TextSpan(text: words[i] + ' ', style: highlightStyle));
+      } else if (i == currentHighlightIndex) {
+        spans.add(TextSpan(text: words[i] + ' ', style: currentWordStyle));
+      } else {
+        spans.add(TextSpan(text: words[i] + ' ', style: baseStyle));
+      }
+    }
+
+    return RichText(
+      text: TextSpan(children: spans),
     );
   }
 }

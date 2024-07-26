@@ -5,166 +5,131 @@ import '../event.dart';
 import '../main.dart';
 
 class StarredWordsService {
+  static final StarredWordsService _instance = StarredWordsService._internal();
+  static const String _keyPrefix = 'starredWords';
+  SharedPreferences? _prefs;
+  final Map<String, Set<int>> _cache = {};
+
+  factory StarredWordsService() {
+    return _instance;
+  }
+
+  StarredWordsService._internal();
+
+  Future<void> ensureInitialized() async {
+    _prefs ??= await SharedPreferences.getInstance();
+  }
+
   Future<void> toggleWordStarStatus(int wordId, bool isStarred, int classroomId, int studySetId) async {
-    final prefs = await SharedPreferences.getInstance();
+    await ensureInitialized();
     final key = _generateKey(classroomId, studySetId);
-    final starredWordsSet = await loadStarredWords(classroomId, studySetId);
+    final starredWordsSet = await _getStarredWords(key);
     final userID = userProviderGlobal!.userId;
-    await ApiService().starWord(wordId, classroomId, studySetId, userID);
-    if (isStarred) {
-      starredWordsSet.add(wordId);
-      print('$wordId yıldızlandı.');
-    } else {
-      starredWordsSet.remove(wordId);
-      print('$wordId yıldızı kaldırıldı.');
-    }
-    await prefs.setStringList(key, starredWordsSet.map((id) => id.toString()).toList());
+
+    await Future.wait([
+      ApiService().starWord(wordId, classroomId, studySetId, userID),
+      _updateStarredWords(key, starredWordsSet, wordId, isStarred),
+    ]);
+
     appEventBus.fire(StarredWordsChangedEvent(starredWordsSet.length));
   }
 
   Future<void> removeWordFromAll(int wordId) async {
-    final prefs = await SharedPreferences.getInstance();
-    final keys = prefs.getKeys();
+    await ensureInitialized();
     final userID = userProviderGlobal!.userId;
+    await ApiService().starWordDeleteAll(wordId, userID);
 
-    await ApiService().starWordDeleteAll(wordId,userID);
-    for (String key in keys) {
-      if (key.startsWith('starredWords')) {
-        final List<String>? starredWordsList = _getStringListSafe(prefs, key);
+    final futures = _prefs!.getKeys()
+        .where((key) => key.startsWith(_keyPrefix))
+        .map((key) => _removeWordFromSet(key, wordId));
 
-        if (starredWordsList != null && starredWordsList.contains(wordId.toString())) {
-          List<String> mutableStarredWordsList = List<String>.from(starredWordsList);
-          mutableStarredWordsList.remove(wordId.toString());
-          await prefs.setStringList(key, mutableStarredWordsList);
-        }
-      }
-    }
+    await Future.wait(futures);
   }
 
   Future<void> removeWordFromAllById(int wordId) async {
-    final prefs = await SharedPreferences.getInstance();
-    final keys = prefs.getKeys();
-    final userID = userProviderGlobal!.userId;
-
-    await ApiService().starWordDeleteAll(wordId,userID);
-
-    for (String key in keys) {
-      if (key.startsWith('starredWords')) {
-        final List<String>? starredWordsStringList = _getStringListSafe(prefs, key);
-
-        if (starredWordsStringList != null && starredWordsStringList.contains(wordId.toString())) {
-          starredWordsStringList.remove(wordId.toString());
-          await prefs.setStringList(key, starredWordsStringList);
-        }
-      }
-    }
+    await removeWordFromAll(wordId);
   }
 
   Future<Set<int>> loadStarredWords(int classroomId, int studySetId) async {
-    final prefs = await SharedPreferences.getInstance();
+    await ensureInitialized();
     final key = _generateKey(classroomId, studySetId);
-    final List<String>? starredWordsStringList = _getStringListSafe(prefs, key);
-    print(starredWordsStringList);
-    if (starredWordsStringList != null) {
-      final Set<int> starredWordsSet = starredWordsStringList.map((id) => int.parse(id)).toSet();
-      print('Yüklenen yıldızlı kelimeler: $starredWordsSet');
-      return starredWordsSet;
-    } else {
-      print('Yıldızlı kelime bulunamadı.');
-      return {};
-    }
+    return _getStarredWords(key);
   }
 
   Future<Set<int>> loadClassroomStarredWordsAll(int classroomId, List<int> studySetIds) async {
-    final prefs = await SharedPreferences.getInstance();
+    await ensureInitialized();
     Set<int> allStarredWords = {};
 
     if (classroomId == -1) {
-      final keys = prefs.getKeys();  // Tüm anahtarları getir
-      for (var key in keys) {
-        if (key.startsWith('starredWords')) {  // Anahtar 'starredWords' ile başlıyorsa
-          final List<String>? starredWordsStringList = _getStringListSafe(prefs, key);
-
-          if (starredWordsStringList != null) {
-            final starredWordsSet = starredWordsStringList
-                .map((id) => int.tryParse(id))
-                .where((id) => id != null)
-                .cast<int>()
-                .toSet();
-            allStarredWords.addAll(starredWordsSet);
-          }
-        }
-      }
+      allStarredWords = await loadAllStarredWordsAll();
     } else {
-      // Belirli bir classroom ve study set ids için yıldızlı kelimeleri getir
-      try {
-        for (int studySetId in studySetIds) {
-          final key = _generateKey(classroomId, studySetId);
-          final List<String>? starredWordsStringList = _getStringListSafe(prefs, key);
-
-          if (starredWordsStringList != null) {
-            final starredWordsSet = starredWordsStringList
-                .map((id) => int.tryParse(id))
-                .where((id) => id != null)
-                .cast<int>()
-                .toSet();
-            allStarredWords.addAll(starredWordsSet);
-          }
-        }
-        print('Yüklenen tüm yıldızlı kelimeler: $allStarredWords');
-      } catch (e) {
-        print('SharedPreferences işlemleri sırasında bir hata oluştu: $e');
+      for (int studySetId in studySetIds) {
+        final key = _generateKey(classroomId, studySetId);
+        final starredWords = await _getStarredWords(key);
+        allStarredWords.addAll(starredWords);
       }
     }
 
     return allStarredWords;
   }
 
-  Set<int> _parseStarredWordsString(String starredWordsString) {
-    final String cleanedString = starredWordsString.replaceAll(RegExp(r'[\[\]]'), '');
-    return Set.from(cleanedString.split(',')
-        .map((id) => int.tryParse(id.trim()))
-        .where((id) => id != null)
-        .cast<int>());
+  Future<Set<int>> loadAllStarredWordsAll() async {
+    await ensureInitialized();
+    final allStarredWords = Set<int>();
+
+    for (String key in _prefs!.getKeys()) {
+      if (key.startsWith(_keyPrefix)) {
+        final starredWords = await _getStarredWords(key);
+        allStarredWords.addAll(starredWords);
+      }
+    }
+
+    return allStarredWords;
   }
 
   Future<void> printAllSharedPreferences() async {
-    final prefs = await SharedPreferences.getInstance();
-    final allKeys = prefs.getKeys();
+    await ensureInitialized();
+    final allKeys = _prefs!.getKeys();
 
     for (String key in allKeys) {
-      var value = prefs.get(key); // Değer dynamic türünde olacağı için doğrudan yazdırıyoruz.
+      var value = _prefs!.get(key);
       print('$key: $value');
     }
   }
 
-  Future<Set<int>> loadAllStarredWordsAll() async {
-    final prefs = await SharedPreferences.getInstance();
-    final allKeys = prefs.getKeys();
-    final Set<int> allStarredWords = Set<int>();
-
-    for (String key in allKeys) {
-      if (key.startsWith('starredWords')) {
-        // getStringList ile doğrudan List<String> bekliyoruz.
-        final List<String>? starredWordsStringList = _getStringListSafe(prefs, key);
-        if (starredWordsStringList != null) {
-          allStarredWords.addAll(starredWordsStringList.map((id) => int.parse(id)));
-        }
-      }
+  Future<Set<int>> _getStarredWords(String key) async {
+    if (!_cache.containsKey(key)) {
+      final List<String>? starredWordsStringList = _prefs!.getStringList(key);
+      _cache[key] = starredWordsStringList?.map(int.parse).toSet() ?? {};
     }
+    return _cache[key]!;
+  }
 
-    print('Tüm yıldızlanmış kelimeler: $allStarredWords');
-    return allStarredWords;
+  Future<void> _updateStarredWords(String key, Set<int> starredWords, int wordId, bool isStarred) async {
+    if (isStarred) {
+      starredWords.add(wordId);
+    } else {
+      starredWords.remove(wordId);
+    }
+    _cache[key] = starredWords;
+    await _prefs!.setStringList(key, starredWords.map((id) => id.toString()).toList());
+  }
+
+  Future<void> _removeWordFromSet(String key, int wordId) async {
+    final starredWords = await _getStarredWords(key);
+    if (starredWords.remove(wordId)) {
+      _cache[key] = starredWords;
+      await _prefs!.setStringList(key, starredWords.map((id) => id.toString()).toList());
+    }
   }
 
   String _generateKey(int classroomId, int studySetId) {
-    // Kelimenin benzersizliğini sağlayacak bir key üretiyoruz
-    return 'starredWords_classroomId:${classroomId}_studySetId:${studySetId}';
+    return '${_keyPrefix}_classroomId:${classroomId}_studySetId:${studySetId}';
   }
 
-  List<String>? _getStringListSafe(SharedPreferences prefs, String key) {
+  List<String>? _getStringListSafe(String key) {
     try {
-      final dynamic value = prefs.get(key);
+      final dynamic value = _prefs!.get(key);
       if (value is List) {
         return value.cast<String>();
       }

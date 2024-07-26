@@ -344,7 +344,6 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
   @override
   void initState() {
     super.initState();
-    _loadDarkModePreference(); // Dark mode tercihlerini yükle
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final userProvider = Provider.of<UserProvider>(context, listen: false);
@@ -471,8 +470,6 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
     }
   }
   void _openBottomSheet() async {
-    final colors = _isDarkMode ? darkModeColors : lightModeColors;
-
     var currentTerm = questions[currentQuestionIndex].term;
     var sentences = await _fetchSentenceForTerm(currentTerm);
     int currentPage = 0;
@@ -499,7 +496,7 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
                 child: Container(
                   width: MediaQuery.of(context).size.width,
                   decoration: BoxDecoration(
-                    color: colors["background"],
+                    color: Colors.pink.shade100,
                     borderRadius: const BorderRadius.only(
                       topLeft: Radius.circular(20),
                       topRight: Radius.circular(20),
@@ -512,7 +509,7 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
                       children: [
                         Text(
                           "${currentPage + 1} / ${sentences.length}",
-                          style:  TextStyle(color: colors["borderColor"], fontSize: 16),
+                          style: const TextStyle(color: Colors.white, fontSize: 16),
                         ),
                         Expanded(
                           child: PageView.builder(
@@ -532,7 +529,7 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
                                     style: GoogleFonts.poppins(
                                       fontSize: 18,
                                       fontWeight: FontWeight.bold,
-                                      color: colors["borderColor"],
+                                      color: Colors.white.withOpacity(0.7),
                                     ),
                                     textAlign: TextAlign.center,
                                   ),

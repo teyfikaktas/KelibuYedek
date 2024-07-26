@@ -1,8 +1,15 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flip_card/flip_card.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:kelibu/Models/wordDetaik.dart';
 import 'package:kelibu/api.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:kelibu/screens/video_player.dart';
+import '../globalDart/urls.dart';
 import '../providers/user_provider.dart';
 import 'package:provider/provider.dart';
 import '../providers/volume_provider.dart';
@@ -16,27 +23,88 @@ import '../shared_preferences/shared_preferences.dart';
 import '../variables.dart';
 import 'flash_card_star.dart';
 
-class ScoreDisplay extends StatelessWidget {
+
+class ScoreDisplay extends StatefulWidget {
   final ValueNotifier<int> userPointsNotifier;
 
   const ScoreDisplay({Key? key, required this.userPointsNotifier}) : super(key: key);
 
   @override
+  _ScoreDisplayState createState() => _ScoreDisplayState();
+}
+
+class _ScoreDisplayState extends State<ScoreDisplay> with TickerProviderStateMixin {
+  late AnimationController _scaleController;
+  late AnimationController _colorController;
+  late Animation<double> _scaleAnimation;
+  late Animation<Color?> _colorAnimation;
+  late int _lastScore;
+
+  @override
+  void initState() {
+    super.initState();
+    _lastScore = widget.userPointsNotifier.value;
+
+    _scaleController = AnimationController(
+      duration: const Duration(milliseconds: 500),
+      vsync: this,
+    );
+
+    _colorController = AnimationController(
+      duration: const Duration(milliseconds: 1000),
+      vsync: this,
+    );
+
+
+    _colorAnimation = ColorTween(
+      begin: Colors.green,
+      end: Colors.transparent,
+    ).animate(_colorController);
+
+    widget.userPointsNotifier.addListener(_onScoreChanged);
+  }
+
+  void _onScoreChanged() {
+    if (widget.userPointsNotifier.value > _lastScore) {
+      _scaleController.forward(from: 0.0);
+      _colorController.forward(from: 0.0);
+      _lastScore = widget.userPointsNotifier.value;
+    }
+  }
+
+  @override
+  void dispose() {
+    _scaleController.dispose();
+    _colorController.dispose();
+    widget.userPointsNotifier.removeListener(_onScoreChanged);
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<int>(
-      valueListenable: userPointsNotifier,
-      builder: (context, value, child) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final backgroundColor = isDarkMode ? Colors.grey[900] : Colors.white;
+    final textColor = isDarkMode ? Colors.white : Colors.black87;
+    final iconColor = isDarkMode ? Colors.amber[400] : Colors.amber[600];
+    final borderColor = isDarkMode ? Colors.grey[700] : Colors.grey[300];
+
+    return AnimatedBuilder(
+      animation: _colorAnimation,
+      builder: (context, child) {
         return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(15),
+            color: backgroundColor,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: borderColor!,
+              width: 1,
+            ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.1),
-                spreadRadius: 0,
+                color: _colorAnimation.value ?? Colors.transparent,
                 blurRadius: 10,
-                offset: const Offset(0, 2),
+                spreadRadius: 2,
               ),
             ],
           ),
@@ -44,25 +112,30 @@ class ScoreDisplay extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  shape: BoxShape.circle,
+                  color: iconColor!.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
-                  Icons.military_tech,
-                  color: Colors.blue.shade400,
-                  size: 24,
+                  Icons.add_circle,
+                  size: 18,
+                  color: iconColor,
                 ),
               ),
-              const SizedBox(width: 12),
-              Text(
-                "$value",
-                style: GoogleFonts.roboto(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.black87,
-                ),
+              const SizedBox(width: 8),
+              ValueListenableBuilder<int>(
+                valueListenable: widget.userPointsNotifier,
+                builder: (context, value, child) {
+                  return Text(
+                    "$value",
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: textColor,
+                    ),
+                  );
+                },
               ),
             ],
           ),
@@ -70,8 +143,7 @@ class ScoreDisplay extends StatelessWidget {
       },
     );
   }
-}
-class SwipeHintAnimation extends StatefulWidget {
+}class SwipeHintAnimation extends StatefulWidget {
   final Function onAnimationComplete;
 
   SwipeHintAnimation({Key? key, required this.onAnimationComplete}) : super(key: key);
@@ -79,7 +151,6 @@ class SwipeHintAnimation extends StatefulWidget {
   @override
   _SwipeHintAnimationState createState() => _SwipeHintAnimationState();
 }
-
 class _SwipeHintAnimationState extends State<SwipeHintAnimation> with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _opacityAnimation;
@@ -252,6 +323,7 @@ class _AnimatedProgressBarState extends State<AnimatedProgressBar> with SingleTi
     return FractionallySizedBox(
       widthFactor: _progressAnimation.value,
       child: Container(
+
         height: widget.height,
         decoration: BoxDecoration(
           gradient: const LinearGradient(
@@ -325,24 +397,23 @@ class _AnimatedProgressBarState extends State<AnimatedProgressBar> with SingleTi
   }
 }
 
-
-
 class FlashCardScreen extends StatefulWidget {
   final List<WordDetail> words;
   final int classroomId;
   final int studySetId;
+  final bool isStarred;
 
   const FlashCardScreen({
     Key? key,
     required this.words,
     required this.classroomId,
     required this.studySetId,
+    this.isStarred = false,  // Varsayılan değer false olarak ayarlandı
   }) : super(key: key);
 
   @override
   _FlashCardScreenState createState() => _FlashCardScreenState();
 }
-
 class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   bool isStarred = false;
   ValueNotifier<int> currentWordIndex = ValueNotifier(0);
@@ -352,21 +423,170 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
   DateTime? lastSwipeTime;
   ValueNotifier<bool> isWordStarred = ValueNotifier(false);
   bool _isDarkMode = false;
+  bool _isAutoPlaying = false;
+  Timer? _autoPlayTimer;
+  double _autoPlaySpeed = 7.0; // saniye cinsinden
 
   late UserProvider userProvider;
   ValueNotifier<int> pointValueNotife = ValueNotifier(0);
   ValueNotifier<bool> isAnimationCompletedNotifier = ValueNotifier(false);
   Map<int, ValueNotifier<bool>> starredNotifiers = {};
   ValueNotifier<int> starredWordCountNotifier = ValueNotifier(0);
-
-  int score = 0;
-  Future<void> onCardSwiped() async {
-    int newPoint = userProvider.point;
-    newPoint += 1;
-    pointValueNotife.value +=1;
-    await ApiService().updateUserPointTimePeriod(userProvider.userId, newPoint, 1);
-    userProvider.addPoint(newPoint);
+  void _toggleAutoPlay() {
+    setState(() {
+      _isAutoPlaying = !_isAutoPlaying;
+      if (_isAutoPlaying) {
+        _startAutoPlay();
+        showCustomFlushbar(
+          context,
+          "Otomatik oynatma açıldı",
+        );
+      } else {
+        _stopAutoPlay();
+        showCustomFlushbar(
+          context,
+          "Otomatik oynatma kapatıldı",
+        );
+      }
+    });
   }
+
+  void _startAutoPlay() {
+    _autoPlayTimer?.cancel();
+    _autoPlayTimer = Timer.periodic(Duration(milliseconds: (_autoPlaySpeed * 1000).toInt()), (timer) {
+      if (currentWordIndex.value < _currentWordList.length - 1) {
+        final currentWord = _currentWordList[currentWordIndex.value];
+        final currentCardKey = cardKeys[currentWord.id];
+
+        // İngilizce kelimeyi oku
+
+        // 2 saniye bekle
+        Future.delayed(Duration(seconds: 2), () {
+          // Türkçe kelimeyi oku
+          if (defaultTargetPlatform == TargetPlatform.iOS) _speak(currentWord.meaning);
+
+          // Kart çevrilmemişse çevir
+          if (currentCardKey?.currentState?.isFront ?? false) {
+            currentCardKey?.currentState?.toggleCard();
+          }
+        });
+
+        // Sonraki kelimeye geç
+        Future.delayed(Duration(seconds: (_autoPlaySpeed / 2).round()), () {
+          setState(() {
+            currentWordIndex.value++;
+            _pageController.animateToPage(
+              currentWordIndex.value,
+              duration: Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+            );
+          });
+        });
+      } else {
+        _stopAutoPlay();
+      }
+    });
+  }
+  Widget _buildAutoPlayControls(Map<String, Color> colors) {
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colors["borderColor"]!.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(15),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                  "Otomatik Oynatma Hızı",
+                  style: TextStyle(
+                      color: colors["text"],
+                      fontWeight: FontWeight.bold
+                  )
+              ),
+              Text(
+                  "${_autoPlaySpeed.toStringAsFixed(1)} sn",
+                  style: TextStyle(
+                      color: colors["text"]
+                  )
+              ),
+            ],
+          ),
+          SizedBox(height: 10),
+          SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              activeTrackColor: colors["text"],
+              inactiveTrackColor: colors["text"]!.withOpacity(0.3),
+              thumbColor: colors["text"],
+              overlayColor: colors["text"]!.withOpacity(0.4),
+              valueIndicatorColor: colors["text"],
+              valueIndicatorTextStyle: TextStyle(color: colors["background"]),
+            ),
+            child: Slider(
+              value: _autoPlaySpeed,
+              min: 7.0,
+              max: 15.0,
+              divisions: 20,
+              label: "${_autoPlaySpeed.toStringAsFixed(1)} sn",
+              onChanged: (double value) {
+                setState(() {
+                  _autoPlaySpeed = value;
+                  if (_isAutoPlaying) {
+                    _startAutoPlay(); // Hızı değiştirirken otomatik oynatmayı yeniden başlat
+                  }
+                });
+              },
+            ),
+          ),
+          SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                  "İlerleme",
+                  style: TextStyle(
+                      color: colors["text"],
+                      fontWeight: FontWeight.bold
+                  )
+              ),
+              Text(
+                  "${currentWordIndex.value + 1} / ${_currentWordList.length}",
+                  style: TextStyle(
+                      color: colors["text"]
+                  )
+              ),
+            ],
+          ),
+          SizedBox(height: 5),
+          LinearProgressIndicator(
+            value: (currentWordIndex.value + 1) / _currentWordList.length,
+            backgroundColor: colors["borderColor"],
+            valueColor: AlwaysStoppedAnimation<Color>(colors["text"]!),
+          ),
+          SizedBox(height: 10),
+          ElevatedButton(
+            child: Text(_isAutoPlaying ? 'Duraklat' : 'Başlat'),
+            style: ElevatedButton.styleFrom(
+              primary: colors["text"],
+              onPrimary: colors["background"],
+            ),
+            onPressed: _toggleAutoPlay,
+          ),
+        ],
+      ),
+    );
+  }
+  void _stopAutoPlay() {
+    _autoPlayTimer?.cancel();
+    _autoPlayTimer = null;
+    setState(() {
+      _isAutoPlaying = false;
+    });
+  }
+  int score = 0;
   Future<void> _loadDarkModePreference() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
@@ -448,7 +668,7 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (widget.words.isNotEmpty) {
-        _speak();
+        _speak(_currentWordList[currentWordIndex.value].word);
       }
     });
     _animationController = AnimationController(
@@ -482,8 +702,11 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
   }
   @override
   void dispose() {
+    _stopAutoPlay();
+
     WidgetsBinding.instance.removeObserver(this);
     _animationController.dispose();
+
     super.dispose();
   }
   void _initializeStarredStatus() {
@@ -540,23 +763,14 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
     );
 
     if (totalWords > 0) {
-      _speak();
+      _speak(_currentWordList[currentWordIndex.value].word);
     }
   }
-  _speak() async {
+  Future<void> _speak(String text) async {
     final volumeProvider = Provider.of<VolumeProvider>(context, listen: false);
-
-    if (!isSpeaking && volumeProvider.isVolumeOn) {
-      isSpeaking = true;
-      if (currentWordIndex.value < _currentWordList.length) {
-        String wordToSpeak = _currentWordList[currentWordIndex.value].word;
-        if (wordToSpeak.isNotEmpty) {
-          await flutterTts.setLanguage("en-US");
-          await flutterTts.awaitSpeakCompletion(true);
-          await flutterTts.speak(wordToSpeak);
-        }
-      }
-      isSpeaking = false;
+    if (volumeProvider.isVolumeOn) {
+      await flutterTts.setLanguage(text == _currentWordList[currentWordIndex.value].word ? "en-US" : "tr-TR");
+      await flutterTts.speak(text);
     }
   }
   void _toggleStar(int word, ValueNotifier<bool> isStarredNotifier) async {
@@ -578,6 +792,7 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
             shape: BoxShape.circle,
             color: Colors.white.withOpacity(0.7),
           ),
+
           child: IconButton(
             icon: AnimatedSwitcher(
               duration: const Duration(milliseconds: 300),
@@ -628,11 +843,17 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
                 icon: Icon(Icons.arrow_back_ios, color: colors["text"]),
                 onPressed: () => Navigator.of(context).pop(),
               ),
+              title: widget.isStarred ? null : _buildStarredWordsButton(),
+              centerTitle: true,
               actions: [
-                _buildStarredWordsButton(),
-                const SizedBox(width: 12),
                 ScoreDisplay(userPointsNotifier: pointValueNotife),
-                const SizedBox(width: 12),
+                const SizedBox(width: 16),
+                _buildRoundedIconButton(Icons.help, Colors.green, () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => VideoPlayerScreen(videoUrl: AppUrls.homescreen)),
+                  );
+                }),
               ],
             ),
             body: Column(
@@ -640,6 +861,7 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
                 _buildProgressBar(),
                 SizedBox(height: screenHeight * 0.02),
                 _buildControlPanel(colors, context),
+                if (_isAutoPlaying) _buildAutoPlayControls(colors),
                 Expanded(
                   child: _buildWordCards(screenWidth, screenHeight),
                 ),
@@ -655,19 +877,19 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
     return ValueListenableBuilder<int>(
       valueListenable: currentWordIndex,
       builder: (context, index, child) {
-        double progress = (index + 1) / totalWords;
+        double progress = _currentWordList.isNotEmpty ? (index + 1) / _currentWordList.length : 0;
         return Container(
           padding: EdgeInsets.symmetric(horizontal: 16),
+          constraints: BoxConstraints(minHeight: 20, minWidth: 100),
           child: AnimatedProgressBar(
             targetProgress: progress,
             currentIndex: index + 1,
-            total: totalWords,
+            total: _currentWordList.length,
           ),
         );
       },
     );
   }
-
   Widget _buildControlPanel(Map<String, Color> colors, BuildContext context) {
     return Container(
       margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -686,13 +908,19 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: <Widget>[
-          _buildControlButton(Icons.visibility, colors["inputBackground"]!, () {
-            isVisibilityOn.value = !isVisibilityOn.value;
-            showCustomFlushbar(
-              context,
-              isVisibilityOn.value ? "Resim açıldı" : "Resim kapandı",
-            );
-          }),
+          _buildControlButton(
+              isVisibilityOn.value ? Icons.visibility : Icons.visibility_off,
+              colors["inputBackground"]!,
+                  () {
+                setState(() {
+                  isVisibilityOn.value = !isVisibilityOn.value;
+                });
+                showCustomFlushbar(
+                  context,
+                  isVisibilityOn.value ? "Resim açıldı" : "Resim kapandı",
+                );
+              }
+          ),
           _buildControlButton(isShuffled ? Icons.sort : Icons.shuffle, colors["inputBackground"]!, () {
             setState(() {
               isShuffled = !isShuffled;
@@ -703,7 +931,7 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
               }
               currentWordIndex.value = 0;
             });
-            _speak();
+            _speak(_currentWordList[currentWordIndex.value].word);
             showCustomFlushbar(
               context,
               isShuffled ? "Liste karıştırıldı." : "Liste Sıralandı.",
@@ -713,7 +941,7 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
             builder: (context, languageProvider, child) {
               return _buildControlButton(
                 languageProvider.isEnglish ? Icons.language : Icons.translate,
-                colors["text"]!,
+                colors["inputBackground"]!,
                     () {
                   languageProvider.toggleLanguage();
                   showCustomFlushbar(
@@ -727,7 +955,14 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
             },
           ),
           MyVolumeControl(),
-          _buildControlButton(Icons.hearing, colors["inputBackground"]!, _speak),
+          _buildControlButton(Icons.hearing, colors["inputBackground"]!, () {
+            _speak(_currentWordList[currentWordIndex.value].word);
+          }),
+          _buildControlButton(
+            _isAutoPlaying ? Icons.pause : Icons.play_arrow,
+            colors["inputBackground"]!,
+            _toggleAutoPlay,
+          ),
         ],
       ),
     );
@@ -910,7 +1145,7 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
           }
           currentWordIndex.value = 0;
         });
-        _speak();
+        _speak(_currentWordList[currentWordIndex.value].word);
         showCustomFlushbar(
           context,
           isShuffled ? "Liste karıştırıldı." : "Liste Sıralandı.",
@@ -1054,11 +1289,15 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
   }
   Widget _buildWordCards(double screenWidth, double screenHeight) {
     return PageView.builder(
-      itemCount: widget.words.length,
+      itemCount: _currentWordList.length,
       controller: _pageController,
-      onPageChanged: (index) {
+      onPageChanged: (index) async {
+        if (index > currentWordIndex.value) {
+          // Sağa kaydırıldı
+          await onCardSwiped();
+        }
         currentWordIndex.value = index;
-        _speak();
+        _speak(_currentWordList[currentWordIndex.value].word);
         if (isLastWord()) {
           _showCompletionDialog();
         }
@@ -1089,6 +1328,18 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
     );
   }
 
+  Future<void> onCardSwiped() async {
+    if (canSwipe()) {  // Hızlı kaydırmaları önlemek için
+      int newPoint = userProvider.point;
+      newPoint += 1;
+      pointValueNotife.value += 1;
+
+      await ApiService().updateUserPointTimePeriod(userProvider.userId, newPoint, 1);
+      userProvider.addPoint(newPoint);
+
+      // Kullanıcıya geri bildirim vermek için bir Flushbar gösterebilirsiniz
+    }
+  }
   Widget _buildCard(String? type, String englishWord, String turkishWord, String? imageUrl, int wordId, WordDetail word, GlobalKey<FlipCardState> cardKey) {
     final colors = _isDarkMode ? darkModeColors : lightModeColors;
     String fullImageUrl = imageUrl != null
@@ -1127,7 +1378,7 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
   }
 
   Widget _buildCardSide(Map<String, Color> colors, String imageUrl, String text, String? type, int wordId, ValueNotifier<bool> isStarredNotifier, bool isFront) {
-   print(imageUrl);
+    print(imageUrl);
     return Container(
       decoration: BoxDecoration(
         color: colors["background"],
@@ -1141,7 +1392,6 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
         ],
       ),
       child: Stack(
-
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(20),
@@ -1149,27 +1399,33 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
               valueListenable: isVisibilityOn,
               builder: (context, isVisible, _) {
                 return isVisible
-                    ? Image.network(
-                  imageUrl,
-                  fit: BoxFit.cover,
-                  width: double.infinity,
-                  height: double.infinity,
-                  errorBuilder: (BuildContext context, Object exception, StackTrace? stackTrace) {
-                    return Image.asset(
-                      'assets/logo.png', // Path to your local asset image
-                      fit: BoxFit.cover,
-                      width: double.infinity,
-                      height: double.infinity,
-                    );
-                  },
+                    ? Center(
+                  child: Image.network(
+                    imageUrl,
+                    fit: BoxFit.contain,
+                    width: double.infinity,
+                    height: double.infinity,
+                    errorBuilder: (BuildContext context, Object exception, StackTrace? stackTrace) {
+                      return Center(
+                        child: Image.asset(
+                          'assets/logo.png', // Path to your local asset image
+                          fit: BoxFit.contain,
+                          width: double.infinity,
+                          height: double.infinity,
+                        ),
+                      );
+                    },
+                  ),
                 )
                     : Container(color: colors["borderColor"]);
               },
             ),
           ),
           Container(
+            constraints: BoxConstraints(minHeight: 100, minWidth: 100), // Bu satırı ekleyin
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(20),
+
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
@@ -1177,6 +1433,7 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
                   Colors.transparent,
                   Colors.black.withOpacity(0.7),
                 ],
+                stops: [0.5, 1.0], // Bu satırı ekleyin
               ),
             ),
           ),
@@ -1207,43 +1464,72 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
               ],
             ),
           ),
-          Positioned(
-            top: 20,
-            right: 20,
-            child: _buildStarIcon(wordId, isStarredNotifier),
-          ),
+          if (!widget.isStarred) // isStarred false ise yıldız ikonunu göster
+            Positioned(
+              top: 20,
+              right: 20,
+              child: _buildStarIcon(wordId, isStarredNotifier),
+            ),
         ],
       ),
     );
   }
   void showCustomFlushbar(BuildContext context, String message) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
     Flushbar(
       messageText: Text(
         message,
-        style: GoogleFonts.lato(
-          color: Colors.black,
+        style: GoogleFonts.poppins(
+          color: isDarkMode ? Colors.white : Colors.black87,
           fontSize: 16,
+          fontWeight: FontWeight.w500,
         ),
       ),
-      icon: Image.asset(
-        'assets/logo.png',
-        width: 56.0,
-        height: 56.0,
+      icon: Container(
+        margin: const EdgeInsets.only(left: 8, right: 8),
+        child: CircleAvatar(
+          backgroundColor: Colors.white,
+          radius: 20,
+          child: ClipOval(
+            child: Image.asset(
+              'assets/logo.png',
+              width: 30,
+              height: 30,
+              fit: BoxFit.cover,
+            ),
+          ),
+        ),
       ),
-      duration: const Duration(seconds: 3),
+      duration: const Duration(seconds: 2),
       flushbarPosition: FlushbarPosition.TOP,
-      backgroundColor: Colors.white,
-      margin: const EdgeInsets.all(8),
-      borderRadius: BorderRadius.circular(8),
-      boxShadows: const [
+      backgroundColor: isDarkMode ? Colors.grey[800]! : Colors.white,
+      boxShadows: [
         BoxShadow(
-          color: Colors.pink,
+          color: Colors.black12,
           offset: Offset(0, 3),
-          blurRadius: 3,
+          blurRadius: 6,
         ),
       ],
-      forwardAnimationCurve: Curves.easeInOutCubic,
-      reverseAnimationCurve: Curves.easeInOutCubic,
+      borderRadius: BorderRadius.circular(12),
+      margin: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+      animationDuration: Duration(milliseconds: 400),
+      forwardAnimationCurve: Curves.easeOutCirc,
+      reverseAnimationCurve: Curves.easeInCirc,
+      leftBarIndicatorColor: Colors.green,
     ).show(context);
   }
+  Widget _buildRoundedIconButton(IconData icon, Color color, VoidCallback onPressed) {
+    return ElevatedButton(
+      onPressed: onPressed,
+      style: ElevatedButton.styleFrom(
+        primary: color,
+        shape: CircleBorder(),
+        padding: EdgeInsets.all(12.sp),
+      ),
+      child: Icon(icon, color: Colors.white, size: 24.sp),
+    );
+  }
+
 }

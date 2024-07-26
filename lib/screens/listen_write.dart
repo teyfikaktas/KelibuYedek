@@ -1,49 +1,115 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:kelibu/Models/wordDetaik.dart'; // Adjust this import according to your project.
+import 'package:kelibu/Models/wordDetaik.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:kelibu/screens/video_player.dart';
 import 'package:provider/provider.dart';
 import '../api.dart';
-import '../providers/user_provider.dart'; // Adjust the path to your UserProvider
+import '../globalDart/urls.dart';
+import '../providers/user_provider.dart';
 import 'package:awesome_dialog/awesome_dialog.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
+import '../shared_preferences/shared_preferences.dart';
 import '../variables.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 
 class ListenAndWriteScreen extends StatefulWidget {
   final List<WordDetail> words;
+  final int classroomId;
+  final int studySetId;
 
-  ListenAndWriteScreen({Key? key, required this.words}) : super(key: key);
+  ListenAndWriteScreen({
+    Key? key,
+    required this.words,
+    required this.classroomId,
+    required this.studySetId,
+  }) : super(key: key);
 
   @override
   _ListenAndWriteScreenState createState() => _ListenAndWriteScreenState();
 }
 
-class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> {
+class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> with SingleTickerProviderStateMixin {
   int currentWordIndex = 0;
   final FlutterTts flutterTts = FlutterTts();
   String correctWord = '';
   String correctWordMeaning = '';
-  int correctWordLength = 0;
-  TextEditingController textEditingController = TextEditingController();
-  bool _isListening = false;
-  String revealedLetters = ''; // To store revealed letters
-  bool isButtonClicked = false; // Butona tıklanma durumunu takip eder.
-  Color buttonColor = Colors.pink; // Butonun varsayılan rengi
+  late List<WordDetail> originalWords;
+  late List<WordDetail> currentWords;
   late UserProvider userProvider;
-  bool _isDarkMode = false; // Dark mode durumu
+  late ValueNotifier<int> _userPoints;
 
-  late ValueNotifier<int> _userPoints; // Kullanıcı puanı için ValueNotifier
+  TextEditingController textEditingController = TextEditingController();
+  bool _isDarkMode = false;
+  late AnimationController _animationController;
+  late Animation<double> _animation;
+  bool isVirtualKeyboardVisible = false;
+  bool isMenuVisible = false;
+  ValueNotifier<bool> isRefreshOn = ValueNotifier(true);
+  ValueNotifier<bool> isMuteOn = ValueNotifier(true);
+  ValueNotifier<int> starredWordCountNotifier = ValueNotifier(0);
+  Map<int, ValueNotifier<bool>> starredNotifiers = {};
+  Map<int, bool> starredStatus = {};
+  bool showStarredOnly = false;
+  List<String> enteredLetters = [];
+  ValueNotifier<int> pointValueNotifier = ValueNotifier(0);
+  int score = 0;
 
   @override
   void initState() {
     super.initState();
-    _userPoints = ValueNotifier<int>(Provider.of<UserProvider>(context, listen: false).point);
+    _userPoints = ValueNotifier<int>(0);
+    _animationController = AnimationController(duration: const Duration(milliseconds: 500), vsync: this);
+    _animation = CurvedAnimation(parent: _animationController, curve: Curves.easeInOut);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadUserPoints();
+      _speakCurrentWord();
+      _loadStarredStatusAsync();
+    });
 
-    WidgetsBinding.instance.addPostFrameCallback((_) => _speakCurrentWord());
+    pointValueNotifier.value = score;
+    Future.microtask(() {
+      UserProvider userProviderPoint = Provider.of<UserProvider>(context, listen: false);
+      setState(() {
+        score = userProviderPoint.point;
+        pointValueNotifier.value = score;
+      });
+    });
+    originalWords = List.from(widget.words);
+    _shuffleAndInitializeWords();
+    _initializeEnteredLetters();
     _loadDarkModePreference();
+  }
+  void _shuffleAndInitializeWords() {
+    currentWords = List.from(originalWords);
+    currentWords.shuffle();
+    currentWordIndex = 0;
+  }
+  void _updateEnteredLetters(String value) {
+    setState(() {
+      enteredLetters = value.padRight(correctWord.length).split('').take(correctWord.length).toList();
+    });
+  }
+  void _updateUserScore(int newScore) async {
+    try {
+      UserProvider userProvider = Provider.of<UserProvider>(context, listen: false);
+      int point = userProvider.point.toInt();
+      userProvider.addPoint(point + 5);
+      await ApiService().updateUserPointTimePeriod(userProvider.userId, newScore, 5);
+      pointValueNotifier.value = newScore;
+    } catch (e) {
+      print("Puan güncelleme hatası: $e");
+    }
+  }
+  void _initializeEnteredLetters() {
+    enteredLetters = List.filled(correctWord.length, '');
+  }
+  Future<void> _loadUserPoints() async {
+    userProvider = Provider.of<UserProvider>(context, listen: false);
+    _userPoints.value = userProvider.point;
   }
 
   Future<void> _loadDarkModePreference() async {
@@ -56,6 +122,8 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> {
   @override
   void dispose() {
     flutterTts.stop();
+    _animationController.dispose();
+    textEditingController.dispose();
     super.dispose();
   }
 
@@ -64,70 +132,72 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> {
     await flutterTts.speak(word);
   }
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Since context is available, initialize userProvider here.
-    userProvider = Provider.of<UserProvider>(context);
-    _userPoints = ValueNotifier<int>(userProvider.point); // Adjusted the initialization to this point.
-  }
-
   Future<void> _speakCurrentWord() async {
-    correctWord = widget.words[currentWordIndex].word.toLowerCase();
-    correctWordMeaning = widget.words[currentWordIndex].meaning.toLowerCase();
-    correctWordLength = correctWord.length;
+    setState(() {
+      correctWord = widget.words[currentWordIndex].word.toLowerCase();
+      correctWordMeaning = widget.words[currentWordIndex].meaning.toLowerCase();
+      enteredLetters = List.filled(correctWord.length, '');
+    });
 
     await _speak(correctWord);
-    setState(() {}); // This will trigger a UI update to display the correctWord and its length.
+    textEditingController.clear();
+    _animationController.forward(from: 0.0);
   }
-
   void _checkAnswer() async {
-    bool correct = textEditingController.text.trim().toLowerCase() == correctWord;
-    setState(() {
-      buttonColor = correct ? Colors.green : Colors.red;
-    });
-
-    Timer(Duration(seconds: 2), () {
-      setState(() {
-        buttonColor = Colors.pink; // 2 saniye sonra butonun rengini eski haline döndür
-      });
-    });
+    String enteredWord = textEditingController.text.trim().toLowerCase();
+    bool correct = enteredWord == correctWord;
 
     if (correct) {
-      int newPoint = userProvider.point;
-      newPoint = newPoint + 3;
-      userProvider.addPoint(3); // UserProvider üzerinden puanı artır
-      _userPoints.value = userProvider.point; // UserProvider'daki güncel puanı ValueNotifier ile eşitle
-      await ApiService().updateUserPointTimePeriod(userProvider.userId, newPoint, 3); // API üzerinden puanı güncelleyin
-      userProvider.addPoint(newPoint); // UserProvider'daki puanı güncelleyin
-      AwesomeDialog(
-        context: context,
-        dialogType: DialogType.success,
-        animType: AnimType.scale,
-        title: 'Doğru!',
-        desc: 'Tebrikler! Kelimenin anlamı: $correctWordMeaning',
-        btnOkOnPress: _proceedToNextWord,
-        dismissOnTouchOutside: false,
-      )..show();
-    } else {
-      AwesomeDialog(
-        context: context,
-        dialogType: DialogType.error,
-        animType: AnimType.scale,
-        title: 'Yanlış!',
-        desc: 'Tekrar dener misin? Anlam: $correctWordMeaning',
-        btnOkOnPress: () {},
-        dismissOnTouchOutside: false,
-      )..show();
-    }
+      // Kullanıcının kendi başına tahmin ettiği harf sayısını hesapla
+      int userGuessedLetters = enteredWord.split('').where((letter) => !enteredLetters.contains(letter)).length;
 
-    textEditingController.clear();
+      // Bonus puanı hesapla (ipucu alınmamış her harf için 1 puan)
+      int bonusPoints = correctWord.length - enteredLetters.where((letter) => letter.isNotEmpty).length;
+
+      // Temel puan (3) + bonus puanları ekle
+      int newPoints = _userPoints.value + 3 + bonusPoints;
+
+      UserProvider userProvider = Provider.of<UserProvider>(context, listen: false);
+      userProvider.addPoint(newPoints);
+      await ApiService().updateUserPointTimePeriod(userProvider.userId, newPoints, 3 + bonusPoints);
+
+      _userPoints.value = newPoints;
+      pointValueNotifier.value = newPoints;
+
+      _showSuccessDialog(bonusPoints);
+    } else {
+      _showErrorDialog("Yanlış cevap! Doğru kelime: $correctWord");
+    }
+  }
+  void _showSuccessDialog(int bonusPoints) {
+    AwesomeDialog(
+      context: context,
+      dialogType: DialogType.success,
+      animType: AnimType.scale,
+      title: 'Doğru!',
+      desc: 'Tebrikler! Kelimenin anlamı: $correctWordMeaning\n'
+          'Bonus Puan: $bonusPoints',
+      btnOkOnPress: _proceedToNextWord,
+      dismissOnTouchOutside: false,
+    )..show();
+  }
+  void _showErrorDialog(String message) {
+    AwesomeDialog(
+      context: context,
+      dialogType: DialogType.error,
+      animType: AnimType.scale,
+      title: 'Yanlış!',
+      desc: message,
+      btnOkOnPress: () {},
+      dismissOnTouchOutside: false,
+    )..show();
   }
 
   void _proceedToNextWord() {
     if (currentWordIndex < widget.words.length - 1) {
       setState(() {
         currentWordIndex++;
+        textEditingController.clear();
       });
       _speakCurrentWord();
     } else {
@@ -143,113 +213,578 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> {
     }
   }
 
+  void _getHint() {
+    if (_userPoints.value >= 1) {
+      setState(() {
+        List<int> emptyIndexes = [];
+        for (int i = 0; i < correctWord.length; i++) {
+          if (enteredLetters[i].isEmpty) {
+            emptyIndexes.add(i);
+          }
+        }
+        if (emptyIndexes.isNotEmpty) {
+          int randomIndex = emptyIndexes[Random().nextInt(emptyIndexes.length)];
+          enteredLetters[randomIndex] = correctWord[randomIndex];
+          _userPoints.value -= 1;
+        }
+      });
+    } else {
+      _showErrorDialog("Yeterli puanınız yok. En az 1 puan gerekiyor.");
+    }
+  }
+  void _toggleVirtualKeyboard() {
+    setState(() {
+      isVirtualKeyboardVisible = !isVirtualKeyboardVisible;
+    });
+  }
+
+  void toggleStarredOnly() {
+    setState(() {
+      showStarredOnly = !showStarredOnly;
+      if (showStarredOnly) {
+        var filteredWords = originalWords.where((word) => starredStatus[word.id] ?? false).toList();
+        if (filteredWords.isNotEmpty) {
+          currentWords = filteredWords;
+          currentWords.shuffle();
+          currentWordIndex = 0;
+          _speakCurrentWord();
+        } else {
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: Text('Uyarı'),
+              content: Text('Yıldızlı kelime bulunmamaktadır.'),
+              actions: [
+                TextButton(
+                  child: Text('Tamam'),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
+          );
+          showStarredOnly = false;
+        }
+      } else {
+        _shuffleAndInitializeWords();
+        _speakCurrentWord();
+      }
+    });
+  }
+
+  void _shuffleWords() {
+    setState(() {
+      currentWords.shuffle();
+      currentWordIndex = 0;
+      _speakCurrentWord();
+    });
+  }
+
+  void _loadStarredStatusAsync() async {
+    final service = StarredWordsService();
+    final starredWordIds = await service.loadStarredWords(widget.classroomId, widget.studySetId);
+    int newStarredCount = 0;
+
+    setState(() {
+      for (var word in widget.words) {
+        bool isStarred = starredWordIds.contains(word.id);
+        starredNotifiers[word.id] = ValueNotifier<bool>(isStarred);
+        starredStatus[word.id] = isStarred;
+        if (isStarred) {
+          newStarredCount++;
+        }
+      }
+    });
+    starredWordCountNotifier.value = newStarredCount;
+  }
+
+  void _toggleStar(int wordId) {
+    setState(() {
+      final newStatus = !(starredStatus[wordId] ?? false);
+      starredStatus[wordId] = newStatus;
+      starredNotifiers[wordId]?.value = newStatus;
+
+      if (newStatus) {
+        starredWordCountNotifier.value++;
+      } else {
+        starredWordCountNotifier.value--;
+      }
+    });
+
+    StarredWordsService().toggleWordStarStatus(wordId, starredStatus[wordId]!, widget.classroomId, widget.studySetId);
+  }
+
+
   @override
   Widget build(BuildContext context) {
     String fullImageUrl = widget.words[currentWordIndex].image != null
         ? "https://cloud.phdakademi.com/uploads/kelibu.net/${widget.words[currentWordIndex].image}"
         : "https://kelibu.net/images/defaultimage.png";
-    UserProvider userProvider = Provider.of<UserProvider>(context);
 
     return Scaffold(
+      backgroundColor: _isDarkMode ? darkModeColors["background"] : Colors.grey[100],
       appBar: AppBar(
-        backgroundColor: _isDarkMode ? darkModeColors["background"] : Colors.white,
+        backgroundColor: _isDarkMode ? darkModeColors["cardBackground"] : Colors.white,
+        elevation: 0,
         title: Text(
-          'Dinle ve Yaz',
+          'Dinle',
           style: GoogleFonts.poppins(
-            color: _isDarkMode ? darkModeColors["text"] : Colors.pink,
+            color: _isDarkMode ? darkModeColors["text"] : Colors.black,
             fontWeight: FontWeight.bold,
           ),
         ),
-        iconTheme: IconThemeData(
-          color: _isDarkMode ? darkModeColors["text"] : Colors.pink,
-        ),
         actions: [
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: ValueListenableBuilder<int>(
-              valueListenable: _userPoints,
-              builder: (_, value, __) => Chip(
-                label: Text(
-                  'Puan: $value',
-                  style: TextStyle(
-                    color: _isDarkMode ? darkModeColors["text"] : lightModeColors["text"],
-                  ),
-                ),
-                backgroundColor: _isDarkMode ? darkModeColors["cardBackground"] : Colors.white54,
-              ),
-            ),
+          _buildStarredWordsButton(),
+          IconButton(
+            icon: Icon(isVirtualKeyboardVisible ? Icons.keyboard_hide : Icons.keyboard),
+            onPressed: _toggleVirtualKeyboard,
+          ),
+          IconButton(
+            icon: Icon(isMenuVisible ? Icons.menu_open : Icons.menu),
+            onPressed: () {
+              setState(() {
+                isMenuVisible = !isMenuVisible;
+              });
+            },
+          ),
+          _buildRoundedIconButton(
+            Icons.help,
+            Colors.green,
+                () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => VideoPlayerScreen(videoUrl: AppUrls.listenandwrite)),
+              );
+            },
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Card(
-          color: _isDarkMode ? darkModeColors["cardBackground"] : Colors.white,
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                SizedBox(height: 20),
-                Image.network(
-                  fullImageUrl,
-                  width: 100,
-                  height: 100,
-                  errorBuilder: (BuildContext context, Object exception, StackTrace? stackTrace) {
-                    // Burada resim yüklenemediğinde gösterilecek alternatif bir resmi belirleyebilirsiniz.
-                    return Image.asset('assets/logo.png', width: 100, height: 100);
-                  },
-                ),
-                SizedBox(height: 20),
-                Text(
-                  'Dinlediğiniz kelimeyi yazınız.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: _isDarkMode ? darkModeColors["text"] : Colors.pink,
-                  ),
-                ),
-                SizedBox(height: 20),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: textEditingController,
-                        decoration: InputDecoration(
-                          labelText: 'Cevabınız.',
-                          labelStyle: TextStyle(color: _isDarkMode ? darkModeColors["text"] : Colors.pink),
-                          focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: _isDarkMode ? darkModeColors["text"]! : Colors.pink)),
-                          border: OutlineInputBorder(),
-                          filled: true,
-                          fillColor: _isDarkMode ? darkModeColors["inputBackground"] : Colors.pink.shade50,
-                        ),
-                        style: TextStyle(color: _isDarkMode ? darkModeColors["text"] : Colors.black),
-                      ),
-                    ),
-                    IconButton(
-                      icon: Icon(Icons.volume_up, color: _isDarkMode ? darkModeColors["iconColor"] : Colors.pink),
-                      onPressed: () => _speak(correctWord),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 20),
-                ElevatedButton.icon(
-                  onPressed: _checkAnswer,
-                  icon: Icon(Icons.check),
-                  label: Text('Kontrol Et'),
-                  style: ElevatedButton.styleFrom(
-                    primary: buttonColor, // Animasyon için rengi değişken kullanıyoruz
-                    onPrimary: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30.0)),
-                    padding: EdgeInsets.symmetric(horizontal: 30, vertical: 15),
-                  ),
-                ),
-              ],
-            ),
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            children: [
+              if (isMenuVisible) _buildControlPanel(),
+              _buildProgressAndPoints(),
+              SizedBox(height: 20),
+              _buildWordCard(fullImageUrl),
+              SizedBox(height: 20),
+              _buildLetterBoxes(), // Harf kutuları eklendi
+              SizedBox(height: 20),
+              _buildInputField(),
+              SizedBox(height: 20),
+              _buildSubmitButton(),
+              SizedBox(height: 20),
+              if (isVirtualKeyboardVisible) _buildKeyboard(),
+            ],
           ),
         ),
       ),
     );
   }
+  Widget _buildRoundedIconButton(IconData icon, Color color, VoidCallback onPressed) {
+    return ElevatedButton(
+      onPressed: onPressed,
+      style: ElevatedButton.styleFrom(
+        primary: color,
+        shape: CircleBorder(),
+        padding: EdgeInsets.all(12.sp),
+      ),
+      child: Icon(icon, color: Colors.white, size: 24.sp),
+    );
+  }
+
+  Widget _buildLetterBoxes() {
+    if (correctWord.isEmpty) {
+      return SizedBox(); // Eğer doğru kelime boşsa, boş bir widget döndür
+    }
+
+    return Wrap(
+      alignment: WrapAlignment.center,
+      spacing: 4,
+      runSpacing: 4,
+      children: List.generate(
+        correctWord.length,
+            (index) {
+          // Eğer enteredLetters dizisi doğru uzunlukta değilse, düzelt
+          if (enteredLetters.length != correctWord.length) {
+            enteredLetters = List.filled(correctWord.length, '');
+          }
+
+          return Container(
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(
+              border: Border.all(color: _isDarkMode ? darkModeColors["text"]! : Colors.grey),
+              borderRadius: BorderRadius.circular(5),
+              color: enteredLetters[index].isNotEmpty
+                  ? (_isDarkMode ? darkModeColors["buttonBackground"] : Colors.blue.shade100)
+                  : Colors.transparent,
+            ),
+            child: Center(
+              child: Text(
+                enteredLetters[index],
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: _isDarkMode ? darkModeColors["text"] : Colors.black,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+  Widget _buildInputField() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: _isDarkMode
+              ? [Color(0xFF34495E), Color(0xFF2C3E50)]
+              : [Color(0xFFCFDEF3), Color(0xFFE0EAFC)],
+        ),
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            spreadRadius: 5,
+          ),
+        ],
+      ),
+      child: TextField(
+        controller: textEditingController,
+        decoration: InputDecoration(
+          labelText: 'Kelimeyi yazın',
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(15),
+            borderSide: BorderSide.none,
+          ),
+          suffixIcon: IconButton(
+            icon: Icon(Icons.lightbulb_outline, color: _isDarkMode ? Colors.tealAccent[700] : Colors.indigo),
+            onPressed: _getHint,
+          ),
+          labelStyle: TextStyle(color: _isDarkMode ? Colors.white70 : Colors.indigo[800]),
+          fillColor: _isDarkMode ? Color(0xFF2C3E50) : Colors.white,
+          filled: true,
+        ),
+        style: TextStyle(
+          color: _isDarkMode ? Colors.white : Colors.indigo[800],
+        ),
+      ),
+    );
+  }
+  Widget _buildStarredWordsButton() {
+    return GestureDetector(
+      onTap: toggleStarredOnly,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: _isDarkMode ? Colors.grey[800] : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Icon(
+              showStarredOnly ? Icons.star : Icons.star_border,
+              color: showStarredOnly ? Colors.amber : _isDarkMode ? darkModeColors["text"] : Colors.black,
+              size: 20,
+            ),
+            const SizedBox(width: 4),
+            ValueListenableBuilder<int>(
+              valueListenable: starredWordCountNotifier,
+              builder: (context, count, child) {
+                return Text(
+                  '$count',
+                  style: GoogleFonts.lato(
+                    color: _isDarkMode ? darkModeColors["text"] : Colors.black,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                );
+              },
+            )
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProgressAndPoints() {
+    return Container(
+      padding: EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: _isDarkMode
+              ? [Color(0xFF34495E), Color(0xFF2C3E50)]
+              : [Color(0xFFCFDEF3), Color(0xFFE0EAFC)],
+        ),
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            spreadRadius: 5,
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            flex: 3,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'İlerleme',
+                  style: TextStyle(
+                    color: _isDarkMode ? Colors.white70 : Colors.black54,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(height: 5),
+                LinearProgressIndicator(
+                  value: (currentWordIndex + 1) / widget.words.length,
+                  backgroundColor: _isDarkMode ? Colors.grey[700] : Colors.grey[300],
+                  valueColor: AlwaysStoppedAnimation<Color>(_isDarkMode ? Colors.tealAccent[700]! : Colors.indigo),
+                ),
+                SizedBox(height: 5),
+                Text(
+                  '${currentWordIndex + 1} / ${widget.words.length}',
+                  style: TextStyle(
+                    color: _isDarkMode ? Colors.white70 : Colors.black54,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(width: 20),
+          Expanded(
+            flex: 1,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  'Puan',
+                  style: TextStyle(
+                    color: _isDarkMode ? Colors.white70 : Colors.black54,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(height: 5),
+                ValueListenableBuilder<int>(
+                  valueListenable: _userPoints,
+                  builder: (_, value, __) => Container(
+                    padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: _isDarkMode ? Colors.tealAccent[700] : Colors.indigo,
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    child: Text(
+                      '$value P',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  Widget _buildWordCard(String imageUrl) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: _isDarkMode
+              ? [Color(0xFF2C3E50), Color(0xFF34495E)]
+              : [Color(0xFFE0EAFC), Color(0xFFCFDEF3)],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            spreadRadius: 5,
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          children: [
+            Container(
+              padding: EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 10,
+                    spreadRadius: 5,
+                  ),
+                ],
+              ),
+              child: ClipOval(
+                child: FadeTransition(
+                  opacity: _animation,
+                  child: Image.network(
+                    imageUrl,
+                    width: 180,
+                    height: 180,
+                    fit: BoxFit.cover,
+                    errorBuilder: (BuildContext context, Object exception, StackTrace? stackTrace) {
+                      return Image.asset('assets/logo.png', width: 180, height: 180, fit: BoxFit.cover);
+                    },
+                  ),
+                ),
+              ),
+            ),
+            SizedBox(height: 25),
+            Text(
+              'Dinlediğiniz Kelimeyi Yazınız',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.poppins(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: _isDarkMode ? Colors.white : Colors.indigo[800],
+              ),
+            ),
+            SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ElevatedButton.icon(
+                  icon: Icon(Icons.volume_up, size: 24),
+                  label: Text("Tekrar Dinle", style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600)),
+                  onPressed: () => _speak(correctWord),
+                  style: ElevatedButton.styleFrom(
+                    primary: _isDarkMode ? Colors.tealAccent[700] : Colors.indigo,
+                    onPrimary: Colors.white,
+                    padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                    elevation: 5,
+                  ),
+                ),
+                SizedBox(width: 20),
+                AnimatedContainer(
+                  duration: Duration(milliseconds: 300),
+                  child: IconButton(
+                    icon: Icon(
+                      starredStatus[widget.words[currentWordIndex].id] ?? false ? Icons.star : Icons.star_border,
+                      color: starredStatus[widget.words[currentWordIndex].id] ?? false ? Colors.amber : Colors.grey[400],
+                      size: 36,
+                    ),
+                    onPressed: () => _toggleStar(widget.words[currentWordIndex].id),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSubmitButton() {
+    return ElevatedButton.icon(
+      onPressed: _checkAnswer,
+      icon: Icon(Icons.check),
+      label: Text('Kontrol Et'),
+      style: ElevatedButton.styleFrom(
+        primary: _isDarkMode ? Colors.tealAccent[700] : Colors.indigo,
+        onPrimary: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30.0)),
+        padding: EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+        elevation: 5,
+      ),
+    );
+  }
+  Widget _buildKeyboard() {
+    const List<String> letters = [
+      'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P',
+      'A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L',
+      'Z', 'X', 'C', 'V', 'B', 'N', 'M', ' '
+    ];
+
+    return Wrap(
+      alignment: WrapAlignment.center,
+      spacing: 5,
+      runSpacing: 5,
+      children: letters.map((letter) => _buildKeyboardButton(letter)).toList(),
+    );
+  }
+
+  Widget _buildKeyboardButton(String letter) {
+    return ElevatedButton(
+      child: Text(letter == ' ' ? 'Space' : letter),
+      style: ElevatedButton.styleFrom(
+        primary: _isDarkMode ? darkModeColors["buttonBackground"] : Colors.blue,
+        onPrimary: Colors.white,
+        padding: EdgeInsets.all(10),
+        minimumSize: Size(40, 40),
+      ),
+      onPressed: () {
+        setState(() {
+          if (letter == ' ') {
+            textEditingController.text += ' ';
+          } else {
+            textEditingController.text += letter;
+          }
+        });
+      },
+    );
+  }
+
+  Widget _buildControlPanel() {
+    return Container(
+      margin: EdgeInsets.symmetric(vertical: 10),
+      padding: EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: _isDarkMode ? darkModeColors["cardBackground"] : Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 4,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          IconButton(
+            icon: Icon(Icons.shuffle),
+            onPressed: _shuffleWords,
+          ),
+          IconButton(
+            icon: Icon(Icons.skip_next),
+            onPressed: _proceedToNextWord,
+          ),
+        ],
+      ),
+    );
+  }
 }
+

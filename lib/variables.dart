@@ -13,41 +13,42 @@ class privacyKey{
 
 final lightModeColors = {
   "background": Colors.white,
-  "text": Colors.pink[800]!,
-  "buttonBackground": Colors.pink[400]!,
+  "text": Colors.black,
+  "buttonTextNull": Colors.white,
+  "buttonBackground": Colors.blueAccent,
   "buttonText": Colors.white,
-  "borderColor": Colors.pink[300]!,
+  "borderColor": Colors.blueGrey[300]!,
   "iconBackground": Colors.white,
   "cardBackground": Colors.white,
-  "cardBorder": Colors.pink[100]!, // Eklendi
-  "iconColor": Colors.black!, // Eklendi
-  "inputBackground": Colors.white, // Eklendi
-  "unselectedText": Colors.grey, // Eklendi
-  "green": Colors.green!, // Koyu gri eklendi
-  "blue": Colors.blue[900]!, // Koyu mavi eklendi
-  "progressBackground": Color(0xFF070707),
-  "progressForeground": Colors.pink,
-  "progressForegroundStart": Colors.pink,
-  "progressForegroundEnd": Colors.purple,
+  "cardBorder": Colors.blueGrey[100]!,
+  "iconColor": Colors.blueGrey[800]!,
+  "inputBackground": Colors.white,
+  "unselectedText": Colors.grey,
+  "green": Colors.green[600]!,
+  "blue": Colors.blue[800]!,
+  "progressBackground": Color(0xFFE0E0E0),
+  "progressForeground": Colors.blueAccent,
+  "progressForegroundStart": Colors.blueAccent,
+  "progressForegroundEnd": Colors.lightBlue,
 };
 
 final darkModeColors = {
   "background": Colors.black,
   "text": Colors.white,
-  "buttonBackground": Colors.grey[800]!,
+  "buttonTextNull": Colors.white,
+  "buttonBackground": Colors.blueGrey[700]!,
   "buttonText": Colors.white,
-  "borderColor": Colors.grey[600]!,
-  "iconBackground": Colors.grey[800]!,
-  "cardBackground": Colors.black,
-  "cardBorder": Colors.grey[700]!, // Eklendi
-  "iconColor": Colors.white, // Eklendi
-  "inputBackground": Colors.grey[900]!, // Eklendi
-  "unselectedText": Colors.grey[400]!, // Eklendi
-  "green": Colors.green[800]!, // Koyu gri eklendi
-  "blue": Colors.blue[900]!, // Koyu mavi eklendi
-  "progressBackground": Color(0xFF2C2C2C),
-  "progressForeground": Colors.purple,
-  "progressForegroundStart": Colors.purple,
-  "progressForegroundEnd": Colors.pink,
-
+  "borderColor": Colors.blueGrey[600]!,
+  "iconBackground": Colors.blueGrey[800]!,
+  "cardBackground": Colors.grey[900]!,
+  "cardBorder": Colors.blueGrey[700]!,
+  "iconColor": Colors.white,
+  "inputBackground": Colors.blueGrey[900]!,
+  "unselectedText": Colors.grey[400]!,
+  "green": Colors.green[400]!,
+  "blue": Colors.lightBlue[300]!,
+  "progressBackground": Color(0xFF424242),
+  "progressForeground": Colors.lightBlue,
+  "progressForegroundStart": Colors.lightBlue,
+  "progressForegroundEnd": Colors.blueAccent,
 };

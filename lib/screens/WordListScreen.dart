@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kelibu/Models/Classroom.dart';
 import 'package:kelibu/api.dart';
 import 'package:kelibu/screens/study_set.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
+import 'package:kelibu/screens/video_player.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 
+import '../globalDart/urls.dart';
 import 'loadingIndicator.dart';
-import '../variables.dart'; // variables.dart dosyasını dahil edin
+import '../variables.dart';
 
 class CustomLoadingIndicator extends StatelessWidget {
   @override
@@ -63,6 +67,17 @@ class _WordListScreenState extends State<WordListScreen> {
       });
     }
   }
+  Widget _buildRoundedIconButton(IconData icon, Color color, VoidCallback onPressed) {
+    return ElevatedButton(
+      onPressed: onPressed,
+      style: ElevatedButton.styleFrom(
+        primary: color,
+        shape: CircleBorder(),
+        padding: EdgeInsets.all(12.sp),
+      ),
+      child: Icon(icon, color: Colors.white, size: 24.sp),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -71,60 +86,128 @@ class _WordListScreenState extends State<WordListScreen> {
     return Scaffold(
       backgroundColor: colors["background"],
       appBar: AppBar(
+        elevation: 0,
         backgroundColor: colors["background"],
         title: Text(
           widget.categoryName,
           style: GoogleFonts.poppins(
             color: colors["text"],
             fontWeight: FontWeight.bold,
+            fontSize: 24,
           ),
         ),
         iconTheme: IconThemeData(
           color: colors["text"],
         ),
-      ),
-      body: Container(
-        child: FutureBuilder<List<Word>>(
-          future: wordsFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return Center(
-                child: const LogoLoadingIndicator(),
+        actions: [
+          _buildRoundedIconButton(
+            Icons.help,
+            Colors.green,
+                () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => VideoPlayerScreen(videoUrl: AppUrls.category)),
               );
-            } else if (snapshot.hasError) {
-              return Center(child: Text("Hata: ${snapshot.error}", style: TextStyle(color: colors["text"])));
-            } else if (snapshot.hasData && snapshot.data!.isNotEmpty) {
-              return ListView.separated(
+            },
+          ),
+        ],
+      ),
+      body: FutureBuilder<List<Word>>(
+        future: wordsFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return Center(child: const LogoLoadingIndicator());
+          } else if (snapshot.hasError) {
+            return Center(
+              child: Text(
+                "Hata: ${snapshot.error}",
+                style: TextStyle(color: colors["text"]),
+              ),
+            );
+          } else if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+            return AnimationLimiter(
+              child: ListView.builder(
+                padding: EdgeInsets.all(16),
                 itemCount: snapshot.data!.length,
-                separatorBuilder: (context, index) => Divider(color: colors["borderColor"]),
                 itemBuilder: (context, index) {
                   var word = snapshot.data![index];
-                  return InkWell(
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (context) => StudySetListScreen(
-                            classroomId: widget.categoryId,
-                            wordid: word.id,
+                  return AnimationConfiguration.staggeredList(
+                    position: index,
+                    duration: const Duration(milliseconds: 375),
+                    child: SlideAnimation(
+                      verticalOffset: 50.0,
+                      child: FadeInAnimation(
+                        child: Card(
+                          elevation: 2,
+                          margin: EdgeInsets.only(bottom: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          color: colors["cardBackground"],
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) => StudySetListScreen(
+                                    classroomId: widget.categoryId,
+                                    wordid: word.id,
+                                  ),
+                                ),
+                              );
+                            },
+                            child: Padding(
+                              padding: EdgeInsets.all(16),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: colors["iconBackground"],
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Icon(
+                                      Icons.bookmark,
+                                      color: colors["iconColor"],
+                                      size: 24,
+                                    ),
+                                  ),
+                                  SizedBox(width: 16),
+                                  Expanded(
+                                    child: Text(
+                                      word.name,
+                                      style: GoogleFonts.poppins(
+                                        color: colors["text"],
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 18,
+                                      ),
+                                    ),
+                                  ),
+                                  Icon(
+                                    Icons.arrow_forward_ios,
+                                    color: colors["iconColor"],
+                                    size: 20,
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
-                      );
-                    },
-                    child: ListTile(
-                      leading: Icon(Icons.bookmark, color: colors["iconColor"]),
-                      title: Text(
-                        word.name,
-                        style: TextStyle(color: colors["text"], fontWeight: FontWeight.bold),
                       ),
                     ),
                   );
                 },
-              );
-            } else {
-              return Center(child: Text("Kelime listesi yok", style: TextStyle(color: colors["text"])));
-            }
-          },
-        ),
+              ),
+            );
+          } else {
+            return Center(
+              child: Text(
+                "Kelime listesi yok",
+                style: TextStyle(color: colors["text"]),
+              ),
+            );
+          }
+        },
       ),
     );
   }

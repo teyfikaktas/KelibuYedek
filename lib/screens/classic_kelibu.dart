@@ -1,9 +1,13 @@
 import 'dart:math';
+import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'dart:async';
 import 'package:kelibu/Models/wordDetaik.dart';
 import 'package:kelibu/api.dart';
+import 'package:kelibu/screens/video_player.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../globalDart/urls.dart';
 import '../providers/user_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:percent_indicator/circular_percent_indicator.dart';
@@ -518,226 +522,367 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
 
   @override
   Widget build(BuildContext context) {
-    final colors = _isDarkMode ? darkModeColors : lightModeColors;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return WillPopScope(
+          onWillPop: () async {
+            Navigator.of(context).pop(true);
+            return false;
+          },
+            child: Scaffold(
+              backgroundColor: _isDarkMode ? Colors.grey[900] : Colors.white,
+              appBar: _buildAppBar(),
+              body: _buildBody(constraints),
+              bottomNavigationBar: _buildBottomBar(),
+            ),
+        );
+      },
+    );
+  }
 
-    return WillPopScope(
-        onWillPop: () async {
-          Navigator.of(context).pop(true);
-          return false;
-        },
-        child: SafeArea(
-          child: Scaffold(
-            backgroundColor: _isDarkMode ? Colors.black12 : Colors.white,
-            appBar: AppBar(
-              title: Text('Klasik Kelibu', style: TextStyle(color: _isDarkMode ? Colors.black : Colors.white)),
-              actions: [
-                IconButton(
-                  icon: Icon(_isDarkMode ? Icons.wb_sunny : Icons.nights_stay),
-                  onPressed: _toggleDarkMode,
-                  color: _isDarkMode ? Colors.black : Colors.black,
-                ),
-              ],
-            ),
-            body: Column(
-              children: [
-                IconButton(
-                  icon: Icon(isStarredMode ? Icons.star : Icons.star_border),
-                  onPressed: () async {
-                    if (!isStarredMode) {
-                      await fetchStarredWords();
-                    }
-                    setState(() {
-                      isStarredMode = !isStarredMode;
-                      totalWordsCount = isStarredMode ? starredWords.length : widget.words.length;
-                      if (isStarredMode && starredWords.isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('En az 1 yıldızlı kelimeniz olması gerekmektedir.', style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black)),
-                            backgroundColor: _isDarkMode ? Colors.black : Colors.white,
-                          ),
-                        );
-                        isStarredMode = false;
-                      } else {
-                        secenekleriYenile();
-                      }
-                    });
-                  },
-                  color: _isDarkMode ? Colors.white : Colors.black,
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      FloatingActionButton(
-                        onPressed: () {
-                          final volumeProvider = Provider.of<VolumeProvider>(context, listen: false);
-                          volumeProvider.toggleVolume();
-                          flutterTts.setVolume(volumeProvider.isVolumeOn ? 0 : 1);
-                        },
-                        child: Consumer<VolumeProvider>(
-                          builder: (context, volumeProvider, child) {
-                            return Icon(
-                              volumeProvider.isVolumeOn ? Icons.volume_off : Icons.volume_up,
-                              color: Colors.white,
-                            );
-                          },
-                        ),
-                        backgroundColor: _isDarkMode ? Colors.indigo : Colors.teal,
-                        elevation: 8.0,
-                        hoverElevation: 10.0,
-                        splashColor: Colors.greenAccent,
-                        tooltip: 'Sesi Aç/Kapat',
-                      ),
-                      RichText(
-                        text: TextSpan(
-                          children: [
-                            WidgetSpan(
-                              child: Icon(Icons.star, size: 24, color: Colors.amber),
-                            ),
-                            TextSpan(
-                              text: ' Puan: $score',
-                              style: TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                                color: _isDarkMode ? Colors.white : Colors.teal,
-                                letterSpacing: 1.2,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      CircularPercentIndicator(
-                        radius: 30.0,
-                        lineWidth: 4.0,
-                        animation: true,
-                        percent: zamanCubuguDegeri,
-                        center: Text(
-                          "${(15 * zamanCubuguDegeri).round()}s",
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: _isDarkMode ? Colors.white : Colors.teal,
-                          ),
-                        ),
-                        circularStrokeCap: CircularStrokeCap.round,
-                        progressColor: _isDarkMode ? Colors.indigo : Colors.teal,
-                        backgroundColor: _isDarkMode ? Colors.indigo.shade100 : Colors.teal.shade100,
-                        footer: Padding(
-                          padding: const EdgeInsets.only(top: 8.0),
-                          child: Text(
-                            'Kalan Süre',
-                            style: TextStyle(fontSize: 10, color: _isDarkMode ? Colors.white : Colors.teal[800]),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: GridView.builder(
-                    padding: EdgeInsets.all(16),
-                    shrinkWrap: true,
-                    itemCount: max(secenekler.length + 2, 10),
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 3,
-                      crossAxisSpacing: 10.0,
-                      mainAxisSpacing: 10.0,
-                    ),
-                    itemBuilder: (BuildContext context, int index) {
-                      if (index == 4) {
-                        return Card(
-                          color: centerCardColor,
-                          child: Center(
-                            child: FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: Padding(
-                                padding: const EdgeInsets.all(8.0),
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text(
-                                      aktifKelime,
-                                      style: TextStyle(
-                                        fontSize: 24,
-                                        fontWeight: FontWeight.bold,
-                                        color: _isDarkMode ? Colors.white : Colors.teal,
-                                      ),
-                                      textAlign: TextAlign.center,
-                                    ),
-                                    Text(
-                                      '${kelimeDogruSayac[aktifKelime] ?? 0}/3',
-                                      style: TextStyle(color: _isDarkMode ? Colors.white : Colors.teal.shade800),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        );
-                      } else {
-                        int optionIndex = index < 4 ? index : index - 1;
-                        if (optionIndex >= secenekler.length) {
-                          return Container();
-                        }
-                        String secenek = secenekler[optionIndex];
-                        return AnimatedContainer(
-                          duration: Duration(milliseconds: 300),
-                          color: optionColors[optionIndex],
-                          child: InkWell(
-                            onTap: () => handleOptionTap(secenek, optionIndex),
-                            child: Center(
-                              child: Text(
-                                secenek,
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  color: _isDarkMode ? Colors.black45 : Colors.teal.shade800,
-                                ),
-                              ),
-                            ),
-                          ),
-                        );
-                      }
-                    },
-                  ),
-                ),
-                Align(
-                  alignment: Alignment.topCenter,
-                  child: ConfettiWidget(
-                    confettiController: _confettiController,
-                    blastDirectionality: BlastDirectionality.explosive,
-                    shouldLoop: false,
-                    colors: const [Colors.green, Colors.blue, Colors.orange, Colors.purple],
-                    numberOfParticles: 30,
-                  ),
-                ),
-              ],
-            ),
-            bottomNavigationBar: BottomAppBar(
-              color: _isDarkMode ? Colors.indigo : Colors.teal,
-              child: Container(
-                height: 60.0,
-                padding: EdgeInsets.symmetric(horizontal: 20),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: <Widget>[
-                    TextButton(
-                      onPressed: () => showLearnedWordsModal(context),
-                      child: Text('Öğrenilen Kelimeleri Göster', style: TextStyle(color: Colors.white)),
-                    ),
-                    Text(
-                      isStarredMode ? '${tamamlananKelimeler.length} / ${totalWordsCount}' : '${tamamlananKelimeler.length} / ${totalWordsCount}',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                    ),
-                  ],
-                ),
-              ),
+  PreferredSize _buildAppBar() {
+    return PreferredSize(
+      preferredSize: Size.fromHeight(60.0),
+      child: AppBar(
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: _isDarkMode
+                  ? [Colors.grey[900]!, Colors.grey[800]!]
+                  : [Colors.teal[300]!, Colors.teal[200]!],
             ),
           ),
         ),
-      );
+        title: Text(
+          'Klasik Kelibu',
+          style: TextStyle(
+            color: _isDarkMode ? Colors.white : Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 24,
+            letterSpacing: 1,
+          ),
+        ),
+        centerTitle: true,
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 16.0),
+            child: AnimatedSwitcher(
+              duration: Duration(milliseconds: 300),
+              transitionBuilder: (Widget child, Animation<double> animation) {
+                return RotationTransition(
+                  turns: animation,
+                  child: child,
+                );
+              },
+              child: IconButton(
+                key: ValueKey<bool>(_isDarkMode),
+                icon: Icon(
+                  _isDarkMode ? Icons.wb_sunny : Icons.nights_stay,
+                  color: Colors.white,
+                ),
+                onPressed: _toggleDarkMode,
+              ),
+            ),
+          ),
+          _buildRoundedIconButton(Icons.help, Colors.green, () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => VideoPlayerScreen(videoUrl: AppUrls.classickelibu)),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+  Widget _buildRoundedIconButton(IconData icon, Color color, VoidCallback onPressed) {
+    return ElevatedButton(
+      onPressed: onPressed,
+      style: ElevatedButton.styleFrom(
+        primary: color,
+        shape: CircleBorder(),
+        padding: EdgeInsets.all(12.sp),
+      ),
+      child: Icon(icon, color: Colors.white, size: 24.sp),
+    );
   }
 
+  Widget _buildBody(BoxConstraints constraints) {
+    return Column(
+      children: [
+        _buildStarredModeToggle(),
+        buildScoreAndTimer(),
+        _buildWordGrid(constraints),
+        _buildConfetti(),
+      ],
+    );
+  }
+  Widget buildScoreAndTimer() {
+    return Container(
+      margin: EdgeInsets.all(16.0),
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: _isDarkMode ? Colors.grey[800] : Colors.white,
+        borderRadius: BorderRadius.circular(25),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          buildVolumeButton(),
+          buildScoreDisplay(),
+          _buildTimerDisplay(),
+        ],
+      ),
+    );
+  }
+
+  Widget buildVolumeButton() {
+    return Consumer<VolumeProvider>(
+      builder: (context, volumeProvider, child) {
+        return ElevatedButton(
+          onPressed: () {
+            volumeProvider.toggleVolume();
+            flutterTts.setVolume(volumeProvider.isVolumeOn ? 0 : 1);
+          },
+          child: Icon(
+            volumeProvider.isVolumeOn ? Icons.volume_off : Icons.volume_up,
+            color: _isDarkMode ? Colors.white : Colors.teal,
+          ),
+          style: ElevatedButton.styleFrom(
+            primary: _isDarkMode ? Colors.grey[700] : Colors.teal.withOpacity(0.1),
+            shape: CircleBorder(),
+            padding: EdgeInsets.all(12),
+            elevation: 0,
+          ),
+        );
+      },
+    );
+  }
+
+  Widget buildScoreDisplay() {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: _isDarkMode ? Colors.grey[700] : Colors.teal.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.star, size: 20, color: Colors.amber),
+          SizedBox(width: 8),
+          Text(
+            '$score',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: _isDarkMode ? Colors.white : Colors.teal,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTimerDisplay() {
+    return Container(
+      padding: EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: _isDarkMode ? Colors.grey[700] : Colors.teal.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: CircularPercentIndicator(
+        radius: 25.0,
+        lineWidth: 4.0,
+        animation: true,
+        percent: zamanCubuguDegeri,
+        center: Text(
+          "${(15 * zamanCubuguDegeri).round()}s",
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: _isDarkMode ? Colors.white : Colors.teal,
+          ),
+        ),
+        circularStrokeCap: CircularStrokeCap.round,
+        progressColor: _isDarkMode ? Colors.white : Colors.teal,
+        backgroundColor: _isDarkMode ? Colors.grey[600]! : Colors.teal.withOpacity(0.2),
+      ),
+    );
+  }
+  Widget _buildStarredModeToggle() {
+    return IconButton(
+      icon: Icon(isStarredMode ? Icons.star : Icons.star_border),
+      onPressed: () async {
+        if (!isStarredMode) {
+          await fetchStarredWords();
+        }
+        setState(() {
+          isStarredMode = !isStarredMode;
+          totalWordsCount = isStarredMode ? starredWords.length : widget.words.length;
+          if (isStarredMode && starredWords.isEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('En az 1 yıldızlı kelimeniz olması gerekmektedir.'),
+                backgroundColor: _isDarkMode ? Colors.grey[700] : Colors.grey[300],
+              ),
+            );
+            isStarredMode = false;
+          } else {
+            secenekleriYenile();
+          }
+        });
+      },
+      color: _isDarkMode ? Colors.white : Colors.black,
+    );
+  }
+  Widget _buildWordGrid(BoxConstraints constraints) {
+    return Expanded(
+      child: GridView.builder(
+        padding: EdgeInsets.all(16),
+        shrinkWrap: true,
+        itemCount: max(secenekler.length + 2, 10),
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 3,
+          crossAxisSpacing: 10.0,
+          mainAxisSpacing: 10.0,
+        ),
+        itemBuilder: (BuildContext context, int index) {
+          if (index == 4) {
+            return _buildCenterCard();
+          } else {
+            return _buildOptionCard(index);
+          }
+        },
+      ),
+    );
+  }
+  Widget _buildCenterCard() {
+    return Card(
+      color: centerCardColor,
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Expanded(
+                flex: 3,
+                child: Center(
+                  child: AutoSizeText(
+                    aktifKelime,
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.teal.shade800,
+                    ),
+                    maxLines: 1,
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: 1,
+                child: AutoSizeText(
+                  '${kelimeDogruSayac[aktifKelime] ?? 0}/3',
+                  style: TextStyle(color: Colors.teal.shade600),
+                  maxLines: 1,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOptionCard(int index) {
+    int optionIndex = index < 4 ? index : index - 1;
+    if (optionIndex >= secenekler.length) {
+      return Container();
+    }
+    String secenek = secenekler[optionIndex];
+    return AnimatedContainer(
+      duration: Duration(milliseconds: 300),
+      decoration: BoxDecoration(
+        color: optionColors[optionIndex] ?? defaultOptionColor,
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 2,
+            offset: Offset(0, 1),
+          ),
+        ],
+      ),
+      child: InkWell(
+        onTap: () => handleOptionTap(secenek, optionIndex),
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(4.0),
+            child: AutoSizeText(
+              secenek,
+              style: TextStyle(
+                fontSize: 18,
+                color: Colors.teal.shade800,
+              ),
+              maxLines: 2,
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+  Widget _buildConfetti() {
+    return Align(
+      alignment: Alignment.topCenter,
+      child: ConfettiWidget(
+        confettiController: _confettiController,
+        blastDirectionality: BlastDirectionality.explosive,
+        shouldLoop: false,
+        colors: const [Colors.green, Colors.blue, Colors.orange, Colors.purple],
+        numberOfParticles: 30,
+      ),
+    );
+  }
+
+  Widget _buildBottomBar() {
+    return BottomAppBar(
+      color: _isDarkMode ? Colors.indigo : Colors.teal,
+      child: Container(
+        height: 60.0,
+        padding: EdgeInsets.symmetric(horizontal: 20),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: <Widget>[
+            TextButton(
+              onPressed: () => showLearnedWordsModal(context),
+              child: Text('Öğrenilen Kelimeleri Göster',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+            Text(
+              '${tamamlananKelimeler.length} / $totalWordsCount',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
   void showModal(BuildContext context) {
     showPlatformDialog(
       context: context,
@@ -816,7 +961,6 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
     if (!_isOptionSelectable) return;
     final bool isCorrect = secenek == kelimeler[aktifKelime];
     int correctIndex = secenekler.indexOf(kelimeler[aktifKelime]!);
-    int optionIndex = index;
     int remainingSeconds = (15 * zamanCubuguDegeri).round();
     int pointChange = isCorrect ? remainingSeconds : -remainingSeconds;
 
@@ -825,7 +969,7 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
       if (isCorrect) {
         kelimeDogruSayac[aktifKelime] = (kelimeDogruSayac[aktifKelime] ?? 0) + 1;
         score += pointChange;
-        optionColors[optionIndex] = correctOptionColor;
+        optionColors[index] = correctOptionColor;
         if (kelimeDogruSayac[aktifKelime]! >= 3) {
           tamamlananKelimeler.add(aktifKelime);
           if (isStarredMode) {
@@ -838,7 +982,7 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
       } else {
         kelimeDogruSayac[aktifKelime] = 0;
         score += pointChange;
-        optionColors[optionIndex] = wrongOptionColor;
+        optionColors[index] = wrongOptionColor;
         optionColors[correctIndex] = correctOptionColor;
       }
 
@@ -854,7 +998,6 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
       });
     });
   }
-
   Future<void> _updateUserScore(int score, int pointChange) async {
     try {
       UserProvider userProvider = Provider.of<UserProvider>(context, listen: false);
@@ -874,5 +1017,149 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
       backgroundColor: isCorrect ? Colors.green : Colors.red,
     );
     ScaffoldMessenger.of(context).showSnackBar(snackBar);
+  }
+}
+
+
+class WordGrid extends StatelessWidget {
+  final List<String> secenekler;
+  final String aktifKelime;
+  final Map<String, int> kelimeDogruSayac;
+  final Function(String, int) handleOptionTap;
+  final bool isDarkMode;
+
+  const WordGrid({
+    Key? key,
+    required this.secenekler,
+    required this.aktifKelime,
+    required this.kelimeDogruSayac,
+    required this.handleOptionTap,
+    required this.isDarkMode,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: GridView.count(
+        padding: EdgeInsets.all(16),
+        crossAxisCount: 3,
+        crossAxisSpacing: 10.0,
+        mainAxisSpacing: 10.0,
+        children: List.generate(max(secenekler.length + 2, 10), (index) {
+          if (index == 4) {
+            return CenterCard(
+              aktifKelime: aktifKelime,
+              kelimeDogruSayac: kelimeDogruSayac,
+              isDarkMode: isDarkMode,
+            );
+          } else {
+            int optionIndex = index < 4 ? index : index - 1;
+            return optionIndex < secenekler.length
+                ? OptionCard(
+              secenek: secenekler[optionIndex],
+              index: optionIndex,
+              handleOptionTap: handleOptionTap,
+              isDarkMode: isDarkMode,
+            )
+                : Container();
+          }
+        }),
+      ),
+    );
+  }
+}
+
+class CenterCard extends StatelessWidget {
+  final String aktifKelime;
+  final Map<String, int> kelimeDogruSayac;
+  final bool isDarkMode;
+
+  const CenterCard({
+    Key? key,
+    required this.aktifKelime,
+    required this.kelimeDogruSayac,
+    required this.isDarkMode,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      color: isDarkMode ? Colors.teal.shade700 : Colors.teal.shade100,
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Center(
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  aktifKelime,
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: isDarkMode ? Colors.white : Colors.teal.shade800,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                Text(
+                  '${kelimeDogruSayac[aktifKelime] ?? 0}/3',
+                  style: TextStyle(color: isDarkMode ? Colors.white70 : Colors.teal.shade600),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class OptionCard extends StatelessWidget {
+  final String secenek;
+  final int index;
+  final Function(String, int) handleOptionTap;
+  final bool isDarkMode;
+  final Color? backgroundColor;
+
+  const OptionCard({
+    Key? key,
+    required this.secenek,
+    required this.index,
+    required this.handleOptionTap,
+    required this.isDarkMode,
+    this.backgroundColor,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: Duration(milliseconds: 300),
+      decoration: BoxDecoration(
+        color: backgroundColor ?? (isDarkMode ? Colors.teal.shade600 : Colors.teal.shade50),
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 2,
+            offset: Offset(0, 1),
+          ),
+        ],
+      ),
+      child: InkWell(
+        onTap: () => handleOptionTap(secenek, index),
+        child: Center(
+          child: Text(
+            secenek,
+            style: TextStyle(
+              fontSize: 18,
+              color: isDarkMode ? Colors.white : Colors.teal.shade800,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

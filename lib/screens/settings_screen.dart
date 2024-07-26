@@ -8,7 +8,7 @@ import 'package:image/image.dart' as img;
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:kelibu/variables.dart'; // FTP bilgilerini içeren dosyayı import et
+import 'package:kelibu/variables.dart';
 import 'package:provider/provider.dart';
 import '../api.dart';
 import '../providers/user_provider.dart';
@@ -46,152 +46,147 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   Widget build(BuildContext context) {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
-
-    // Ekran boyutları için MediaQuery değerlerini al
-    double screenHeight = MediaQuery.of(context).size.height;
-    double screenWidth = MediaQuery.of(context).size.width;
-
     final themeColors = _isDarkMode ? darkModeColors : lightModeColors;
-    final backgroundColor = themeColors["background"];
-    final textColor = themeColors["text"];
-    final buttonBackgroundColor = themeColors["buttonBackground"];
-    final buttonTextColor = themeColors["buttonText"];
-    final iconColor = themeColors["iconColor"];
 
     return Scaffold(
-      backgroundColor: backgroundColor, // Arka plan rengini burada ayarlayın
+      backgroundColor: themeColors["background"],
       appBar: AppBar(
-        backgroundColor: backgroundColor,
+        backgroundColor: themeColors["background"],
+        elevation: 0,
         title: Text(
           'Profilim',
           style: GoogleFonts.poppins(
-            color: textColor,
+            color: themeColors["text"],
             fontWeight: FontWeight.bold,
+            fontSize: 24,
           ),
         ),
-        iconTheme: IconThemeData(
-          color: iconColor,
-        ),
+        iconTheme: IconThemeData(color: themeColors["iconColor"]),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
           child: Column(
             children: <Widget>[
-              Container(
-                color: Colors.pink,
-                height: MediaQuery.of(context).size.height * 0.003,
-              ),
-              SizedBox(
-                width: MediaQuery.of(context).size.width * 0.95,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: <Widget>[
-                    GestureDetector(
-                      onTap: () => _selectImage(context),
-                      child: CircleAvatar(
-                        radius: MediaQuery.of(context).size.height * 0.07,
-                        backgroundImage: NetworkImage('https://kelibu.net/storage/${userProvider.avatar}'),
-                      ),
-                    ),
-                    SizedBox(height: MediaQuery.of(context).size.height * 0.02),
-                    OutlinedButton.icon(
-                      onPressed: () => _selectImage(context),
-                      style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: Colors.pink), // Çerçeve rengi pembe
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                        textStyle: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      icon: Icon(Icons.camera_alt, color: Colors.pink), // İkon ve rengi
-                      label: Text(
-                        'Profil Resmini Değiştir',
-                        style: TextStyle(color: Colors.pink), // Yazı rengi pembe
-                      ),
-                    ),
-                    SizedBox(height: MediaQuery.of(context).size.height * 0.02),
-                    // SettingsItem widget'ları ve diğer elemanlar burada yer alıyor.
-                    SettingsItem(
-                      icon: Icons.settings,
-                      title: 'Hesap Bilgileri',
-                      isDarkMode: _isDarkMode,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => AccountPage()),
-                        );
-                      },
-                    ),
-                    SettingsItem(
-                      icon: Icons.info_outline,
-                      title: 'Hakkımızda',
-                      isDarkMode: _isDarkMode,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => AboutPage()),
-                        );
-                      },
-                    ),
-                    SettingsItem(
-                      icon: Icons.settings,
-                      title: 'İletişim ve Sorun Bildir',
-                      isDarkMode: _isDarkMode,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => ContactFormPage()),
-                        );
-                      },
-                    ),
-                    SettingsItem(
-                      icon: Icons.book,
-                      title: 'Hüküm ve Koşullar',
-                      isDarkMode: _isDarkMode,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => TermsAndConditionsPage()),
-                        );
-                      },
-                    ),
-                    SettingsItem(
-                      icon: Icons.privacy_tip,
-                      title: 'Gizlilik Sözleşmesi',
-                      isDarkMode: _isDarkMode,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => PrivacyPolicyPage()),
-                        );
-                      },
-                    ),
-                    SettingsItem(
-                      icon: Icons.delete,
-                      title: 'Hesabımı Sil',
-                      isDarkMode: _isDarkMode,
-                      onTap: () {
-                        _confirmDeleteAccount(context, userProvider);
-                      },
-                    ),
-                    SettingsItem(
-                      icon: Icons.exit_to_app,
-                      title: 'Çıkış Yap',
-                      isDarkMode: _isDarkMode,
-                      onTap: () => logout(context),
-                    ),
-                  ],
-                ),
-              ),
-              Divider(color: Colors.grey.shade200, thickness: 2),
+              SizedBox(height: 20),
+              _buildProfileHeader(userProvider),
+              SizedBox(height: 30),
+              _buildSettingsSection(),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildProfileHeader(UserProvider userProvider) {
+    return Column(
+      children: [
+        GestureDetector(
+          onTap: () => _selectImage(context),
+          child: Stack(
+            alignment: Alignment.bottomRight,
+            children: [
+              CircleAvatar(
+                radius: 60,
+                backgroundImage: NetworkImage('https://kelibu.net/storage/${userProvider.avatar}'),
+              ),
+              Container(
+                padding: EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: Colors.pink,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.edit, color: Colors.white, size: 20),
+              ),
+            ],
+          ),
+        ),
+        SizedBox(height: 16),
+        Text(
+          userProvider.username,
+          style: GoogleFonts.poppins(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: _isDarkMode ? Colors.white : Colors.black,
+          ),
+        ),
+        Text(
+          userProvider.email,
+          style: GoogleFonts.poppins(
+            fontSize: 16,
+            color: Colors.grey,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSettingsSection() {
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: _isDarkMode ? Colors.grey[900] : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          _buildSettingsItem(Icons.account_circle, 'Hesap Bilgileri', () {
+            Navigator.push(context, MaterialPageRoute(builder: (context) => AccountPage()));
+          }),
+          _buildDivider(),
+          _buildSettingsItem(Icons.info_outline, 'Hakkımızda', () {
+            Navigator.push(context, MaterialPageRoute(builder: (context) => AboutPage()));
+          }),
+          _buildDivider(),
+          _buildSettingsItem(Icons.contact_support, 'İletişim ve Sorun Bildir', () {
+            Navigator.push(context, MaterialPageRoute(builder: (context) => ContactFormPage()));
+          }),
+          _buildDivider(),
+          _buildSettingsItem(Icons.book, 'Hüküm ve Koşullar', () {
+            Navigator.push(context, MaterialPageRoute(builder: (context) => TermsAndConditionsPage()));
+          }),
+          _buildDivider(),
+          _buildSettingsItem(Icons.privacy_tip, 'Gizlilik Sözleşmesi', () {
+            Navigator.push(context, MaterialPageRoute(builder: (context) => PrivacyPolicyPage()));
+          }),
+          _buildDivider(),
+          _buildSettingsItem(Icons.delete, 'Hesabımı Sil', () {
+            _confirmDeleteAccount(context, Provider.of<UserProvider>(context, listen: false));
+          }, color: Colors.red),
+          _buildDivider(),
+          _buildSettingsItem(Icons.exit_to_app, 'Çıkış Yap', () => logout(context), color: Colors.red),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSettingsItem(IconData icon, String title, VoidCallback onTap, {Color? color}) {
+    return ListTile(
+      leading: Icon(icon, color: color ?? (_isDarkMode ? Colors.white : Colors.black)),
+      title: Text(
+        title,
+        style: GoogleFonts.poppins(
+          color: color ?? (_isDarkMode ? Colors.white : Colors.black),
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      trailing: Icon(Icons.chevron_right, color: _isDarkMode ? Colors.white70 : Colors.black54),
+      onTap: onTap,
+    );
+  }
+
+  Widget _buildDivider() {
+    return Divider(
+      color: _isDarkMode ? Colors.grey[800] : Colors.grey[300],
+      height: 1,
+      thickness: 1,
     );
   }
 
@@ -200,44 +195,44 @@ class _SettingsPageState extends State<SettingsPage> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          backgroundColor: _isDarkMode ? Colors.black : Colors.white, // Dialog arka plan rengi
+          backgroundColor: _isDarkMode ? Colors.grey[900] : Colors.white,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20), // Yuvarlak köşeler
+            borderRadius: BorderRadius.circular(20),
           ),
           title: Text(
             'Hesabınızı Sil',
             style: GoogleFonts.roboto(
-              fontSize: 20, // Başlık font boyutu
-              fontWeight: FontWeight.bold, // Başlık font kalınlığı
-              color: _isDarkMode ? Colors.white : Colors.pink, // Başlık font rengi
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: _isDarkMode ? Colors.white : Colors.pink,
             ),
           ),
           content: Text(
             'Hesabınızı silmek istediğinize emin misiniz? Bu işlem geri alınamaz.',
             style: GoogleFonts.roboto(
-              fontSize: 16, // İçerik font boyutu
-              color: _isDarkMode ? Colors.white : Colors.black, // İçerik font rengi
+              fontSize: 16,
+              color: _isDarkMode ? Colors.white : Colors.black,
             ),
           ),
           actions: <Widget>[
             TextButton(
-              onPressed: () => Navigator.of(context).pop(), // Dialog'u kapat
+              onPressed: () => Navigator.of(context).pop(),
               child: Text(
                 'Hayır',
                 style: GoogleFonts.roboto(
-                  color: Colors.grey, // 'Hayır' butonu font rengi
+                  color: Colors.grey,
                 ),
               ),
             ),
             TextButton(
               onPressed: () {
-                Navigator.of(context).pop(); // Dialog'u kapat
-                _deleteAccount(userProvider.userId, context, userProvider); // Hesap silme işlemini gerçekleştir
+                Navigator.of(context).pop();
+                _deleteAccount(userProvider.userId, context, userProvider);
               },
               child: Text(
                 'Evet',
                 style: GoogleFonts.roboto(
-                  color: Colors.pink, // 'Evet' butonu font rengi
+                  color: Colors.pink,
                 ),
               ),
             ),
@@ -247,14 +242,11 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  // Hesap silme işlemi için API çağrısı yapılacak fonksiyon
   void _deleteAccount(int userId, BuildContext context, UserProvider userProvider) async {
     final bool isSuccess = await ApiService().deleteUser(userId);
     if (isSuccess) {
-      // Kullanıcı başarıyla silindi, şimdi çıkış yap.
       logout(context);
     } else {
-      // Hesap silinirken bir sorun oluştu, kullanıcıyı bilgilendir.
       showDialog(
         context: context,
         builder: (BuildContext context) => AlertDialog(
@@ -273,17 +265,10 @@ class _SettingsPageState extends State<SettingsPage> {
 
   void logout(BuildContext context) async {
     try {
-      print('Hive box açılmaya çalışılıyor...');
       final box = await Hive.openBox<bool>('loginBox');
-
-      print('isLoggedIn durumu false olarak güncelleniyor...');
-    await
-    box.put("isLoggedIn", false);
-      print("isLoggedIn durumu başarıyla güncellendi.");
+      await box.put("isLoggedIn", false);
       Provider.of<UserProvider>(context, listen: false).logout();
-
       Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (context) => SplashScreen()));
-      print('Yönlendirme başarılı.');
     } catch (e) {
       print('Hive işlemi sırasında bir hata oluştu: $e');
     }
@@ -313,22 +298,17 @@ class _SettingsPageState extends State<SettingsPage> {
         return;
       }
 
-      // Yükleme işlemi başlamadan önce yükleme durumunu true olarak güncelle
       setState(() {
         _isUploading = true;
       });
 
-      _showUploadingDialog(); // Dialog'u göster
+      _showUploadingDialog();
 
-      // Resmi sıkıştır
       final compressedImage = await compressImage(imageFile);
-      // Sıkıştırılmış resmi yükle ve avatar URL'sini güncelle
       await uploadImageAndUpdateAvatar(compressedImage);
 
-      // Dialog'u kapat
       Navigator.of(context, rootNavigator: true).pop('dialog');
 
-      // Yükleme işlemi tamamlandıktan sonra yükleme durumunu false olarak güncelle
       setState(() {
         _isUploading = false;
       });
@@ -338,15 +318,12 @@ class _SettingsPageState extends State<SettingsPage> {
   Future compressImage(File file, {int minWidth = 256, int minHeight = 256}) async {
     final img.Image? image = img.decodeImage(await file.readAsBytes());
     img.Image resized = image!;
-    // Eğer resim belirlenen minimum değerlerden büyükse, yeniden boyutlandır
     if (image.width < minWidth || image.height < minHeight) {
       resized = img.copyResize(image, width: minWidth, height: minHeight);
     } else {
-      // Resmi orijinal oranına göre yeniden boyutlandır
       resized = img.copyResize(image, width: image.width, height: image.height);
     }
 
-// Yeniden boyutlandırılmış resmi geçici bir dosyaya yaz
     final Directory tempDir = await getTemporaryDirectory();
     final String targetPath = p.join(tempDir.path, "temp_${DateTime.now().millisecondsSinceEpoch}.jpg");
     final File newImageFile = File(targetPath)..writeAsBytesSync(img.encodeJpg(resized, quality: 85));
@@ -355,14 +332,14 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future uploadImageAndUpdateAvatar(File imageFile) async {
-    final userProvider = Provider.of(context, listen: false);
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
     Uri uri = Uri.parse("https://www.kelibu.net/api/updateAvatar");
     var request = http.MultipartRequest("POST", uri)
       ..fields['user_id'] = userProvider.userId.toString()
       ..files.add(await http.MultipartFile.fromPath('avatar', imageFile.path))
       ..headers.addAll({
         'Content-Type': 'multipart/form-data',
-        'X-Custom-Header': privacyKey.privacyKeyVariable, // Custom header added
+        'X-Custom-Header': privacyKey.privacyKeyVariable,
       });
 
     try {
@@ -373,100 +350,61 @@ class _SettingsPageState extends State<SettingsPage> {
         var responseData = json.decode(response.body);
 
         String newAvatarUrl = responseData['avatar_url'];
-        await userProvider.updateUserAvatarUrl(newAvatarUrl); // updateUserAvatarUrl metodunu çağır
+        await userProvider.updateUserAvatarUrl(newAvatarUrl);
         print('Avatar URL güncellendi: $newAvatarUrl');
       } else {
-        // Burada yanıtın içeriğini de yazdırıyoruz
         var response = await http.Response.fromStream(streamedResponse);
         print('Resim yükleme başarısız. Hata: ${response.body}');
       }
     } catch (e) {
-      // Network hatası veya başka bir hata durumunda hata mesajını yazdır
       print('Resim yükleme sırasında bir hata oluştu: $e');
     }
   }
 
   String createRandomFileName(String filePath) {
-    final extension = p.extension(filePath); // Dosyanın uzantısını al
+    final extension = p.extension(filePath);
     final rand = Random();
-    final randomNumber = rand.nextInt(10000); // 0 ile 9999 arasında rastgele bir sayı üret
-    final timestamp = DateTime.now().millisecondsSinceEpoch; // Zaman damgası
-    return "image${timestamp}_$randomNumber$extension"; // Örnek: image_1625496728934_1234.jpg
+    final randomNumber = rand.nextInt(10000);
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    return "image${timestamp}_$randomNumber$extension";
   }
 
   void _showUploadingDialog() {
     showDialog(
       context: context,
-      barrierDismissible: false, // Kullanıcı dialog dışına dokunarak kapatamaz
+      barrierDismissible: false,
       builder: (BuildContext context) {
         return Dialog(
-          backgroundColor: _isDarkMode ? Colors.black : Colors.white, // Dialog arka plan rengi
-          child: Column(
+          backgroundColor: _isDarkMode ? Colors.grey[900] : Colors.white,
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-              SizedBox(height: 20),
-          Text(
-          "Profil resmi değiştirme süresinde lütfen bekleyin",
-          textAlign: TextAlign.center,
-          style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black), // Yazı rengi
-        ),
-        SizedBox(height: 20),
-        CircularProgressIndicator(),
-        SizedBox(height: 20),
-        Text(
-        "Profil resminiz güncelleniyor",
-        textAlign: TextAlign.center,
-        style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black), // Yazı rengi
-        ),
-        SizedBox(height: 20),
-        ],
-        ),
+                Text(
+                  "Profil resmi değiştiriliyor",
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(
+                    color: _isDarkMode ? Colors.white : Colors.black,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(height: 20),
+                CircularProgressIndicator(),
+                SizedBox(height: 20),
+                Text(
+                  "Lütfen bekleyin...",
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(
+                    color: _isDarkMode ? Colors.white70 : Colors.black54,
+                  ),
+                ),
+              ],
+            ),
+          ),
         );
       },
-    );
-  }
-}
-
-class SettingsItem extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final VoidCallback? onTap;
-  final bool isDarkMode;
-
-  const SettingsItem({required this.icon, required this.title, this.onTap, required this.isDarkMode, Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    final themeColors = isDarkMode ? darkModeColors : lightModeColors;
-    final textColor = themeColors["text"];
-    final iconColor = themeColors["iconColor"];
-    final backgroundColor = themeColors["background"];
-    return Padding(
-    padding: const EdgeInsets.all(8.0),
-    child: Container(
-    decoration: BoxDecoration(
-    color: backgroundColor, // Arka plan rengi
-    border: Border.all(
-    color: Colors.grey,
-    width: 1.0,
-    ),
-    borderRadius: BorderRadius.circular(8.0), // Daha oval kenarlar için
-    ),
-    child: Padding(
-    padding: const EdgeInsets.all(8.0),
-    child: ListTile(
-    leading: Icon(icon, color: iconColor), // İkon rengi
-    title: Text(
-    title,
-    style: GoogleFonts.poppins(
-    color: textColor, // Yazı rengi
-    fontWeight: FontWeight.bold,
-    ),
-    ),
-    onTap: onTap,
-    ),
-    ),
-    ),
     );
   }
 }

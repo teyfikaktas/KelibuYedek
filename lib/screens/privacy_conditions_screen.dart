@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-
+import 'package:shared_preferences/shared_preferences.dart';
 
 class TermsAndConditionsApp extends StatelessWidget {
   @override
@@ -11,7 +11,27 @@ class TermsAndConditionsApp extends StatelessWidget {
   }
 }
 
-class TermsAndConditionsPage extends StatelessWidget {
+class TermsAndConditionsPage extends StatefulWidget {
+  @override
+  _TermsAndConditionsPageState createState() => _TermsAndConditionsPageState();
+}
+
+class _TermsAndConditionsPageState extends State<TermsAndConditionsPage> {
+  bool _isDarkMode = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDarkModePreference();
+  }
+
+  Future<void> _loadDarkModePreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _isDarkMode = prefs.getBool("darkMode") ?? false;
+    });
+  }
+
   final String termsAndConditionsText = '''
 Kelibu Kullanım Şartları ve Koşulları
 
@@ -33,6 +53,7 @@ Herhangi bir yasa dışı faaliyette bulunmamalı,
 Başkalarının haklarına zarar vermemeli,
 Virüs veya zararlı yazılım yaymamalı,
 Şirketin veya başkalarının hizmetlerine zarar verecek veya erişimi engelleyecek faaliyetlerde bulunmamalısınız.
+
 3. Fikri Mülkiyet Hakları
 
 Uygulama ve uygulamada yer alan tüm içerikler (metinler, grafikler, videolar, tasarımlar vb.) Şirketin mülkiyetindedir ve fikri mülkiyet hakları ile korunmaktadır. Bu içerikler, Şirketin yazılı izni olmadan çoğaltılamaz, dağıtılamaz veya başka bir şekilde kullanılamaz.
@@ -60,33 +81,79 @@ Herhangi bir sorunuz varsa, lütfen kelibu@kelibu.net üzerinden bizimle iletiş
 
   @override
   Widget build(BuildContext context) {
+    final backgroundColor = _isDarkMode ? Colors.grey[900] : Colors.blue[700];
+    final textColor = _isDarkMode ? Colors.white : Colors.black87;
+    final appBarColor = _isDarkMode ? Colors.grey[900] : Colors.blue[700];
+    final appBarTextColor = Colors.white;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFFEFAF6), // Arka plan rengini burada ayarlayın
-
+      backgroundColor: backgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: appBarColor,
         title: Text(
-          'Kullanım şartları',
-          style: GoogleFonts.poppins(
-            color: Colors.pink,
+          'Kullanım Şartları',
+          style: GoogleFonts.nunito(
+            color: appBarTextColor,
             fontWeight: FontWeight.bold,
+            fontSize: 24,
           ),
         ),
-        iconTheme: IconThemeData(
-          color: Colors.pink,
-        ),
+        elevation: 0,
       ),
-
-      body: SingleChildScrollView(
-        padding: EdgeInsets.all(16.0),
-        child: Text(
-          termsAndConditionsText,
-          style: GoogleFonts.poppins(
-            fontSize: 16, // Metin boyutunu ayarla
-            fontWeight: FontWeight.w400, // Yazı tipi kalınlığını ayarla
-            color: Colors.grey.shade800, // Metin rengini ayarla
+      body: Container(
+        height: MediaQuery.of(context).size.height,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: _isDarkMode
+                ? [Colors.grey[900]!, Colors.grey[800]!]
+                : [Colors.blue[700]!, Colors.blue[500]!],
           ),
-          textAlign: TextAlign.justify, // Metni her iki taraftan hizala
+        ),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Kelibu Kullanım Şartları ve Koşulları',
+                    style: GoogleFonts.nunito(
+                      color: Colors.white,
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  SizedBox(height: 20),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: _isDarkMode ? Colors.grey[800] : Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 10,
+                          offset: Offset(0, 5),
+                        ),
+                      ],
+                    ),
+                    padding: EdgeInsets.all(20),
+                    child: Text(
+                      termsAndConditionsText,
+                      style: GoogleFonts.nunito(
+                        fontSize: 16,
+                        color: _isDarkMode ? Colors.white70 : Colors.black87,
+                      ),
+                      textAlign: TextAlign.justify,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );

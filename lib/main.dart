@@ -95,7 +95,6 @@ class _SplashScreenState extends State<SplashScreen> {
       ..initialize().then((_) {
         setState(() {});
         _controller!.play().then((_) {
-          // Video oynatıldıktan sonra 4 saniye bekleyip internet bağlantısını kontrol et
           Future.delayed(const Duration(seconds: 4), () {
             _checkInternetAndNavigate();
           });
@@ -113,26 +112,25 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   void _checkUser() async {
-    bool userLoaded = await Provider.of<UserProvider>(context, listen: false).loadUser();
+    // Provider'ı context'ten almak yerine, userProviderGlobal'i kullanın
+    bool userLoaded = await userProviderGlobal!.loadUser();
     if (!userLoaded) {
       Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => LoginScreen()));
     } else {
-      // Kullanıcı bilgileri başarılı bir şekilde yüklendiyse, API'den puanı çek
-      int userId = Provider.of<UserProvider>(context, listen: false).userId;
+      int userId = userProviderGlobal!.userId;
       print('hash');
-      String hash = await Provider.of<UserProvider>(context, listen: false).getUsernameHash();
+      String hash = await userProviderGlobal!.getUsernameHash();
       print(hash);
 
       try {
         Map<String, dynamic> userData = await ApiService().fetchUserPoint(userId);
         int userPoint = userData['point'];
-        print('User Point: $userPoint'); // Burada userPoint değişkenini kullanabilirsiniz
-        await Provider.of<UserProvider>(context, listen: false).addPoint(userPoint);
+        print('User Point: $userPoint');
+        await userProviderGlobal!.addPoint(userPoint);
       } catch (error) {
         print("Error fetching user point: $error");
       }
       print('checkuser');
-      // Puanı Hive veritabanına kaydet
 
       Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => MainScreen()));
     }
@@ -180,6 +178,7 @@ Future<void> _clearSharedPreferences() async {
 
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
+  bool _isDarkMode = false;
 
   final iconList = <IconData>[
     Icons.home,
@@ -189,7 +188,7 @@ class _MainScreenState extends State<MainScreen> {
   ];
 
   final List<Widget> _pages = [
-    const HomeScreen(),
+    HomeScreen(),
     const LeaderboardPage(),
     MarketPage(),
     const StarredWordsScreen(),
@@ -204,13 +203,18 @@ class _MainScreenState extends State<MainScreen> {
       _selectedIndex = index;
     });
   }
-
+  Future<void> _loadDarkModePreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _isDarkMode = prefs.getBool("darkMode") ?? false;
+    });
+  }
   @override
   Widget build(BuildContext context) {
     final darkModeProvider = Provider.of<DarkModeProvider>(context);
 
     return Scaffold(
-      backgroundColor: darkModeProvider.isDarkMode ? Colors.black : const Color(0xFFFEFAF6),
+      backgroundColor: Color(0xFF212121), // Daha hafif bir siyah ton
       body: _getPage(_selectedIndex),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
@@ -218,8 +222,8 @@ class _MainScreenState extends State<MainScreen> {
             builder: (context) => RaceScreenBuild(),
           ));
         },
-        child: Icon(Icons.videogame_asset, color: Colors.pink),
-        backgroundColor: darkModeProvider.isDarkMode ? Colors.grey[850] : Colors.white,
+        child: Icon(Icons.videogame_asset, color: Colors.white),
+        backgroundColor: Colors.grey[850],
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: AnimatedBottomNavigationBar(
@@ -227,14 +231,15 @@ class _MainScreenState extends State<MainScreen> {
         activeIndex: _selectedIndex,
         gapLocation: GapLocation.center,
         notchSmoothness: NotchSmoothness.smoothEdge,
-        backgroundColor: darkModeProvider.isDarkMode ? Colors.grey[850] : Colors.white,
+        backgroundColor: Colors.grey[850],
         leftCornerRadius: 32,
         rightCornerRadius: 32,
-        activeColor: Colors.pink,
+        activeColor: Colors.white,
         inactiveColor: Colors.grey,
-        splashColor: Colors.pinkAccent,
+        splashColor: Colors.white,
         onTap: (index) => _onItemTapped(index),
       ),
     );
   }
+
 }

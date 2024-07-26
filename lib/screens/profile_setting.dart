@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:kelibu/providers/user_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:kelibu/providers/user_provider.dart';
 import 'package:kelibu/variables.dart';
-
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:another_flushbar/flushbar.dart';
 
 class AccountPage extends StatefulWidget {
   @override
@@ -16,36 +15,24 @@ class AccountPage extends StatefulWidget {
 
 class _AccountPageState extends State<AccountPage> {
   final _formKey = GlobalKey<FormState>();
-  final _passwordFormKey = GlobalKey<FormState>();
-
   late TextEditingController _nameController;
   late TextEditingController _emailController;
   late TextEditingController _phoneNumberController;
   late TextEditingController _ageController;
   late TextEditingController _teamController;
   late TextEditingController _cityController;
-  late TextEditingController _currentPasswordController;
-  late TextEditingController _newPasswordController;
-  late TextEditingController _confirmNewPasswordController;
   bool _isDarkMode = false;
-
-  bool _isPasswordPanelExpanded = false;
 
   @override
   void initState() {
     super.initState();
     final userProvider = Provider.of<UserProvider>(context, listen: false);
-
     _nameController = TextEditingController(text: userProvider.username);
     _emailController = TextEditingController(text: userProvider.email);
     _phoneNumberController = TextEditingController(text: userProvider.phone);
     _ageController = TextEditingController(text: (DateTime.now().year - userProvider.birthYear).toString());
     _teamController = TextEditingController(text: userProvider.team);
     _cityController = TextEditingController(text: userProvider.city);
-    _currentPasswordController = TextEditingController();
-    _newPasswordController = TextEditingController();
-    _confirmNewPasswordController = TextEditingController();
-
     _loadDarkModePreference();
   }
 
@@ -57,36 +44,7 @@ class _AccountPageState extends State<AccountPage> {
     _ageController.dispose();
     _teamController.dispose();
     _cityController.dispose();
-    _currentPasswordController.dispose();
-    _newPasswordController.dispose();
-    _confirmNewPasswordController.dispose();
     super.dispose();
-  }
-
-  Future<void> updatePassword() async {
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
-    final response = await http.post(
-      Uri.parse('https://kelibu.net/api/reset-password'),
-      headers: <String, String>{
-        'Content-Type': 'application/json; charset=UTF-8',
-        'X-Custom-Header': privacyKey.privacyKeyVariable, // Custom header added
-      },
-      body: jsonEncode(<String, String>{
-        'user_id': userProvider.userId.toString(),
-        'old_password': _currentPasswordController.text,
-        'password': _newPasswordController.text,
-      }),
-    );
-
-    if (response.statusCode == 200) {
-      final responseBody = jsonDecode(response.body);
-      String message = responseBody['message'] ?? 'Şifre başarıyla güncellendi';
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-    } else {
-      final responseBody = jsonDecode(response.body);
-      String errorMessage = responseBody['error_message'] ?? 'Şifre güncellenemedi';
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(errorMessage)));
-    }
   }
 
   Future<void> _loadDarkModePreference() async {
@@ -96,21 +54,12 @@ class _AccountPageState extends State<AccountPage> {
     });
   }
 
-  InputDecoration _buildInputDecoration(String labelText, IconData iconData, Color fillColor, Color textColor) {
-    return InputDecoration(
-      labelText: labelText,
-      labelStyle: GoogleFonts.lato(color: textColor),
-      fillColor: fillColor,
-      filled: true,
-      prefixIcon: Icon(iconData, color: textColor),
-      border: OutlineInputBorder(
-        borderSide: BorderSide(color: textColor, width: 3.0),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderSide: BorderSide(color: textColor, width: 3.0),
-        borderRadius: BorderRadius.circular(8),
-      ),
+  void _showPasswordChangeDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return PasswordChangeDialog(isDarkMode: _isDarkMode);
+      },
     );
   }
 
@@ -118,180 +67,228 @@ class _AccountPageState extends State<AccountPage> {
   Widget build(BuildContext context) {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final themeColors = _isDarkMode ? darkModeColors : lightModeColors;
-    final textColor = themeColors["text"]!;
-    final fillColor = themeColors["inputBackground"]!;
 
     return Scaffold(
+      backgroundColor: _isDarkMode ? Colors.grey[900] : Colors.grey[100],
       appBar: AppBar(
-        backgroundColor: _isDarkMode ? Colors.black : Colors.white,
+        backgroundColor: _isDarkMode ? Colors.grey[800] : Colors.white,
+        elevation: 0,
         title: Text(
           'Hesap Bilgileri',
           style: GoogleFonts.poppins(
-            color: textColor,
+            color: _isDarkMode ? Colors.white : Colors.black,
             fontWeight: FontWeight.bold,
           ),
         ),
         iconTheme: IconThemeData(
-          color: textColor,
+          color: _isDarkMode ? Colors.white : Colors.black,
         ),
       ),
-      body: Theme(
-        data: ThemeData(
-          primaryColor: themeColors["cardBackground"],
-        ),
-        child: Container(
-          color: _isDarkMode ? Colors.black : Colors.white, // Genel arka plan rengi
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16.0),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                children: [
-                  CircleAvatar(
-                    radius: 60,
-                    backgroundImage: NetworkImage('https://kelibu.net/storage/${userProvider.avatar}'),
-                  ),
-                  SizedBox(height: 20),
-                  TextFormField(
-                    controller: _nameController,
-                    readOnly: true,
-                    style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black),
-                    decoration: _buildInputDecoration('İsim', Icons.person, fillColor, textColor),
-                  ),
-                  SizedBox(height: 10),
-                  TextFormField(
-                    controller: _emailController,
-                    readOnly: true,
-                    validator: (value) => value != null && !value.contains('@') ? 'Geçerli bir email giriniz' : null,
-                    style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black),
-                    decoration: _buildInputDecoration('Email', Icons.email, fillColor, textColor),
-                  ),
-                  SizedBox(height: 10),
-                  TextFormField(
-                    controller: _ageController,
-                    style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black),
-                    decoration: _buildInputDecoration('Yaş', Icons.cake, fillColor, textColor),
-                  ),
-                  SizedBox(height: 10),
-                  TextFormField(
-                    controller: _teamController,
-                    style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black),
-                    decoration: _buildInputDecoration('Takım', Icons.group, fillColor, textColor),
-                  ),
-                  SizedBox(height: 10),
-                  TextFormField(
-                    controller: _cityController,
-                    style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black),
-                    decoration: _buildInputDecoration('Şehir', Icons.location_city, fillColor, textColor),
-                  ),
-                  SizedBox(height: 10),
-                  TextFormField(
-                    controller: _phoneNumberController,
-                    keyboardType: TextInputType.phone,
-                    style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black),
-                    decoration: _buildInputDecoration('Telefon Numarası', Icons.phone, fillColor, textColor),
-                  ),
-                  SizedBox(height: 20),
-                  ExpansionPanelList(
-                    expansionCallback: (int index, bool isExpanded) {
-                      setState(() {
-                        _isPasswordPanelExpanded = !_isPasswordPanelExpanded;
-                      });
-                    },
-                    children: [
-                      ExpansionPanel(
-                        headerBuilder: (BuildContext context, bool isExpanded) {
-                          return Container(
-                            color: _isDarkMode ? Colors.black : Colors.white, // Arka plan rengini ayarlama
-                            child: ListTile(
-                              title: Text(
-                                'Şifre Değiştir',
-                                style: TextStyle(color: textColor),
-                              ),
-                            ),
-                          );
-                        },
-                        body: Container(
-                          color: _isDarkMode ? Colors.black : Colors.white, // Arka plan rengini ayarlama
-                          child: Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Form(
-                              key: _passwordFormKey,
-                              child: Column(
-                                children: [
-                                  TextFormField(
-                                    controller: _currentPasswordController,
-                                    decoration: _buildInputDecoration('Eski Şifre', Icons.lock_outline, fillColor, textColor),
-                                    obscureText: true,
-                                    style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black),
-                                  ),
-                                  SizedBox(height: 10),
-                                  TextFormField(
-                                    controller: _newPasswordController,
-                                    decoration: _buildInputDecoration('Yeni Şifre', Icons.lock, fillColor, textColor),
-                                    obscureText: true,
-                                    style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black),
-                                  ),
-                                  SizedBox(height: 10),
-                                  TextFormField(
-                                    controller: _confirmNewPasswordController,
-                                    decoration: _buildInputDecoration('Yeni Şifreyi Onayla', Icons.lock, fillColor, textColor),
-                                    obscureText: true,
-                                    style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black),
-                                  ),
-                                  SizedBox(height: 20),
-                                  ElevatedButton(
-                                    onPressed: () {
-                                      if (_passwordFormKey.currentState!.validate()) {
-                                        updatePassword();
-                                      }
-                                    },
-                                    child: Text("Şifreyi Değiştir"),
-                                    style: ElevatedButton.styleFrom(
-                                      primary: _isDarkMode ? Colors.black : Colors.white, // Buton arka plan rengi
-                                      onPrimary: _isDarkMode ? Colors.white : Colors.black, // Buton yazı rengi
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                        isExpanded: _isPasswordPanelExpanded,
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: 20),
-                  ElevatedButton(
-                    onPressed: updateUserInformation,
-                    child: Text(
-                      "Bilgileri Güncelle",
-                      style: TextStyle(
-                        color: themeColors["buttonText"],
-                        fontSize: 16,
-                      ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      primary: themeColors["buttonBackground"],
-                      onPrimary: themeColors["buttonText"],
-                      padding: EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      elevation: 5,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            children: [
+              _buildProfileHeader(userProvider),
+              SizedBox(height: 24),
+              _buildPasswordChangeCard(),
+              SizedBox(height: 24),
+              _buildInfoCard('Kişisel Bilgiler', [
+                _buildInfoField(Icons.person, 'İsim', _nameController),
+                _buildInfoField(Icons.email, 'E-posta', _emailController, readOnly: true),
+                _buildInfoField(Icons.phone, 'Telefon', _phoneNumberController),
+              ]),
+              SizedBox(height: 16),
+              _buildInfoCard('Ek Bilgiler', [
+                _buildInfoField(Icons.cake, 'Yaş', _ageController),
+                _buildInfoField(Icons.group, 'Takım', _teamController),
+                _buildInfoField(Icons.location_city, 'Şehir', _cityController),
+              ]),
+              SizedBox(height: 24),
+              _buildUpdateButton(),
+            ],
           ),
         ),
       ),
     );
   }
 
+  Widget _buildProfileHeader(UserProvider userProvider) {
+    return Container(
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _isDarkMode ? Colors.grey[800] : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          CircleAvatar(
+            radius: 50,
+            backgroundImage: NetworkImage('https://kelibu.net/storage/${userProvider.avatar}'),
+          ),
+          SizedBox(height: 16),
+          Text(
+            userProvider.username,
+            style: GoogleFonts.poppins(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: _isDarkMode ? Colors.white : Colors.black,
+            ),
+          ),
+          Text(
+            '${userProvider.point} Puan',
+            style: GoogleFonts.poppins(
+              fontSize: 18,
+              color: Colors.green,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPasswordChangeCard() {
+    return GestureDetector(
+      onTap: _showPasswordChangeDialog,
+      child: Container(
+        padding: EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: _isDarkMode ? Colors.blue[800] : Colors.blue[100],
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 10,
+              offset: Offset(0, 5),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.lock,
+              size: 40,
+              color: _isDarkMode ? Colors.white : Colors.blue[800],
+            ),
+            SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Şifre Değiştir',
+                    style: GoogleFonts.poppins(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: _isDarkMode ? Colors.white : Colors.blue[800],
+                    ),
+                  ),
+                  Text(
+                    'Hesabınızı güvende tutmak için şifrenizi düzenli olarak değiştirin',
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      color: _isDarkMode ? Colors.white70 : Colors.blue[600],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.arrow_forward_ios,
+              color: _isDarkMode ? Colors.white : Colors.blue[800],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoCard(String title, List<Widget> fields) {
+    return Container(
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _isDarkMode ? Colors.grey[800] : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: GoogleFonts.poppins(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: _isDarkMode ? Colors.white : Colors.black,
+            ),
+          ),
+          SizedBox(height: 16),
+          ...fields,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoField(IconData icon, String label, TextEditingController controller, {bool readOnly = false}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: TextFormField(
+        controller: controller,
+        readOnly: readOnly,
+        style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black),
+        decoration: InputDecoration(
+          prefixIcon: Icon(icon, color: _isDarkMode ? Colors.white70 : Colors.black54),
+          labelText: label,
+          labelStyle: TextStyle(color: _isDarkMode ? Colors.white70 : Colors.black54),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: _isDarkMode ? Colors.white30 : Colors.black26),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: _isDarkMode ? Colors.white30 : Colors.black26),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.blue),
+          ),
+          filled: true,
+          fillColor: _isDarkMode ? Colors.grey[700] : Colors.grey[100],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUpdateButton() {
+    return ElevatedButton(
+      onPressed: updateUserInformation,
+      child: Text('Bilgileri Güncelle'),
+      style: ElevatedButton.styleFrom(
+        primary: Colors.green,
+        onPrimary: Colors.white,
+        padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+    );
+  }
+
   Future updateUserInformation() async {
-    final userProvider = Provider.of(context, listen: false);
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
     int currentYear = DateTime.now().year;
     int age = int.tryParse(_ageController.text) ?? 0;
     int birthYear = currentYear - age;
@@ -315,9 +312,7 @@ class _AccountPageState extends State<AccountPage> {
 
       if (response.statusCode == 200) {
         final responseBody = jsonDecode(response.body);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(responseBody['message'] ?? 'Bilgiler başarıyla güncellendi')),
-        );
+        showCustomFlushbar(context, responseBody['message'] ?? 'Bilgiler başarıyla güncellendi');
         await userProvider.setUser(
           _nameController.text,
           userProvider.userId,
@@ -335,15 +330,257 @@ class _AccountPageState extends State<AccountPage> {
       } else {
         final responseBody = jsonDecode(response.body);
         print(responseBody);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(responseBody['error_message'] ?? 'Bilgiler güncellenirken bir hata oluştu')),
-        );
+        showCustomFlushbar(context, responseBody['error_message'] ?? 'Bilgiler güncellenirken bir hata oluştu');
       }
     } catch (e) {
       print(e);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Bilgiler güncellenirken bir hata oluştu: $e')),
-      );
+      showCustomFlushbar(context, 'Bilgiler güncellenirken bir hata oluştu: $e');
     }
+  }
+
+  void showCustomFlushbar(BuildContext context, String message) {
+    Flushbar(
+      messageText: Text(
+        message,
+        style: GoogleFonts.poppins(
+          color: _isDarkMode ? Colors.white : Colors.black87,
+          fontSize: 16,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      icon: Container(
+        margin: const EdgeInsets.only(left: 8, right: 8),
+        child: CircleAvatar(
+          backgroundColor: Colors.white,
+          radius: 20,
+          child: ClipOval(
+            child: Image.asset(
+              'assets/logo.png',
+              width: 30,
+              height: 30,
+              fit: BoxFit.cover,
+            ),
+          ),
+        ),
+      ),
+      duration: const Duration(seconds: 2),
+      flushbarPosition: FlushbarPosition.TOP,
+      backgroundColor: _isDarkMode ? Colors.grey[800]! : Colors.white,
+      boxShadows: [
+        BoxShadow(
+          color: Colors.black12,
+          offset: Offset(0, 3),
+          blurRadius: 6,
+        ),
+      ],
+      borderRadius: BorderRadius.circular(12),
+      margin: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+      animationDuration: Duration(milliseconds: 400),
+      forwardAnimationCurve: Curves.easeOutCirc,
+      reverseAnimationCurve: Curves.easeInCirc,
+      leftBarIndicatorColor: Colors.green,
+    )..show(context);
+  }
+}
+
+class PasswordChangeDialog extends StatefulWidget {
+  final bool isDarkMode;
+
+  PasswordChangeDialog({required this.isDarkMode});
+
+  @override
+  _PasswordChangeDialogState createState() => _PasswordChangeDialogState();
+}
+
+class _PasswordChangeDialogState extends State<PasswordChangeDialog> {
+  final _passwordFormKey = GlobalKey<FormState>();
+  late TextEditingController _currentPasswordController;
+  late TextEditingController _newPasswordController;
+  late TextEditingController _confirmNewPasswordController;
+  bool _obscureCurrentPassword = true;
+  bool _obscureNewPassword = true;
+  bool _obscureConfirmPassword = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentPasswordController = TextEditingController();
+    _newPasswordController = TextEditingController();
+    _confirmNewPasswordController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _currentPasswordController.dispose();
+    _newPasswordController.dispose();
+    _confirmNewPasswordController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        backgroundColor: widget.isDarkMode ? Colors.grey[800] : Colors.white,
+        child: Padding(
+        padding: const EdgeInsets.all(24.0),
+    child: Form(
+    key: _passwordFormKey,
+    child: Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+    Text(
+    'Şifre Değiştir',
+    style: GoogleFonts.poppins(fontSize: 24,
+      fontWeight: FontWeight.bold,
+      color: widget.isDarkMode ? Colors.white : Colors.black,
+    ),
+    ),
+      SizedBox(height: 24),
+      _buildPasswordField('Mevcut Şifre', _currentPasswordController, _obscureCurrentPassword, () {
+        setState(() => _obscureCurrentPassword = !_obscureCurrentPassword);
+      }),
+      SizedBox(height: 16),
+      _buildPasswordField('Yeni Şifre', _newPasswordController, _obscureNewPassword, () {
+        setState(() => _obscureNewPassword = !_obscureNewPassword);
+      }),
+      SizedBox(height: 16),
+      _buildPasswordField('Yeni Şifre (Tekrar)', _confirmNewPasswordController, _obscureConfirmPassword, () {
+        setState(() => _obscureConfirmPassword = !_obscureConfirmPassword);
+      }),
+      SizedBox(height: 32),
+      ElevatedButton(
+        onPressed: () {
+          if (_passwordFormKey.currentState!.validate()) {
+            updatePassword();
+          }
+        },
+        child: Text('Şifreyi Değiştir'),
+        style: ElevatedButton.styleFrom(
+          primary: Colors.green,
+          onPrimary: Colors.white,
+          padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      ),
+    ],
+    ),
+    ),
+        ),
+    );
+  }
+
+  Widget _buildPasswordField(String label, TextEditingController controller, bool obscureText, VoidCallback toggleObscure) {
+    return TextFormField(
+      controller: controller,
+      obscureText: obscureText,
+      style: TextStyle(color: widget.isDarkMode ? Colors.white : Colors.black),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: TextStyle(color: widget.isDarkMode ? Colors.white70 : Colors.black54),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: widget.isDarkMode ? Colors.white30 : Colors.black26),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: widget.isDarkMode ? Colors.white30 : Colors.black26),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.blue),
+        ),
+        filled: true,
+        fillColor: widget.isDarkMode ? Colors.grey[700] : Colors.grey[100],
+        suffixIcon: IconButton(
+          icon: Icon(
+            obscureText ? Icons.visibility : Icons.visibility_off,
+            color: widget.isDarkMode ? Colors.white70 : Colors.black54,
+          ),
+          onPressed: toggleObscure,
+        ),
+      ),
+      validator: (value) {
+        if (value == null || value.isEmpty) {
+          return 'Bu alan boş bırakılamaz';
+        }
+        return null;
+      },
+    );
+  }
+
+  Future<void> updatePassword() async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final response = await http.post(
+      Uri.parse('https://kelibu.net/api/reset-password'),
+      headers: <String, String>{
+        'Content-Type': 'application/json; charset=UTF-8',
+        'X-Custom-Header': privacyKey.privacyKeyVariable,
+      },
+      body: jsonEncode(<String, String>{
+        'user_id': userProvider.userId.toString(),
+        'old_password': _currentPasswordController.text,
+        'password': _newPasswordController.text,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      final responseBody = jsonDecode(response.body);
+      String message = responseBody['message'] ?? 'Şifre başarıyla güncellendi';
+      Navigator.of(context).pop(); // Dialog'u kapat
+      showCustomFlushbar(context, message);
+    } else {
+      final responseBody = jsonDecode(response.body);
+      String errorMessage = responseBody['error_message'] ?? 'Şifre güncellenemedi';
+      showCustomFlushbar(context, errorMessage);
+    }
+  }
+
+  void showCustomFlushbar(BuildContext context, String message) {
+    Flushbar(
+      messageText: Text(
+        message,
+        style: GoogleFonts.poppins(
+          color: widget.isDarkMode ? Colors.white : Colors.black87,
+          fontSize: 16,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      icon: Container(
+        margin: const EdgeInsets.only(left: 8, right: 8),
+        child: CircleAvatar(
+          backgroundColor: Colors.white,
+          radius: 20,
+          child: ClipOval(
+            child: Image.asset(
+              'assets/logo.png',
+              width: 30,
+              height: 30,
+              fit: BoxFit.cover,
+            ),
+          ),
+        ),
+      ),
+      duration: const Duration(seconds: 2),
+      flushbarPosition: FlushbarPosition.TOP,
+      backgroundColor: widget.isDarkMode ? Colors.grey[800]! : Colors.white,
+      boxShadows: [
+        BoxShadow(
+          color: Colors.black12,
+          offset: Offset(0, 3),
+          blurRadius: 6,
+        ),
+      ],
+      borderRadius: BorderRadius.circular(12),
+      margin: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+      animationDuration: Duration(milliseconds: 400),
+      forwardAnimationCurve: Curves.easeOutCirc,
+      reverseAnimationCurve: Curves.easeInCirc,
+      leftBarIndicatorColor: Colors.green,
+    )..show(context);
   }
 }

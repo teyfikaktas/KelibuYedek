@@ -454,20 +454,8 @@ class _StudyScreenState extends State<StudyScreenStar> {
     animatedStarredCount.value = newCount; // Bu satırı ekledim
   }
 
-  Future<List<String>> _fetchSentenceForTerm(String term) async {
-    try {
-      var response = await ApiService().fetchExampleSentences(term);
-      if (response.isNotEmpty) {
-        // Her öğeyi String'e dönüştürüp yeni bir liste oluştur
-        return response.map<String>((item) => item['cumle'].toString()).toList();
-      } else {
-        return ["Cümle bulunamadı"];
-      }
-    } catch (e) {
-      print('Hata: $e');
-      return ["Cümle yüklenemedi"];
-    }
-  }
+
+
 
   TableRow buildTableRow(String term, String meaning) {
     return TableRow(

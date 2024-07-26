@@ -3,8 +3,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:kelibu/screens/register.dart';
 import 'package:kelibu/screens/register_screen.dart';
 import 'package:kelibu/screens/sdk/customShowDialog.dart';
+import 'package:kelibu/screens/video_player.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../globalDart/urls.dart';
 import '../main.dart';
 import '../providers/user_provider.dart';
 import 'home_screen.dart';
@@ -15,6 +17,7 @@ import 'package:kelibu/variables.dart';
 import 'reset_password_screen.dart';
 import 'package:hive/hive.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:lottie/lottie.dart';
 
 class LoginScreen extends StatefulWidget {
   final String username;
@@ -46,6 +49,8 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     });
     _loadDarkModePreference();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _showWelcomeMessage());
+
   }
 
   Future<void> _loadDarkModePreference() async {
@@ -219,7 +224,115 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  @override
+
+
+  Future<void> _showWelcomeMessage() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    bool hasShownWelcomeMessage = prefs.getBool('hasShownWelcomeMessage') ?? false;
+
+    if (!hasShownWelcomeMessage) {
+      if (!mounted) return;
+
+      await showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return Dialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            elevation: 0,
+            backgroundColor: Colors.transparent,
+            child: Container(
+              padding: EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.rectangle,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black26,
+                    blurRadius: 10.0,
+                    offset: const Offset(0.0, 10.0),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.celebration,
+                    size: 80,
+                    color: Colors.blue,
+                  ),
+                  SizedBox(height: 20),
+                  Text(
+                    'Hoş Geldiniz! 🎉',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue[800],
+                    ),
+                  ),
+                  SizedBox(height: 15),
+                  Text(
+                    'Yeni bir maceraya hazır mısınız?',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 18, color: Colors.blue[600]),
+                  ),
+                  SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.arrow_upward, color: Colors.orange),
+                      SizedBox(width: 5),
+                      Text(
+                        'Sağ üst köşedeki "?" işaretini',
+                        style: TextStyle(fontSize: 16, color: Colors.orange[700]),
+                      ),
+                    ],
+                  ),
+                  Text(
+                    'keşfetmeyi unutmayın!',
+                    style: TextStyle(fontSize: 16, color: Colors.orange[700]),
+                  ),
+                  SizedBox(height: 15),
+                  Text(
+                    'Harika sürprizler sizi bekliyor! 🎁✨',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontStyle: FontStyle.italic,
+                      color: Colors.green[600],
+                    ),
+                  ),
+                  SizedBox(height: 20),
+                  ElevatedButton(
+                    child: Text(
+                      'Anladım, Başlayalım!',
+                      style: TextStyle(fontSize: 18, color: Colors.white),
+                    ),
+                    onPressed: () => Navigator.of(context).pop(),
+                    style: ElevatedButton.styleFrom(
+                      primary: Colors.blue,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                      padding: EdgeInsets.symmetric(horizontal: 30, vertical: 10),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+
+      // Dialog kapandıktan sonra değeri kaydet
+      await prefs.setBool('hasShownWelcomeMessage', true);
+    }
+  }
+
   Widget build(BuildContext context) {
     final colors = _isDarkMode ? darkModeColors : lightModeColors;
 
@@ -233,23 +346,46 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: <Widget>[
-                  Align(
-                    alignment: Alignment.topRight,
+                  Padding(
+                    padding: const EdgeInsets.only(top: 16.0, right: 16.0),
                     child: Row(
-                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        Text(
-                          'Gece Modu',
-                          style: TextStyle(color: colors["text"]),
+                        GestureDetector(
+                          onTap: _toggleDarkMode,
+                          child: Container(
+                            padding: EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: colors["text"]?.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Icon(
+                              _isDarkMode ? Icons.nightlight_round : Icons.wb_sunny,
+                              color: colors["text"],
+                              size: 24,
+                            ),
+                          ),
                         ),
-                        Switch(
-                          value: _isDarkMode,
-                          onChanged: (value) {
-                            _toggleDarkMode();
+                        SizedBox(width: 16),
+                        GestureDetector(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => VideoPlayerScreen(videoUrl: AppUrls.login)),
+                            );
                           },
-                          activeColor: colors["buttonBackground"],
-                          inactiveThumbColor: colors["borderColor"],
-                          inactiveTrackColor: colors["borderColor"]?.withOpacity(0.5),
+                          child: Container(
+                            padding: EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: colors["text"]?.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Icon(
+                              Icons.help_outline,
+                              color: colors["text"],
+                              size: 24,
+                            ),
+                          ),
                         ),
                       ],
                     ),

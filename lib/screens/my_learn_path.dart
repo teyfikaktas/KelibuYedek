@@ -1,8 +1,12 @@
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:kelibu/screens/video_player.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../Models/wordDetaik.dart';
+import '../globalDart/urls.dart';
 import '../providers/user_provider.dart';
 import 'package:kelibu/api.dart';
 import 'package:kelibu/screens/study_screen_star.dart';
@@ -43,6 +47,12 @@ class StarredWordsScreen extends StatefulWidget {
 
 class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBindingObserver {
   bool isPageView = true;
+  int _currentPage = 0;
+  bool _hasMoreItems = true;
+  Timer? _debounce;
+
+  static const int _itemsPerPage = 20;
+  ScrollController _scrollController = ScrollController();
   List<WordDetail> words = [];
   List<WordDetail> filteredWords = [];
   TextEditingController searchController = TextEditingController();
@@ -58,9 +68,17 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
     super.initState();
     _starredWordsService = StarredWordsService();
     WidgetsBinding.instance.addObserver(this);
+    _scrollController.addListener(_scrollListener);
     _initialize();
   }
-
+  void _scrollListener() {
+    if (_scrollController.offset >= _scrollController.position.maxScrollExtent &&
+        !_scrollController.position.outOfRange &&
+        _hasMoreItems &&
+        searchController.text.isEmpty) {
+      fetchWords();
+    }
+  }
   Future<void> _initialize() async {
     await _loadDarkModePreference();
     await fetchWords();
@@ -75,6 +93,10 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
 
   @override
   void dispose() {
+    _debounce?.cancel();
+
+    _scrollController.removeListener(_scrollListener);
+    _scrollController.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -88,20 +110,32 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
   }
 
   Future<void> fetchWords() async {
+    if (!_hasMoreItems) return;
+
     setState(() {
       isLoading = true;
     });
     try {
       UserProvider userProvider = Provider.of<UserProvider>(context, listen: false);
       var starredWordsSet = await _starredWordsService.loadAllStarredWordsAll();
-      var starredWordsList = starredWordsSet.toList(); // Set'i List'e dönüştürme
+      var starredWordsList = starredWordsSet.toList();
       starredWordsString = starredWordsList.join(', ');
 
-      wordDetails = await ApiService().fetchWordsDetail(starredWordsList);
+      int startIndex = _currentPage * _itemsPerPage;
+      int endIndex = startIndex + _itemsPerPage;
+      if (endIndex > starredWordsList.length) {
+        endIndex = starredWordsList.length;
+        _hasMoreItems = false;
+      }
+
+      List<int> pageWords = starredWordsList.sublist(startIndex, endIndex);
+      List<WordDetail> newWordDetails = await ApiService().fetchWordsDetail(pageWords);
+
       setState(() {
-        words = wordDetails;
-        filteredWords = wordDetails;
+        words.addAll(newWordDetails);
+        filteredWords = words;
         isLoading = false;
+        _currentPage++;
       });
     } catch (error) {
       setState(() {
@@ -111,16 +145,28 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
   }
 
   void filterWords(String query) {
-    setState(() {
-      filteredWords = query.isNotEmpty
-          ? words.where((word) => word.word.toLowerCase().contains(query.toLowerCase())).toList()
-          : words;
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce = Timer(const Duration(milliseconds: 500), () {
+      setState(() {
+        if (query.isEmpty) {
+          filteredWords = words;
+          _hasMoreItems = true;  // Aramayı temizlediğimizde lazy loading'i tekrar etkinleştir
+        } else {
+          filteredWords = words.where((word) =>
+          word.word.toLowerCase().contains(query.toLowerCase()) ||
+              word.meaning.toLowerCase().contains(query.toLowerCase())
+          ).toList();
+          _hasMoreItems = false;  // Arama yapıldığında lazy loading'i durdur
+        }
+      });
     });
-  }
-
-  @override
+  }  @override
   Widget build(BuildContext context) {
     final colors = _isDarkMode ? darkModeColors : lightModeColors;
+    colors.putIfAbsent("shadow", () => Colors.grey.shade300);
+    colors.putIfAbsent("text", () => Colors.black);
+    colors.putIfAbsent("unselectedText", () => Colors.grey);
+    colors.putIfAbsent("inputBackground", () => Colors.white);
 
     return Scaffold(
       backgroundColor: colors["background"]!,
@@ -147,44 +193,24 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
               });
             },
           ),
+          _buildRoundedIconButton(Icons.help, Colors.green, () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => VideoPlayerScreen(videoUrl: AppUrls.mystarwords)),
+            );
+          }),
+
         ],
         iconTheme: IconThemeData(
           color: colors["text"]!,
         ),
       ),
       body: isLoading
-          ? Center(child: LogoLoadingIndicator())
+          ? Center(child: buildLoadingIndicator(colors))
           : Column(
         children: [
-          if (isPageView)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-              child: TextField(
-                controller: searchController,
-                decoration: InputDecoration(
-                  labelText: "Ara",
-                  hintText: "Kelime ara...",
-                  prefixIcon: Icon(Icons.search, color: colors["text"]!),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.all(Radius.circular(25.0)),
-                    borderSide: BorderSide(color: colors["cardBorder"]!, width: 1.5),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.all(Radius.circular(25.0)),
-                    borderSide: BorderSide(color: colors["cardBorder"]!, width: 1.5),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.all(Radius.circular(25.0)),
-                    borderSide: BorderSide(color: colors["background"]!, width: 2.0),
-                  ),
-                  fillColor: colors["inputBackground"],
-                  filled: true,
-                  hintStyle: TextStyle(color: colors["unselectedText"]),
-                ),
-                onChanged: filterWords,
-                style: TextStyle(color: colors["text"]),
-              ),
-            ),
+          if (isPageView) buildSearchBar(colors),
+          if (isPageView) buildSearchInfo(colors),
           Expanded(
             child: isPageView ? buildListView(colors) : buildPageView(colors),
           ),
@@ -215,7 +241,74 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
       ),
     );
   }
+  Widget _buildRoundedIconButton(IconData icon, Color color, VoidCallback onPressed) {
+    return ElevatedButton(
+      onPressed: onPressed,
+      style: ElevatedButton.styleFrom(
+        primary: color,
+        shape: CircleBorder(),
+        padding: EdgeInsets.all(12.sp),
+      ),
+      child: Icon(icon, color: Colors.white, size: 24.sp),
+    );
+  }
 
+  Widget buildLoadingIndicator(Map<String, Color> colors) {
+    return Container(
+      padding: EdgeInsets.all(16),
+      child: Column(
+        children: [
+          SizedBox(
+            width: 60,
+            height: 60,
+            child: Stack(
+              children: [
+                Center(
+                  child: Container(
+                    width: 50,
+                    height: 50,
+                    decoration: BoxDecoration(
+                      color: colors["buttonBackground"],
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+                Center(
+                  child: SizedBox(
+                    width: 60,
+                    height: 60,
+                    child: CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(colors["buttonBackground"]!),
+                      strokeWidth: 4,
+                    ),
+                  ),
+                ),
+                Center(
+                  child: Text(
+                    "A",
+                    style: TextStyle(
+                      color: colors["buttonText"],
+                      fontSize: 30,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(height: 16),
+          Text(
+            "Kelimeler Yükleniyor...",
+            style: TextStyle(
+              color: colors["text"],
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
   Widget buildPageView(Map<String, Color> colors) {
     return PageView.builder(
       itemCount: words.length,
@@ -225,91 +318,300 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
       },
     );
   }
+  Widget buildSearchInfo(Map<String, Color> colors) {
+    if (searchController.text.isEmpty) return SizedBox.shrink();
 
-  Widget buildListView(Map<String, Color> colors) {
-    return ListView.builder(
-      itemCount: filteredWords.length,
-      itemBuilder: (context, index) {
-        final word = filteredWords[index];
-        return ListTile(
-          leading: CustomCircleAvatar(
-            imageUrl: word.image != null ? "https://cloud.phdakademi.com/uploads/kelibu.net/${word.image}" : "",
-            assetImagePath: "assets/logo.png",
-          ),
-          title: Text(
-            word.word,
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: colors["text"]),
-          ),
-          subtitle: Text(
-            word.meaning,
-            style: TextStyle(color: colors["text"]),
-          ),
-          onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => StudyScreenStar(
-                  words: [word],
-                  classroomId: 0,
-                  studySetId: word.id,
-                ),
-              ),
-            ).then((value) {
-              if (value != null) {
-                fetchWords();
-              }
-            });
-          },
-        );
-      },
+    return Container(
+      padding: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+      color: colors["background"],
+      child: Text(
+        "${filteredWords.length} sonuç bulundu",
+        style: TextStyle(
+          color: colors["text"]!.withOpacity(0.7),
+          fontStyle: FontStyle.italic,
+        ),
+      ),
     );
   }
-
+  Widget buildSearchBar(Map<String, Color> colors) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      child: Container(
+        decoration: BoxDecoration(
+          color: colors["inputBackground"],
+          borderRadius: BorderRadius.circular(25.0),
+          boxShadow: [
+            BoxShadow(
+              color: colors["shadow"]!.withOpacity(0.1),
+              blurRadius: 5,
+              offset: Offset(0, 2),
+            ),
+          ],
+        ),
+        child: TextField(
+          controller: searchController,
+          decoration: InputDecoration(
+            hintText: "Kelime veya anlam ara...",
+            prefixIcon: Icon(Icons.search, color: colors["text"]!.withOpacity(0.5)),
+            suffixIcon: searchController.text.isNotEmpty
+                ? IconButton(
+              icon: Icon(Icons.clear, color: colors["text"]!.withOpacity(0.5)),
+              onPressed: () {
+                searchController.clear();
+                filterWords('');
+              },
+            )
+                : null,
+            border: InputBorder.none,
+            hintStyle: TextStyle(color: colors["unselectedText"]!.withOpacity(0.7)),
+          ),
+          onChanged: filterWords,
+          style: TextStyle(color: colors["text"]),
+        ),
+      ),
+    );
+  }
   Future<void> speak(String text) async {
     await flutterTts.speak(text);
   }
 
+
   Widget buildWordCard(WordDetail word, int index, Map<String, Color> colors) {
-    try {
-      return Hero(
-        tag: 'word_card_$index',
-        child: Card(
-          margin: EdgeInsets.all(8),
-          color: colors["cardBackground"],
-          child: Column(
-            children: [
-              Expanded(
-                child: CachedNetworkImage(
-                  imageUrl: word.image != null ? "https://cloud.phdakademi.com/uploads/kelibu.net/${word.image}" : "https://kelibu.net/images/defaultimage.png",
-                  fit: BoxFit.cover,
-                  placeholder: (context, url) => CircularProgressIndicator(),
-                  errorWidget: (context, url, error) => Icon(Icons.error),
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      decoration: BoxDecoration(
+        color: colors["cardBackground"],
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            child: AspectRatio(
+              aspectRatio: 16 / 9,
+              child: CachedNetworkImage(
+                imageUrl: word.image != null
+                    ? "https://cloud.phdakademi.com/uploads/kelibu.net/${word.image}"
+                    : "https://kelibu.net/images/defaultimage.png",
+                fit: BoxFit.cover,
+                placeholder: (context, url) => Center(child: LogoLoadingIndicator()),
+                errorWidget: (context, url, error) => Image.asset(
+                  'assets/logo.png',
+                  fit: BoxFit.contain,
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Text(
-                  word.word,
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: colors["text"]),
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      word.word,
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: colors["text"],
+                      ),
+                    ),
+                    if (word.type != null)
+                      Container(
+                        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: colors["buttonBackground"]!.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          word.type == "full" ? "Tip bulunamadı" : word.type!,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: colors["buttonBackground"],
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Text(
+                SizedBox(height: 10),
+                Text(
                   word.meaning,
-                  style: TextStyle(fontSize: 16, color: colors["text"]),
+                  style: TextStyle(
+                    fontSize: 18,
+                    color: colors["text"],
+                  ),
+                ),
+                SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    InkWell(
+                      onTap: () => speak(word.word),
+                      child: Container(
+                        padding: EdgeInsets.symmetric(horizontal: 15, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: colors["buttonBackground"],
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.volume_up, color: colors["buttonText"], size: 20),
+                            SizedBox(width: 5),
+                            Text(
+                              'Dinle',
+                              style: TextStyle(color: colors["buttonText"], fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  Widget buildListView(Map<String, Color> colors) {
+    return ListView.builder(
+      controller: _scrollController,
+      itemCount: filteredWords.length + (_hasMoreItems && searchController.text.isEmpty ? 1 : 0),
+      itemBuilder: (context, index) {
+        if (index < filteredWords.length) {
+          final word = filteredWords[index];
+          return buildListTile(word, colors);
+        } else if (_hasMoreItems && searchController.text.isEmpty) {
+          return Center(child: buildLoadingIndicator(colors));
+        } else {
+          return SizedBox();
+        }
+      },
+    );
+  }
+  Widget buildListTile(WordDetail word, Map<String, Color> colors) {
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: colors["cardBackground"],
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 5,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: InkWell(
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => StudyScreenStar(
+                words: [word],
+                classroomId: 0,
+                studySetId: word.id,
+              ),
+            ),
+          ).then((value) {
+            if (value != null) {
+              fetchWords();
+            }
+          });
+        },
+        child: Padding(
+          padding: EdgeInsets.all(12),
+          child: Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: CachedNetworkImage(
+                  imageUrl: word.image != null
+                      ? "https://cloud.phdakademi.com/uploads/kelibu.net/${word.image}"
+                      : "https://kelibu.net/images/defaultimage.png",
+                  width: 70,
+                  height: 70,
+                  fit: BoxFit.cover,
+                  placeholder: (context, url) => Center(child: LogoLoadingIndicator()),
+                  errorWidget: (context, url, error) => Image.asset(
+                    'assets/logo.png',
+                    width: 70,
+                    height: 70,
+                    fit: BoxFit.contain,
+                  ),
                 ),
               ),
-              IconButton(
-                icon: Icon(Icons.volume_up, color: colors["text"]),
-                onPressed: () => speak(word.word),
+              SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          word.word,
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: colors["text"],
+                          ),
+                        ),
+                        SizedBox(width: 8),
+                        if (word.type != null)
+                          Container(
+                            padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: colors["buttonBackground"]!.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              word.type == "full" ? "Tip bulunamadı" : word.type!,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: colors["buttonBackground"],
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      word.meaning,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: colors["text"],
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              Column(
+                children: [
+                  IconButton(
+                    icon: Icon(Icons.volume_up, color: colors["buttonBackground"], size: 24),
+                    onPressed: () => speak(word.word),
+                  ),
+                ],
               ),
             ],
           ),
         ),
-      );
-    } catch (e) {
-      print('Hata oluştu: $e');
-      return SizedBox();
-    }
+      ),
+    );
   }
 }

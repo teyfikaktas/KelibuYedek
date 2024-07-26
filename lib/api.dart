@@ -441,13 +441,12 @@ class ApiService {
       var jsonResponse = json.decode(response.body);
       print('Response JSON: $jsonResponse'); // JSON yanıtını konsola yazdır
       List<dynamic> starredWords = jsonResponse; // Doğrudan listeyi işliyoruz
-
       final prefs = await SharedPreferences.getInstance();
       for (var word in starredWords) {
         try {
           int wordId = word['word_id'];
           int studySetId = word['study_set_id'];
-          int categoryId = word['category_id'];
+          int categoryId = word['c_id'];
 
           String key = _generateKey(categoryId, studySetId);
           List<String>? existingWords = List<String>.from(_getStringListSafe(prefs, key) ?? []);

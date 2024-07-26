@@ -346,4 +346,3 @@ class SocketService with ChangeNotifier {
     return userScores.entries.firstWhere((entry) => entry.key == _username, orElse: () => MapEntry(_username, 0)).value;
   }
 }
-
