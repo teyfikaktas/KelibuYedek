@@ -34,27 +34,17 @@ class ScoreDisplay extends StatefulWidget {
 }
 
 class _ScoreDisplayState extends State<ScoreDisplay> with TickerProviderStateMixin {
-  late AnimationController _scaleController;
   late AnimationController _colorController;
-  late Animation<double> _scaleAnimation;
   late Animation<Color?> _colorAnimation;
-  late int _lastScore;
 
   @override
   void initState() {
     super.initState();
-    _lastScore = widget.userPointsNotifier.value;
-
-    _scaleController = AnimationController(
-      duration: const Duration(milliseconds: 500),
-      vsync: this,
-    );
 
     _colorController = AnimationController(
       duration: const Duration(milliseconds: 1000),
       vsync: this,
     );
-
 
     _colorAnimation = ColorTween(
       begin: Colors.green,
@@ -65,16 +55,11 @@ class _ScoreDisplayState extends State<ScoreDisplay> with TickerProviderStateMix
   }
 
   void _onScoreChanged() {
-    if (widget.userPointsNotifier.value > _lastScore) {
-      _scaleController.forward(from: 0.0);
-      _colorController.forward(from: 0.0);
-      _lastScore = widget.userPointsNotifier.value;
-    }
+    _colorController.forward(from: 0.0);
   }
 
   @override
   void dispose() {
-    _scaleController.dispose();
     _colorController.dispose();
     widget.userPointsNotifier.removeListener(_onScoreChanged);
     super.dispose();
@@ -85,7 +70,6 @@ class _ScoreDisplayState extends State<ScoreDisplay> with TickerProviderStateMix
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final backgroundColor = isDarkMode ? Colors.grey[900] : Colors.white;
     final textColor = isDarkMode ? Colors.white : Colors.black87;
-    final iconColor = isDarkMode ? Colors.amber[400] : Colors.amber[600];
     final borderColor = isDarkMode ? Colors.grey[700] : Colors.grey[300];
 
     return AnimatedBuilder(
@@ -111,19 +95,12 @@ class _ScoreDisplayState extends State<ScoreDisplay> with TickerProviderStateMix
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: iconColor!.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  Icons.add_circle,
-                  size: 18,
-                  color: iconColor,
-                ),
+              Image.asset(
+                'assets/point.png',
+                width: 40,
+                height: 40,
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 2),
               ValueListenableBuilder<int>(
                 valueListenable: widget.userPointsNotifier,
                 builder: (context, value, child) {
@@ -143,7 +120,8 @@ class _ScoreDisplayState extends State<ScoreDisplay> with TickerProviderStateMix
       },
     );
   }
-}class SwipeHintAnimation extends StatefulWidget {
+}
+class SwipeHintAnimation extends StatefulWidget {
   final Function onAnimationComplete;
 
   SwipeHintAnimation({Key? key, required this.onAnimationComplete}) : super(key: key);
@@ -1526,9 +1504,8 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
       style: ElevatedButton.styleFrom(
         primary: color,
         shape: CircleBorder(),
-        padding: EdgeInsets.all(12.sp),
       ),
-      child: Icon(icon, color: Colors.white, size: 24.sp),
+      child: Icon(icon, color: Colors.white, size: 16.sp),
     );
   }
 

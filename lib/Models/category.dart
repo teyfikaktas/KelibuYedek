@@ -33,6 +33,14 @@ class Package {
     // Burada 'classroom' ve 'text' gibi nullable olan özellikler için null kontrolü yapabilirsiniz.
     return 'Package{id: $id, userId: $userId, classroom: ${classroom?.toString() ?? "null"}, text: $text}';
   }
+  // ID'ye göre benzersizliği sağlamak için eşitlik ve hashCode metotlarını override ediyoruz.
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+          other is Package && runtimeType == other.runtimeType && id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
 }
 
 class Classroom {

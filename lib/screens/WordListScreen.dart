@@ -73,9 +73,8 @@ class _WordListScreenState extends State<WordListScreen> {
       style: ElevatedButton.styleFrom(
         primary: color,
         shape: CircleBorder(),
-        padding: EdgeInsets.all(12.sp),
       ),
-      child: Icon(icon, color: Colors.white, size: 24.sp),
+      child: Icon(icon, color: Colors.white, size: 16.sp),
     );
   }
 

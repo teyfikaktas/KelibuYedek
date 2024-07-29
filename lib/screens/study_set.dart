@@ -37,6 +37,8 @@ class _StudySetListScreenState extends State<StudySetListScreen> {
   List<StudySet>? studySets;
   List<int> studySetIds = [];
   bool _isDarkMode = false;
+  int totalStarredWords = 0;
+
 
   @override
   void initState() {
@@ -54,11 +56,16 @@ class _StudySetListScreenState extends State<StudySetListScreen> {
     var sets = await ApiService().fetchStudySets(widget.classroomId, widget.wordid, userID.toString());
     print(widget.classroomId);
     final tempStarredWordCounts = <int, int>{};
+    int tempTotalStarredWords = 0;
     for (var studySet in sets) {
       final starredWordsSet = await StarredWordsService().loadStarredWords(widget.classroomId, studySet.id);
       tempStarredWordCounts[studySet.id] = starredWordsSet.length;
+      tempTotalStarredWords += starredWordsSet.length;
     }
-    starredWordCountsNotifier.value = tempStarredWordCounts;
+    setState(() {
+      starredWordCountsNotifier.value = tempStarredWordCounts;
+      totalStarredWords = tempTotalStarredWords;
+    });
   }
 
   @override
@@ -99,6 +106,39 @@ class _StudySetListScreenState extends State<StudySetListScreen> {
       body: SafeArea(
         child: Column(
           children: [
+            Container(
+              padding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+              decoration: BoxDecoration(
+                color: _isDarkMode ? Colors.grey[800] : Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    spreadRadius: 0,
+                    blurRadius: 10,
+                    offset: Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.star, color: Colors.amber, size: 28),
+                      SizedBox(width: 8),
+                      Text(
+                        '$totalStarredWords',
+                        style: GoogleFonts.poppins(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: _isDarkMode ? Colors.white : Colors.black,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
             Expanded(
               child: buildBody(textColor),
             ),
@@ -125,9 +165,8 @@ class _StudySetListScreenState extends State<StudySetListScreen> {
       style: ElevatedButton.styleFrom(
         primary: color,
         shape: CircleBorder(),
-        padding: EdgeInsets.all(12.sp),
       ),
-      child: Icon(icon, color: Colors.white, size: 24.sp),
+      child: Icon(icon, color: Colors.white, size: 16.sp),
     );
   }
 
@@ -192,7 +231,6 @@ class _StudySetListScreenState extends State<StudySetListScreen> {
       print('studytsets' + idString);
 
       // Veri yükleme işlemini bekleyin
-      await Future.delayed(Duration(seconds: 1)); // Simüle edilmiş yükleme süresi
 
       Navigator.of(context).pop(); // Yükleme göstergesini kapat
 
@@ -310,9 +348,11 @@ class _StudySetListScreenState extends State<StudySetListScreen> {
     );
 
     try {
+      // 300 ms bekletme ekleniyor
+      await Future.delayed(Duration(milliseconds: 100));
+
       // Burada gerekli verileri yükleyin
       // Örnek olarak, 2 saniye bekletelim
-      await Future.delayed(Duration(seconds: 1));
 
       Navigator.of(context).pop(); // Yükleme göstergesini kapat
 

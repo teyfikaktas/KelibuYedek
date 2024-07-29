@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:path/path.dart' as p;
@@ -14,6 +15,7 @@ import '../api.dart';
 import '../providers/user_provider.dart';
 import 'about_screen.dart';
 import 'contact_screen.dart';
+import 'loadingIndicator.dart';
 import 'privacy_conditions_screen.dart';
 import 'privary_policy.dart';
 import 'profile_setting.dart';
@@ -78,6 +80,7 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+
   Widget _buildProfileHeader(UserProvider userProvider) {
     return Column(
       children: [
@@ -86,9 +89,14 @@ class _SettingsPageState extends State<SettingsPage> {
           child: Stack(
             alignment: Alignment.bottomRight,
             children: [
-              CircleAvatar(
-                radius: 60,
-                backgroundImage: NetworkImage('https://kelibu.net/storage/${userProvider.avatar}'),
+              CachedNetworkImage(
+                imageUrl: 'https://kelibu.net/storage/${userProvider.avatar}',
+                imageBuilder: (context, imageProvider) => CircleAvatar(
+                  radius: 60,
+                  backgroundImage: imageProvider,
+                ),
+                placeholder: (context, url) => LogoLoadingIndicator(),
+                errorWidget: (context, url, error) => Icon(Icons.error),
               ),
               Container(
                 padding: EdgeInsets.all(4),
@@ -120,7 +128,6 @@ class _SettingsPageState extends State<SettingsPage> {
       ],
     );
   }
-
   Widget _buildSettingsSection() {
     return Container(
       margin: EdgeInsets.symmetric(horizontal: 16),
@@ -350,7 +357,14 @@ class _SettingsPageState extends State<SettingsPage> {
         var responseData = json.decode(response.body);
 
         String newAvatarUrl = responseData['avatar_url'];
+
+        // Eski avatar URL'sini önbellekten temizle
+        String oldAvatarUrl = 'https://kelibu.net/storage/${userProvider.avatar}';
+        await CachedNetworkImage.evictFromCache(oldAvatarUrl);
+
+        // Yeni avatar URL'sini güncelle
         await userProvider.updateUserAvatarUrl(newAvatarUrl);
+
         print('Avatar URL güncellendi: $newAvatarUrl');
       } else {
         var response = await http.Response.fromStream(streamedResponse);
@@ -391,7 +405,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                 ),
                 SizedBox(height: 20),
-                CircularProgressIndicator(),
+                LogoLoadingIndicator(),
                 SizedBox(height: 20),
                 Text(
                   "Lütfen bekleyin...",

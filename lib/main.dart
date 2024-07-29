@@ -5,6 +5,9 @@ import 'package:kelibu/providers/connectivity.dart';
 import 'package:kelibu/providers/darkmodeprovider.dart';
 import 'package:kelibu/providers/socket.dart';
 import 'package:kelibu/screens/RaceScreen.dart';
+import 'package:kelibu/screens/connectivyplus.dart';
+import 'package:kelibu/screens/connectivywrapper.dart';
+import 'package:kelibu/screens/onboarding_screen.dart';
 import 'package:path_provider/path_provider.dart' as path_provider;
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -38,12 +41,11 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final appDocumentDirectory = await path_provider.getApplicationDocumentsDirectory();
   Hive.init(appDocumentDirectory.path);
-  String csvContent = await rootBundle.loadString('assets/Model/words.csv');
 
   userProviderGlobal = UserProvider();
   await userProviderGlobal?.loadUser();
 
-  // Uygulamayı MultiProvider ile başlatın
+
   runApp(MultiProvider(
     providers: [
       ChangeNotifierProvider(create: (_) => SocketService()),
@@ -52,12 +54,11 @@ void main() async {
       ChangeNotifierProvider(create: (context) => VolumeProvider()),
       ChangeNotifierProvider(create: (context) => LanguageProvider()),
       ChangeNotifierProvider(create: (context) => DarkModeProvider()),
-
+      ChangeNotifierProvider<ConnectivityService>(create: (_) => ConnectivityService()),
     ],
     child: const MyApp(),
   ));
 }
-
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -66,18 +67,20 @@ class MyApp extends StatelessWidget {
     return ScreenUtilInit(
       designSize: Size(360, 690),
       builder: (context, child) => MaterialApp(
-        navigatorKey: navigatorKey, // Use the global navigator key
+        navigatorKey: navigatorKey,
         title: 'Kelibu',
         debugShowCheckedModeBanner: false,
-        home: const SplashScreen(),
+        home: ConnectivityWrapper(child: SplashScreen()),
         routes: {
-          '/noInternet': (context) => NoInternetPage(), // Define no internet page route
+          '/noInternet': (context) => NoInternetPage(),
+        },
+        builder: (context, child) {
+          return ConnectivityWrapper(child: child!);
         },
       ),
     );
   }
 }
-
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -87,6 +90,7 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen> {
   VideoPlayerController? _controller;
+  bool _dataLoaded = false;
 
   @override
   void initState() {
@@ -100,14 +104,33 @@ class _SplashScreenState extends State<SplashScreen> {
           });
         });
       });
+    _loadData();
+
+  }
+  Future<void> _loadData() async {
+    await WordDataCache.loadAllData();
+    setState(() {
+      _dataLoaded = true;
+    });
   }
 
   void _checkInternetAndNavigate() async {
     var internetChecker = InternetConnectionChecker();
     if (await internetChecker.isConnected()) {
-      _checkUser();
+      _checkOnboardingStatus();
     } else {
       Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => NoInternetPage()));
+    }
+  }
+
+  void _checkOnboardingStatus() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    bool onboardingComplete = prefs.getBool('onboarding_complete') ?? false;
+
+    if (onboardingComplete) {
+      _checkUser();
+    } else {
+      Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => OnboardingScreen()));
     }
   }
 
@@ -213,31 +236,33 @@ class _MainScreenState extends State<MainScreen> {
   Widget build(BuildContext context) {
     final darkModeProvider = Provider.of<DarkModeProvider>(context);
 
-    return Scaffold(
-      backgroundColor: Color(0xFF212121), // Daha hafif bir siyah ton
-      body: _getPage(_selectedIndex),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.of(context).push(MaterialPageRoute(
-            builder: (context) => RaceScreenBuild(),
-          ));
-        },
-        child: Icon(Icons.videogame_asset, color: Colors.white),
-        backgroundColor: Colors.grey[850],
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      bottomNavigationBar: AnimatedBottomNavigationBar(
-        icons: iconList,
-        activeIndex: _selectedIndex,
-        gapLocation: GapLocation.center,
-        notchSmoothness: NotchSmoothness.smoothEdge,
-        backgroundColor: Colors.grey[850],
-        leftCornerRadius: 32,
-        rightCornerRadius: 32,
-        activeColor: Colors.white,
-        inactiveColor: Colors.grey,
-        splashColor: Colors.white,
-        onTap: (index) => _onItemTapped(index),
+    return ConnectivityWrapper(
+      child: Scaffold(
+        backgroundColor: Color(0xFF212121), // Daha hafif bir siyah ton
+        body: _getPage(_selectedIndex),
+        floatingActionButton: FloatingActionButton(
+          onPressed: () {
+            Navigator.of(context).push(MaterialPageRoute(
+              builder: (context) => RaceScreenBuild(),
+            ));
+          },
+          child: Icon(Icons.videogame_asset, color: Colors.white),
+          backgroundColor: Colors.grey[850],
+        ),
+        floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+        bottomNavigationBar: AnimatedBottomNavigationBar(
+          icons: iconList,
+          activeIndex: _selectedIndex,
+          gapLocation: GapLocation.center,
+          notchSmoothness: NotchSmoothness.smoothEdge,
+          backgroundColor: Colors.grey[850],
+          leftCornerRadius: 32,
+          rightCornerRadius: 32,
+          activeColor: Colors.white,
+          inactiveColor: Colors.grey,
+          splashColor: Colors.white,
+          onTap: (index) => _onItemTapped(index),
+        ),
       ),
     );
   }

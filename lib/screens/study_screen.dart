@@ -234,6 +234,7 @@ class _StudyScreenState extends State<StudyScreen> with SingleTickerProviderStat
   @override
   Widget build(BuildContext context) {
     super.build(context);  // AutomaticKeepAliveClientMixin için gerekli
+
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: _isDarkMode ? darkModeColors["background"] : lightModeColors["background"],
@@ -335,9 +336,8 @@ class _StudyScreenState extends State<StudyScreen> with SingleTickerProviderStat
       style: ElevatedButton.styleFrom(
         primary: color,
         shape: CircleBorder(),
-        padding: EdgeInsets.all(12.sp),
       ),
-      child: Icon(icon, color: Colors.white, size: 24.sp),
+      child: Icon(icon, color: Colors.white, size: 16.sp),
     );
   }
 
@@ -747,8 +747,6 @@ class _StudyScreenState extends State<StudyScreen> with SingleTickerProviderStat
             }
             return Center(
               child: SizedBox(
-                height: Curves.easeOut.transform(value) * 600,
-                width: Curves.easeOut.transform(value) * 400,
                 child: child,
               ),
             );
@@ -1379,7 +1377,7 @@ class _StudyScreenState extends State<StudyScreen> with SingleTickerProviderStat
     var uniqueSynonyms = {for (var s in synonyms) s.tanim: s}.values.toList();
 
     return buildSectionWidget(
-      title: "Synonyms",
+      title: "Eş anlamlılar",
       children: [
         Wrap(
           spacing: 8.0,

@@ -673,7 +673,7 @@ class _RoomOptionsScreenState extends State<RoomOptionsScreen> {
       final csvFile = await rootBundle.loadString(wordsFilePath);
       List<String> csvList = LineSplitter().convert(csvFile);
 
-      List<int> wordsList = [];
+      List<int> allWordIds = [];
       for (var i = 1; i < csvList.length; i++) {
         var row = csvList[i];
         List<String> rowData = row.split(',"');
@@ -683,15 +683,21 @@ class _RoomOptionsScreenState extends State<RoomOptionsScreen> {
         if (rowData[0] == classroomId.toString()) {
           String words = rowData[1];
           words = words.substring(1, words.length - 1);
-          wordsList = words.split(',').map(int.parse).toList();
+          allWordIds = words.split(',').map(int.parse).toList();
           break;
         }
       }
 
-      wordsList.shuffle();
-      List<int> selectedWordIds = wordsList.take(int.parse(_questionCount)).toList();
+      // Gerçek rastgele seçim
+      Random random = Random();
+      int questionCount = int.parse(_questionCount);
+      Set<int> selectedWordIds = {};
+      while (selectedWordIds.length < questionCount && selectedWordIds.length < allWordIds.length) {
+        int randomIndex = random.nextInt(allWordIds.length);
+        selectedWordIds.add(allWordIds[randomIndex]);
+      }
 
-      await loadWordsDetails(selectedWordIds);
+      await loadWordsDetails(selectedWordIds.toList());
       print('Random words loaded for classroomId: $classroomId');
     } catch (e) {
       print('Error loading random words for classroomId $classroomId: $e');

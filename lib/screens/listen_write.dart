@@ -387,9 +387,8 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> with Single
       style: ElevatedButton.styleFrom(
         primary: color,
         shape: CircleBorder(),
-        padding: EdgeInsets.all(12.sp),
       ),
-      child: Icon(icon, color: Colors.white, size: 24.sp),
+      child: Icon(icon, color: Colors.white, size: 16.sp),
     );
   }
 
@@ -587,18 +586,37 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> with Single
                 ValueListenableBuilder<int>(
                   valueListenable: _userPoints,
                   builder: (_, value, __) => Container(
-                    padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: _isDarkMode ? Colors.tealAccent[700] : Colors.indigo,
+                      color: Colors.white,
                       borderRadius: BorderRadius.circular(15),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.withOpacity(0.3),
+                          spreadRadius: 1,
+                          blurRadius: 5,
+                          offset: Offset(0, 2),
+                        ),
+                      ],
                     ),
-                    child: Text(
-                      '$value P',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                        fontSize: 16,
-                      ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Image.asset(
+                          'assets/point.png',
+                          width: 24,
+                          height: 24,
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          '$value',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: _isDarkMode ? Colors.tealAccent[700] : Colors.indigo,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),

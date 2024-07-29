@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'dart:ui';
 import 'package:animated_toggle_switch/animated_toggle_switch.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -34,6 +35,7 @@ import 'package:csv/csv.dart';
 import 'package:provider/provider.dart';
 import '../providers/darkmodeprovider.dart';
 import 'RaceScreen.dart';
+import 'connectivywrapper.dart';
 import 'library_star.dart';
 import 'loadingIndicator.dart';
 
@@ -396,7 +398,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              CircularProgressIndicator(),
+              LogoLoadingIndicator(),
               Text("Sistemde gerekli ayarlar yapılıyor..."),
             ],
           ),
@@ -549,186 +551,195 @@ class _HomeScreenState extends State<HomeScreen> {
       minTextAdapt: true,
       splitScreenMode: true,
       builder: (context, child) {
-        return Scaffold(
-          backgroundColor: colors["background"],
-          body: Stack(
-            children: [
-              SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 8.h),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Spacer(),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      height: 150.h,
-                      child: _buildUserInfoSection(userProvider),
-                    ),
-                    LearningPanel(
-                      isDarkMode: _isDarkMode,
-                      onWordOfDayTap: () {
-                        showDialog(
-                          context: context,
-                          builder: (BuildContext context) {
-                            return WordOfTheDayDialog(
-                              isDarkMode: _isDarkMode,
-                              onSpeak: speak,
-                            );
-                          },
-                        );
-                      },
-                      onWordSetsTap: () {
-                        setState(() {
-                          isExpanded = true;
-                        });
-                      },
-                      packagesFuture: packagesFuture ?? ApiService().fetchCategories(userProvider.userId),
-                    ),
-                    Container(
-                      padding: EdgeInsets.all(16.sp),
-                      decoration: BoxDecoration(
-                        color: _isDarkMode ? Colors.grey[850] : Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: _isDarkMode
-                                ? Colors.black.withOpacity(0.3)
-                                : Colors.grey.withOpacity(0.3),
-                            spreadRadius: 2,
-                            blurRadius: 10,
-                            offset: Offset(0, 3),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        children: [
-                          _buildSocialMediaInfo(),
-                          SizedBox(height: 16.h),
-                          _buildPromoBanner(),
-                          SizedBox(height: 16.h),
-                          _buildPhdAkademiInfo(),
-                          SizedBox(height: 16.h),
-                          _buildWebsiteLink(),
-                        ],
-                      ),
-                    ),
-                    SizedBox(height: 20.h),
-                  ],
-                ),
-              ),
-              if (isExpanded)
-                TweenAnimationBuilder<double>(
-                  tween: Tween(begin: 1, end: 0),
-                  duration: Duration(milliseconds: 300),
-                  curve: Curves.easeOutCubic,
-                  builder: (context, value, child) {
-                    return Transform.translate(
-                      offset: Offset(0, MediaQuery.of(context).size.height * 0.5 * value),
-                      child: child,
-                    );
-                  },
-                  child: GestureDetector(
-                    onVerticalDragUpdate: (details) {
-                      if (details.primaryDelta! > 10) {
-                        setState(() {
-                          isExpanded = false;
-                        });
-                      }
-                    },
-                    child: Container(
-                      height: MediaQuery.of(context).size.height * 0.95,
-                      decoration: BoxDecoration(
-                        color: _isDarkMode ? Color(0xFF1E1E1E) : Colors.white,
-                        borderRadius: BorderRadius.only(
-                          topLeft: Radius.circular(30),
-                          topRight: Radius.circular(30),
+        return ConnectivityWrapper(
+          child: Scaffold(
+            backgroundColor: colors["background"],
+            body: Stack(
+              children: [
+                SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 8.h),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Spacer(),
+                          ],
                         ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: _isDarkMode ? Colors.black.withOpacity(0.3) : Colors.grey.withOpacity(0.5),
-                            blurRadius: 15,
-                            spreadRadius: 0,
-                          ),
-                        ],
                       ),
-                      child: Column(
-                        children: [
-                          Container(
-                            height: 5,
-                            width: 60,
-                            margin: EdgeInsets.symmetric(vertical: 15),
-                            decoration: BoxDecoration(
-                              color: _isDarkMode ? Colors.grey[700] : Colors.grey[300],
-                              borderRadius: BorderRadius.circular(2.5),
+                      Container(
+                        height: 165.h,
+                        child: _buildUserInfoSection(userProvider),
+                      ),
+                      LearningPanel(
+                        isDarkMode: _isDarkMode,
+                        onWordSetsTap: () {
+                          setState(() {
+                            isExpanded = true;
+                          });
+                        },
+                        onWordOfDayTap: () {
+                          showDialog(
+                            context: context,
+                            builder: (BuildContext context) {
+                              return WordOfTheDayDialog(
+                                isDarkMode: _isDarkMode,
+                                onSpeak: speak,
+                              );
+                            },
+                          );
+                        },
+                        onDictionaryTap: () {
+                          showDialog(
+                            context: context,
+                            builder: (BuildContext context) {
+                              return SearchDialog(isDarkMode: _isDarkMode);
+                            },
+                          );
+                        },
+                      ),
+                      Container(
+                        padding: EdgeInsets.all(16.sp),
+                        decoration: BoxDecoration(
+                          color: _isDarkMode ? Colors.grey[850] : Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: _isDarkMode
+                                  ? Colors.black.withOpacity(0.3)
+                                  : Colors.grey.withOpacity(0.3),
+                              spreadRadius: 2,
+                              blurRadius: 10,
+                              offset: Offset(0, 3),
                             ),
+                          ],
+                        ),
+                        child: Column(
+                          children: [
+                            _buildSocialMediaInfo(),
+                            SizedBox(height: 16.h),
+                            _buildPromoBanner(),
+                            SizedBox(height: 16.h),
+                            _buildPhdAkademiInfo(),
+                            SizedBox(height: 16.h),
+                            _buildWebsiteLink(),
+                          ],
+                        ),
+                      ),
+                      SizedBox(height: 20.h),
+                    ],
+                  ),
+                ),
+                if (isExpanded)
+                  TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 1, end: 0),
+                    duration: Duration(milliseconds: 300),
+                    curve: Curves.easeOutCubic,
+                    builder: (context, value, child) {
+                      return Transform.translate(
+                        offset: Offset(0, MediaQuery.of(context).size.height * 0.5 * value),
+                        child: child,
+                      );
+                    },
+                    child: GestureDetector(
+                      onVerticalDragUpdate: (details) {
+                        if (details.primaryDelta! > 10) {
+                          setState(() {
+                            isExpanded = false;
+                          });
+                        }
+                      },
+                      child: Container(
+                        height: MediaQuery.of(context).size.height * 0.95,
+                        decoration: BoxDecoration(
+                          color: _isDarkMode ? Color(0xFF1E1E1E) : Colors.white,
+                          borderRadius: BorderRadius.only(
+                            topLeft: Radius.circular(30),
+                            topRight: Radius.circular(30),
                           ),
-                          Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 25, vertical: 10),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  "Kelime Setlerim",
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 28,
-                                    fontWeight: FontWeight.bold,
-                                    color: _isDarkMode ? Colors.white : Color(0xFF333333),
-                                    letterSpacing: 0.5,
-                                  ),
-                                ),
-                                Container(
-                                  decoration: BoxDecoration(
-                                    color: _isDarkMode ? Colors.grey[800] : Colors.grey[200],
-                                    borderRadius: BorderRadius.circular(15),
-                                  ),
-                                  child: IconButton(
-                                    icon: Icon(Icons.close, color: _isDarkMode ? Colors.white70 : Colors.black54, size: 24),
-                                    onPressed: () {
-                                      setState(() {
-                                        isExpanded = false;
-                                      });
-                                    },
-                                  ),
-                                ),
-                              ],
+                          boxShadow: [
+                            BoxShadow(
+                              color: _isDarkMode ? Colors.black.withOpacity(0.3) : Colors.grey.withOpacity(0.5),
+                              blurRadius: 15,
+                              spreadRadius: 0,
                             ),
-                          ),
-                          Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 25),
-                            child: Text(
-                              _getRandomMessage(),
-                              style: GoogleFonts.poppins(
-                                fontSize: 16,
-                                fontStyle: FontStyle.italic,
-                                color: _isDarkMode ? Colors.grey[400] : Colors.grey[600],
-                              ),
-                            ),
-                          ),
-                          SizedBox(height: 20),
-                          Expanded(
-                            child: Container(
+                          ],
+                        ),
+                        child: Column(
+                          children: [
+                            Container(
+                              height: 5,
+                              width: 60,
+                              margin: EdgeInsets.symmetric(vertical: 15),
                               decoration: BoxDecoration(
-                                color: _isDarkMode ? Color(0xFF252525) : Colors.grey[100],
-                                borderRadius: BorderRadius.only(
-                                  topLeft: Radius.circular(30),
-                                  topRight: Radius.circular(30),
+                                color: _isDarkMode ? Colors.grey[700] : Colors.grey[300],
+                                borderRadius: BorderRadius.circular(2.5),
+                              ),
+                            ),
+                            Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 25, vertical: 10),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    "Kelime Setlerim",
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 28,
+                                      fontWeight: FontWeight.bold,
+                                      color: _isDarkMode ? Colors.white : Color(0xFF333333),
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                  Container(
+                                    decoration: BoxDecoration(
+                                      color: _isDarkMode ? Colors.grey[800] : Colors.grey[200],
+                                      borderRadius: BorderRadius.circular(15),
+                                    ),
+                                    child: IconButton(
+                                      icon: Icon(Icons.close, color: _isDarkMode ? Colors.white70 : Colors.black54, size: 24),
+                                      onPressed: () {
+                                        setState(() {
+                                          isExpanded = false;
+                                        });
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 25),
+                              child: Text(
+                                _getRandomMessage(),
+                                style: GoogleFonts.poppins(
+                                  fontSize: 16,
+                                  fontStyle: FontStyle.italic,
+                                  color: _isDarkMode ? Colors.grey[400] : Colors.grey[600],
                                 ),
                               ),
-                              child: PackageListWidget(packagesFuture: ApiService().fetchCategories(userProvider.userId)),
                             ),
-                          ),
-                        ],
+                            SizedBox(height: 20),
+                            Expanded(
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: _isDarkMode ? Color(0xFF252525) : Colors.grey[100],
+                                  borderRadius: BorderRadius.only(
+                                    topLeft: Radius.circular(30),
+                                    topRight: Radius.circular(30),
+                                  ),
+                                ),
+                                child: PackageListWidget(packagesFuture: ApiService().fetchCategories(userProvider.userId)),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         );
       },
@@ -1082,7 +1093,7 @@ class _HomeScreenState extends State<HomeScreen> {
               _buildPointsDisplay(userProvider.point),
             ],
           ),
-          SizedBox(height: 10.h),
+          SizedBox(height: 6.h),
           _buildActionButtons(),
         ],
       ),
@@ -1102,9 +1113,13 @@ class _HomeScreenState extends State<HomeScreen> {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(color: Colors.green, width: 2),
-                image: DecorationImage(
-                  image: NetworkImage('https://kelibu.net/storage/${userProvider.avatar}'),
+              ),
+              child: ClipOval(
+                child: CachedNetworkImage(
+                  imageUrl: 'https://kelibu.net/storage/${userProvider.avatar}',
                   fit: BoxFit.cover,
+                  placeholder: (context, url) => LogoLoadingIndicator(),
+                  errorWidget: (context, url, error) => Icon(Icons.error),
                 ),
               ),
             ),
@@ -1127,28 +1142,41 @@ class _HomeScreenState extends State<HomeScreen> {
       ],
     );
   }
-
   Widget _buildPointsDisplay(int points) {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
       decoration: BoxDecoration(
-        color: Colors.amber,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.3),
+            spreadRadius: 1,
+            blurRadius: 5,
+            offset: Offset(0, 3),
+          ),
+        ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.add_circle_outline, color: Colors.white, size: 20.sp),
-          SizedBox(width: 5.w),
+          Image.asset(
+            'assets/point.png',
+            width: 35.sp,  // Logoyu büyüttük
+            height: 35.sp, // Logoyu büyüttük
+          ),
           Text(
             '$points',
-            style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold, color: Colors.white),
+            style: TextStyle(
+                fontSize: 18.sp,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87
+            ),
           ),
         ],
       ),
     );
   }
-
   Widget _buildActionButtons() {
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
@@ -1320,7 +1348,7 @@ class PackageListWidget extends StatelessWidget {
       future: packagesFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return Center(child: CircularProgressIndicator());
+          return Center(child: LogoLoadingIndicator());
         } else if (snapshot.hasError) {
           return Center(child: Text("Hata: ${snapshot.error}"));
         } else if (snapshot.hasData && snapshot.data!.isNotEmpty) {
@@ -1824,7 +1852,7 @@ class ContentBox extends StatelessWidget {
             future: fetchWordOfTheDay(),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return Center(child: CircularProgressIndicator());
+                return Center(child: LogoLoadingIndicator());
               } else if (snapshot.hasError) {
                 return Center(child: Text('Hata oluştu'));
               } else if (snapshot.hasData) {
@@ -1849,17 +1877,37 @@ class ContentBox extends StatelessWidget {
                       textAlign: TextAlign.center,
                     ),
                     SizedBox(height: 22.h),
-                    Align(
-                      alignment: Alignment.bottomRight,
-                      child: ElevatedButton(
-                        onPressed: () => onSpeak(snapshot.data!.term),
-                        child: Icon(Icons.volume_up, color: Colors.white),
-                        style: ElevatedButton.styleFrom(
-                          primary: Colors.orange,
-                          shape: CircleBorder(),
-                          padding: EdgeInsets.all(15),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        ElevatedButton(
+                          onPressed: () => onSpeak(snapshot.data!.term),
+                          child: Icon(Icons.volume_up, color: Colors.white),
+                          style: ElevatedButton.styleFrom(
+                            primary: Colors.orange,
+                            shape: CircleBorder(),
+                            padding: EdgeInsets.all(15),
+                          ),
                         ),
-                      ),
+                        ElevatedButton(
+                          onPressed: () => _navigateToWordDetail(context, snapshot.data!),
+                          child: Text(
+                            "Detaylı Keşfet!",
+                            style: GoogleFonts.nunito(
+                              fontSize: 16.sp,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            primary: Colors.green,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 10.h),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 );
@@ -1903,90 +1951,101 @@ class ContentBox extends StatelessWidget {
       ],
     );
   }
+
+  void _navigateToWordDetail(BuildContext context, WordOfTheDay word) {
+    WordDetail wordDetail = WordDetail(
+      id: 0, // Günün kelimesi için özel bir ID oluşturabilirsiniz
+      word: word.term,
+      meaning: word.definition,
+      type: word.type,
+      image: null, // Eğer varsa, günün kelimesinin resmini ekleyebilirsiniz
+      collocations: [],
+      derivations: [],
+      synonyms: [],
+    );
+
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (context) => StudyScreen(
+        words: [wordDetail],
+        classroomId: 0,
+        studySetId: 0,
+        isStarred: true,
+      ),
+    ));
+  }
 }
 class LearningPanel extends StatelessWidget {
   final bool isDarkMode;
   final VoidCallback onWordOfDayTap;
   final VoidCallback onWordSetsTap;
-  final Future<List<Package>> packagesFuture;
+  final VoidCallback onDictionaryTap;
 
   const LearningPanel({
     Key? key,
     required this.isDarkMode,
     required this.onWordOfDayTap,
     required this.onWordSetsTap,
-    required this.packagesFuture,
+    required this.onDictionaryTap,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: EdgeInsets.all(16.sp),
-      padding: EdgeInsets.all(16.sp),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: isDarkMode
-              ? [Colors.grey[800]!, Colors.grey[900]!]
-              : [Colors.blue[400]!, Colors.blue[600]!],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: Offset(0, 5),
+      margin: EdgeInsets.symmetric(vertical: 16.h, horizontal: 16.w),
+      child: Column(
+        children: [
+          _buildFeatureButton(
+            icon: Icons.book,
+            title: "Kelime Setleri",
+            color: Colors.blue,
+            onTap: onWordSetsTap,
+          ),
+          SizedBox(height: 12.h),
+          _buildFeatureButton(
+            icon: Icons.lightbulb,
+            title: "Günün Kelimesi",
+            color: Colors.orange,
+            onTap: onWordOfDayTap,
+          ),
+          SizedBox(height: 12.h),
+          _buildFeatureButton(
+            icon: Icons.search,
+            title: "Sözlük",
+            color: Colors.green,
+            onTap: onDictionaryTap,
           ),
         ],
       ),
-      child: Column(
-        children: [
-          _buildWordSetsButton(context),
-          SizedBox(height: 16.h),
-          _buildWordOfTheDayButton(),
-          SizedBox(height: 16.h),
-
-          SearchPanel(isDarkMode: isDarkMode),
-          SizedBox(height: 16.h),
-        ],
-      ),
     );
   }
 
-  Widget _buildWordOfTheDayButton() {
+  Widget _buildFeatureButton({
+    required IconData icon,
+    required String title,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
     return ElevatedButton(
-      onPressed: onWordOfDayTap,
+      onPressed: onTap,
       style: ElevatedButton.styleFrom(
-        primary: isDarkMode ? Colors.deepOrange : Colors.orange,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-        padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 10.h),
+        primary: isDarkMode ? color.withOpacity(0.8) : color,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        padding: EdgeInsets.symmetric(vertical: 16.h, horizontal: 20.w),
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Icon(Icons.lightbulb, color: Colors.white),
-          SizedBox(width: 8.w),
-          Text("Günün Kelimesi", style: TextStyle(color: Colors.white)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildWordSetsButton(BuildContext context) {
-    return ElevatedButton(
-      onPressed: onWordSetsTap,
-      style: ElevatedButton.styleFrom(
-        primary: isDarkMode ? Colors.teal : Colors.green,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-        padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 10.h),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.school, color: Colors.white),
-          SizedBox(width: 8.w),
-          Text("Kelime Setlerine Çalış", style: TextStyle(color: Colors.white)),
+          Row(
+            children: [
+              Icon(icon, color: Colors.white, size: 24.sp),
+              SizedBox(width: 12.w),
+              Text(
+                title,
+                style: TextStyle(color: Colors.white, fontSize: 18.sp, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          Icon(Icons.arrow_forward_ios, color: Colors.white, size: 18.sp),
         ],
       ),
     );

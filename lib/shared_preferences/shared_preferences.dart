@@ -58,16 +58,16 @@ class StarredWordsService {
 
   Future<Set<int>> loadClassroomStarredWordsAll(int classroomId, List<int> studySetIds) async {
     await ensureInitialized();
-    Set<int> allStarredWords = {};
 
     if (classroomId == -1) {
-      allStarredWords = await loadAllStarredWordsAll();
-    } else {
-      for (int studySetId in studySetIds) {
-        final key = _generateKey(classroomId, studySetId);
-        final starredWords = await _getStarredWords(key);
-        allStarredWords.addAll(starredWords);
-      }
+      return loadAllStarredWordsAll();
+    }
+
+    final allStarredWords = <int>{};
+    for (final studySetId in studySetIds) {
+      final key = _generateKey(classroomId, studySetId);
+      final starredWords = await _getStarredWords(key);
+      allStarredWords.addAll(starredWords);
     }
 
     return allStarredWords;

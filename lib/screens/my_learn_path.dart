@@ -110,8 +110,6 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
   }
 
   Future<void> fetchWords() async {
-    if (!_hasMoreItems) return;
-
     setState(() {
       isLoading = true;
     });
@@ -121,21 +119,12 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
       var starredWordsList = starredWordsSet.toList();
       starredWordsString = starredWordsList.join(', ');
 
-      int startIndex = _currentPage * _itemsPerPage;
-      int endIndex = startIndex + _itemsPerPage;
-      if (endIndex > starredWordsList.length) {
-        endIndex = starredWordsList.length;
-        _hasMoreItems = false;
-      }
-
-      List<int> pageWords = starredWordsList.sublist(startIndex, endIndex);
-      List<WordDetail> newWordDetails = await ApiService().fetchWordsDetail(pageWords);
+      List<WordDetail> newWordDetails = await ApiService().fetchWordsDetail(starredWordsList);
 
       setState(() {
-        words.addAll(newWordDetails);
+        words = newWordDetails;
         filteredWords = words;
         isLoading = false;
-        _currentPage++;
       });
     } catch (error) {
       setState(() {

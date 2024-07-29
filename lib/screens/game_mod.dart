@@ -826,9 +826,9 @@ class _GameModeScreenState extends State<GameModeScreen> with WidgetsBindingObse
       style: ElevatedButton.styleFrom(
         primary: color,
         shape: CircleBorder(),
-        padding: EdgeInsets.all(12.sp),
+        padding: EdgeInsets.all(2.sp),
       ),
-      child: Icon(icon, color: Colors.white, size: 24.sp),
+      child: Icon(icon, color: Colors.white, size: 16.sp),
     );
   }
   bool hasEnoughWords() {

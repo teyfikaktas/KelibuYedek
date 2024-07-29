@@ -273,98 +273,100 @@ class _MarketPageState extends State<MarketPage> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          Container(
-            padding: EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-            color: Colors.blue.shade50,
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.language, color: Colors.blue.shade700, size: 28),
-                    SizedBox(width: 10),
-                    Text(
-                      "Dil Öğreniminde Yeni Bir Dönem",
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            Container(
+              padding: EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+              color: Colors.blue.shade50,
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.language, color: Colors.blue.shade700, size: 28),
+                      SizedBox(width: 10),
+                      Text(
+                        "Dil Öğreniminde Yeni Bir Dönem",
+                        style: GoogleFonts.poppins(
+                          color: Colors.blue.shade700,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 10),
+                  Text(
+                    "1 Eylül'e kadar tüm dil setlerimiz ücretsiz!",
+                    style: GoogleFonts.poppins(
+                      color: Colors.blue.shade600,
+                      fontWeight: FontWeight.w500,
+                      fontSize: 16,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    "PhD Akademi farkıyla: Profesyonel dil eğitimi, kişiselleştirilmiş öğrenme deneyimi için bize ulaşın!",
+                    style: GoogleFonts.poppins(
+                      color: Colors.blue.shade500,
+                      fontWeight: FontWeight.w400,
+                      fontSize: 14,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  SizedBox(height: 10),
+                  InkWell(
+                    onTap: () => _launchURL('https://phdakademi.com'),
+                    child: Text(
+                      "Daha fazlası için tıklayın: phdakademi.com",
                       style: GoogleFonts.poppins(
-                        color: Colors.blue.shade700,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
+                        color: Colors.blue,
+                        fontWeight: FontWeight.w500,
+                        fontSize: 14,
+                        decoration: TextDecoration.underline,
                       ),
                     ),
-                  ],
-                ),
-                SizedBox(height: 10),
-                Text(
-                  "1 Eylül'e kadar tüm dil setlerimiz ücretsiz!",
-                  style: GoogleFonts.poppins(
-                    color: Colors.blue.shade600,
-                    fontWeight: FontWeight.w500,
-                    fontSize: 16,
                   ),
-                  textAlign: TextAlign.center,
-                ),
-                SizedBox(height: 8),
-                Text(
-                  "PhD Akademi farkıyla: Profesyonel dil eğitimi, kişiselleştirilmiş öğrenme deneyimi için bize ulaşın!",
-                  style: GoogleFonts.poppins(
-                    color: Colors.blue.shade500,
-                    fontWeight: FontWeight.w400,
-                    fontSize: 14,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                SizedBox(height: 10),
-                InkWell(
-                  onTap: () => _launchURL('https://phdakademi.com'),
-                  child: Text(
-                    "Daha fazlası için tıklayın: phdakademi.com",
+                  SizedBox(height: 15),
+                  Text(
+                    "Bizi sosyal medyada takip edin:",
                     style: GoogleFonts.poppins(
-                      color: Colors.blue,
+                      color: Colors.blue.shade700,
                       fontWeight: FontWeight.w500,
-                      fontSize: 14,
-                      decoration: TextDecoration.underline,
+                      fontSize: 16,
                     ),
                   ),
-                ),
-                SizedBox(height: 15),
-                Text(
-                  "Bizi sosyal medyada takip edin:",
-                  style: GoogleFonts.poppins(
-                    color: Colors.blue.shade700,
-                    fontWeight: FontWeight.w500,
-                    fontSize: 16,
+                  SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _socialMediaButton(
+                        'https://www.instagram.com/phd.akademi/',
+                        'assets/phdakademi.jpg',
+                        'PhD Akademi',
+                      ),
+                      SizedBox(width: 20),
+                      _socialMediaButton(
+                        'https://www.instagram.com/kelibunet/',
+                        'assets/logo.png',
+                        'Kelibu',
+                      ),
+                    ],
                   ),
-                ),
-                SizedBox(height: 10),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _socialMediaButton(
-                      'https://www.instagram.com/phd.akademi/',
-                      'assets/phdakademi.jpg',
-                      'PhD Akademi',
-                    ),
-                    SizedBox(width: 20),
-                    _socialMediaButton(
-                      'https://www.instagram.com/kelibunet/',
-                      'assets/logo.png',
-                      'Kelibu',
-                    ),
-                  ],
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          Expanded(
-            child: _isLoading
+            _isLoading
                 ? Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Colors.blue)))
                 : products.isEmpty
                 ? Center(child: Text('Ürün bulunamadı', style: GoogleFonts.poppins(color: colors["text"]!)))
                 : Padding(
               padding: const EdgeInsets.all(12.0),
               child: StaggeredGridView.countBuilder(
+                shrinkWrap: true,
+                physics: NeverScrollableScrollPhysics(),
                 crossAxisCount: 2,
                 itemCount: products.length,
                 itemBuilder: (BuildContext context, int index) {
@@ -376,8 +378,8 @@ class _MarketPageState extends State<MarketPage> {
                 crossAxisSpacing: 12.0,
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -479,22 +481,6 @@ class _MarketPageState extends State<MarketPage> {
                           maxLines: 2,
                           minFontSize: 14,
                           overflow: TextOverflow.ellipsis,
-                        ),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            AutoSizeText(
-                              'Fiyat: ${product["price"]}',
-                              style: GoogleFonts.poppins(
-                                color: Colors.pink,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 16,
-                              ),
-                              maxLines: 1,
-                              minFontSize: 12,
-                            ),
-                            Icon(Icons.add_shopping_cart, color: Colors.pink),
-                          ],
                         ),
                       ],
                     ),

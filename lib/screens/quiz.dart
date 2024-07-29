@@ -9,6 +9,7 @@ import 'package:kelibu/api.dart';
 import 'package:kelibu/providers/language_provider.dart';
 import 'package:kelibu/screens/home_screen.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:kelibu/screens/loadingIndicator.dart';
 import 'package:kelibu/screens/video_player.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../globalDart/urls.dart';
@@ -75,7 +76,6 @@ class _ScoreDisplayState extends State<ScoreDisplay> with TickerProviderStateMix
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final backgroundColor = isDarkMode ? Colors.grey[900] : Colors.white;
     final textColor = isDarkMode ? Colors.white : Colors.black87;
-    final iconColor = isDarkMode ? Colors.amber[400] : Colors.amber[600];
     final borderColor = isDarkMode ? Colors.grey[700] : Colors.grey[300];
 
     return AnimatedBuilder(
@@ -101,19 +101,12 @@ class _ScoreDisplayState extends State<ScoreDisplay> with TickerProviderStateMix
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: iconColor!.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  Icons.add_circle,
-                  size: 18,
-                  color: iconColor,
-                ),
+              Image.asset(
+                'assets/point.png',
+                width: 40,
+                height: 40,
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 2),
               ValueListenableBuilder<int>(
                 valueListenable: widget.userPointsNotifier,
                 builder: (context, value, child) {
@@ -215,6 +208,8 @@ class _QuizScreenState extends State<QuizScreen> {
   bool isDoubleAnswerUsed = false;
   bool isTimeExtensionUsed = false;
   int currentQuestionIndex = 0;
+  bool isWordSoundOn = true;
+  bool isCorrectSoundOn = true;
   PageController _pageController = PageController();
   final ScrollController _navBarScrollController = ScrollController();
   ValueNotifier<bool> isRefreshOn = ValueNotifier(true);
@@ -423,20 +418,22 @@ class _QuizScreenState extends State<QuizScreen> {
     }
   }
   Future<void> playSoundCorrect(String path) async {
-    AudioPlayer audioPlayer = AudioPlayer();
-    await audioPlayer.setVolume(0.1);
+    if (isCorrectSoundOn) {
+      AudioPlayer audioPlayer = AudioPlayer();
+      await audioPlayer.setVolume(0.1);
 
-    if (!kIsWeb) {
-      ByteData data = await rootBundle.load(path);
-      Uint8List bytes = data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
-      String dir = (await getTemporaryDirectory()).path;
-      File tempFile = File('$dir/tempSound.wav');
-      await tempFile.writeAsBytes(bytes, flush: true);
-      await audioPlayer.play(DeviceFileSource(tempFile.path));
-    } else {
-      ByteData data = await rootBundle.load(path);
-      Uint8List bytes = data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
-      await audioPlayer.play(BytesSource(bytes));
+      if (!kIsWeb) {
+        ByteData data = await rootBundle.load(path);
+        Uint8List bytes = data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
+        String dir = (await getTemporaryDirectory()).path;
+        File tempFile = File('$dir/tempSound.wav');
+        await tempFile.writeAsBytes(bytes, flush: true);
+        await audioPlayer.play(DeviceFileSource(tempFile.path));
+      } else {
+        ByteData data = await rootBundle.load(path);
+        Uint8List bytes = data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
+        await audioPlayer.play(BytesSource(bytes));
+      }
     }
   }
   Future<void> _loadDarkModePreference() async {
@@ -458,6 +455,107 @@ class _QuizScreenState extends State<QuizScreen> {
       _timer?.cancel();
       startTimer();
     });
+  }
+  void _showSoundSettingsPanel() {
+    final colors = _isDarkMode ? darkModeColors : lightModeColors;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setModalState) {
+            return Container(
+              decoration: BoxDecoration(
+                color: colors['cardBackground'],
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Container(
+                    height: 5,
+                    width: 40,
+                    margin: EdgeInsets.symmetric(vertical: 10),
+                    decoration: BoxDecoration(
+                      color: colors['unselectedText'],
+                      borderRadius: BorderRadius.circular(2.5),
+                    ),
+                  ),
+                  Text(
+                    'Ses Ayarları',
+                    style: GoogleFonts.poppins(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: colors['text'],
+                    ),
+                  ),
+                  SizedBox(height: 20),
+                  _buildSoundToggle(
+                    icon: Icons.record_voice_over,
+                    title: 'Kelime Sesi',
+                    isOn: isWordSoundOn,
+                    onChanged: (value) {
+                      setModalState(() => isWordSoundOn = value);
+                    },
+                  ),
+                  _buildSoundToggle(
+                    icon: Icons.check_circle_outline,
+                    title: 'Doğru/Yanlış Sesi',
+                    isOn: isCorrectSoundOn,
+                    onChanged: (value) {
+                      setModalState(() => isCorrectSoundOn = value);
+                    },
+                  ),
+                  SizedBox(height: 20),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildSoundToggle({
+    required IconData icon,
+    required String title,
+    required bool isOn,
+    required ValueChanged<bool> onChanged,
+  }) {
+    final colors = _isDarkMode ? darkModeColors : lightModeColors;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      child: Row(
+        children: [
+          Container(
+            padding: EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: colors['buttonBackground']!.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: colors['buttonBackground']),
+          ),
+          SizedBox(width: 15),
+          Expanded(
+            child: Text(
+              title,
+              style: GoogleFonts.poppins(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: colors['text'],
+              ),
+            ),
+          ),
+          Switch.adaptive(
+            value: isOn,
+            onChanged: onChanged,
+            activeColor: colors['buttonBackground'],
+          ),
+        ],
+      ),
+    );
   }
   bool doubleAnswerActive = false;
   void _useDoubleAnswer() {
@@ -530,7 +628,7 @@ class _QuizScreenState extends State<QuizScreen> {
   _speak() async {
     final volumeProvider = Provider.of<VolumeProvider>(context, listen: false);
 
-    if (!isSpeaking && volumeProvider.isVolumeOn && isTurkish.value) {
+    if (!isSpeaking && volumeProvider.isVolumeOn && isTurkish.value && isWordSoundOn) {
       isSpeaking = true;
       String wordToSpeak = questions[currentQuestionIndex].term;
       print(wordToSpeak);
@@ -785,22 +883,7 @@ class _QuizScreenState extends State<QuizScreen> {
                   );
                 },
               ),
-              _buildControlButton(
-                  Provider.of<VolumeProvider>(context).isVolumeOn
-                      ? Icons.volume_up
-                      : Icons.volume_off,
-                  colors["inputBackground"]!,
-                      () {
-                    final volumeProvider = Provider.of<VolumeProvider>(context, listen: false);
-                    setState(() {
-                      volumeProvider.toggleVolume();
-                    });
-                    showCustomFlushbar(
-                      context,
-                      volumeProvider.isVolumeOn ? "Ses açıldı" : "Ses kapatıldı",
-                    );
-                  }
-              ),
+              _buildControlButton(Icons.volume_up, colors["inputBackground"]!, _showSoundSettingsPanel),
               _buildControlButton(Icons.hearing, colors["inputBackground"]!, _speak),
             ],
           ),
@@ -1497,7 +1580,7 @@ class _QuizScreenState extends State<QuizScreen> {
             fit: BoxFit.fill,
             loadingBuilder: (context, child, loadingProgress) {
               if (loadingProgress == null) return child;
-              return Center(child: CircularProgressIndicator());
+              return Center(child: LogoLoadingIndicator());
             },
             errorBuilder: (context, error, stackTrace) => Image.asset(
               'assets/logo.png',

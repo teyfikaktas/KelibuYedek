@@ -1,6 +1,9 @@
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'dart:math';
+
+import 'package:kelibu/main.dart';
 
 class NoInternetPage extends StatefulWidget {
   @override
@@ -11,12 +14,12 @@ class _NoInternetPageState extends State<NoInternetPage> with TickerProviderStat
   late AnimationController _controller;
   late AnimationController _gameController;
   late AnimationController _successController;
-  int _countdown = 5;
   bool _showGame = false;
   Timer? _timer;
   int _score = 0;
   int _round = 0;
   final int _totalRounds = 5;
+  bool _isConnected = false;
 
   List<String> _englishWords = [];
   List<String> _turkishMeanings = [];
@@ -130,6 +133,7 @@ class _NoInternetPageState extends State<NoInternetPage> with TickerProviderStat
       vsync: this,
       duration: Duration(seconds: 2),
     )..repeat(reverse: true);
+    _startInternetCheck();
 
     _gameController = AnimationController(
       vsync: this,
@@ -141,24 +145,63 @@ class _NoInternetPageState extends State<NoInternetPage> with TickerProviderStat
       duration: Duration(milliseconds: 1000),
     );
 
-    _startCountdown();
   }
-
-  void _startCountdown() {
-    _timer = Timer.periodic(Duration(seconds: 1), (timer) {
-      if (mounted) {
-        setState(() {
-          if (_countdown > 0) {
-            _countdown--;
-          } else {
-            timer.cancel();
-            _showGame = true;
-            _startNewRound();
-          }
-        });
-      }
+  void _startInternetCheck() {
+    Timer.periodic(Duration(seconds: 5), (timer) {
+      _checkInternetConnection();
     });
   }
+
+  Future<void> _checkInternetConnection() async {
+    var connectivityResult = await (Connectivity().checkConnectivity());
+    bool newConnectionStatus = connectivityResult != ConnectivityResult.none;
+
+    if (newConnectionStatus != _isConnected) {
+      setState(() {
+        _isConnected = newConnectionStatus;
+      });
+
+      if (_isConnected) {
+        _navigateBack();
+      }
+    }
+  }
+  void _showConnectionRestoredDialog() {
+    if (_showGame) {
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: Text('İnternet Bağlantısı Geri Geldi'),
+            content: Text('Ana sayfaya dönmek istiyor musunuz? Mevcut oyun ilerlemesi kaydedilmeyecek.'),
+            actions: <Widget>[
+              TextButton(
+                child: Text('Oyuna Devam Et'),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+              ),
+              TextButton(
+                child: Text('Ana Sayfaya Dön'),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  Navigator.of(context).pop(); // Ana sayfaya dön
+                },
+              ),
+            ],
+          );
+        },
+      );
+    } else {
+      // Oyun başlamadıysa direkt olarak geri dön
+      Navigator.of(context).pop();
+    }
+  }
+  void _navigateBack() {
+    // Oyun modunu kapatmadan direkt olarak ana sayfaya dön
+    Navigator.of(context).pop();
+  }
+
 
   void _startNewRound() {
     if (_round < _totalRounds) {
@@ -286,18 +329,10 @@ class _NoInternetPageState extends State<NoInternetPage> with TickerProviderStat
         Padding(
           padding: EdgeInsets.symmetric(horizontal: 40),
           child: Text(
-            'Üzgünüz, eğer oyun oyun modlarında iseniz kaldığınız yerden devam etmeyecek!  Programcımız bunu da elbet bir çözüm bulacaktır. Bunun  için '
-                'tüm kodları altüst ediyor ama henüz başarılı olamadı. İnternetin geldiğinde tekrar ana sayfaya otomatik olarak yönlendirileceksin. Neyse ki elimizde süper güçlü bir B planı var! '
-                'İşte karşında, internetsiz de oynayabileceğin, beyin jimnastiği garantili İngilizce '
-                'kelime eşleştirme oyunu! Hazır mısın? Hadi başlayalım! 🧠💪',
+            'Üzgünüz, eğer oyun oyun modlarında iseniz kaldığınız yerden devam etmeyecek!  İnternetin geldiğinde kaldığın sayfaya otomatik olarak yönlendirileceksin. Sorunun bizden kaynaklı olduğunu düşünüyorsan lütfen bize ulaşmayı unutma. Destekleriniz bizim için çok önemli!',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 18, color: Colors.white),
           ),
-        ),
-        SizedBox(height: 30),
-        Text(
-          'Oyun $_countdown saniye sonra başlayacak',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
         ),
         SizedBox(height: 20),
         CircularProgressIndicator(

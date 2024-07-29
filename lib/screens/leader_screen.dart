@@ -161,65 +161,75 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
     });
     _loadData('all_time');
   }
+  void _showGroupSettingsPanel() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => GroupSettingsPanel(
+        currentCode: _code,
+        onJoinGroup: _setCode,
+        onLeaveGroup: _removeCode,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final colors = _isDarkMode ? darkModeColors : lightModeColors;
 
     return Scaffold(
+      appBar: AppBar(
         backgroundColor: colors["background"],
-        appBar: AppBar(
-          backgroundColor: colors["cardBorder"],
-          elevation: 0,
-          title: Text(
-            'Liderlik Tablosu',
-            style: GoogleFonts.poppins(
-              color: Colors.black,
-              fontWeight: FontWeight.bold,
-            ),
+        elevation: 0,
+        title: Text(
+          'Liderlik Tablosu',
+          style: GoogleFonts.poppins(
+            color: colors["text"],
+            fontWeight: FontWeight.bold,
+            fontSize: 22,
           ),
-          actions: [
-            Switch(
-              value: _isGroupMode,
-              onChanged: _toggleGroupMode,
-              activeColor: Colors.white,
-              inactiveThumbColor: Colors.grey[300],
-              inactiveTrackColor: Colors.grey[600],
+        ),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            icon: Icon(
+              _isGroupMode ? Icons.group : Icons.public,
+              color: colors["text"],
             ),
-            Text(
-              _isGroupMode ? 'Grup' : 'Genel',
-              style: TextStyle(
-                color: Colors.black,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            IconButton(
-              icon: Icon(Icons.group, color: Colors.pinkAccent),
-              onPressed: () {
-                setState(() {
-                  _isGroupSettingsVisible = !_isGroupSettingsVisible;
-                });
-              },
-            ),
-            _buildRoundedIconButton(Icons.help, Colors.green, () {
+            onPressed: () => _toggleGroupMode(!_isGroupMode),
+          ),
+          IconButton(
+            icon: Icon(Icons.settings, color: colors["text"]),
+            onPressed: _showGroupSettingsPanel,
+          ),
+          IconButton(
+            icon: Icon(Icons.help_outline, color: colors["text"]),
+            onPressed: () {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => VideoPlayerScreen(videoUrl: AppUrls.leaderscreen)),
               );
-            }),
-          ],
+            },
+          ),
+        ],
+        bottom: PreferredSize(
+          preferredSize: Size.fromHeight(1.0),
+          child: Container(
+            color: colors["cardBorder"],
+            height: 1.0,
+          ),
         ),
-        body: Column(
-          children: [
-            _buildCustomTabs(),
-            if (_isGroupSettingsVisible)
-              _buildGroupSettings(colors),
-            Expanded(
-              child: _buildLeaderboardContent(colors),
-            ),
-          ],
-        ),
-        bottomSheet: _buildUserRankBottomSheet(colors),
+      ),
+      body: Column(
+        children: [
+          _buildCustomTabs(),
+          Expanded(
+            child: _buildLeaderboardContent(colors),
+          ),
+        ],
+      ),
+      bottomSheet: _buildUserRankBottomSheet(colors),
     );
   }
   Widget _buildRoundedIconButton(IconData icon, Color color, VoidCallback onPressed) {
@@ -228,9 +238,8 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
       style: ElevatedButton.styleFrom(
         primary: color,
         shape: CircleBorder(),
-        padding: EdgeInsets.all(12.sp),
       ),
-      child: Icon(icon, color: Colors.white, size: 24.sp),
+      child: Icon(icon, color: Colors.white, size: 16.sp),
     );
   }
 
@@ -420,23 +429,46 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
   }
 
   Widget _buildUserRankBottomSheet(Map<String, Color> colors) {
-    if (userRank != null && _isUserRankComputed) {
-      return Container(
-        color: colors["bottomSheetBackground"],
-        height: 50,
-        child: Center(
-          child: Text(
-            'Sizin sıralamanız: #$userRank',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-              color: colors["bottomSheetText"],
-            ),
+    return Container(
+      color: Color(0xFF58CC02), // Duolingo'nun karakteristik yeşil rengi
+      height: 70,
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Icon(
+                userRank != null ? Icons.emoji_events : Icons.directions_run,
+                color: Colors.white,
+                size: 32,
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Text(
+                    userRank != null && _isUserRankComputed
+                        ? 'Tebrikler! Sıralamanız: #$userRank'
+                        : 'Henüz sıralamada değilsiniz. Çalışmaya devam edin!',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: Colors.white,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+              Icon(
+                userRank != null ? Icons.celebration : Icons.emoji_objects,
+                color: Colors.white,
+                size: 32,
+              ),
+            ],
           ),
         ),
-      );
-    }
-    return SizedBox.shrink();
+      ),
+    );
   }
 }
 
@@ -499,6 +531,7 @@ class LeaderboardList extends StatelessWidget {
 
   Widget _buildUserTile(BuildContext context, User user, int rank, Map<String, Color> colors, bool isDarkMode) {
     Color? backgroundColor = _getBackgroundColorForRank(rank, colors, isDarkMode);
+    Color textColor = (rank <= 3 && isDarkMode) ? Colors.black : colors["text"]!;
 
     return Container(
       margin: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -513,69 +546,86 @@ class LeaderboardList extends StatelessWidget {
           ),
         ],
       ),
-      child: ListTile(
-        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: GestureDetector(
-          onTap: () => _showEnlargedAvatar(context, user),
-          child: Hero(
-            tag: 'avatar_${user.id}',
-            child: Stack(
-              children: [
-                CircleAvatar(
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            // Rank
+            Container(
+              width: 40,
+              child: AutoSizeText(
+                '$rank',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: textColor,
+                ),
+                minFontSize: 14,
+                maxFontSize: 18,
+                maxLines: 1,
+              ),
+            ),
+            // Avatar
+            GestureDetector(
+              onTap: () => _showEnlargedAvatar(context, user),
+              child: Hero(
+                tag: 'avatar_${user.id}',
+                child: CircleAvatar(
                   radius: 25,
                   backgroundImage: NetworkImage('https://kelibu.net/storage/${user.avatar}'),
                 ),
-                Positioned(
-                  right: -2,
-                  top: -2,
-                  child: _getRankIndicator(rank),
-                ),
-              ],
-            ),
-          ),
-        ),
-        title: Row(
-          children: [
-            Expanded(
-              flex: 2,
-              child: AutoSizeText(
-                user.name,
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: (rank <= 3 && isDarkMode) ? Colors.black : colors["text"],
-                ),
-                maxLines: 1,
-                minFontSize: 14,
               ),
             ),
+            SizedBox(width: 12),
+            // User info
             Expanded(
-              flex: 1,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  AutoSizeText(
+                    user.name,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: textColor,
+                    ),
+                    minFontSize: 14,
+                    maxFontSize: 16,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  SizedBox(height: 4),
+                  AutoSizeText(
+                    '${user.city ?? "Şehir Bilinmiyor"}, ${user.team ?? "Bilgi Verilmemiştir."}',
+                    style: TextStyle(
+                      color: textColor.withOpacity(0.7),
+                    ),
+                    minFontSize: 10,
+                    maxFontSize: 12,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            // Points
+            Container(
+              width: 70, // Biraz daha geniş
+              alignment: Alignment.centerRight,
               child: AutoSizeText(
                 '${user.point}',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
-                  color: (rank <= 3 && isDarkMode) ? Colors.black : colors["text"],
+                  color: textColor,
                 ),
+                minFontSize: 14,
+                maxFontSize: 18,
                 maxLines: 1,
-                minFontSize: 12,
-                textAlign: TextAlign.right,
               ),
             ),
           ],
         ),
-        subtitle: AutoSizeText(
-          '${user.city ?? "Şehir Bilinmiyor"}, ${user.team ?? "Bilgi Verilmemiştir."}',
-          style: TextStyle(
-            fontSize: 12,
-            color: (rank <= 3 && isDarkMode) ? Colors.black.withOpacity(0.7) : colors["text"]!.withOpacity(0.7),
-          ),
-          maxLines: 1,
-          minFontSize: 10,
-        ),
       ),
     );
   }
-
   void _showEnlargedAvatar(BuildContext context, User user) {
     Navigator.of(context).push(PageRouteBuilder(
       opaque: false,
@@ -684,5 +734,114 @@ class LeaderboardList extends StatelessWidget {
         ),
       );
     }
+  }
+}
+
+class GroupSettingsPanel extends StatefulWidget {
+  final String? currentCode;
+  final Function(String) onJoinGroup;
+  final Function() onLeaveGroup;
+
+  const GroupSettingsPanel({
+    Key? key,
+    this.currentCode,
+    required this.onJoinGroup,
+    required this.onLeaveGroup,
+  }) : super(key: key);
+
+  @override
+  _GroupSettingsPanelState createState() => _GroupSettingsPanelState();
+}
+
+class _GroupSettingsPanelState extends State<GroupSettingsPanel> {
+  final TextEditingController _groupCodeController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _groupCodeController.text = widget.currentCode ?? '';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Grup Ayarları',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF1CB0F6),
+            ),
+            textAlign: TextAlign.center,
+          ),
+          SizedBox(height: 24),
+          Container(
+            decoration: BoxDecoration(
+              color: Color(0xFFF7F7F7),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: TextField(
+              controller: _groupCodeController,
+              decoration: InputDecoration(
+                hintText: 'Grup Kodu Girin',
+                border: InputBorder.none,
+                prefixIcon: Icon(Icons.group, color: Color(0xFF1CB0F6)),
+                contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              ),
+              style: TextStyle(fontSize: 18),
+            ),
+          ),
+          SizedBox(height: 24),
+          ElevatedButton(
+            child: Text(
+              widget.currentCode != null ? 'Grubu Güncelle' : 'Gruba Katıl',
+              style: TextStyle(fontSize: 18),
+            ),
+            style: ElevatedButton.styleFrom(
+              primary: Color(0xFF58CC02),
+              onPrimary: Colors.white,
+              padding: EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+            onPressed: () {
+              if (_groupCodeController.text.isNotEmpty) {
+                widget.onJoinGroup(_groupCodeController.text);
+                Navigator.pop(context);
+              }
+            },
+          ),
+          if (widget.currentCode != null) ...[
+            SizedBox(height: 16),
+            TextButton(
+              child: Text(
+                'Gruptan Ayrıl',
+                style: TextStyle(
+                  fontSize: 18,
+                  color: Color(0xFFFF4B4B),
+                ),
+              ),
+              style: TextButton.styleFrom(
+                padding: EdgeInsets.symmetric(vertical: 12),
+              ),
+              onPressed: () {
+                widget.onLeaveGroup();
+                Navigator.pop(context);
+              },
+            ),
+          ],
+        ],
+      ),
+    );
   }
 }

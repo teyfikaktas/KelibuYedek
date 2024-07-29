@@ -17,8 +17,29 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:csv/csv.dart';
 import 'package:flutter/services.dart';
 import 'package:collection/collection.dart';
+import 'package:flutter/foundation.dart';
+class WordDataCache {
+  static List<List<dynamic>>? _wordsData;
+  static List<List<dynamic>>? _synonymsData;
+  static List<List<dynamic>>? _collocationsData;
+  static List<List<dynamic>>? _derivationsData;
 
+  static Future<void> loadAllData() async {
+    if (_wordsData == null) {
+      print('Veri yükleme başladı');
+      _wordsData = await _loadCsvData('assets/Model/words.csv');
+      _synonymsData = await _loadCsvData('assets/Model/synonyms.csv');
+      _collocationsData = await _loadCsvData('assets/Model/collacations.csv');
+      _derivationsData = await _loadCsvData('assets/Model/derivations.csv');
+      print('Veri yükleme tamamlandı');
+    }
+  }
 
+  static Future<List<List<dynamic>>> _loadCsvData(String path) async {
+    final csvFile = await rootBundle.loadString(path);
+    return const CsvToListConverter(eol: '\n').convert(csvFile);
+  }
+}
 class CsvLoader {
   Future<List<List<dynamic>>> loadCsv(String path) async {
     final csvFile = await rootBundle.loadString(path);
@@ -190,24 +211,46 @@ class ApiService {
 
 
   Future<List<Package>> fetchCategories(int userId) async {
-    final response = await http.get(
-      Uri.parse('https://kelibu.net/api/user/packages?user_id=$userId'),
-      headers: {
-        'X-Custom-Header': privacyKey.privacyKeyVariable,
-      },
-    );
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final cacheKey = 'categories_$userId';
 
-    if (response.statusCode == 200) {
-      List<dynamic> categoriesJson = json.decode(response.body);
-      List<Package> categories = categoriesJson.map((json) => Package.fromJson(json)).toList();
+    List<Package> fetchFromCache() {
+      final cachedData = prefs.getString(cacheKey);
+      if (cachedData != null) {
+        List<dynamic> categoriesJson = json.decode(cachedData);
+        List<Package> categories = categoriesJson.map((json) => Package.fromJson(json)).toList();
+        return categories.toSet().toList();
+      }
+      throw Exception('No cached data available');
+    }
 
-      // ID'ye göre benzersiz paketleri içeren bir Set oluştur. Package sınıfı artık ID'ye göre benzersizliği handle ediyor.
-      final uniqueCategoriesSet = categories.toSet();
-      List<Package> uniqueCategories = uniqueCategoriesSet.toList();
+    try {
+      // API isteği yap
+      final response = await http.get(
+        Uri.parse('https://kelibu.net/api/user/packages?user_id=$userId'),
+        headers: {
+          'X-Custom-Header': privacyKey.privacyKeyVariable,
+        },
+      );
 
-      return uniqueCategories;
-    } else {
-      throw Exception('Failed to load categories: ${response.body}');
+      if (response.statusCode == 200) {
+        List<dynamic> categoriesJson = json.decode(response.body);
+        List<Package> categories = categoriesJson.map((json) => Package.fromJson(json)).toList();
+
+        // ID'ye göre benzersiz paketleri içeren bir Set oluştur
+        final uniqueCategoriesSet = categories.toSet();
+        List<Package> uniqueCategories = uniqueCategoriesSet.toList();
+
+        // Cache'e kaydet
+        prefs.setString(cacheKey, json.encode(uniqueCategories));
+
+        return uniqueCategories;
+      } else {
+        throw Exception('Failed to load categories: ${response.body}');
+      }
+    } catch (e) {
+      // Hata durumunda önbellekten veri çek
+      return fetchFromCache();
     }
   }
   Future<int> fetchUserPoints(int userId) async {
@@ -228,35 +271,43 @@ class ApiService {
   Future<List<Word>> fetchWords(int classroomId) async {
     final prefs = await SharedPreferences.getInstance();
     final key = 'words_$classroomId';
-    final wordsCached = prefs.getString(key);
-    print('wordsCached');
 
-    print(wordsCached);
-    if (wordsCached != null) {
-      // Cache'den okuma
-      List<dynamic> wordsJson = json.decode(wordsCached);
-      print(wordsJson);
-      return wordsJson.map((json) => Word.fromJson(json)).toList();
-    } else {
-      // API'den çekme ve cache'e kaydetme
-      var url = Uri.parse('https://kelibu.net/api/user/category/$classroomId');
-      var response = await http.get(
+    try {
+      // Önbellekten okuma
+      final cachedData = prefs.getString(key);
+      if (cachedData != null) {
+        return compute(_parseWords, cachedData);
+      }
+
+      // API'den çekme
+      final url = Uri.parse('https://kelibu.net/api/user/category/$classroomId');
+      final response = await http.get(
         url,
-        headers: {
-          'X-Custom-Header': privacyKey.privacyKeyVariable, // Custom header ekleme
-        },
+        headers: {'X-Custom-Header': privacyKey.privacyKeyVariable},
       );
 
       if (response.statusCode == 200) {
-        prefs.setString(key, response.body); // Cevabı cache'e kaydet
-        List<dynamic> wordsJson = json.decode(response.body);
-        print(wordsJson);
-        return wordsJson.map((json) => Word.fromJson(json)).toList();
+        // Cevabı önbelleğe kaydet
+        await prefs.setString(key, response.body);
+        return compute(_parseWords, response.body);
       } else {
-        throw Exception('Kelimeler yüklenirken bir hata oluştu: ${response.body}');
+        throw Exception('API error: ${response.statusCode}');
       }
+    } catch (e) {
+      // Hata durumunda önbellekteki eski veriyi kullan
+      final cachedData = prefs.getString(key);
+      if (cachedData != null) {
+        return compute(_parseWords, cachedData);
+      }
+      rethrow; // Eğer önbellekte veri yoksa hatayı yeniden fırlat
     }
   }
+
+  List<Word> _parseWords(String responseBody) {
+    final parsed = jsonDecode(responseBody).cast<Map<String, dynamic>>();
+    return parsed.map<Word>((json) => Word.fromJson(json)).toList();
+  }
+
   Future<List<StudySet>> fetchStudySets(int classroomId, int wordId, String userid) async {
     final prefs = await SharedPreferences.getInstance();
     final key = 'studySets_${classroomId}_${wordId}_$userid';
@@ -291,33 +342,45 @@ class ApiService {
   Future<List<Map<String, dynamic>>> fetchExampleSentences(String term) async {
     final prefs = await SharedPreferences.getInstance();
     final key = 'exampleSentences_$term';
-    final exampleSentencesCached = prefs.getString(key);
 
-    if (exampleSentencesCached != null) {
-      // Cache'den okuma
-      List<dynamic> data = json.decode(exampleSentencesCached);
-      return data.cast<Map<String, dynamic>>(); // Liste içindeki her elemanı Map<String, dynamic> olarak dönüştür
-    } else {
-      // API'den çekme ve cache'e kaydetme
-      var url = Uri.parse('https://www.kelibu.net/api/example-sentences');
-      var response = await http.post(
+    try {
+      // Önbellekten okuma
+      final cachedData = prefs.getString(key);
+      if (cachedData != null) {
+        return compute(_parseExampleSentences, cachedData);
+      }
+
+      // API'den veri çekme
+      final url = Uri.parse('https://www.kelibu.net/api/example-sentences');
+      final response = await http.post(
         url,
         headers: {
           'Content-Type': 'application/json',
-          'X-Custom-Header': privacyKey.privacyKeyVariable, // Custom header ekleme
+          'X-Custom-Header': privacyKey.privacyKeyVariable,
         },
-        body: json.encode({
-          'terim': term,
-        }),
+        body: jsonEncode({'terim': term}),
       );
+
       if (response.statusCode == 200) {
-        prefs.setString(key, response.body); // Cevabı cache'e kaydet
-        List data = json.decode(response.body);
-        return data.cast<Map<String, dynamic>>(); // Liste içindeki her elemanı Map<String, dynamic> olarak dönüştür
+        // Cevabı önbelleğe kaydet
+        await prefs.setString(key, response.body);
+        return compute(_parseExampleSentences, response.body);
       } else {
-        throw Exception('Data could not be fetched: ${response.statusCode}');
+        throw Exception('API error: ${response.statusCode}');
       }
+    } catch (e) {
+      // Hata durumunda önbellekteki eski veriyi kullan
+      final cachedData = prefs.getString(key);
+      if (cachedData != null) {
+        return compute(_parseExampleSentences, cachedData);
+      }
+      rethrow; // Eğer önbellekte veri yoksa hatayı yeniden fırlat
     }
+  }
+
+  List<Map<String, dynamic>> _parseExampleSentences(String responseBody) {
+    final parsed = jsonDecode(responseBody) as List;
+    return parsed.cast<Map<String, dynamic>>();
   }
   Future<String> fetchStudySetsStar(int classroomId, int userId) async {
     var url = Uri.parse('https://kelibu.net/api/classroom/$classroomId/study-sets-star/$userId');
@@ -480,113 +543,169 @@ class ApiService {
     }
   }
 
-
-
   Future<List<WordDetail>> fetchWordsDetail(List<int> wordIds) async {
-    // Assuming words.csv is formatted with id,word,meaning,[image],[type],...
-    String wordsFilePath = 'assets/Model/words.csv';
-    final csvFile = await rootBundle.loadString(wordsFilePath);
-    final converter = CsvToListConverter(eol: '\n');
-    List<List<dynamic>> csvList = converter.convert(csvFile);
+    await WordDataCache.loadAllData();
 
-    List<WordDetail> filteredWords = csvList.sublist(1).where((csvRow) {
-      int currentId = int.tryParse(csvRow[0].toString()) ?? 0;
-      return wordIds.contains(currentId);
-    }).map((csvRow) {
-      return WordDetail(
-        id: int.parse(csvRow[0].toString()),
-        word: csvRow[1].toString(),
-        meaning: csvRow[2].toString(),
-        image: csvRow.length > 3 ? csvRow[3]?.toString() : null,
-        type: csvRow.length > 4 ? csvRow[4]?.toString() : null,
-        collocations: [],
-        derivations: [],
-        synonyms: [],
-      );
-    }).toList();
+    final words = _parseWordsDetail(wordIds);
+    _attachSynonyms(words);
+    _attachCollocations(words);
+    _attachDerivations(words);
 
-    // Fetch and attach related data to each WordDetail object
-    await fetchAndAttachCollocations(filteredWords);
-    await fetchAndAttachDerivations(filteredWords);
-    await fetchAndAttachSynonymsToWordDetail(filteredWords);
-
-    return filteredWords;
+    return words;
   }
-  Future<void> fetchAndAttachSynonymsToWordDetail(List<WordDetail> words) async {
-
-    String wordsFilePath = 'assets/Model/synonyms.csv'; // assets/models klasörü altında varsayıyoruz
-    final csvFile = await rootBundle.loadString(wordsFilePath);
-    final converter = CsvToListConverter(
-      eol: '\n', // Satır sonu karakteri olarak '\n' kullan
-      // Diğer gerekli yapılandırmalar burada belirtilebilir
-    );
-    List<List<dynamic>> csvList = converter.convert(csvFile);
-    csvList.sublist(1).forEach((csvRow) {
-      var wordId = int.parse(csvRow[3]);
-      var synonym = Synonym(
+  void _attachSynonyms(List<WordDetail> words) {
+    for (var csvRow in WordDataCache._synonymsData!.sublist(1)) {
+      final wordId = int.parse(csvRow[3]);
+      final synonym = Synonym(
         id: int.parse(csvRow[0]),
         term: csvRow[1],
         tanim: csvRow[2],
-        anlam: csvRow[5], // Türkçe anlamı bulmak için bir fonksiyon
+        anlam: csvRow[5],
       );
 
-      var wordDetail = words.firstWhereOrNull((word) => word.id == wordId); // firstWhereOrNull kullanımı
-      if (wordDetail != null) {
-        wordDetail.synonyms.add(synonym); // veya collocations, derivations için benzer
-      }
-      wordDetail?.synonyms.add(synonym);
-    });
+      words.firstWhereOrNull((word) => word.id == wordId)?.synonyms.add(synonym);
+    }
   }
-  String findMeaning(List<WordDetail> words, String term) {
-    var word = words.firstWhereOrNull((word) => word.word == term);
-    return word?.meaning ?? 'Anlam bulunamadı';
-  }
-  Future<void> fetchAndAttachCollocations(List<WordDetail> words) async {
-    String wordsFilePath = 'assets/Model/collacations.csv'; // assets/models klasörü altında varsayıyoruz
 
-    final csvFile = await rootBundle.loadString(wordsFilePath);
-    final converter = CsvToListConverter(
-      eol: '\n', // Satır sonu karakteri olarak '\n' kullan
-      // Diğer gerekli yapılandırmalar burada belirtilebilir
-    );
-    List<List<dynamic>> csvList = converter.convert(csvFile);
-    csvList.sublist(1).forEach((csvRow) {
-      var wordId = int.parse(csvRow[3]); // word_id kolonu
-      var collocation = Collocation(
+  void _attachCollocations(List<WordDetail> words) {
+    for (var csvRow in WordDataCache._collocationsData!.sublist(1)) {
+      final wordId = int.parse(csvRow[3]);
+      final collocation = Collocation(
         id: int.parse(csvRow[0]),
         term: csvRow[1],
         definition: csvRow[2],
         anlam: csvRow[8],
       );
 
-      var wordDetail = words.firstWhereOrNull((word) => word.id == wordId);
-      wordDetail?.collocations.add(collocation);
-    });
+      words.firstWhereOrNull((word) => word.id == wordId)?.collocations.add(collocation);
+    }
   }
-  Future<void> fetchAndAttachDerivations(List<WordDetail> words) async {
 
-    String wordsFilePath = 'assets/Model/derivations.csv'; // assets/models klasörü altında varsayıyoruz
-
-    final csvFile = await rootBundle.loadString(wordsFilePath);
-    final converter = CsvToListConverter(
-      eol: '\n', // Satır sonu karakteri olarak '\n' kullan
-      // Diğer gerekli yapılandırmalar burada belirtilebilir
-    );
-
-    List<List<dynamic>> csvList = converter.convert(csvFile);
-    csvList.sublist(1).forEach((csvRow) {
-      var wordId = int.parse(csvRow[3]); // word_id kolonu
-      var derivation = Derivation(
+  void _attachDerivations(List<WordDetail> words) {
+    for (var csvRow in WordDataCache._derivationsData!.sublist(1)) {
+      final wordId = int.parse(csvRow[3]);
+      final derivation = Derivation(
         id: int.parse(csvRow[0]),
         term: csvRow[1],
         definition: csvRow[2],
-        type: csvRow[8], // Derivation tipi
-        anlam:csvRow[9] ,
+        type: csvRow[8],
+        anlam: csvRow[9],
       );
 
-      var wordDetail = words.firstWhereOrNull((word) => word.id == wordId);
-      wordDetail?.derivations.add(derivation);
-    });
+      words.firstWhereOrNull((word) => word.id == wordId)?.derivations.add(derivation);
+    }
+  }
+
+  List<WordDetail> _parseWordsDetail(List<int> wordIds) {
+    return WordDataCache._wordsData!.sublist(1)
+        .where((csvRow) => wordIds.contains(int.tryParse(csvRow[0].toString()) ?? 0))
+        .map((csvRow) => WordDetail(
+      id: int.parse(csvRow[0].toString()),
+      word: csvRow[1].toString(),
+      meaning: csvRow[2].toString(),
+      image: csvRow.length > 3 ? csvRow[3]?.toString() : null,
+      type: csvRow.length > 4 ? csvRow[4]?.toString() : null,
+      collocations: [],
+      derivations: [],
+      synonyms: [],
+    ))
+        .toList();
+  }
+
+  Future<void> fetchAndAttachRelatedData(List<WordDetail> words) async {
+    final synonymsFilePath = 'assets/Model/synonyms.csv';
+    final collocationsFilePath = 'assets/Model/collacations.csv';
+    final derivationsFilePath = 'assets/Model/derivations.csv';
+
+    final synonymsCsv = await rootBundle.loadString(synonymsFilePath);
+    final collocationsCsv = await rootBundle.loadString(collocationsFilePath);
+    final derivationsCsv = await rootBundle.loadString(derivationsFilePath);
+
+    await Future.wait([
+      compute(_parseSynonyms, [synonymsCsv, words]),
+      compute(_parseCollocations, [collocationsCsv, words]),
+      compute(_parseDerivations, [derivationsCsv, words]),
+    ]);
+  }
+
+  Future<void> fetchAndAttachSynonymsToWordDetail(List<WordDetail> words) async {
+    final synonymsFilePath = 'assets/Model/synonyms.csv';
+    final csvFile = await rootBundle.loadString(synonymsFilePath);
+
+    await compute(_parseSynonyms, [csvFile, words]);
+  }
+
+  void _parseSynonyms(List<dynamic> args) {
+    final csvFile = args[0] as String;
+    final words = args[1] as List<WordDetail>;
+
+    final csvList = const CsvToListConverter(eol: '\n').convert(csvFile);
+
+    for (var csvRow in csvList.sublist(1)) {
+      final wordId = int.parse(csvRow[3]);
+      final synonym = Synonym(
+        id: int.parse(csvRow[0]),
+        term: csvRow[1],
+        tanim: csvRow[2],
+        anlam: csvRow[5],
+      );
+
+      words.firstWhereOrNull((word) => word.id == wordId)?.synonyms.add(synonym);
+    }
+  }
+
+
+
+  Future<void> fetchAndAttachCollocations(List<WordDetail> words) async {
+    final collocationsFilePath = 'assets/Model/collacations.csv';
+    final csvFile = await rootBundle.loadString(collocationsFilePath);
+
+    await compute(_parseCollocations, [csvFile, words]);
+  }
+
+  void _parseCollocations(List<dynamic> args) {
+    final csvFile = args[0] as String;
+    final words = args[1] as List<WordDetail>;
+
+    final csvList = const CsvToListConverter(eol: '\n').convert(csvFile);
+
+    for (var csvRow in csvList.sublist(1)) {
+      final wordId = int.parse(csvRow[3]);
+      final collocation = Collocation(
+        id: int.parse(csvRow[0]),
+        term: csvRow[1],
+        definition: csvRow[2],
+        anlam: csvRow[8],
+      );
+
+      words.firstWhereOrNull((word) => word.id == wordId)?.collocations.add(collocation);
+    }
+  }
+
+  Future<void> fetchAndAttachDerivations(List<WordDetail> words) async {
+    final derivationsFilePath = 'assets/Model/derivations.csv';
+    final csvFile = await rootBundle.loadString(derivationsFilePath);
+
+    await compute(_parseDerivations, [csvFile, words]);
+  }
+  void _parseDerivations(List<dynamic> args) {
+    final csvFile = args[0] as String;
+    final words = args[1] as List<WordDetail>;
+
+    final csvList = const CsvToListConverter(eol: '\n').convert(csvFile);
+
+    for (var csvRow in csvList.sublist(1)) {
+      final wordId = int.parse(csvRow[3]);
+      final derivation = Derivation(
+        id: int.parse(csvRow[0]),
+        term: csvRow[1],
+        definition: csvRow[2],
+        type: csvRow[8],
+        anlam: csvRow[9],
+      );
+
+      words.firstWhereOrNull((word) => word.id == wordId)?.derivations.add(derivation);
+    }
   }
   Future<bool> deleteUser(int userId) async {
     print(userId);
@@ -684,22 +803,17 @@ class ApiService {
         await prefs.setString(key, firstWordId);
       }
     }
-}
+  }
   String _generateKey(int classroomId, int studySetId) {
     // Kelimenin benzersizliğini sağlayacak bir key üretiyoruz
     return 'starredWords_classroomId:${classroomId}_studySetId:${studySetId}';
   }
 
 
-Future<List<WordDetail>> fetchWordsDetailStar(int classroomId, List<int> studySetId) async {
+  Future<List<WordDetail>> fetchWordsDetailStar(int classroomId, List<int> studySetId) async {
     final service = StarredWordsService();
-    // Yıldızlanmış kelime ID'lerini al
-    Set<int> starredWordIds = await service.loadClassroomStarredWordsAll(classroomId, studySetId);
-    final result = await fetchWordsDetail(starredWordIds.toList());
-    print(result);
-    // Yıldızlanmış kelime ID'lerini kullanarak kelime detaylarını al
-    // Bu sefer doğrudan yıldızlanmış kelime ID'leri ile kelime detaylarını alıyoruz.
-    return await fetchWordsDetail(starredWordIds.toList());
+    final starredWordIds = await service.loadClassroomStarredWordsAll(classroomId, studySetId);
+    return fetchWordsDetail(starredWordIds.toList());
   }
   Future<bool> checkStarred(int wordId, int studySetId, int userId) async {
     var url = Uri.parse('https://kelibu.net/api/check-starred?word_id=$wordId&study_set_id=$studySetId&user_id=$userId');

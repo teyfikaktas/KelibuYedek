@@ -1,25 +1,37 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'NetWorkService.dart';
+import 'package:flutter/material.dart';
 
-class ConnectivityProvider with ChangeNotifier {
-  bool _isOnline = false;
-  bool get isOnline => _isOnline;
+class ConnectivityService extends ChangeNotifier {
+  final Connectivity _connectivity = Connectivity();
+  late StreamSubscription<ConnectivityResult> _connectivitySubscription;
+  bool _isConnected = true;
 
-  ConnectivityProvider() {
-    Connectivity().onConnectivityChanged.listen(_updateConnectionStatus);
+  ConnectivityService() {
+    _initConnectivity();
+    _connectivitySubscription =
+        _connectivity.onConnectivityChanged.listen(_updateConnectionStatus);
   }
 
-  Future<void> checkConnectivity() async {
-    await _updateConnectionStatus(await Connectivity().checkConnectivity());
-  }
+  bool get isConnected => _isConnected;
 
-  Future<void> _updateConnectionStatus(ConnectivityResult result) async {
-    if (result == ConnectivityResult.none) {
-      _isOnline = false;
-    } else {
-      _isOnline = await NetworkService.isConnected();
+  Future<void> _initConnectivity() async {
+    try {
+      var result = await _connectivity.checkConnectivity();
+      _updateConnectionStatus(result);
+    } catch (e) {
+      print("Connectivity check failed: $e");
     }
+  }
+
+  void _updateConnectionStatus(ConnectivityResult result) {
+    _isConnected = (result != ConnectivityResult.none);
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _connectivitySubscription.cancel();
+    super.dispose();
   }
 }

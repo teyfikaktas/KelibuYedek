@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -113,6 +114,7 @@ class _AccountPageState extends State<AccountPage> {
     );
   }
 
+
   Widget _buildProfileHeader(UserProvider userProvider) {
     return Container(
       padding: EdgeInsets.all(16),
@@ -129,9 +131,14 @@ class _AccountPageState extends State<AccountPage> {
       ),
       child: Column(
         children: [
-          CircleAvatar(
-            radius: 50,
-            backgroundImage: NetworkImage('https://kelibu.net/storage/${userProvider.avatar}'),
+          CachedNetworkImage(
+            imageUrl: 'https://kelibu.net/storage/${userProvider.avatar}',
+            imageBuilder: (context, imageProvider) => CircleAvatar(
+              radius: 50,
+              backgroundImage: imageProvider,
+            ),
+            placeholder: (context, url) => CircularProgressIndicator(),
+            errorWidget: (context, url, error) => Icon(Icons.error),
           ),
           SizedBox(height: 16),
           Text(
@@ -153,7 +160,6 @@ class _AccountPageState extends State<AccountPage> {
       ),
     );
   }
-
   Widget _buildPasswordChangeCard() {
     return GestureDetector(
       onTap: _showPasswordChangeDialog,
