@@ -886,7 +886,7 @@ class _StudyScreenState extends State<StudyScreen> with SingleTickerProviderStat
                     fullImageUrl,
                     width: double.infinity,
                     height: 200,
-                    fit: BoxFit.fill,
+                    fit: BoxFit.contain,
                     errorBuilder: (context, error, stackTrace) {
                       return Image.asset(
                         'assets/logo.png',
@@ -1562,7 +1562,7 @@ class _StudyScreenState extends State<StudyScreen> with SingleTickerProviderStat
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Image.asset(
-                  'assets/logo.png', // Uygulamanızın logo dosya yolunu buraya ekleyin
+                  'assets/logo.png',
                   width: 100,
                   height: 100,
                 ),
@@ -1608,6 +1608,32 @@ class _StudyScreenState extends State<StudyScreen> with SingleTickerProviderStat
 
         return Column(
           children: [
+            // Uyarı mesajı
+            GestureDetector(
+              onTap: () => _showWarningDialog(context),
+              child: Container(
+                padding: EdgeInsets.all(8),
+                margin: EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Colors.amber.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.amber.shade600),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.warning_amber_rounded, color: Colors.amber.shade800),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Örnek cümleler hakkında önemli bilgi',
+                        style: TextStyle(color: Colors.amber.shade800, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    Icon(Icons.arrow_forward_ios, color: Colors.amber.shade800, size: 16),
+                  ],
+                ),
+              ),
+            ),
             Container(
               height: 200,
               child: PageView.builder(
@@ -1669,6 +1695,124 @@ class _StudyScreenState extends State<StudyScreen> with SingleTickerProviderStat
           ],
         );
       },
+    );
+  }
+  void _showWarningDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          child: ContentBox(context),
+        );
+      },
+    );
+  }
+
+  Widget ContentBox(BuildContext context) {
+    return Stack(
+      children: <Widget>[
+        Container(
+          padding: EdgeInsets.only(left: 20, top: 65, right: 20, bottom: 20),
+          margin: EdgeInsets.only(top: 45),
+          decoration: BoxDecoration(
+            shape: BoxShape.rectangle,
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black,
+                offset: Offset(0, 10),
+                blurRadius: 10,
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Text(
+                'Örnek Cümleler Hakkında',
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
+              ),
+              SizedBox(height: 15),
+              Text(
+                'Örnek cümleleri oluştururken karşılaşılabilecek durumlar:',
+                style: TextStyle(fontSize: 14),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 10),
+              bulletPoint('Kelimenin farklı anlamda kullanılması'),
+              bulletPoint('Benzer kelimelerin karışması (tent/tenth)'),
+              SizedBox(height: 15),
+              Text(
+                'Bu durumlar, kelimelerin türemiş hallerini görebilmeniz için tercih edilmiştir.',
+                style: TextStyle(fontSize: 14),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 20),
+              Text(
+                'Anlayışınız için teşekkür ederiz.',
+                style: TextStyle(fontSize: 14, fontStyle: FontStyle.italic),
+              ),
+              SizedBox(height: 10),
+              Text(
+                'PhD Akademi',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.teal),
+              ),
+              SizedBox(height: 20),
+              Align(
+                alignment: Alignment.bottomRight,
+                child: TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                  child: Text(
+                    'Anladım',
+                    style: TextStyle(fontSize: 18, color: Colors.teal),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Positioned(
+          left: 20,
+          right: 20,
+          child: CircleAvatar(
+            backgroundColor: Colors.teal,
+            radius: 45,
+            child: ClipRRect(
+              borderRadius: BorderRadius.all(Radius.circular(45)),
+              child: Icon(Icons.info_outline, color: Colors.white, size: 50),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget bulletPoint(String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '• ',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.teal),
+          ),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(fontSize: 14),
+            ),
+          ),
+        ],
+      ),
     );
   }
   void filterWords(String query) {

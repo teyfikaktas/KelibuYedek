@@ -127,6 +127,172 @@ class _ScoreDisplayState extends State<ScoreDisplay> with TickerProviderStateMix
     );
   }
 }
+class ExampleSentenceContent extends StatelessWidget {
+  final QuizQuestion question;
+  final Function(String) onListen;
+
+  const ExampleSentenceContent({
+    Key? key,
+    required this.question,
+    required this.onListen,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Örnek Cümleler',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
+            ),
+            IconButton(
+              icon: Icon(Icons.info_outline),
+              onPressed: () => _showInfoDialog(context),
+            ),
+          ],
+        ),
+        SizedBox(height: 20),
+        Container(
+          height: 300,
+          child: FutureBuilder<List<String>>(
+            future: _fetchSentenceForTerm(question.term),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return Center(child: CircularProgressIndicator(color: Colors.teal));
+              } else if (snapshot.hasError) {
+                return Text('Hata oluştu: ${snapshot.error}', style: TextStyle(color: Colors.red));
+              } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                return Text('Örnek cümle bulunamadı.', style: TextStyle(color: Colors.grey));
+              } else {
+                return PageView.builder(
+                  itemCount: snapshot.data!.length,
+                  itemBuilder: (context, index) {
+                    return ExampleSentenceCard(
+                      sentence: snapshot.data![index],
+                      highlightWord: question.term,
+                      onListen: () => onListen(snapshot.data![index]),
+                    );
+                  },
+                );
+              }
+            },
+          ),
+        ),
+        SizedBox(height: 20),
+        Align(
+          alignment: Alignment.bottomRight,
+          child: TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+            },
+            child: Text(
+              'Kapat',
+              style: TextStyle(fontSize: 18, color: Colors.teal),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<List<String>> _fetchSentenceForTerm(String term) async {
+    try {
+      var response = await ApiService().fetchExampleSentences(term);
+      if (response.isNotEmpty) {
+        return response.map<String>((item) => item['cumle'].toString()).toList();
+      } else {
+        return ["Cümle bulunamadı"];
+      }
+    } catch (e) {
+      print('Hata: $e');
+      return ["Cümle yüklenemedi"];
+    }
+  }
+
+  void _showInfoDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          child: ContentBox(
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Text(
+                  'Örnek Cümleler Hakkında',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
+                ),
+                SizedBox(height: 15),
+                Text(
+                  'Örnek cümleleri oluştururken karşılaşılabilecek durumlar:',
+                  style: TextStyle(fontSize: 14),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 10),
+                bulletPoint('Kelimenin farklı anlamda kullanılması'),
+                bulletPoint('Benzer kelimelerin karışması (tent/tenth)'),
+                SizedBox(height: 15),
+                Text(
+                  'Bu durumlar, kelimelerin türemiş hallerini görebilmeniz için tercih edilmiştir.',
+                  style: TextStyle(fontSize: 14),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 20),
+                Text(
+                  'Anlayışınız için teşekkür ederiz.',
+                  style: TextStyle(fontSize: 14, fontStyle: FontStyle.italic),
+                ),
+                SizedBox(height: 10),
+                Text(
+                  'PhD Akademi',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.teal),
+                ),
+                SizedBox(height: 20),
+                Align(
+                  alignment: Alignment.bottomRight,
+                  child: TextButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
+                    child: Text(
+                      'Anladım',
+                      style: TextStyle(fontSize: 18, color: Colors.teal),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            icon: Icons.info_outline,
+          ),
+        );
+      },
+    );
+  }
+
+  Widget bulletPoint(String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        children: [
+          Text('• ', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+          Expanded(
+            child: Text(text, style: TextStyle(fontSize: 14)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class QuizCard extends StatefulWidget {
   final String question;
   final Duration duration;
@@ -682,13 +848,16 @@ class _QuizScreenState extends State<QuizScreen> {
     );
   }
   void _scrollToSelectedQuestion() {
-    double selectedQuestionOffset = currentQuestionIndex * 50.0;
-    _navBarScrollController.animateTo(
-      selectedQuestionOffset,
-      duration: Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-    );
+    if (_navBarScrollController.hasClients) {
+      double selectedQuestionOffset = currentQuestionIndex * 50.0;
+      _navBarScrollController.animateTo(
+        selectedQuestionOffset,
+        duration: Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
   }
+
 
   void startTimer({bool resumeFromPausedTime = false}) {
     _timer?.cancel();
@@ -1404,147 +1573,41 @@ class _QuizScreenState extends State<QuizScreen> {
       },
     );
   }
-  void _showExampleSentence(QuizQuestion question) {
-    final colors = _isDarkMode ? darkModeColors : lightModeColors;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (BuildContext context) {
-        return StatefulBuilder(
-          builder: (BuildContext context, StateSetter setStateModal) {
-            return DraggableScrollableSheet(
-              initialChildSize: 0.6,
-              minChildSize: 0.3,
-              maxChildSize: 0.9,
-              builder: (_, controller) {
-                return Container(
-                  decoration: BoxDecoration(
-                    color: colors["background"],
-                    borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.2),
-                        blurRadius: 15,
-                        spreadRadius: 5,
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // ... Diğer widget'lar aynı kalacak ...
-                      Expanded(
-                        child: FutureBuilder<List<String>>(
-                          future: _fetchSentenceForTerm(question.term),
-                          builder: (context, snapshot) {
-                            if (snapshot.connectionState == ConnectionState.waiting) {
-                              return Center(child: CircularProgressIndicator(color: colors["buttonBackground"]));
-                            } else if (snapshot.hasError) {
-                              return Center(
-                                child: Text(
-                                  "Hata oluştu: ${snapshot.error}",
-                                  style: GoogleFonts.poppins(color: Colors.red, fontSize: 16),
-                                ),
-                              );
-                            } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                              return Center(
-                                child: Text(
-                                  "Örnek cümle bulunamadı. Kelimemiz biraz utangaç galiba!",
-                                  style: GoogleFonts.poppins(
-                                    fontStyle: FontStyle.italic,
-                                    color: colors["text"]!.withOpacity(0.7),
-                                    fontSize: 16,
-                                  ),
-                                ),
-                              );
-                            } else {
-                              return Column(
-                                children: [
-                                  Padding(
-                                    padding: EdgeInsets.all(16),
-                                    child: Text(
-                                      "Şimdilik ${snapshot.data!.length} harika örnek bulduk! 🎉\nDaha fazlası yolda, kelimemiz popülerlik kazanıyor!",
-                                      style: GoogleFonts.poppins(
-                                        color: colors["text"],
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                      textAlign: TextAlign.center,
-                                    ),
-                                  ),
-                                  Expanded(
-                                    child: ListView.builder(
-                                      controller: controller,
-                                      itemCount: snapshot.data!.length,
-                                      itemBuilder: (context, index) {
-                                        return GestureDetector(
-                                          onTap: () {
-                                            if (!_isReading) {
-                                              _speakAndHighlight(snapshot.data![index], question.term, setStateModal);
-                                            }
-                                          },
-                                          child: Card(
-                                            elevation: 0,
-                                            margin: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                                            color: colors["background"],
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.circular(15),
-                                              side: BorderSide(color: colors["buttonBackground"]!.withOpacity(0.2)),
-                                            ),
-                                            child: Padding(
-                                              padding: EdgeInsets.all(20),
-                                              child: HighlightedText(
-                                                text: snapshot.data![index],
-                                                highlightedWord: question.term,
-                                                currentHighlightIndex: _currentHighlightIndex,
-                                                baseStyle: GoogleFonts.poppins(
-                                                  fontSize: 16,
-                                                  color: colors["text"],
-                                                  height: 1.5,
-                                                ),
-                                                highlightStyle: GoogleFonts.poppins(
-                                                  fontSize: 16,
-                                                  color: Colors.blue,
-                                                  fontWeight: FontWeight.bold,
-                                                  height: 1.5,
-                                                ),
-                                                currentWordStyle: GoogleFonts.poppins(
-                                                  fontSize: 16,
-                                                  color: Colors.red,
-                                                  fontWeight: FontWeight.bold,
-                                                  height: 1.5,
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  ),
-                                ],
-                              );
-                            }
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            );
-          },
-        );
-      },
-    );
-  }
-  void _speakAndHighlight(String sentence, String highlightWord, StateSetter setStateModal) async {
+  void _showExampleSentence() {
+    if (questions.isNotEmpty) {
+      final currentQuestion = questions[currentQuestionIndex];
+      _showExampleSentenceDialog(currentQuestion);
+    }
+  }  void _speakAndHighlight(String sentence, String highlightWord, StateSetter setStateModal) async {
 
 
     await _speakSentence(sentence);  // Tüm cümleyi oku
 
   }
+
+  void _showExampleSentenceDialog(QuizQuestion question) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          child: ContentBox(
+            content: ExampleSentenceContent(
+              question: question,
+              onListen: (sentence) => _speakSentence(sentence),
+            ),
+            icon: Icons.menu_book,
+          ),
+        );
+      },
+    );
+  }
+
+
   Future<void> _speakSentence(String sentence) async {
     await flutterTts.setLanguage("en-US");
     await flutterTts.setPitch(1.0);
@@ -1724,6 +1787,10 @@ class _QuizScreenState extends State<QuizScreen> {
       ),
       actions: [
         IconButton(
+          icon: Icon(Icons.format_quote, color: colors["text"]),
+          onPressed: () => _showExampleSentence(),
+        ),
+        IconButton(
           icon: Icon(Icons.help, color: Colors.green),
           onPressed: () {
             Navigator.push(
@@ -1735,6 +1802,7 @@ class _QuizScreenState extends State<QuizScreen> {
       ],
     );
   }
+
   Widget _buildInfoBar(Map<String, Color> colors) {
     return Container(
       padding: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
@@ -2283,6 +2351,84 @@ class _QuizResultsScreenState extends State<QuizResultsScreen> {
     );
   }
 
+  void _showInfoDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          child: ContentBox(
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Text(
+                  'Örnek Cümleler Hakkında',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
+                ),
+                SizedBox(height: 15),
+                Text(
+                  'Örnek cümleleri oluştururken karşılaşılabilecek durumlar:',
+                  style: TextStyle(fontSize: 14),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 10),
+                bulletPoint('Kelimenin farklı anlamda kullanılması'),
+                bulletPoint('Benzer kelimelerin karışması (tent/tenth)'),
+                SizedBox(height: 15),
+                Text(
+                  'Bu durumlar, kelimelerin türemiş hallerini görebilmeniz için tercih edilmiştir.',
+                  style: TextStyle(fontSize: 14),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 20),
+                Text(
+                  'Anlayışınız için teşekkür ederiz.',
+                  style: TextStyle(fontSize: 14, fontStyle: FontStyle.italic),
+                ),
+                SizedBox(height: 10),
+                Text(
+                  'PhD Akademi',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.teal),
+                ),
+                SizedBox(height: 20),
+                Align(
+                  alignment: Alignment.bottomRight,
+                  child: TextButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
+                    child: Text(
+                      'Anladım',
+                      style: TextStyle(fontSize: 18, color: Colors.teal),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            icon: Icons.info_outline,
+          ),
+        );
+      },
+    );
+  }
+
+  Widget bulletPoint(String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        children: [
+          Text('• ', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+          Expanded(
+            child: Text(text, style: TextStyle(fontSize: 14)),
+          ),
+        ],
+      ),
+    );
+  }
   Widget _buildQuestionsList(List<QuizQuestion> questions) {
     return ListView.separated(
       shrinkWrap: true,
@@ -2355,41 +2501,146 @@ class _QuizResultsScreenState extends State<QuizResultsScreen> {
     });
   }
 }
+class ExampleSentenceCard extends StatelessWidget {
+  final String sentence;
+  final String highlightWord;
+  final VoidCallback onListen;
+
+  const ExampleSentenceCard({
+    Key? key,
+    required this.sentence,
+    required this.highlightWord,
+    required this.onListen,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      color: Colors.white,
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Center(
+                child: HighlightedText(
+                  text: sentence,
+                  highlightedWord: highlightWord,
+                  baseStyle: GoogleFonts.nunito(
+                    fontSize: 20,
+                    color: Color(0xFF4B4B4B),
+                  ),
+                  highlightStyle: GoogleFonts.nunito(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1CB0F6),
+                  ),
+                ),
+              ),
+            ),
+            SizedBox(height: 20),
+            ElevatedButton.icon(
+              icon: Icon(Icons.volume_up, color: Colors.white),
+              label: Text('Dinle', style: GoogleFonts.nunito(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              onPressed: onListen,
+              style: ElevatedButton.styleFrom(
+                primary: Colors.teal,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class HighlightedText extends StatelessWidget {
   final String text;
   final String highlightedWord;
-  final int currentHighlightIndex;
   final TextStyle baseStyle;
   final TextStyle highlightStyle;
-  final TextStyle currentWordStyle;
 
   const HighlightedText({
     Key? key,
     required this.text,
     required this.highlightedWord,
-    required this.currentHighlightIndex,
     required this.baseStyle,
     required this.highlightStyle,
-    required this.currentWordStyle,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    List<TextSpan> spans = [];
-    List<String> words = text.split(' ');
-
-    for (int i = 0; i < words.length; i++) {
-      if (words[i].toLowerCase().contains(highlightedWord.toLowerCase())) {
-        spans.add(TextSpan(text: words[i] + ' ', style: highlightStyle));
-      } else if (i == currentHighlightIndex) {
-        spans.add(TextSpan(text: words[i] + ' ', style: currentWordStyle));
-      } else {
-        spans.add(TextSpan(text: words[i] + ' ', style: baseStyle));
-      }
-    }
-
+    final words = text.split(' ');
     return RichText(
-      text: TextSpan(children: spans),
+      textAlign: TextAlign.center,
+      text: TextSpan(
+        style: baseStyle,
+        children: words.map((word) {
+          if (word.toLowerCase().contains(highlightedWord.toLowerCase())) {
+            return TextSpan(text: '$word ', style: highlightStyle);
+          }
+          return TextSpan(text: '$word ');
+        }).toList(),
+      ),
+    );
+  }
+}
+class ContentBox extends StatelessWidget {
+  final Widget content;
+  final IconData icon;
+
+  const ContentBox({
+    Key? key,
+    required this.content,
+    required this.icon,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: <Widget>[
+        Container(
+          padding: EdgeInsets.only(
+            left: 20,
+            top: 65 + 20,
+            right: 20,
+            bottom: 20,
+          ),
+          margin: EdgeInsets.only(top: 45),
+          decoration: BoxDecoration(
+            shape: BoxShape.rectangle,
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black26,
+                offset: Offset(0, 10),
+                blurRadius: 10,
+              ),
+            ],
+          ),
+          child: content,
+        ),
+        Positioned(
+          left: 20,
+          right: 20,
+          child: CircleAvatar(
+            backgroundColor: Colors.teal,
+            radius: 45,
+            child: ClipRRect(
+              borderRadius: BorderRadius.all(Radius.circular(45)),
+              child: Icon(icon, color: Colors.white, size: 50),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

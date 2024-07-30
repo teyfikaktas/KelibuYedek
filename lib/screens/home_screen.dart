@@ -1609,7 +1609,7 @@ class _SearchDialogState extends State<SearchDialog> {
                   padding: EdgeInsets.symmetric(horizontal: 40.w, vertical: 12.h),
                   elevation: 0,
                 ),
-                onPressed: _isSearching ? null : () => searchWord(_searchController.text),
+                onPressed: _isSearching ? null : () => performSearch(_searchController.text),
               ),
               if (_searchResult != null)
                 Column(
@@ -1679,49 +1679,19 @@ class _SearchDialogState extends State<SearchDialog> {
       ],
     );
   }
-  Future<void> searchWord(String term) async {
+  Future<void> performSearch(String term) async {
     setState(() {
       _isSearching = true;
       _searchError = '';
     });
 
     try {
-      term = term.trim();
+      final apiService = ApiService();
+      final searchResult = await apiService.searchWord(term);
 
-      final csvData = await rootBundle.loadString('assets/Model/words.csv');
-      final converter = CsvToListConverter(eol: '\n');
-      List<List<dynamic>> csvList = converter.convert(csvData);
-
-      List<dynamic>? matchedWord;
-      for (var row in csvList) {
-        if (row[1].toLowerCase() == term.toLowerCase()) {
-          matchedWord = row;
-          break;
-        }
-      }
-
-      if (matchedWord != null) {
-        WordDetail wordDetail = WordDetail(
-          id: int.parse(matchedWord[0].toString()),
-          word: matchedWord[1].toString(),
-          meaning: matchedWord[2].toString(),
-          type: matchedWord[4]?.toString(),
-          image: matchedWord[3]?.toString(),
-          collocations: [],
-          derivations: [],
-          synonyms: [],
-        );
-
-        List<WordDetail> allWords = [wordDetail];
-
-        await Future.wait([
-          ApiService().fetchAndAttachCollocations(allWords),
-          ApiService().fetchAndAttachDerivations(allWords),
-          ApiService().fetchAndAttachSynonymsToWordDetail(allWords),
-        ]);
-
+      if (searchResult != null) {
         setState(() {
-          _searchResult = wordDetail;
+          _searchResult = searchResult;
         });
       } else {
         setState(() {
@@ -1738,19 +1708,49 @@ class _SearchDialogState extends State<SearchDialog> {
       });
     }
   }
+  void _navigateToWordDetail(WordDetail word) async {
+    final apiService = ApiService();
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return Center(child: CircularProgressIndicator());
+      },
+    );
 
-  void _navigateToWordDetail(WordDetail word) {
-    Navigator.of(context).push(MaterialPageRoute(
-      builder: (context) => StudyScreen(
-        words: [word],
-        classroomId: 0,
-        studySetId: 0,
-        isStarred: true,
-      ),
-    ));
-  }
-}
+    try {
+      List<int> wordIds = [word.id]; // Kelime ID'sini bir listeye dönüştür
+      List<WordDetail> detailedWords = await apiService.fetchWordsDetail(wordIds);
 
+      if (detailedWords.isNotEmpty) {
+        WordDetail detailedWord = detailedWords.first;
+        print("Detailed word loaded:");
+        print("Synonyms: ${detailedWord.synonyms.length}");
+        print("Collocations: ${detailedWord.collocations.length}");
+        print("Derivations: ${detailedWord.derivations.length}");
+
+        Navigator.of(context).pop(); // Loading dialog'u kapat
+
+        Navigator.of(context).push(MaterialPageRoute(
+          builder: (context) => StudyScreen(
+            words: [detailedWord],
+            classroomId: 0,
+            studySetId: 0,
+            isStarred: true,
+          ),
+        ));
+      } else {
+        throw Exception('Detaylı kelime bilgisi bulunamadı.');
+      }
+    } catch (e) {
+      print("Error loading word details: $e");
+      Navigator.of(context).pop(); // Loading dialog'u kapat
+      // Hata mesajını göster
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Kelime detayları yüklenirken bir hata oluştu.')),
+      );
+    }
+  }}
 
 class WordOfTheDayCache {
   static const String _keyWord = 'word_of_the_day';

@@ -261,27 +261,24 @@ class _AnimatedProgressBarState extends State<AnimatedProgressBar> with SingleTi
   }
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-      child: AnimatedBuilder(
-        animation: _animationController,
-        builder: (context, child) {
+    return LayoutBuilder(
+        builder: (context, constraints) {
+          double safeWidth = constraints.maxWidth > 0 ? constraints.maxWidth : 100;
           return Stack(
             children: [
-              _buildBaseBar(),
-              _buildProgressBar(),
-              _buildShineEffect(),
+              _buildBaseBar(safeWidth),
+              _buildProgressBar(safeWidth),
+              _buildShineEffect(safeWidth),
               _buildProgressText(),
             ],
           );
-        },
-      ),
+        }
     );
   }
 
-  Widget _buildBaseBar() {
+  Widget _buildBaseBar(double width) {
     return Container(
-      width: widget.width,
+      width: width,
       height: widget.height,
       decoration: BoxDecoration(
         color: Colors.grey[300],
@@ -297,11 +294,11 @@ class _AnimatedProgressBarState extends State<AnimatedProgressBar> with SingleTi
     );
   }
 
-  Widget _buildProgressBar() {
+  Widget _buildProgressBar(double width) {
     return FractionallySizedBox(
       widthFactor: _progressAnimation.value,
       child: Container(
-
+        width: width,
         height: widget.height,
         decoration: BoxDecoration(
           gradient: const LinearGradient(
@@ -322,17 +319,18 @@ class _AnimatedProgressBarState extends State<AnimatedProgressBar> with SingleTi
     );
   }
 
-  Widget _buildShineEffect() {
+  Widget _buildShineEffect(double width) {
     return FractionallySizedBox(
       widthFactor: _progressAnimation.value,
       child: FractionallySizedBox(
         widthFactor: 0.3,
         child: Transform.translate(
           offset: Offset(
-            _shineAnimation.value * widget.width,
+            _shineAnimation.value * width,
             0,
           ),
           child: Container(
+            width: width,
             height: widget.height,
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -560,9 +558,11 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
   void _stopAutoPlay() {
     _autoPlayTimer?.cancel();
     _autoPlayTimer = null;
-    setState(() {
-      _isAutoPlaying = false;
-    });
+    if (mounted) {  // Eklenen kontrol
+      setState(() {
+        _isAutoPlaying = false;
+      });
+    }
   }
   int score = 0;
   Future<void> _loadDarkModePreference() async {
@@ -633,6 +633,8 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+
     _currentWordList = widget.words;
 
     WidgetsBinding.instance.addObserver(this);
@@ -672,15 +674,20 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.resumed) {
+      _startAutoPlay();
+
       print("Uygulama ön plana döndü, mevcut kart indeksi: ${currentWordIndex.value}");
     }
     else if (state == AppLifecycleState.paused) {
+      _stopAutoPlay();
+
       print("Uygulama ön plana döndü, mevcut kart indeksi: ${currentWordIndex.value}");
     }
   }
   @override
   void dispose() {
-    _stopAutoPlay();
+    _autoPlayTimer?.cancel();  // Timer'ı iptal et
+    _isAutoPlaying = false;  // Doğrudan değeri güncelle, setState kullanma
 
     WidgetsBinding.instance.removeObserver(this);
     _animationController.dispose();
@@ -704,6 +711,40 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
     }
     starredWordCountNotifier.value = newCount;
   }
+  void _showExampleSentence() {
+    if (_currentWordList.isNotEmpty) {
+      final currentWord = _currentWordList[currentWordIndex.value];
+      _showExampleSentenceDialog(currentWord);
+    }
+  }
+
+  void _showExampleSentenceDialog(WordDetail word) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            elevation: 0,
+            backgroundColor: Colors.transparent,
+            child: ContentBox(
+              content: ExampleSentenceContent(
+                word: word,
+                onListen: (sentence) => _speakSentence(sentence),
+              ),
+              icon: Icons.menu_book,
+            )
+        );
+      },
+    );
+  }
+
+  Future<void> _speakSentence(String sentence) async {
+    await flutterTts.setLanguage("en-US");
+    await flutterTts.setPitch(1.0);
+    await flutterTts.speak(sentence);
+  }
   void _loadStarredStatusAsync() async {
     final service = StarredWordsService();
     final starredWordIds = await service.loadStarredWords(widget.classroomId, widget.studySetId);
@@ -724,26 +765,6 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
   bool isSpeaking = false;
   bool _showStarredOnly = false;
 
-  void _toggleStarredView() {
-    setState(() {
-      _showStarredOnly = !_showStarredOnly;
-      _currentWordList = _showStarredOnly
-          ? widget.words.where((word) => starredStatus[word.id] ?? false).toList()
-          : widget.words;
-      currentWordIndex.value = 0;
-      totalWords = _currentWordList.length;
-      _pageController.jumpToPage(0);
-    });
-
-    showCustomFlushbar(
-      context,
-      _showStarredOnly ? "Yıldızlı kelimeler modu açıldı." : "Tüm kelimeler gösteriliyor.",
-    );
-
-    if (totalWords > 0) {
-      _speak(_currentWordList[currentWordIndex.value].word);
-    }
-  }
   Future<void> _speak(String text) async {
     final volumeProvider = Provider.of<VolumeProvider>(context, listen: false);
     if (volumeProvider.isVolumeOn) {
@@ -751,15 +772,61 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
       await flutterTts.speak(text);
     }
   }
-  void _toggleStar(int word, ValueNotifier<bool> isStarredNotifier) async {
+  void _toggleStar(int wordId, ValueNotifier<bool> isStarredNotifier) async {
     final service = StarredWordsService();
     final newStatus = !isStarredNotifier.value;
 
-    await service.toggleWordStarStatus(word, !isStarredNotifier.value, widget.classroomId, widget.studySetId);
+    await service.toggleWordStarStatus(wordId, newStatus, widget.classroomId, widget.studySetId);
 
-    isStarredNotifier.value = newStatus;
-    starredStatus[wordId] = newStatus;
-    _updateStarredWordCount(isStarredNotifier);
+    setState(() {
+      isStarredNotifier.value = newStatus;
+      starredStatus[wordId] = newStatus;
+      _recalculateStarredWordCount();
+
+      if (_showStarredOnly) {
+        _currentWordList = widget.words.where((word) => starredStatus[word.id] ?? false).toList();
+        if (_currentWordList.isEmpty) {
+          _showStarredOnly = false;
+          _currentWordList = widget.words;
+          showCustomFlushbar(context, "Yıldızlı kelime kalmadı. Tüm kelimeler gösteriliyor.");
+        } else {
+          currentWordIndex.value = currentWordIndex.value.clamp(0, _currentWordList.length - 1);
+        }
+        _pageController.jumpToPage(currentWordIndex.value);
+      }
+    });
+  }
+
+  void _recalculateStarredWordCount() {
+    int count = starredStatus.values.where((isStarred) => isStarred).length;
+    starredWordCountNotifier.value = count;
+  }
+  void _toggleStarredView() {
+    setState(() {
+      _showStarredOnly = !_showStarredOnly;
+      _currentWordList = _showStarredOnly
+          ? widget.words.where((word) => starredStatus[word.id] ?? false).toList()
+          : widget.words;
+
+      if (_currentWordList.isEmpty && _showStarredOnly) {
+        _showStarredOnly = false;
+        _currentWordList = widget.words;
+        showCustomFlushbar(context, "Yıldızlı kelime bulunmamaktadır. Tüm kelimeler gösteriliyor.");
+      } else {
+        currentWordIndex.value = 0;
+        totalWords = _currentWordList.length;
+        _pageController.jumpToPage(0);
+
+        showCustomFlushbar(
+          context,
+          _showStarredOnly ? "Yıldızlı kelimeler modu açıldı." : "Tüm kelimeler gösteriliyor.",
+        );
+      }
+
+      if (totalWords > 0) {
+        _speak(_currentWordList[currentWordIndex.value].word);
+      }
+    });
   }
   Widget _buildStarIcon(int wordid, ValueNotifier<bool> isStarredNotifier) {
     return ValueListenableBuilder<bool>(
@@ -824,6 +891,10 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
               title: widget.isStarred ? null : _buildStarredWordsButton(),
               centerTitle: true,
               actions: [
+                IconButton(
+                  icon: Icon(Icons.format_quote, color: colors["text"]),
+                  onPressed: () => _showExampleSentence(),
+                ),
                 ScoreDisplay(userPointsNotifier: pointValueNotife),
                 const SizedBox(width: 16),
                 _buildRoundedIconButton(Icons.help, Colors.green, () {
@@ -1509,4 +1580,310 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
     );
   }
 
+}
+class ExampleSentenceContent extends StatelessWidget {
+  final WordDetail word;
+  final Function(String) onListen;
+
+  const ExampleSentenceContent({
+    Key? key,
+    required this.word,
+    required this.onListen,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Örnek Cümleler',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
+            ),
+            IconButton(
+              icon: Icon(Icons.info_outline),
+              onPressed: () => _showInfoDialog(context),
+            ),
+          ],
+        ),
+        SizedBox(height: 20),
+        Container(
+          height: 300,
+          child: FutureBuilder<List<String>>(
+            future: _fetchSentenceForTerm(word.word),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return Center(child: CircularProgressIndicator(color: Colors.teal));
+              } else if (snapshot.hasError) {
+                return Text('Hata oluştu: ${snapshot.error}', style: TextStyle(color: Colors.red));
+              } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                return Text('Örnek cümle bulunamadı.', style: TextStyle(color: Colors.grey));
+              } else {
+                return PageView.builder(
+                  itemCount: snapshot.data!.length,
+                  itemBuilder: (context, index) {
+                    return ExampleSentenceCard(
+                      sentence: snapshot.data![index],
+                      highlightWord: word.word,
+                      onListen: () => onListen(snapshot.data![index]),
+                    );
+                  },
+                );
+              }
+            },
+          ),
+        ),
+        SizedBox(height: 20),
+        Align(
+          alignment: Alignment.bottomRight,
+          child: TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+            },
+            child: Text(
+              'Kapat',
+              style: TextStyle(fontSize: 18, color: Colors.teal),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+  void _showInfoDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          child: ContentBox(
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Text(
+                  'Örnek Cümleler Hakkında',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
+                ),
+                SizedBox(height: 15),
+                Text(
+                  'Örnek cümleleri oluştururken karşılaşılabilecek durumlar:',
+                  style: TextStyle(fontSize: 14),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 10),
+                bulletPoint('Kelimenin farklı anlamda kullanılması'),
+                bulletPoint('Benzer kelimelerin karışması (tent/tenth)'),
+                SizedBox(height: 15),
+                Text(
+                  'Bu durumlar, kelimelerin türemiş hallerini görebilmeniz için tercih edilmiştir.',
+                  style: TextStyle(fontSize: 14),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 20),
+                Text(
+                  'Anlayışınız için teşekkür ederiz.',
+                  style: TextStyle(fontSize: 14, fontStyle: FontStyle.italic),
+                ),
+                SizedBox(height: 10),
+                Text(
+                  'PhD Akademi',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.teal),
+                ),
+                SizedBox(height: 20),
+                Align(
+                  alignment: Alignment.bottomRight,
+                  child: TextButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
+                    child: Text(
+                      'Anladım',
+                      style: TextStyle(fontSize: 18, color: Colors.teal),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            icon: Icons.info_outline,
+          ),
+        );
+      },
+    );
+  }
+  Widget bulletPoint(String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        children: [
+          Text('• ', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+          Expanded(
+            child: Text(text, style: TextStyle(fontSize: 14)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<List<String>> _fetchSentenceForTerm(String term) async {
+    try {
+      var response = await ApiService().fetchExampleSentences(term);
+      if (response.isNotEmpty) {
+        return response.map<String>((item) => item['cumle'].toString()).toList();
+      } else {
+        return ["Cümle bulunamadı"];
+      }
+    } catch (e) {
+      print('Hata: $e');
+      return ["Cümle yüklenemedi"];
+    }
+  }
+}
+
+class ExampleSentenceCard extends StatelessWidget {
+  final String sentence;
+  final String highlightWord;
+  final VoidCallback onListen;
+
+  const ExampleSentenceCard({
+    Key? key,
+    required this.sentence,
+    required this.highlightWord,
+    required this.onListen,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      color: Colors.white,
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Center(
+                child: HighlightedText(
+                  text: sentence,
+                  highlightedWord: highlightWord,
+                  baseStyle: GoogleFonts.nunito(
+                    fontSize: 20,
+                    color: Color(0xFF4B4B4B),
+                  ),
+                  highlightStyle: GoogleFonts.nunito(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1CB0F6),
+                  ),
+                ),
+              ),
+            ),
+            SizedBox(height: 20),
+            ElevatedButton.icon(
+              icon: Icon(Icons.volume_up, color: Colors.white),
+              label: Text('Dinle', style: GoogleFonts.nunito(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              onPressed: onListen,
+              style: ElevatedButton.styleFrom(
+                primary: Colors.teal,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+class ContentBox extends StatelessWidget {
+  final Widget content;
+  final IconData icon;
+
+  const ContentBox({
+    Key? key,
+    required this.content,
+    required this.icon,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: <Widget>[
+        Container(
+          padding: EdgeInsets.only(
+            left: 20,
+            top: 65 + 20,
+            right: 20,
+            bottom: 20,
+          ),
+          margin: EdgeInsets.only(top: 45),
+          decoration: BoxDecoration(
+            shape: BoxShape.rectangle,
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black26,
+                offset: Offset(0, 10),
+                blurRadius: 10,
+              ),
+            ],
+          ),
+          child: content,
+        ),
+        Positioned(
+          left: 20,
+          right: 20,
+          child: CircleAvatar(
+            backgroundColor: Colors.teal,
+            radius: 45,
+            child: ClipRRect(
+              borderRadius: BorderRadius.all(Radius.circular(45)),
+              child: Icon(icon, color: Colors.white, size: 50),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+class HighlightedText extends StatelessWidget {
+  final String text;
+  final String highlightedWord;
+  final TextStyle baseStyle;
+  final TextStyle highlightStyle;
+
+  const HighlightedText({
+    Key? key,
+    required this.text,
+    required this.highlightedWord,
+    required this.baseStyle,
+    required this.highlightStyle,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    final words = text.split(' ');
+    return RichText(
+      textAlign: TextAlign.center,
+      text: TextSpan(
+        style: baseStyle,
+        children: words.map((word) {
+          if (word.toLowerCase().contains(highlightedWord.toLowerCase())) {
+            return TextSpan(text: '$word ', style: highlightStyle);
+          }
+          return TextSpan(text: '$word ');
+        }).toList(),
+      ),
+    );
+  }
 }

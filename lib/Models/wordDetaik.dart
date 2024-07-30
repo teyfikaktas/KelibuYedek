@@ -8,9 +8,9 @@ class WordDetail {
   final String meaning;
   final String? type;
   final String? image; // Eğer bir 'image' alanınız varsa bu şekilde ekleyin
-  final List<Collocation> collocations;
-  final List<Derivation> derivations;
-  final List<Synonym> synonyms; // Synonyms listesi eklendi
+  late final List<Collocation> collocations;
+  late final List<Derivation> derivations;
+  late final List<Synonym> synonyms; // Synonyms listesi eklendi
 
   WordDetail({
     required this.id,

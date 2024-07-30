@@ -611,7 +611,61 @@ class ApiService {
     ))
         .toList();
   }
+  Future<WordDetail?> searchWord(String term) async {
+    await WordDataCache.loadAllData();
 
+    term = term.trim().toLowerCase();
+
+    var matchedWord = WordDataCache._wordsData!.sublist(1).firstWhereOrNull(
+            (row) => row[1].toString().toLowerCase() == term
+    );
+
+    if (matchedWord != null) {
+      return WordDetail(
+        id: int.parse(matchedWord[0].toString()),
+        word: matchedWord[1].toString(),
+        meaning: matchedWord[2].toString(),
+        type: matchedWord.length > 4 ? matchedWord[4]?.toString() : null,
+        image: matchedWord.length > 3 ? matchedWord[3]?.toString() : null,
+        collocations: [],
+        derivations: [],
+        synonyms: [],
+      );
+    }
+
+    return null;
+  }
+  Future<WordDetail> loadWordDetails(WordDetail word) async {
+    await Future.wait([
+      fetchAndAttachSynonymsToWordDetail([word]),
+      fetchAndAttachCollocations([word]),
+      fetchAndAttachDerivations([word]),
+    ]);
+    return word;
+  }
+  Future<WordDetail> fetchWordDetails(WordDetail word) async {
+    await Future.wait([
+      fetchAndAttachSynonymsToWordDetail([word]),
+      fetchAndAttachCollocations([word]),
+      fetchAndAttachDerivations([word]),
+    ]);
+    return word;
+  }
+  Future<void> _attachRelatedData(WordDetail word) async {
+    final wordId = word.id;
+
+    // Sadece türevleri ekle
+    word.derivations = WordDataCache._derivationsData!.sublist(1)
+        .where((row) => int.parse(row[3].toString()) == wordId)
+        .map((row) => Derivation(
+      id: int.parse(row[0].toString()),
+      term: row[1].toString(),
+      definition: row[2].toString(),
+      type: row[8].toString(),
+      anlam: row[9].toString(),
+    ))
+        .toList();
+  }
   Future<void> fetchAndAttachRelatedData(List<WordDetail> words) async {
     final synonymsFilePath = 'assets/Model/synonyms.csv';
     final collocationsFilePath = 'assets/Model/collacations.csv';
