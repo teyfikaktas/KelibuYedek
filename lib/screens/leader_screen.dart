@@ -8,7 +8,6 @@ import 'package:kelibu/screens/video_player.dart';
 import 'package:provider/provider.dart';
 import 'package:kelibu/providers/user_provider.dart';
 import 'package:kelibu/Models/user.dart';
-import 'package:getwidget/getwidget.dart';
 import 'package:auto_size_text/auto_size_text.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../globalDart/urls.dart';
@@ -23,37 +22,37 @@ class LeaderboardPage extends StatefulWidget {
 }
 
 class _LeaderboardPageState extends State<LeaderboardPage> {
-  late Future<List<User>> _futureLeaderboardData;
   int _selectedTabIndex = 0;
   int? userRank;
-  User? currentUser;
   final ScrollController _scrollController = ScrollController();
   bool _isUserRankComputed = false;
   String? _code;
   bool _isGroupMode = false;
-  bool _isGroupSettingsVisible = false;
-  final TextEditingController _groupCodeController = TextEditingController();
-  bool _showGroupSettingsHint = false;
-  bool _isGroupEmpty = false;
   bool _isDarkMode = false;
+  bool _hasGroup = false;
 
   @override
   void initState() {
     super.initState();
     _loadData('all_time');
     _initPreferences();
-    _checkFirstTime();
     _loadDarkModePreference();
   }
 
   Future<void> _initPreferences() async {
     final prefs = await SharedPreferences.getInstance();
     _code = prefs.getString('leaderboard_code');
-    if (_code != null) {
+    if (_code != null && _code!.isNotEmpty) {
       setState(() {
         _isGroupMode = true;
+        _hasGroup = true;
       });
       _loadData(_code!);
+    } else {
+      setState(() {
+        _isGroupMode = false;
+        _hasGroup = false;
+      });
     }
   }
 
@@ -62,17 +61,6 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
     setState(() {
       _isDarkMode = prefs.getBool("darkMode") ?? false;
     });
-  }
-
-  Future<void> _checkFirstTime() async {
-    final prefs = await SharedPreferences.getInstance();
-    bool? isFirstTime = prefs.getBool('isFirstTime') ?? true;
-    if (isFirstTime) {
-      setState(() {
-        _showGroupSettingsHint = true;
-      });
-      await prefs.setBool('isFirstTime', false);
-    }
   }
 
   void _setCode(String newCode) async {
@@ -86,6 +74,7 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
       setState(() {
         _code = newCode;
         _isGroupMode = true;
+        _hasGroup = true;
       });
       _loadData(newCode);
     } else {
@@ -101,6 +90,7 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
     setState(() {
       _code = null;
       _isGroupMode = false;
+      _hasGroup = false;
     });
     _loadData('all_time');
   }
@@ -108,58 +98,76 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
   void _loadData(String timePeriod) async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final currentUserId = userProvider.userId;
-    _futureLeaderboardData = ApiService().fetchUsersNew(_isGroupMode ? (_code ?? "") : "", timePeriod);
-    List<User> users = await _futureLeaderboardData;
+    List<User> users = await ApiService().fetchUsersNew(_isGroupMode ? (_code ?? "") : "", timePeriod);
 
-    if (_isGroupMode && (_code == null || users.isEmpty)) {
-      setState(() {
-        _isGroupEmpty = true;
-      });
-    } else {
-      setState(() {
-        _isGroupEmpty = false;
-      });
-    }
+    users.sort((a, b) => b.point.compareTo(a.point));
 
     int currentUserIndex = users.indexWhere((user) => user.id == currentUserId);
 
-    if (currentUserIndex != -1 && currentUserIndex < 150) {
-      userRank = currentUserIndex + 1;
-      _isUserRankComputed = true;
-      if (mounted) {
-        setState(() {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            scrollToUserRank(currentUserIndex);
-          });
-        });
+    setState(() {
+      if (currentUserIndex != -1) {
+        userRank = currentUserIndex + 1;
+        _isUserRankComputed = true;
+      } else {
+        userRank = null;
+        _isUserRankComputed = false;
       }
-    } else {
-      userRank = null;
+    });
+
+    if (_isUserRankComputed && mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        scrollToUserRank(currentUserIndex);
+      });
     }
   }
 
   void scrollToUserRank(int index) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (userRank == null || !_scrollController.hasClients || index >= 50) {
-        return;
-      }
-      var itemPositionOffset = 104.0 * index;
-      var screenHeight = MediaQuery.of(context).size.height;
-      var centeredPositionOffset = itemPositionOffset - (screenHeight / 2) + (104.0 / 2);
-      final offset = max(centeredPositionOffset, 0.0);
-      _scrollController.animateTo(
-        offset,
-        duration: const Duration(seconds: 3),
-        curve: Curves.easeOutQuad,
-      );
-    });
+    if (userRank == null || !_scrollController.hasClients || index >= 50) {
+      return;
+    }
+    var itemPositionOffset = 104.0 * index;
+    var screenHeight = MediaQuery.of(context).size.height;
+    var centeredPositionOffset = itemPositionOffset - (screenHeight / 2) + (104.0 / 2);
+    final offset = max(centeredPositionOffset, 0.0);
+    _scrollController.animateTo(
+      offset,
+      duration: const Duration(seconds: 1),
+      curve: Curves.easeOutQuad,
+    );
   }
 
-  void _toggleGroupMode(bool isGroupMode) async {
+
+  void _toggleGroupMode(bool isGroupMode) {
     setState(() {
-      _isGroupMode = isGroupMode;
+      _isGroupMode = isGroupMode && _hasGroup;
     });
-    _loadData('all_time');
+    _loadData(_isGroupMode ? (_code ?? '') : 'all_time');
+    _updateUserRank();
+  }
+  void _updateUserRank() async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final currentUserId = userProvider.userId;
+    List<User> users = await ApiService().fetchUsersNew(_isGroupMode ? (_code ?? "") : "", _getTimePeriodForIndex(_selectedTabIndex));
+
+    users.sort((a, b) => b.point.compareTo(a.point));
+
+    int currentUserIndex = users.indexWhere((user) => user.id == currentUserId);
+
+    setState(() {
+      if (currentUserIndex != -1) {
+        userRank = currentUserIndex + 1;
+        _isUserRankComputed = true;
+      } else {
+        userRank = null;
+        _isUserRankComputed = false;
+      }
+    });
+
+    if (_isUserRankComputed && mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        scrollToUserRank(currentUserIndex);
+      });
+    }
   }
   void _showGroupSettingsPanel() {
     showModalBottomSheet(
@@ -170,6 +178,7 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
         currentCode: _code,
         onJoinGroup: _setCode,
         onLeaveGroup: _removeCode,
+        hasGroup: _hasGroup,
       ),
     );
   }
@@ -179,18 +188,31 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
     final colors = _isDarkMode ? darkModeColors : lightModeColors;
 
     return Scaffold(
+      backgroundColor: _isDarkMode ? Color(0xFF1F1F1F) : colors["background"],
       appBar: AppBar(
-        backgroundColor: colors["background"],
+        backgroundColor: _isDarkMode ? Color(0xFF2C2C2C) : colors["background"],
         elevation: 0,
-        title: Text(
-          'Liderlik Tablosu',
-          style: GoogleFonts.poppins(
-            color: colors["text"],
-            fontWeight: FontWeight.bold,
-            fontSize: 22,
-          ),
+        title: Row(
+          children: [
+            Icon(
+              Icons.school,
+              color: Color(0xFF58CC02),
+              size: 32,
+            ),
+            SizedBox(width: 8),
+            Icon(Icons.emoji_events, color: Colors.amber, size: 28),
+            SizedBox(width: 8),
+            Text(
+              'Liderlik Tablosu',
+              style: GoogleFonts.poppins(
+                color: colors["text"],
+                fontWeight: FontWeight.bold,
+                fontSize: 22,
+              ),
+            ),
+          ],
         ),
-        centerTitle: true,
+        centerTitle: false,
         actions: [
           IconButton(
             icon: Icon(
@@ -214,38 +236,60 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
           ),
         ],
         bottom: PreferredSize(
-          preferredSize: Size.fromHeight(1.0),
+          preferredSize: Size.fromHeight(2.0),
           child: Container(
-            color: colors["cardBorder"],
-            height: 1.0,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.transparent, colors["cardBorder"]!, Colors.transparent],
+              ),
+            ),
+            height: 2.0,
           ),
         ),
       ),
       body: Column(
         children: [
           _buildCustomTabs(),
+          if (!_hasGroup)
+            Container(
+              padding: EdgeInsets.all(16),
+              margin: EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Color(0xFFFFF4D4),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Color(0xFFFFD580)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: Color(0xFFFF9600)),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Grubunuz yok. Grup ayarlarından bir gruba katılabilirsiniz.',
+                      style: TextStyle(color: Color(0xFFFF9600)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           Expanded(
-            child: _buildLeaderboardContent(colors),
+            child: LeaderboardList(
+              timePeriod: _getTimePeriodForIndex(_selectedTabIndex),
+              code: _isGroupMode ? _code : "",
+              scrollController: _scrollController,
+              isDarkMode: _isDarkMode,
+            ),
           ),
         ],
       ),
       bottomSheet: _buildUserRankBottomSheet(colors),
     );
   }
-  Widget _buildRoundedIconButton(IconData icon, Color color, VoidCallback onPressed) {
-    return ElevatedButton(
-      onPressed: onPressed,
-      style: ElevatedButton.styleFrom(
-        primary: color,
-        shape: CircleBorder(),
-      ),
-      child: Icon(icon, color: Colors.white, size: 16.sp),
-    );
-  }
 
   Widget _buildCustomTabs() {
     return Container(
       height: 50,
+      color: _isDarkMode ? Color(0xFF2C2C2C) : Colors.white,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
@@ -259,6 +303,7 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
   }
 
   Widget _buildTabItem(String title, int index) {
+    final colors = _isDarkMode ? darkModeColors : lightModeColors;
     bool isSelected = _selectedTabIndex == index;
     return GestureDetector(
       onTap: () {
@@ -266,171 +311,37 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
           _selectedTabIndex = index;
         });
         _loadData(_getTimePeriodForIndex(index));
+        _updateUserRank();
       },
       child: Container(
         padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.pink : Colors.transparent,
+          color: isSelected ? Color(0xFF58CC02) : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
         ),
         child: Text(
           title,
           style: TextStyle(
-            color: isSelected ? Colors.white : Colors.grey,
+            color: isSelected ? Colors.white : colors["text"],
             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
           ),
         ),
       ),
     );
   }
-
   String _getTimePeriodForIndex(int index) {
     switch (index) {
-      case 0:
-        return 'all_time';
-      case 1:
-        return 'daily';
-      case 2:
-        return 'weekly';
-      case 3:
-        return 'monthly';
-      default:
-        return 'all_time';
+      case 0: return 'all_time';
+      case 1: return 'daily';
+      case 2: return 'weekly';
+      case 3: return 'monthly';
+      default: return 'all_time';
     }
-  }
-
-  Widget _buildGroupSettings(Map<String, Color> colors) {
-    return Padding(
-      padding: const EdgeInsets.all(8.0),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _groupCodeController,
-                  decoration: InputDecoration(
-                    labelText: 'Grup Kodu',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12.0),
-                    ),
-                    filled: true,
-                    fillColor: colors["inputBackground"],
-                    prefixIcon: Icon(Icons.group, color: Colors.pink),
-                  ),
-                ),
-              ),
-              SizedBox(width: 8),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  primary: Colors.pink,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                onPressed: () {
-                  if (_groupCodeController.text.isNotEmpty) {
-                    _setCode(_groupCodeController.text);
-                  }
-                },
-                child: Text(
-                  'Gruba Katıl',
-                  style: TextStyle(color: Colors.white),
-                ),
-              ),
-              if (_code != null)
-                IconButton(
-                  icon: Icon(Icons.clear, color: Colors.red),
-                  onPressed: _removeCode,
-                ),
-            ],
-          ),
-          if (_code != null)
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Text(
-                'Bir gruptasınız: $_code',
-                style: TextStyle(
-                  color: colors["text"],
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          if (_code != null)
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  primary: Colors.red,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                onPressed: _removeCode,
-                child: Text(
-                  'Gruptan Ayrıl',
-                  style: TextStyle(color: Colors.white),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLeaderboardContent(Map<String, Color> colors) {
-    if (_isGroupMode && _isGroupEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.group_off,
-                size: 64,
-                color: colors["text"],
-              ),
-              SizedBox(height: 16),
-              AutoSizeText(
-                'Grubunuz bulunmamaktadır',
-                style: TextStyle(
-                  color: colors["text"],
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-                maxLines: 1,
-                minFontSize: 14,
-              ),
-              SizedBox(height: 8),
-              AutoSizeText(
-                'Lütfen bir grup ekleyin veya oluşturun',
-                style: TextStyle(
-                  color: colors["text"],
-                  fontSize: 16,
-                ),
-                maxLines: 2,
-                minFontSize: 12,
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return LeaderboardList(
-      timePeriod: _getTimePeriodForIndex(_selectedTabIndex),
-      code: _isGroupMode ? _code : "",
-      scrollController: _scrollController,
-      isDarkMode: _isDarkMode,
-    );
   }
 
   Widget _buildUserRankBottomSheet(Map<String, Color> colors) {
     return Container(
-      color: Color(0xFF58CC02), // Duolingo'nun karakteristik yeşil rengi
+      color: Color(0xFF58CC02),
       height: 70,
       child: Center(
         child: Padding(
@@ -446,9 +357,9 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Text(
+                  child: AutoSizeText(
                     userRank != null && _isUserRankComputed
-                        ? 'Tebrikler! Sıralamanız: #$userRank'
+                        ? 'Tebrikler! ${_isGroupMode ? "Grup" : "Genel"} Sıralamanız: #$userRank'
                         : 'Henüz sıralamada değilsiniz. Çalışmaya devam edin!',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
@@ -456,6 +367,8 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
                       color: Colors.white,
                     ),
                     textAlign: TextAlign.center,
+                    maxLines: 2,
+                    minFontSize: 12,
                   ),
                 ),
               ),
@@ -471,7 +384,6 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
     );
   }
 }
-
 class LeaderboardList extends StatelessWidget {
   final String timePeriod;
   final String? code;
@@ -489,250 +401,210 @@ class LeaderboardList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = isDarkMode ? darkModeColors : lightModeColors;
-    Future<List<User>> users = ApiService().fetchUsersNew(code ?? "", timePeriod);
-
-    return FutureBuilder<List<User>>(
-      future: users,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return Center(child: const LogoLoadingIndicator());
-        } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return Center(
-            child: AutoSizeText(
-              'Veri bulunamadı',
-              style: TextStyle(color: colors["text"], fontSize: 18),
-              maxLines: 1,
-              minFontSize: 14,
-            ),
-          );
-        } else {
-          return AnimationLimiter(
-            child: ListView.builder(
-              controller: scrollController,
-              itemCount: snapshot.data!.length,
-              itemBuilder: (context, index) {
-                return AnimationConfiguration.staggeredList(
-                  position: index,
-                  duration: const Duration(milliseconds: 375),
-                  child: SlideAnimation(
-                    verticalOffset: 50.0,
-                    child: FadeInAnimation(
-                      child: _buildUserTile(context, snapshot.data![index], index + 1, colors, isDarkMode),
+    return Container(
+      color: isDarkMode ? Color(0xFF1F1F1F) : colors["background"],
+      child: FutureBuilder<List<User>>(
+        future: ApiService().fetchUsersNew(code ?? "", timePeriod),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return Center(child: const LogoLoadingIndicator());
+          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+            return Center(
+              child: AutoSizeText(
+                'Veri bulunamadı',
+                style: TextStyle(color: colors["text"], fontSize: 18),
+                maxLines: 1,
+                minFontSize: 14,
+              ),
+            );
+          } else {
+            final sortedUsers = snapshot.data!..sort((a, b) => b.point.compareTo(a.point));
+            return AnimationLimiter(
+              child: ListView.builder(
+                controller: scrollController,
+                itemCount: sortedUsers.length,
+                itemBuilder: (context, index) {
+                  return AnimationConfiguration.staggeredList(
+                    position: index,
+                    duration: const Duration(milliseconds: 375),
+                    child: SlideAnimation(
+                      verticalOffset: 50.0,
+                      child: FadeInAnimation(
+                        child: _buildUserTile(context, sortedUsers[index], index + 1, colors),
+                      ),
                     ),
-                  ),
-                );
-              },
-            ),
-          );
-        }
-      },
+                  );
+                },
+              ),
+            );
+          }
+        },
+      ),
     );
   }
 
-  Widget _buildUserTile(BuildContext context, User user, int rank, Map<String, Color> colors, bool isDarkMode) {
-    Color? backgroundColor = _getBackgroundColorForRank(rank, colors, isDarkMode);
-    Color textColor = (rank <= 3 && isDarkMode) ? Colors.black : colors["text"]!;
+  Widget _buildUserTile(BuildContext context, User user, int rank, Map<String, Color> colors) {
+    final isTopThree = rank <= 3;
+    final backgroundColor = isTopThree
+        ? _getBackgroundColorForRank(rank, isDarkMode)
+        : isDarkMode ? Colors.grey[900] : colors["cardBackground"];
+    final textColor = isTopThree && !isDarkMode ? Colors.white : colors["text"]!;
 
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
         color: backgroundColor,
-        borderRadius: BorderRadius.circular(15),
+        borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 5,
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
             offset: Offset(0, 2),
           ),
         ],
       ),
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
+      child: ListTile(
+        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: _buildLeadingWidget(context, rank, user),
+        title: AutoSizeText(
+          user.name,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: textColor,
+          ),
+          maxLines: 1,
+          minFontSize: 14,
+          maxFontSize: 16,
+        ),
+        subtitle: AutoSizeText(
+          '${user.city ?? "Şehir Bilinmiyor"} • ${user.team ?? "Takım Bilinmiyor"}',
+          style: TextStyle(
+            color: textColor.withOpacity(0.7),
+          ),
+          maxLines: 1,
+          minFontSize: 10,
+          maxFontSize: 12,
+        ),
+        trailing: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            // Rank
-            Container(
-              width: 40,
-              child: AutoSizeText(
-                '$rank',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: textColor,
-                ),
-                minFontSize: 14,
-                maxFontSize: 18,
-                maxLines: 1,
+            AutoSizeText(
+              '${user.point}',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: textColor,
               ),
+              maxLines: 1,
+              minFontSize: 14,
+              maxFontSize: 18,
             ),
-            // Avatar
-            GestureDetector(
-              onTap: () => _showEnlargedAvatar(context, user),
-              child: Hero(
-                tag: 'avatar_${user.id}',
-                child: CircleAvatar(
-                  radius: 25,
-                  backgroundImage: NetworkImage('https://kelibu.net/storage/${user.avatar}'),
-                ),
+            SizedBox(height: 4),
+            AutoSizeText(
+              '#$rank',
+              style: TextStyle(
+                color: textColor.withOpacity(0.7),
+                fontWeight: FontWeight.bold,
               ),
-            ),
-            SizedBox(width: 12),
-            // User info
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  AutoSizeText(
-                    user.name,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: textColor,
-                    ),
-                    minFontSize: 14,
-                    maxFontSize: 16,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  SizedBox(height: 4),
-                  AutoSizeText(
-                    '${user.city ?? "Şehir Bilinmiyor"}, ${user.team ?? "Bilgi Verilmemiştir."}',
-                    style: TextStyle(
-                      color: textColor.withOpacity(0.7),
-                    ),
-                    minFontSize: 10,
-                    maxFontSize: 12,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-            // Points
-            Container(
-              width: 70, // Biraz daha geniş
-              alignment: Alignment.centerRight,
-              child: AutoSizeText(
-                '${user.point}',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: textColor,
-                ),
-                minFontSize: 14,
-                maxFontSize: 18,
-                maxLines: 1,
-              ),
+              maxLines: 1,
+              minFontSize: 10,
+              maxFontSize: 12,
             ),
           ],
         ),
       ),
     );
   }
-  void _showEnlargedAvatar(BuildContext context, User user) {
-    Navigator.of(context).push(PageRouteBuilder(
-      opaque: false,
-      pageBuilder: (BuildContext context, _, __) {
-        return GestureDetector(
-          onTap: () => Navigator.of(context).pop(),
-          child: Container(
-            color: Colors.black.withOpacity(0.5),
-            child: Center(
-              child: Hero(
-                tag: 'avatar_${user.id}',
-                child: Container(
-                  width: 300,
-                  height: 300,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    image: DecorationImage(
-                      fit: BoxFit.cover,
-                      image: NetworkImage('https://kelibu.net/storage/${user.avatar}'),
-                    ),
-                  ),
+
+  Widget _buildLeadingWidget(BuildContext context, int rank, User user) {
+    return GestureDetector(
+      onTap: () => _showEnlargedImage(context, user),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          CircleAvatar(
+            radius: 24,
+            backgroundImage: NetworkImage('https://kelibu.net/storage/${user.avatar}'),
+          ),
+          if (rank <= 3)
+            Positioned(
+              bottom: -2,
+              right: -2,
+              child: Container(
+                padding: EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: _getMedalColor(rank),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2),
                 ),
+                child: Icon(
+                  _getMedalIcon(rank),
+                  size: 12,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  void _showEnlargedImage(BuildContext context, User user) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            width: 300,
+            height: 300,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              image: DecorationImage(
+                fit: BoxFit.cover,
+                image: NetworkImage('https://kelibu.net/storage/${user.avatar}'),
               ),
             ),
           ),
         );
       },
-      transitionsBuilder: (_, Animation<double> animation, __, Widget child) {
-        return FadeTransition(
-          opacity: animation,
-          child: child,
-        );
-      },
-    ));
+    );
   }
 
-  Color? _getBackgroundColorForRank(int rank, Map<String, Color> colors, bool isDarkMode) {
+
+  Color _getBackgroundColorForRank(int rank, bool isDarkMode) {
     if (isDarkMode) {
       switch (rank) {
-        case 1:
-          return Colors.yellow[700];
-        case 2:
-          return Colors.grey[700];
-        case 3:
-          return Colors.brown[700];
-        default:
-          return colors["background"];
+        case 1: return Colors.amber.shade900;
+        case 2: return Colors.blueGrey.shade900;
+        case 3: return Colors.brown.shade900;
+        default: return Colors.grey.shade900;
       }
     } else {
       switch (rank) {
-        case 1:
-          return Colors.yellow[50];
-        case 2:
-          return Colors.grey[50];
-        case 3:
-          return Colors.brown[50];
-        default:
-          return colors["background"];
+        case 1: return Colors.amber.shade500;
+        case 2: return Colors.blueGrey.shade500;
+        case 3: return Colors.brown.shade500;
+        default: return Colors.white;
       }
     }
   }
 
-  Widget _getRankIndicator(int rank) {
-    if (rank <= 3) {
-      IconData iconData;
-      Color iconColor;
-      switch (rank) {
-        case 1:
-          iconData = Icons.looks_one;
-          iconColor = Colors.yellow[700]!;
-          break;
-        case 2:
-          iconData = Icons.looks_two;
-          iconColor = Colors.grey[700]!;
-          break;
-        case 3:
-          iconData = Icons.looks_3;
-          iconColor = Colors.brown[700]!;
-          break;
-        default:
-          iconData = Icons.emoji_events;
-          iconColor = Colors.black;
-      }
-      return Container(
-        padding: EdgeInsets.all(2),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          shape: BoxShape.circle,
-        ),
-        child: Icon(iconData, size: 20, color: iconColor),
-      );
-    } else {
-      return Container(
-        width: 25,
-        height: 25,
-        decoration: BoxDecoration(
-          color: Colors.pink,
-          shape: BoxShape.circle,
-          border: Border.all(color: Colors.white, width: 2),
-        ),
-        child: Center(
-          child: Text(
-            '$rank',
-            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
-          ),
-        ),
-      );
+  Color _getMedalColor(int rank) {
+    switch (rank) {
+      case 1: return Colors.amber;
+      case 2: return Colors.blueGrey;
+      case 3: return Colors.brown;
+      default: return Colors.grey;
+    }
+  }
+
+  IconData _getMedalIcon(int rank) {
+    switch (rank) {
+      case 1: return Icons.looks_one;
+      case 2: return Icons.looks_two;
+      case 3: return Icons.looks_3;
+      default: return Icons.emoji_events;
     }
   }
 }
@@ -741,12 +613,14 @@ class GroupSettingsPanel extends StatefulWidget {
   final String? currentCode;
   final Function(String) onJoinGroup;
   final Function() onLeaveGroup;
+  final bool hasGroup;
 
   const GroupSettingsPanel({
     Key? key,
     this.currentCode,
     required this.onJoinGroup,
     required this.onLeaveGroup,
+    required this.hasGroup,
   }) : super(key: key);
 
   @override
@@ -803,12 +677,11 @@ class _GroupSettingsPanelState extends State<GroupSettingsPanel> {
           SizedBox(height: 24),
           ElevatedButton(
             child: Text(
-              widget.currentCode != null ? 'Grubu Güncelle' : 'Gruba Katıl',
+              widget.hasGroup ? 'Grubu Güncelle' : 'Gruba Katıl',
               style: TextStyle(fontSize: 18),
             ),
             style: ElevatedButton.styleFrom(
-              primary: Color(0xFF58CC02),
-              onPrimary: Colors.white,
+              foregroundColor: Colors.white, backgroundColor: Color(0xFF58CC02),
               padding: EdgeInsets.symmetric(vertical: 12),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
@@ -821,7 +694,7 @@ class _GroupSettingsPanelState extends State<GroupSettingsPanel> {
               }
             },
           ),
-          if (widget.currentCode != null) ...[
+          if (widget.hasGroup) ...[
             SizedBox(height: 16),
             TextButton(
               child: Text(

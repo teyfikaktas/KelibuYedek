@@ -93,17 +93,6 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> with Single
       enteredLetters = value.padRight(correctWord.length).split('').take(correctWord.length).toList();
     });
   }
-  void _updateUserScore(int newScore) async {
-    try {
-      UserProvider userProvider = Provider.of<UserProvider>(context, listen: false);
-      int point = userProvider.point.toInt();
-      userProvider.addPoint(point + 5);
-      await ApiService().updateUserPointTimePeriod(userProvider.userId, newScore, 5);
-      pointValueNotifier.value = newScore;
-    } catch (e) {
-      print("Puan güncelleme hatası: $e");
-    }
-  }
   void _initializeEnteredLetters() {
     enteredLetters = List.filled(correctWord.length, '');
   }
@@ -148,25 +137,54 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> with Single
     bool correct = enteredWord == correctWord;
 
     if (correct) {
-      // Kullanıcının kendi başına tahmin ettiği harf sayısını hesapla
       int userGuessedLetters = enteredWord.split('').where((letter) => !enteredLetters.contains(letter)).length;
-
-      // Bonus puanı hesapla (ipucu alınmamış her harf için 1 puan)
       int bonusPoints = correctWord.length - enteredLetters.where((letter) => letter.isNotEmpty).length;
+      int pointsEarned = 3 + bonusPoints;
 
-      // Temel puan (3) + bonus puanları ekle
-      int newPoints = _userPoints.value + 3 + bonusPoints;
+      int currentPoints = _userPoints.value;
+      int newPoints = currentPoints + pointsEarned;
 
       UserProvider userProvider = Provider.of<UserProvider>(context, listen: false);
-      userProvider.addPoint(newPoints);
-      await ApiService().updateUserPointTimePeriod(userProvider.userId, newPoints, 3 + bonusPoints);
 
-      _userPoints.value = newPoints;
-      pointValueNotifier.value = newPoints;
+      try {
+        await _updateUserScore(newPoints, pointsEarned);
+        _userPoints.value = newPoints;
+        pointValueNotifier.value = newPoints;
 
-      _showSuccessDialog(bonusPoints);
+        _showSuccessDialog(bonusPoints);
+      } catch (e) {
+        print("Puan güncelleme hatası: $e");
+        _showErrorDialog("Puan güncellenirken bir hata oluştu.");
+      }
     } else {
       _showErrorDialog("Yanlış cevap! Doğru kelime: $correctWord");
+    }
+  }
+  Future<void> _updateUserScore(int newScore, int pointChange) async {
+    try {
+      UserProvider userProvider = Provider.of<UserProvider>(context, listen: false);
+      int currentPoints = userProvider.point;
+
+      print("Updating score - UserID: ${userProvider.userId}, Current Points: $currentPoints, New Score: $newScore, Point Change: $pointChange");
+
+      if (newScore <= 1) {
+        print("New score is <= 1. Keeping current points.");
+        newScore = currentPoints;
+      }
+
+      if (newScore < currentPoints) {
+        print("Warning: New score ($newScore) is less than current points ($currentPoints).");
+      }
+
+      await Future.wait([
+        ApiService().updateUserPointTimePeriod(userProvider.userId, newScore, pointChange),
+        userProvider.addPoint(newScore),
+      ]);
+
+      print("Score updated successfully. New score: $newScore");
+    } catch (e) {
+      print("Error updating user score: $e");
+      throw e;
     }
   }
   void _showSuccessDialog(int bonusPoints) {
@@ -213,7 +231,7 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> with Single
     }
   }
 
-  void _getHint() {
+  void _getHint() async {
     if (_userPoints.value >= 1) {
       setState(() {
         List<int> emptyIndexes = [];
@@ -225,7 +243,10 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> with Single
         if (emptyIndexes.isNotEmpty) {
           int randomIndex = emptyIndexes[Random().nextInt(emptyIndexes.length)];
           enteredLetters[randomIndex] = correctWord[randomIndex];
-          _userPoints.value -= 1;
+
+          int newPoints = _userPoints.value - 1;
+          _updateUserScore(newPoints, -1);
+          _userPoints.value = newPoints;
         }
       });
     } else {
@@ -385,7 +406,7 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> with Single
     return ElevatedButton(
       onPressed: onPressed,
       style: ElevatedButton.styleFrom(
-        primary: color,
+        backgroundColor: color,
         shape: CircleBorder(),
       ),
       child: Icon(icon, color: Colors.white, size: 16.sp),
@@ -697,8 +718,7 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> with Single
                   label: Text("Tekrar Dinle", style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600)),
                   onPressed: () => _speak(correctWord),
                   style: ElevatedButton.styleFrom(
-                    primary: _isDarkMode ? Colors.tealAccent[700] : Colors.indigo,
-                    onPrimary: Colors.white,
+                    foregroundColor: Colors.white, backgroundColor: _isDarkMode ? Colors.tealAccent[700] : Colors.indigo,
                     padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                     elevation: 5,
@@ -730,8 +750,7 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> with Single
       icon: Icon(Icons.check),
       label: Text('Kontrol Et'),
       style: ElevatedButton.styleFrom(
-        primary: _isDarkMode ? Colors.tealAccent[700] : Colors.indigo,
-        onPrimary: Colors.white,
+        foregroundColor: Colors.white, backgroundColor: _isDarkMode ? Colors.tealAccent[700] : Colors.indigo,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30.0)),
         padding: EdgeInsets.symmetric(horizontal: 30, vertical: 15),
         elevation: 5,
@@ -757,8 +776,7 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> with Single
     return ElevatedButton(
       child: Text(letter == ' ' ? 'Space' : letter),
       style: ElevatedButton.styleFrom(
-        primary: _isDarkMode ? darkModeColors["buttonBackground"] : Colors.blue,
-        onPrimary: Colors.white,
+        foregroundColor: Colors.white, backgroundColor: _isDarkMode ? darkModeColors["buttonBackground"] : Colors.blue,
         padding: EdgeInsets.all(10),
         minimumSize: Size(40, 40),
       ),

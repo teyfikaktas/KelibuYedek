@@ -72,7 +72,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
               label: Text('Yenile', style: TextStyle(color: Colors.white)),
               onPressed: () => _controller.reload(),
               style: ElevatedButton.styleFrom(
-                primary: Colors.blue[700],
+                backgroundColor: Colors.blue[700],
                 padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(30),

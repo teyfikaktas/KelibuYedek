@@ -77,12 +77,21 @@ class _GameModeStarScreenState extends State<GameModeStarScreen> with TickerProv
     words = [];
     starredWords = {};
     _loadData();
+    wordsFuture = _loadWords();
+
     _searchController.addListener(_filterWords);
     appEventBus.on<StarredWordsChangedEvent>().listen((event) async {
       await updateStarredWords();
     });
   }
-
+  Future<List<WordDetail>> _loadWords() async {
+    String processedString = widget.studySetName.replaceAll('[', '').replaceAll(']', '');
+    List<int> wordIds = processedString.split(',')
+        .map((id) => int.tryParse(id.trim()) ?? 0)
+        .where((id) => id != 0)
+        .toList();
+    return ApiService().fetchWordsDetailStar(widget.classroomId, wordIds);
+  }
   Future<void> _loadData() async {
     await _loadDarkModePreference();
     await initializeStarredNotifiers();
@@ -254,8 +263,7 @@ class _GameModeStarScreenState extends State<GameModeStarScreen> with TickerProv
                     },
                     child: Text("Kelime Listesine Dön"),
                     style: ElevatedButton.styleFrom(
-                      primary: Colors.amber,
-                      onPrimary: Colors.black87,
+                      foregroundColor: Colors.black87, backgroundColor: Colors.amber,
                     ),
                   ),
                 ],
@@ -732,7 +740,7 @@ class _GameModeStarScreenState extends State<GameModeStarScreen> with TickerProv
     return ElevatedButton(
       onPressed: onPressed,
       style: ElevatedButton.styleFrom(
-        primary: color,
+        backgroundColor: color,
         shape: CircleBorder(),
       ),
       child: Icon(icon, color: Colors.white, size: 16.sp),

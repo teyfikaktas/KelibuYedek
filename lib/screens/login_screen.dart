@@ -187,8 +187,7 @@ class _LoginScreenState extends State<LoginScreen> {
           login(_usernameController.text, _passwordController.text);
         },
         style: ElevatedButton.styleFrom(
-          primary: colors["buttonBackground"],
-          onPrimary: colors["buttonText"],
+          foregroundColor: colors["buttonText"], backgroundColor: colors["buttonBackground"],
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(30),
           ),
@@ -314,7 +313,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     onPressed: () => Navigator.of(context).pop(),
                     style: ElevatedButton.styleFrom(
-                      primary: Colors.blue,
+                      backgroundColor: Colors.blue,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(30),
                       ),

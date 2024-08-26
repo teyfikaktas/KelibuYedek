@@ -145,33 +145,72 @@ class ApiService {
     }
   }
 
+  Future<int> getCurrentUserPoints(int userId) async {
+    try {
+      var url = Uri.parse('https://kelibu.net/api/$userId/point');
+      var response = await http.get(
+        url,
+        headers: {
+          'X-Custom-Header': privacyKey.privacyKeyVariable,
+        },
+      );
+
+      if (response.statusCode == 200) {
+        var data = json.decode(response.body);
+        return data['point'] ?? 0;
+      } else {
+        print('Failed to get current user points. Status code: ${response.statusCode}');
+        print('Response body: ${response.body}');
+        return 0;
+      }
+    } catch (e) {
+      print('Error getting current user points: $e');
+      return 0;
+    }
+  }
+
   Future<void> updateUserPointTimePeriod(int userId, int newPoint, int timePoint) async {
-    print('newPoint');
+    try {
+      print('Updating user point - UserID: $userId, New Point: $newPoint, Time Point: $timePoint');
 
-    print(newPoint);
-    print('timePoint');
+      // Mevcut puanı al
+      int currentPoints = await getCurrentUserPoints(userId);
+      print('Current points: $currentPoints');
 
-    print(timePoint);
+      // Yeni puan 1 veya daha azsa, mevcut puanı koru
+      if (newPoint <= 1) {
+        print('New point is <= 1. Keeping current points.');
+        newPoint = currentPoints;
+      }
 
-    var url = Uri.parse('https://kelibu.net/api/user/new/updateUserPoint');
-    var response = await http.post(
-      url,
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Custom-Header': privacyKey.privacyKeyVariable, // İsteğe eklenen özel header
-      },
-      body: jsonEncode({
-        'userId': userId,  // UserID'yi buraya ekledik
-        'point': newPoint,
-        'timePoint': timePoint
+      // Puan düşüşü kontrolü
+      if (newPoint < currentPoints) {
+        print('Warning: New point ($newPoint) is less than current points ($currentPoints).');
+        // Burada ek bir işlem yapabilirsiniz, örneğin bir log kaydı tutabilir veya bir uyarı gönderebilirsiniz.
+      }
 
-      }),
-    );
+      var url = Uri.parse('https://kelibu.net/api/user/new/updateUserPoint');
+      var response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Custom-Header': privacyKey.privacyKeyVariable,
+        },
+        body: jsonEncode({
+          'userId': userId,
+          'point': newPoint,
+          'timePoint': timePoint
+        }),
+      );
 
-    if (response.statusCode == 200) {
-      print('Kullanıcı puanı başarıyla güncellendi.');
-    } else {
-      print('Puan güncelleme başarısız: ${response.body}');
+      if (response.statusCode == 200) {
+        print('User point successfully updated. New point: $newPoint');
+      } else {
+        print('Failed to update user point. Status code: ${response.statusCode}');
+        print('Response body: ${response.body}');
+      }
+    } catch (e) {
+      print('Error updating user point: $e');
     }
   }
 
@@ -799,7 +838,7 @@ class ApiService {
 
             if (categoryId != null && studySetId != null) { // Only add if both IDs could be parsed successfully
               dataToSend.add({
-                'category_id': categoryId,
+                'c_id': categoryId,
                 'study_set_id': studySetId,
                 'words': starredWordsList
               });

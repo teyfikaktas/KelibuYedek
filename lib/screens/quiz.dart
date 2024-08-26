@@ -910,18 +910,40 @@ class _QuizScreenState extends State<QuizScreen> {
       _pageController.jumpToPage(0);
     });
   }
-  void _updateUserScore(int newScore) async {
+  Future<void> _updateUserScore(int newScore) async {
     try {
       UserProvider userProvider = Provider.of<UserProvider>(context, listen: false);
-      int point = userProvider.point.toInt();
-      userProvider.addPoint(point + 5);
-      await ApiService().updateUserPointTimePeriod(userID, newScore, 5);
-      pointValueNotifier.value = newScore;
+      int currentPoints = userProvider.point;
+
+      print("Updating score - UserID: $userID, Current Points: $currentPoints, New Score: $newScore");
+
+      // Yeni puan 1 veya daha azsa, mevcut puanı koru
+      if (newScore <= 1) {
+        print("New score is <= 1. Keeping current points.");
+        newScore = currentPoints;
+      }
+
+      // Puan düşüşü kontrolü
+      if (newScore < currentPoints) {
+        print("Warning: New score ($newScore) is less than current points ($currentPoints).");
+      }
+
+      // API çağrısı ve local state güncellemesi
+      await Future.wait([
+        ApiService().updateUserPointTimePeriod(userID, newScore, newScore - currentPoints),
+        userProvider.addPoint(newScore),
+      ]);
+
+      setState(() {
+        score = newScore;
+        pointValueNotifier.value = newScore;
+      });
+
+      print("Score updated successfully. New score: $newScore");
     } catch (e) {
-      print("Puan güncelleme hatası: $e");
+      print("Error updating user score: $e");
     }
   }
-
   @override
   void initState() {
     super.initState();
@@ -973,10 +995,10 @@ class _QuizScreenState extends State<QuizScreen> {
   void finishQuiz() async {
     int finalScore = score;
     try {
-      await ApiService().updateUserPointTimePeriod(userID, finalScore, 5);
-      print('Puan güncellendi: $finalScore');
+      await _updateUserScore(finalScore);
+      print('Quiz finished. Final score: $finalScore');
     } catch (e) {
-      print('Puan güncelleme hatası: $e');
+      print('Error updating final score: $e');
     }
     Navigator.of(context).push(MaterialPageRoute(
       builder: (context) => QuizResultsScreen(questions: questions),
@@ -1192,7 +1214,6 @@ class _QuizScreenState extends State<QuizScreen> {
     bool isCorrect = selectedIndex == correctIndex;
 
     if (!isCorrect && doubleAnswerActive) {
-      // İlk yanlış cevap, ikinci şansı ver
       doubleAnswerActive = false;
       showCustomFlushbar(context, "Yanlış cevap! İkinci şansınızı kullanın.");
       return;
@@ -1200,16 +1221,11 @@ class _QuizScreenState extends State<QuizScreen> {
 
     questions[currentQuestionIndex].userAnswer = selectedIndex;
     int timeTaken = 15 - _remainingTime;
-
-    if (isCorrect) {
-      int pointsEarned = 5 + (15 - timeTaken);
-      score += pointsEarned;
-    } else {
-      score -= 2;
-    }
+    int pointChange = isCorrect ? 5 + (15 - timeTaken) : -2;
+    int newScore = score + pointChange;
 
     questionStatuses[currentQuestionIndex] = isCorrect;
-    _updateUserScore(score);
+    _updateUserScore(newScore);
 
     setState(() {
       optionColors[selectedIndex] = isCorrect ? const Color(0xFF4CA64C) : const Color(0xFFFF4C4C);
@@ -1448,7 +1464,7 @@ class _QuizScreenState extends State<QuizScreen> {
                       ),
                     ),
                     style: ElevatedButton.styleFrom(
-                      primary: colors["buttonBackground"],
+                      backgroundColor: colors["buttonBackground"],
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(size.width * 0.08),
                       ),
@@ -1848,7 +1864,7 @@ class _QuizScreenState extends State<QuizScreen> {
     return ElevatedButton(
       onPressed: onPressed,
       style: ElevatedButton.styleFrom(
-        primary: color,
+        backgroundColor: color,
         shape: CircleBorder(),
         padding: EdgeInsets.all(12.sp),
       ),
@@ -1905,8 +1921,7 @@ class _QuizScreenState extends State<QuizScreen> {
               // Kelime ekleme sayfasına yönlendirme
             },
             style: ElevatedButton.styleFrom(
-              primary: Colors.amber[700],
-              onPrimary: Colors.white,
+              foregroundColor: Colors.white, backgroundColor: Colors.amber[700],
               padding: EdgeInsets.symmetric(horizontal: 30, vertical: 15),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(30),
@@ -2547,7 +2562,7 @@ class ExampleSentenceCard extends StatelessWidget {
               label: Text('Dinle', style: GoogleFonts.nunito(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
               onPressed: onListen,
               style: ElevatedButton.styleFrom(
-                primary: Colors.teal,
+                backgroundColor: Colors.teal,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(30),
                 ),

@@ -163,7 +163,7 @@ class _StudySetListScreenState extends State<StudySetListScreen> {
     return ElevatedButton(
       onPressed: onPressed,
       style: ElevatedButton.styleFrom(
-        primary: color,
+        backgroundColor: color,
         shape: CircleBorder(),
       ),
       child: Icon(icon, color: Colors.white, size: 16.sp),

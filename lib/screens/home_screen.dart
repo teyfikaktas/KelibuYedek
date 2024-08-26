@@ -322,8 +322,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         Navigator.of(context).pop();
                       },
                       style: ElevatedButton.styleFrom(
-                        primary: Colors.blue[700],
-                        onPrimary: Colors.white,
+                        foregroundColor: Colors.white, backgroundColor: Colors.blue[700],
                         padding: EdgeInsets.symmetric(vertical: 16.h),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(30),
@@ -928,7 +927,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ElevatedButton(
           onPressed: () => _launchURL('https://phdakademi.com'),
           style: ElevatedButton.styleFrom(
-            primary: _isDarkMode ? Colors.blue.shade800 : Colors.blue.shade600,
+            backgroundColor: _isDarkMode ? Colors.blue.shade800 : Colors.blue.shade600,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(30),
             ),
@@ -1246,7 +1245,7 @@ Kelime öğrenmenin tadını Kelibu ile çıkarın! 🍭📗
     return ElevatedButton(
       onPressed: onPressed,
       style: ElevatedButton.styleFrom(
-        primary: color,
+        backgroundColor: color,
         shape: CircleBorder(),
         padding: EdgeInsets.all(size * 0.25), // Padding'i ikon boyutuna göre ayarlıyoruz
       ),
@@ -1496,6 +1495,15 @@ class _SearchDialogState extends State<SearchDialog> {
   bool _isSearching = false;
   String _searchError = '';
   WordDetail? _searchResult;
+  FocusNode _searchFocusNode = FocusNode();
+  bool _showSearchPanel = true;
+
+  @override
+  void dispose() {
+    _searchFocusNode.dispose();
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1546,140 +1554,157 @@ class _SearchDialogState extends State<SearchDialog> {
                 ],
               ),
               SizedBox(height: 20.h),
-              TextField(
-                controller: _searchController,
-                style: TextStyle(
-                  color: widget.isDarkMode ? Colors.white : Colors.black,
-                  fontSize: 18.sp,
-                ),
-                decoration: InputDecoration(
-                  hintText: "Kelime girin...",
-                  hintStyle: TextStyle(
-                    color: widget.isDarkMode ? Colors.white70 : Colors.grey[600],
-                    fontSize: 18.sp,
-                  ),
-                  filled: true,
-                  fillColor: widget.isDarkMode ? Color(0xFF2C2C2E) : Color(0xFFF0F0F0),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(30),
-                    borderSide: BorderSide.none,
-                  ),
-                  prefixIcon: Icon(Icons.search, color: Color(0xFF58CC02), size: 24.sp),
-                  suffixIcon: IconButton(
-                    icon: Icon(Icons.clear, color: widget.isDarkMode ? Colors.white70 : Colors.grey[600]),
-                    onPressed: () {
-                      _searchController.clear();
-                      setState(() {
-                        _searchResult = null;
-                        _searchError = '';
-                      });
-                    },
-                  ),
-                ),
-              ),
-              SizedBox(height: 15.h),
-              if (_searchError.isNotEmpty)
-                Text(
-                  _searchError,
-                  style: TextStyle(color: Colors.red, fontSize: 16.sp),
-                ),
-              SizedBox(height: 25.h),
-              ElevatedButton(
-                child: _isSearching
-                    ? SizedBox(
-                  width: 20.w,
-                  height: 20.h,
-                  child: CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                  ),
-                )
-                    : Text(
-                  "Ara",
-                  style: GoogleFonts.nunito(
-                    fontSize: 20.sp,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
-                ),
-                style: ElevatedButton.styleFrom(
-                  primary: Color(0xFF58CC02),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  padding: EdgeInsets.symmetric(horizontal: 40.w, vertical: 12.h),
-                  elevation: 0,
-                ),
-                onPressed: _isSearching ? null : () => performSearch(_searchController.text),
-              ),
-              if (_searchResult != null)
-                Column(
-                  children: [
-                    SizedBox(height: 20.h),
-                    Text(
-                      "${_searchResult!.word}",
-                      style: GoogleFonts.nunito(
-                        fontSize: 24.sp,
-                        fontWeight: FontWeight.w700,
-                        color: widget.isDarkMode ? Colors.white : Color(0xFF4B4B4B),
-                      ),
-                    ),
-                    SizedBox(height: 10.h),
-                    Text(
-                      "${_searchResult!.meaning}",
-                      style: GoogleFonts.nunito(
-                        fontSize: 18.sp,
-                        color: widget.isDarkMode ? Colors.white70 : Colors.grey[600],
-                      ),
-                    ),
-                    SizedBox(height: 20.h),
-                    ElevatedButton.icon(
-                      icon: Icon(Icons.celebration, color: Colors.white),
-                      label: Text(
-                        "Detaylı Keşfet!",
-                        style: GoogleFonts.nunito(
-                          fontSize: 18.sp,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                        ),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        primary: Color(0xFFFF9800),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 10.h),
-                        elevation: 0,
-                      ),
-                      onPressed: () => _navigateToWordDetail(_searchResult!),
-                    ),
-                  ],
-                ),
+              if (_showSearchPanel) _buildSearchPanel() else _buildResultPanel(),
             ],
-          ),
-        ),
-        Positioned(
-          right: 10.w,
-          top: 10.h,
-          child: GestureDetector(
-            onTap: () => Navigator.of(context).pop(),
-            child: Container(
-              padding: EdgeInsets.all(8.sp),
-              decoration: BoxDecoration(
-                color: widget.isDarkMode ? Colors.grey[800] : Colors.grey[200],
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.close,
-                color: widget.isDarkMode ? Colors.white : Colors.black,
-                size: 20.sp,
-              ),
-            ),
           ),
         ),
       ],
     );
   }
+
+  Widget _buildSearchPanel() {
+    return Column(
+      children: [
+        TextField(
+          controller: _searchController,
+          focusNode: _searchFocusNode,
+          style: TextStyle(
+            color: widget.isDarkMode ? Colors.white : Colors.black,
+            fontSize: 18.sp,
+          ),
+          decoration: InputDecoration(
+            hintText: "Kelime girin...",
+            hintStyle: TextStyle(
+              color: widget.isDarkMode ? Colors.white70 : Colors.grey[600],
+              fontSize: 18.sp,
+            ),
+            filled: true,
+            fillColor: widget.isDarkMode ? Color(0xFF2C2C2E) : Color(0xFFF0F0F0),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(30),
+              borderSide: BorderSide.none,
+            ),
+            prefixIcon: Icon(Icons.search, color: Color(0xFF58CC02), size: 24.sp),
+            suffixIcon: IconButton(
+              icon: Icon(Icons.clear, color: widget.isDarkMode ? Colors.white70 : Colors.grey[600]),
+              onPressed: () {
+                _searchController.clear();
+              },
+            ),
+          ),
+          onSubmitted: (term) => performSearch(term),
+          textInputAction: TextInputAction.search,
+        ),
+        SizedBox(height: 15.h),
+        if (_searchError.isNotEmpty)
+          Text(
+            _searchError,
+            style: TextStyle(color: Colors.red, fontSize: 16.sp),
+          ),
+        SizedBox(height: 25.h),
+        ElevatedButton(
+          child: _isSearching
+              ? SizedBox(
+            width: 20.w,
+            height: 20.h,
+            child: CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+            ),
+          )
+              : Text(
+            "Ara",
+            style: GoogleFonts.nunito(
+              fontSize: 20.sp,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+            ),
+          ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Color(0xFF58CC02),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            padding: EdgeInsets.symmetric(horizontal: 40.w, vertical: 12.h),
+            elevation: 0,
+          ),
+          onPressed: _isSearching ? null : () => performSearch(_searchController.text),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildResultPanel() {
+    return Container(
+      margin: EdgeInsets.only(top: 20.h),
+      padding: EdgeInsets.all(16.w),
+      decoration: BoxDecoration(
+        color: widget.isDarkMode ? Color(0xFF2C2C2E) : Colors.grey[200],
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                "${_searchResult!.word}",
+                style: GoogleFonts.nunito(
+                  fontSize: 24.sp,
+                  fontWeight: FontWeight.w700,
+                  color: widget.isDarkMode ? Colors.white : Color(0xFF4B4B4B),
+                ),
+              ),
+              IconButton(
+                icon: Icon(Icons.close, color: widget.isDarkMode ? Colors.white70 : Colors.grey[600]),
+                onPressed: () {
+                  setState(() {
+                    _showSearchPanel = true;
+                    _searchResult = null;
+                  });
+                },
+              ),
+            ],
+          ),
+          SizedBox(height: 10.h),
+          Text(
+            "${_searchResult!.meaning}",
+            style: GoogleFonts.nunito(
+              fontSize: 18.sp,
+              color: widget.isDarkMode ? Colors.white70 : Colors.grey[600],
+            ),
+          ),
+          SizedBox(height: 20.h),
+          Center(
+            child: ElevatedButton.icon(
+              icon: Icon(Icons.celebration, color: Colors.white),
+              label: Text(
+                "Detaylı Keşfet!",
+                style: GoogleFonts.nunito(
+                  fontSize: 18.sp,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Color(0xFFFF9800),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 10.h),
+                elevation: 0,
+              ),
+              onPressed: () => _navigateToWordDetail(_searchResult!),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> performSearch(String term) async {
+    if (term.isEmpty) return;
+
     setState(() {
       _isSearching = true;
       _searchError = '';
@@ -1692,6 +1717,7 @@ class _SearchDialogState extends State<SearchDialog> {
       if (searchResult != null) {
         setState(() {
           _searchResult = searchResult;
+          _showSearchPanel = false;
         });
       } else {
         setState(() {
@@ -1708,6 +1734,7 @@ class _SearchDialogState extends State<SearchDialog> {
       });
     }
   }
+
   void _navigateToWordDetail(WordDetail word) async {
     final apiService = ApiService();
     showDialog(
@@ -1719,7 +1746,7 @@ class _SearchDialogState extends State<SearchDialog> {
     );
 
     try {
-      List<int> wordIds = [word.id]; // Kelime ID'sini bir listeye dönüştür
+      List<int> wordIds = [word.id];
       List<WordDetail> detailedWords = await apiService.fetchWordsDetail(wordIds);
 
       if (detailedWords.isNotEmpty) {
@@ -1745,13 +1772,12 @@ class _SearchDialogState extends State<SearchDialog> {
     } catch (e) {
       print("Error loading word details: $e");
       Navigator.of(context).pop(); // Loading dialog'u kapat
-      // Hata mesajını göster
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Kelime detayları yüklenirken bir hata oluştu.')),
       );
     }
-  }}
-
+  }
+}
 class WordOfTheDayCache {
   static const String _keyWord = 'word_of_the_day';
   static const String _keyDefinition = 'definition_of_the_day';
@@ -1884,7 +1910,7 @@ class ContentBox extends StatelessWidget {
                           onPressed: () => onSpeak(snapshot.data!.term),
                           child: Icon(Icons.volume_up, color: Colors.white),
                           style: ElevatedButton.styleFrom(
-                            primary: Colors.orange,
+                            backgroundColor: Colors.orange,
                             shape: CircleBorder(),
                             padding: EdgeInsets.all(15),
                           ),
@@ -1900,7 +1926,7 @@ class ContentBox extends StatelessWidget {
                             ),
                           ),
                           style: ElevatedButton.styleFrom(
-                            primary: Colors.green,
+                            backgroundColor: Colors.green,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(16),
                             ),
@@ -2028,7 +2054,7 @@ class LearningPanel extends StatelessWidget {
     return ElevatedButton(
       onPressed: onTap,
       style: ElevatedButton.styleFrom(
-        primary: isDarkMode ? color.withOpacity(0.8) : color,
+        backgroundColor: isDarkMode ? color.withOpacity(0.8) : color,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         padding: EdgeInsets.symmetric(vertical: 16.h, horizontal: 20.w),
       ),

@@ -227,8 +227,7 @@ class _ContactFormPageState extends State<ContactFormPage> {
                         ),
                       ),
                       style: ElevatedButton.styleFrom(
-                        primary: buttonBackgroundColor,
-                        onPrimary: buttonTextColor,
+                        foregroundColor: buttonTextColor, backgroundColor: buttonBackgroundColor,
                         padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(30),

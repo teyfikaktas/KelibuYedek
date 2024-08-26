@@ -17,26 +17,7 @@ import 'loadingIndicator.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-
-class CustomCircleAvatar extends StatelessWidget {
-  final String? imageUrl;
-  final String assetImagePath;
-
-  const CustomCircleAvatar({
-    Key? key,
-    required this.imageUrl,
-    required this.assetImagePath,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return CircleAvatar(
-      backgroundImage: imageUrl != null && imageUrl!.isNotEmpty
-          ? CachedNetworkImageProvider(imageUrl!)
-          : AssetImage(assetImagePath) as ImageProvider,
-    );
-  }
-}
+import 'package:auto_size_text/auto_size_text.dart';
 
 class StarredWordsScreen extends StatefulWidget {
   const StarredWordsScreen({Key? key}) : super(key: key);
@@ -71,6 +52,7 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
     _scrollController.addListener(_scrollListener);
     _initialize();
   }
+
   void _scrollListener() {
     if (_scrollController.offset >= _scrollController.position.maxScrollExtent &&
         !_scrollController.position.outOfRange &&
@@ -79,6 +61,7 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
       fetchWords();
     }
   }
+
   Future<void> _initialize() async {
     await _loadDarkModePreference();
     await fetchWords();
@@ -94,7 +77,6 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
   @override
   void dispose() {
     _debounce?.cancel();
-
     _scrollController.removeListener(_scrollListener);
     _scrollController.dispose();
     WidgetsBinding.instance.removeObserver(this);
@@ -127,6 +109,7 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
         isLoading = false;
       });
     } catch (error) {
+      print("Error fetching words: $error");
       setState(() {
         isLoading = false;
       });
@@ -139,17 +122,19 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
       setState(() {
         if (query.isEmpty) {
           filteredWords = words;
-          _hasMoreItems = true;  // Aramayı temizlediğimizde lazy loading'i tekrar etkinleştir
+          _hasMoreItems = true;
         } else {
           filteredWords = words.where((word) =>
           word.word.toLowerCase().contains(query.toLowerCase()) ||
               word.meaning.toLowerCase().contains(query.toLowerCase())
           ).toList();
-          _hasMoreItems = false;  // Arama yapıldığında lazy loading'i durdur
+          _hasMoreItems = false;
         }
       });
     });
-  }  @override
+  }
+
+  @override
   Widget build(BuildContext context) {
     final colors = _isDarkMode ? darkModeColors : lightModeColors;
     colors.putIfAbsent("shadow", () => Colors.grey.shade300);
@@ -188,25 +173,44 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
               MaterialPageRoute(builder: (context) => VideoPlayerScreen(videoUrl: AppUrls.mystarwords)),
             );
           }),
-
         ],
         iconTheme: IconThemeData(
           color: colors["text"]!,
         ),
       ),
-      body: isLoading
-          ? Center(child: buildLoadingIndicator(colors))
-          : Column(
+      body: Column(
         children: [
+          _buildStudyButton(colors),
           if (isPageView) buildSearchBar(colors),
           if (isPageView) buildSearchInfo(colors),
           Expanded(
-            child: isPageView ? buildListView(colors) : buildPageView(colors),
+            child: isLoading
+                ? Center(child: CircularProgressIndicator(color: colors["buttonBackground"]))
+                : words.isEmpty
+                ? _buildEmptyState(colors)
+                : isPageView ? buildListView(colors) : buildPageView(colors),
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        heroTag: 'floating_button_${Random().nextInt(1000)}',
+    );
+  }
+
+  Widget _buildRoundedIconButton(IconData icon, Color color, VoidCallback onPressed) {
+    return ElevatedButton(
+      onPressed: onPressed,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: color,
+        shape: CircleBorder(),
+        padding: EdgeInsets.all(12.sp),
+      ),
+      child: Icon(icon, color: Colors.white, size: 24.sp),
+    );
+  }
+
+  Widget _buildStudyButton(Map<String, Color> colors) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: ElevatedButton(
         onPressed: () {
           Navigator.of(context).push(MaterialPageRoute(
             builder: (context) => GameModeStarScreen(
@@ -216,95 +220,30 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
             ),
           ));
         },
-        child: Icon(
-          Icons.videogame_asset,
-          size: 30,
-        ),
-        backgroundColor: colors["buttonBackground"],
-        foregroundColor: colors["buttonText"],
-        tooltip: 'Yıldızlı Kelimelere Çalış',
-        elevation: 8.0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(15.0),
-        ),
-      ),
-    );
-  }
-  Widget _buildRoundedIconButton(IconData icon, Color color, VoidCallback onPressed) {
-    return ElevatedButton(
-      onPressed: onPressed,
-      style: ElevatedButton.styleFrom(
-        primary: color,
-        shape: CircleBorder(),
-        padding: EdgeInsets.all(12.sp),
-      ),
-      child: Icon(icon, color: Colors.white, size: 24.sp),
-    );
-  }
-
-  Widget buildLoadingIndicator(Map<String, Color> colors) {
-    return Container(
-      padding: EdgeInsets.all(16),
-      child: Column(
-        children: [
-          SizedBox(
-            width: 60,
-            height: 60,
-            child: Stack(
-              children: [
-                Center(
-                  child: Container(
-                    width: 50,
-                    height: 50,
-                    decoration: BoxDecoration(
-                      color: colors["buttonBackground"],
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                ),
-                Center(
-                  child: SizedBox(
-                    width: 60,
-                    height: 60,
-                    child: CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(colors["buttonBackground"]!),
-                      strokeWidth: 4,
-                    ),
-                  ),
-                ),
-                Center(
-                  child: Text(
-                    "A",
-                    style: TextStyle(
-                      color: colors["buttonText"],
-                      fontSize: 30,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+        style: ElevatedButton.styleFrom(
+          foregroundColor: Colors.white, backgroundColor: Color(0xFF58CC02),
+          padding: EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
           ),
-          SizedBox(height: 16),
-          Text(
-            "Kelimeler Yükleniyor...",
-            style: TextStyle(
-              color: colors["text"],
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
+          elevation: 2,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.play_circle_filled, size: 28),
+            SizedBox(width: 12),
+            Text(
+              'ÇALIŞMAYA BAŞLA',
+              style: GoogleFonts.poppins(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.5,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
-    );
-  }
-  Widget buildPageView(Map<String, Color> colors) {
-    return PageView.builder(
-      itemCount: words.length,
-      itemBuilder: (context, index) {
-        final word = words[index];
-        return buildWordCard(word, index, colors);
-      },
     );
   }
   Widget buildSearchInfo(Map<String, Color> colors) {
@@ -322,6 +261,7 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
       ),
     );
   }
+
   Widget buildSearchBar(Map<String, Color> colors) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
@@ -360,10 +300,10 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
       ),
     );
   }
+
   Future<void> speak(String text) async {
     await flutterTts.speak(text);
   }
-
 
   Widget buildWordCard(WordDetail word, int index, Map<String, Color> colors) {
     return Container(
@@ -407,12 +347,17 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      word.word,
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                        color: colors["text"],
+                    Expanded(
+                      child: AutoSizeText(
+                        word.word,
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          color: colors["text"],
+                        ),
+                        maxLines: 1,
+                        minFontSize: 18,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     if (word.type != null)
@@ -422,24 +367,29 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
                           color: colors["buttonBackground"]!.withOpacity(0.2),
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: Text(
+                        child: AutoSizeText(
                           word.type == "full" ? "Tip bulunamadı" : word.type!,
                           style: TextStyle(
                             fontSize: 14,
                             color: colors["buttonBackground"],
                             fontWeight: FontWeight.bold,
                           ),
+                          maxLines: 1,
+                          minFontSize: 10,
                         ),
                       ),
                   ],
                 ),
                 SizedBox(height: 10),
-                Text(
+                AutoSizeText(
                   word.meaning,
                   style: TextStyle(
                     fontSize: 18,
                     color: colors["text"],
                   ),
+                  maxLines: 3,
+                  minFontSize: 14,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 SizedBox(height: 20),
                 Row(
@@ -474,22 +424,62 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
       ),
     );
   }
+
   Widget buildListView(Map<String, Color> colors) {
     return ListView.builder(
-      controller: _scrollController,
-      itemCount: filteredWords.length + (_hasMoreItems && searchController.text.isEmpty ? 1 : 0),
+        controller: _scrollController,
+      itemCount: filteredWords.length + 1,
       itemBuilder: (context, index) {
         if (index < filteredWords.length) {
           final word = filteredWords[index];
           return buildListTile(word, colors);
-        } else if (_hasMoreItems && searchController.text.isEmpty) {
-          return Center(child: buildLoadingIndicator(colors));
         } else {
-          return SizedBox();
+          return Padding(
+            padding: EdgeInsets.all(16),
+            child: Column(
+              children: [
+                Icon(
+                  Icons.emoji_events,
+                  size: 50,
+                  color: colors["buttonBackground"],
+                ),
+                SizedBox(height: 10),
+                Text(
+                  "Yıldızlı kelimelerin sonuna ulaştınız!",
+                  style: GoogleFonts.poppins(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: colors["text"],
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 5),
+                Text(
+                  "Daha fazla kelime yıldızlayın, setleri keşfedin ve öğrenmeye devam edin!",
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    color: colors["text"],
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          );
         }
       },
     );
   }
+
+  Widget buildPageView(Map<String, Color> colors) {
+    return PageView.builder(
+      itemCount: words.length,
+      itemBuilder: (context, index) {
+        final word = words[index];
+        return buildWordCard(word, index, colors);
+      },
+    );
+  }
+
   Widget buildListTile(WordDetail word, Map<String, Color> colors) {
     return Container(
       margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -549,12 +539,17 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
                   children: [
                     Row(
                       children: [
-                        Text(
-                          word.word,
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: colors["text"],
+                        Expanded(
+                          child: AutoSizeText(
+                            word.word,
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: colors["text"],
+                            ),
+                            maxLines: 1,
+                            minFontSize: 14,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                         SizedBox(width: 8),
@@ -565,25 +560,28 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
                               color: colors["buttonBackground"]!.withOpacity(0.2),
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: Text(
+                            child: AutoSizeText(
                               word.type == "full" ? "Tip bulunamadı" : word.type!,
                               style: TextStyle(
                                 fontSize: 12,
                                 color: colors["buttonBackground"],
                                 fontWeight: FontWeight.bold,
                               ),
+                              maxLines: 1,
+                              minFontSize: 8,
                             ),
                           ),
                       ],
                     ),
                     SizedBox(height: 4),
-                    Text(
+                    AutoSizeText(
                       word.meaning,
                       style: TextStyle(
                         fontSize: 14,
                         color: colors["text"],
                       ),
                       maxLines: 2,
+                      minFontSize: 10,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
@@ -600,6 +598,38 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(Map<String, Color> colors) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.star_border,
+            size: 80,
+            color: colors["buttonBackground"],
+          ),
+          SizedBox(height: 20),
+          Text(
+            "Ups! Yıldızlı kelimeniz yok.",
+            style: GoogleFonts.poppins(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: colors["text"],
+            ),
+          ),
+          SizedBox(height: 10),
+          Text(
+            "Hadi biraz çalışalım ve yıldızları toplayalım!",
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              color: colors["text"],
+            ),
+          ),
+        ],
       ),
     );
   }

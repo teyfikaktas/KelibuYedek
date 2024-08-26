@@ -402,8 +402,7 @@ class _NoInternetPageState extends State<NoInternetPage> with TickerProviderStat
                         });
                       },
                       style: ElevatedButton.styleFrom(
-                        primary: _selectedEnglishIndex == idx ? Colors.yellow : Colors.white,
-                        onPrimary: Color(0xFF58CC02),
+                        foregroundColor: Color(0xFF58CC02), backgroundColor: _selectedEnglishIndex == idx ? Colors.yellow : Colors.white,
                         padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(20),
@@ -421,8 +420,7 @@ class _NoInternetPageState extends State<NoInternetPage> with TickerProviderStat
                       _checkMatch(_selectedEnglishIndex!, idx);
                     },
                     style: ElevatedButton.styleFrom(
-                      primary: Colors.white,
-                      onPrimary: Color(0xFF58CC02),
+                      foregroundColor: Color(0xFF58CC02), backgroundColor: Colors.white,
                       padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(20),

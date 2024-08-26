@@ -824,7 +824,7 @@ class _GameModeScreenState extends State<GameModeScreen> with WidgetsBindingObse
     return ElevatedButton(
       onPressed: onPressed,
       style: ElevatedButton.styleFrom(
-        primary: color,
+        backgroundColor: color,
         shape: CircleBorder(),
         padding: EdgeInsets.all(2.sp),
       ),
@@ -882,8 +882,7 @@ class _GameModeScreenState extends State<GameModeScreen> with WidgetsBindingObse
               Navigator.of(context).pop(); // Örnek olarak, önceki sayfaya dönüş
             },
             style: ElevatedButton.styleFrom(
-              primary: Colors.amber[700],
-              onPrimary: Colors.white,
+              foregroundColor: Colors.white, backgroundColor: Colors.amber[700],
               padding: EdgeInsets.symmetric(horizontal: 30, vertical: 15),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(30),

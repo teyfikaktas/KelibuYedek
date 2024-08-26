@@ -283,8 +283,7 @@ class _AccountPageState extends State<AccountPage> {
       onPressed: updateUserInformation,
       child: Text('Bilgileri Güncelle'),
       style: ElevatedButton.styleFrom(
-        primary: Colors.green,
-        onPrimary: Colors.white,
+        foregroundColor: Colors.white, backgroundColor: Colors.green,
         padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
@@ -464,8 +463,7 @@ class _PasswordChangeDialogState extends State<PasswordChangeDialog> {
         },
         child: Text('Şifreyi Değiştir'),
         style: ElevatedButton.styleFrom(
-          primary: Colors.green,
-          onPrimary: Colors.white,
+          foregroundColor: Colors.white, backgroundColor: Colors.green,
           padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),

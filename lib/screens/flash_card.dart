@@ -546,8 +546,7 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
           ElevatedButton(
             child: Text(_isAutoPlaying ? 'Duraklat' : 'Başlat'),
             style: ElevatedButton.styleFrom(
-              primary: colors["text"],
-              onPrimary: colors["background"],
+              foregroundColor: colors["background"], backgroundColor: colors["text"],
             ),
             onPressed: _toggleAutoPlay,
           ),
@@ -1297,8 +1296,7 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
                     ElevatedButton(
                       child: Text('Tekrar Başla'),
                       style: ElevatedButton.styleFrom(
-                        primary: primaryColor,
-                        onPrimary: Colors.white,
+                        foregroundColor: Colors.white, backgroundColor: primaryColor,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(30),
                         ),
@@ -1316,8 +1314,7 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
                     OutlinedButton(
                       child: Text('Kapat'),
                       style: OutlinedButton.styleFrom(
-                        primary: primaryColor,
-                        side: BorderSide(color: primaryColor),
+                        foregroundColor: primaryColor, side: BorderSide(color: primaryColor),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(30),
                         ),
@@ -1573,7 +1570,7 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
     return ElevatedButton(
       onPressed: onPressed,
       style: ElevatedButton.styleFrom(
-        primary: color,
+        backgroundColor: color,
         shape: CircleBorder(),
       ),
       child: Icon(icon, color: Colors.white, size: 16.sp),
@@ -1791,7 +1788,7 @@ class ExampleSentenceCard extends StatelessWidget {
               label: Text('Dinle', style: GoogleFonts.nunito(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
               onPressed: onListen,
               style: ElevatedButton.styleFrom(
-                primary: Colors.teal,
+                backgroundColor: Colors.teal,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(30),
                 ),

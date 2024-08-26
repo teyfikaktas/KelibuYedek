@@ -157,7 +157,7 @@ class _MarketPageState extends State<MarketPage> {
                   Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => MainScreen()));
                 },
                 style: ElevatedButton.styleFrom(
-                  primary: Colors.green,
+                  backgroundColor: Colors.green,
                   padding: EdgeInsets.symmetric(horizontal: 30, vertical: 10),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                 ),
@@ -220,7 +220,7 @@ class _MarketPageState extends State<MarketPage> {
                 ),
                 onPressed: () => Navigator.of(context).pop(),
                 style: ElevatedButton.styleFrom(
-                  primary: Colors.red,
+                  backgroundColor: Colors.red,
                   padding: EdgeInsets.symmetric(horizontal: 30, vertical: 10),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                 ),
@@ -276,88 +276,7 @@ class _MarketPageState extends State<MarketPage> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            Container(
-              padding: EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-              color: Colors.blue.shade50,
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.language, color: Colors.blue.shade700, size: 28),
-                      SizedBox(width: 10),
-                      Text(
-                        "Dil Öğreniminde Yeni Bir Dönem",
-                        style: GoogleFonts.poppins(
-                          color: Colors.blue.shade700,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18,
-                        ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: 10),
-                  Text(
-                    "1 Eylül'e kadar tüm dil setlerimiz ücretsiz!",
-                    style: GoogleFonts.poppins(
-                      color: Colors.blue.shade600,
-                      fontWeight: FontWeight.w500,
-                      fontSize: 16,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    "PhD Akademi farkıyla: Profesyonel dil eğitimi, kişiselleştirilmiş öğrenme deneyimi için bize ulaşın!",
-                    style: GoogleFonts.poppins(
-                      color: Colors.blue.shade500,
-                      fontWeight: FontWeight.w400,
-                      fontSize: 14,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  SizedBox(height: 10),
-                  InkWell(
-                    onTap: () => _launchURL('https://phdakademi.com'),
-                    child: Text(
-                      "Daha fazlası için tıklayın: phdakademi.com",
-                      style: GoogleFonts.poppins(
-                        color: Colors.blue,
-                        fontWeight: FontWeight.w500,
-                        fontSize: 14,
-                        decoration: TextDecoration.underline,
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: 15),
-                  Text(
-                    "Bizi sosyal medyada takip edin:",
-                    style: GoogleFonts.poppins(
-                      color: Colors.blue.shade700,
-                      fontWeight: FontWeight.w500,
-                      fontSize: 16,
-                    ),
-                  ),
-                  SizedBox(height: 10),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      _socialMediaButton(
-                        'https://www.instagram.com/phd.akademi/',
-                        'assets/phdakademi.jpg',
-                        'PhD Akademi',
-                      ),
-                      SizedBox(width: 20),
-                      _socialMediaButton(
-                        'https://www.instagram.com/kelibunet/',
-                        'assets/logo.png',
-                        'Kelibu',
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
+            _buildPromoBanner(),
             _isLoading
                 ? Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Colors.blue)))
                 : products.isEmpty
@@ -383,11 +302,12 @@ class _MarketPageState extends State<MarketPage> {
       ),
     );
   }
+
   Widget _buildRoundedIconButton(IconData icon, Color color, VoidCallback onPressed) {
     return ElevatedButton(
       onPressed: onPressed,
       style: ElevatedButton.styleFrom(
-        primary: color,
+        backgroundColor: color,
         shape: CircleBorder(),
         padding: EdgeInsets.all(12.sp),
       ),
@@ -395,20 +315,48 @@ class _MarketPageState extends State<MarketPage> {
     );
   }
 
-  Widget _socialMediaButton(String url, String assetPath, String label) {
-    return InkWell(
-      onTap: () => _launchURL(url),
+  Widget _buildPromoBanner() {
+    return Container(
+      padding: EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.blue.shade400, Colors.blue.shade600],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
       child: Column(
         children: [
-          ClipOval(
-            child: Image.asset(assetPath, height: 40, width: 40, fit: BoxFit.cover),
-          ),
-          SizedBox(height: 5),
           Text(
-            label,
+            "Dil Öğreniminde Yeni Bir Dönem",
             style: GoogleFonts.poppins(
-              color: Colors.blue.shade600,
-              fontSize: 12,
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 22,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          SizedBox(height: 10),
+          Text(
+            "1 Eylül'e kadar tüm dil setlerimiz ücretsiz!",
+            style: GoogleFonts.poppins(
+              color: Colors.white,
+              fontWeight: FontWeight.w500,
+              fontSize: 18,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          SizedBox(height: 15),
+          ElevatedButton(
+            onPressed: () => _launchURL('https://phdakademi.com'),
+            child: Text(
+              "Daha fazlası için tıklayın",
+              style: GoogleFonts.poppins(color: Colors.blue.shade600, fontWeight: FontWeight.bold),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white,
+              padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
             ),
           ),
         ],
@@ -416,25 +364,16 @@ class _MarketPageState extends State<MarketPage> {
     );
   }
 
-  void _launchURL(String urlString) async {
-    final Uri url = Uri.parse(urlString);
-    if (await canLaunchUrl(url)) {
-      await launchUrl(url);
-    } else {
-      throw 'Could not launch $url';
-    }
-  }
-
   Widget _buildProductCard(Map<String, dynamic> product, Map<String, Color> colors) {
     return Container(
-      height: 350, // Sabit yükseklik
+      height: 250, // Kare şeklinde olması için
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.15),
+            color: Colors.grey.withOpacity(0.2),
             spreadRadius: 0,
-            blurRadius: 10,
+            blurRadius: 15,
             offset: Offset(0, 5),
           ),
         ],
@@ -442,58 +381,73 @@ class _MarketPageState extends State<MarketPage> {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(20),
         child: Stack(
+          fit: StackFit.expand,
           children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  flex: 3,
-                  child: CachedNetworkImage(
-                    imageUrl: 'https://kelibu.net/storage/${product["image"]}',
-                    placeholder: (context, url) => Center(
-                      child: CircularProgressIndicator(
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.pink),
-                      ),
-                    ),
-                    errorWidget: (context, url, error) => Container(
-                      color: Colors.grey[200],
-                      child: Icon(Icons.error, color: Colors.pink),
-                    ),
-                    fit: BoxFit.cover,
+            CachedNetworkImage(
+              imageUrl: 'https://kelibu.net/storage/${product["image"]}',
+              placeholder: (context, url) => Center(
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.pink),
+                ),
+              ),
+              errorWidget: (context, url, error) => Container(
+                color: Colors.grey[200],
+                child: Icon(Icons.error, color: Colors.pink),
+              ),
+              fit: BoxFit.cover,
+            ),
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Colors.transparent, Colors.black.withOpacity(0.7)],
+                ),
+              ),
+            ),
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                padding: EdgeInsets.all(16),
+                child: Text(
+                  product["title"],
+                  style: GoogleFonts.poppins(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+            Positioned(
+              top: 10,
+              right: 10,
+              child: Container(
+                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.green,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  'ÜCRETSİZ',
+                  style: GoogleFonts.poppins(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
                   ),
                 ),
-                Expanded(
-                  flex: 2,
-                  child: Container(
-                    color: colors["cardBackground"]!,
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        AutoSizeText(
-                          product["title"],
-                          style: GoogleFonts.poppins(
-                            color: colors["text"]!,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                          ),
-                          maxLines: 2,
-                          minFontSize: 14,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
             Positioned.fill(
               child: Material(
                 color: Colors.transparent,
                 child: InkWell(
                   onTap: () => _showBuyConfirmation(product),
-                  splashColor: Colors.pink.withOpacity(0.1),
+                  splashColor: Colors.pink.withOpacity(0.3),
                   highlightColor: Colors.transparent,
                 ),
               ),
@@ -503,83 +457,93 @@ class _MarketPageState extends State<MarketPage> {
       ),
     );
   }
-  void _showBuyConfirmation(Map<String, dynamic> product) {
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-        child: Container(
-          padding: EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Theme.of(context).cardColor,
-            shape: BoxShape.rectangle,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black26,
-                blurRadius: 10.0,
-                offset: const Offset(0.0, 10.0),
+
+void _launchURL(String urlString) async {
+  final Uri url = Uri.parse(urlString);
+  if (await canLaunchUrl(url)) {
+    await launchUrl(url);
+  } else {
+    throw 'Could not launch $url';
+  }
+}
+
+void _showBuyConfirmation(Map<String, dynamic> product) {
+  showDialog(
+    context: context,
+    builder: (context) => Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      elevation: 0,
+      backgroundColor: Colors.transparent,
+      child: Container(
+        padding: EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          shape: BoxShape.rectangle,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black26,
+              blurRadius: 10.0,
+              offset: const Offset(0.0, 10.0),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Text(
+              'Kütüphaneye Ekle',
+              style: GoogleFonts.poppins(
+                fontWeight: FontWeight.bold,
+                fontSize: 22,
               ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Text(
-                'Kütüphaneye Ekle',
-                style: GoogleFonts.poppins(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 22,
+            ),
+            SizedBox(height: 20),
+            Text(
+              '${product["title"]} ürününü kütüphaneye eklemek istiyor musunuz?',
+              style: GoogleFonts.poppins(fontSize: 16),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 30),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: <Widget>[
+                TextButton(
+                  child: Text(
+                    'Hayır',
+                    style: GoogleFonts.poppins(
+                      color: Colors.grey,
+                      fontSize: 18,
+                    ),
+                  ),
+                  onPressed: () => Navigator.of(context).pop(),
                 ),
-              ),
-              SizedBox(height: 20),
-              Text(
-                '${product["title"]} ürününü kütüphaneye eklemek istiyor musunuz?',
-                style: GoogleFonts.poppins(fontSize: 16),
-                textAlign: TextAlign.center,
-              ),
-              SizedBox(height: 30),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: <Widget>[
-                  TextButton(
-                    child: Text(
-                      'Hayır',
-                      style: GoogleFonts.poppins(
-                        color: Colors.grey,
-                        fontSize: 18,
-                      ),
-                    ),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                  ElevatedButton(
-                    child: Text(
-                      'Evet',
-                      style: GoogleFonts.poppins(
-                        color: Colors.white,
-                        fontSize: 18,
-                      ),
-                    ),
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                      buyProduct(product['id'].toString());
-                    },
-                    style: ElevatedButton.styleFrom(
-                      primary: Colors.pink,
-                      padding: EdgeInsets.symmetric(horizontal: 30, vertical: 10),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30),
-                      ),
+                ElevatedButton(
+                  child: Text(
+                    'Evet',
+                    style: GoogleFonts.poppins(
+                      color: Colors.white,
+                      fontSize: 18,
                     ),
                   ),
-                ],
-              ),
-            ],
-          ),
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    buyProduct(product['id'].toString());
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.pink,
+                    padding: EdgeInsets.symmetric(horizontal: 30, vertical: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

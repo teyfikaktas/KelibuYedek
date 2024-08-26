@@ -391,7 +391,7 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
                   icon: Icon(Icons.home, color: Colors.white),
                   label: Text("Ana Sayfa", style: TextStyle(color: Colors.white)),
                   style: ElevatedButton.styleFrom(
-                    primary: Colors.blue,
+                    backgroundColor: Colors.blue,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                     padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                     textStyle: TextStyle(fontSize: 16),
@@ -602,7 +602,7 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
     return ElevatedButton(
       onPressed: onPressed,
       style: ElevatedButton.styleFrom(
-        primary: color,
+        backgroundColor: color,
         shape: CircleBorder(),
         padding: EdgeInsets.all(12.sp),
       ),
@@ -659,7 +659,7 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
             color: _isDarkMode ? Colors.white : Colors.teal,
           ),
           style: ElevatedButton.styleFrom(
-            primary: _isDarkMode ? Colors.grey[700] : Colors.teal.withOpacity(0.1),
+            backgroundColor: _isDarkMode ? Colors.grey[700] : Colors.teal.withOpacity(0.1),
             shape: CircleBorder(),
             padding: EdgeInsets.all(12),
             elevation: 0,
@@ -968,7 +968,7 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
       _isOptionSelectable = false;
       if (isCorrect) {
         kelimeDogruSayac[aktifKelime] = (kelimeDogruSayac[aktifKelime] ?? 0) + 1;
-        score += pointChange;
+        int newScore = score + pointChange;
         optionColors[index] = correctOptionColor;
         if (kelimeDogruSayac[aktifKelime]! >= 3) {
           tamamlananKelimeler.add(aktifKelime);
@@ -977,17 +977,18 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
           }
           _confettiController.play();
           showScoreTextAnimation(aktifKelime);
-          score += 30;
+          newScore += 30;  // Bonus puan
         }
+        _updateUserScore(newScore, pointChange);
       } else {
         kelimeDogruSayac[aktifKelime] = 0;
-        score += pointChange;
+        int newScore = score + pointChange;
         optionColors[index] = wrongOptionColor;
         optionColors[correctIndex] = correctOptionColor;
+        _updateUserScore(newScore, pointChange);
       }
 
       showScoreAnimation('${pointChange > 0 ? '+' : ''}$pointChange');
-      _updateUserScore(score, pointChange);
 
       Future.delayed(Duration(milliseconds: 1000), () {
         setState(() {
@@ -998,16 +999,38 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
       });
     });
   }
-  Future<void> _updateUserScore(int score, int pointChange) async {
+  Future<void> _updateUserScore(int newScore, int pointChange) async {
     try {
       UserProvider userProvider = Provider.of<UserProvider>(context, listen: false);
-      userID = userProvider.userId;
-      print("userid" + userID.toString());
-      await ApiService().updateUserPointTimePeriod(userID, score, pointChange);
-      userProvider.addPoint(score);
-      print("Puan güncellendi: $score");
+      int userId = userProvider.userId;
+      int currentPoints = userProvider.point;
+
+      print("Updating score - UserID: $userId, Current Points: $currentPoints, New Score: $newScore, Point Change: $pointChange");
+
+      // Yeni puan 1 veya daha azsa, mevcut puanı koru
+      if (newScore <= 1) {
+        print("New score is <= 1. Keeping current points.");
+        newScore = currentPoints;
+      }
+
+      // Puan düşüşü kontrolü
+      if (newScore < currentPoints) {
+        print("Warning: New score ($newScore) is less than current points ($currentPoints).");
+      }
+
+      // API çağrısı ve local state güncellemesi
+      await Future.wait([
+        ApiService().updateUserPointTimePeriod(userId, newScore, pointChange),
+        userProvider.addPoint(newScore),
+      ]);
+
+      setState(() {
+        score = newScore;
+      });
+
+      print("Score updated successfully. New score: $newScore");
     } catch (e) {
-      print("Puan güncelleme hatası: $e");
+      print("Error updating user score: $e");
     }
   }
 

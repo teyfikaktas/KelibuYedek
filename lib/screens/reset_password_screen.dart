@@ -135,8 +135,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> with Single
           }
         },
         style: ElevatedButton.styleFrom(
-          primary: colors["buttonBackground"],
-          onPrimary: colors["buttonText"],
+          foregroundColor: colors["buttonText"], backgroundColor: colors["buttonBackground"],
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(30),
           ),

@@ -200,7 +200,7 @@ class _RaceScreenBuildState extends State<RaceScreenBuild> {
         ),
       ),
       style: ElevatedButton.styleFrom(
-        primary: Color(0xFF303F9F),
+        backgroundColor: Color(0xFF303F9F),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(15.0),
         ),
@@ -479,7 +479,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
                                       ),
                                     ),
                                     style: ElevatedButton.styleFrom(
-                                      primary: tileColor,
+                                      backgroundColor: tileColor,
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(15),
                                       ),
@@ -533,8 +533,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
                                     style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
                                   ),
                                   style: ElevatedButton.styleFrom(
-                                    primary: Colors.white,
-                                    onPrimary: Color(0xFF3949AB),
+                                    foregroundColor: Color(0xFF3949AB), backgroundColor: Colors.white,
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(30.0),
                                     ),
@@ -879,8 +878,7 @@ class _RoomOptionsScreenState extends State<RoomOptionsScreen> {
                     ),
                   ),
                   style: ElevatedButton.styleFrom(
-                    primary: Colors.white,
-                    onPrimary: Color(0xFF3949AB),
+                    foregroundColor: Color(0xFF3949AB), backgroundColor: Colors.white,
                     padding: EdgeInsets.symmetric(vertical: 15),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(30.0),
@@ -1067,7 +1065,7 @@ class WaitingScreen extends StatelessWidget {
                           ),
                         ),
                         style: ElevatedButton.styleFrom(
-                          primary: Colors.green.shade600,
+                          backgroundColor: Colors.green.shade600,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(30.0),
                           ),
@@ -1169,8 +1167,7 @@ class QuizResultScreen extends StatelessWidget {
                         ),
                       ),
                       style: ElevatedButton.styleFrom(
-                        primary: Colors.white,
-                        onPrimary: Color(0xFF3949AB),
+                        foregroundColor: Color(0xFF3949AB), backgroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(30.0),
                         ),

@@ -127,8 +127,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       child: ElevatedButton(
         onPressed: register,
         style: ElevatedButton.styleFrom(
-          primary: colors["buttonBackground"],
-          onPrimary: colors["buttonText"],
+          foregroundColor: colors["buttonText"], backgroundColor: colors["buttonBackground"],
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(30),
           ),
