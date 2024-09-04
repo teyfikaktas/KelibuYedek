@@ -338,7 +338,7 @@ class _MarketPageState extends State<MarketPage> {
           ),
           SizedBox(height: 10),
           Text(
-            "1 Eylül'e kadar tüm dil setlerimiz ücretsiz!",
+            "Yoğun istek üzerine kampanyamız uzaltıldı! 15 Eylül'e kadar tüm dil setlerimiz ücretsiz!",
             style: GoogleFonts.poppins(
               color: Colors.white,
               fontWeight: FontWeight.w500,

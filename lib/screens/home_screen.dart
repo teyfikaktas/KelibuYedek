@@ -865,7 +865,7 @@ class _HomeScreenState extends State<HomeScreen> {
           SizedBox(width: 10.w),
           Expanded(
             child: AutoSizeText(
-              "Tüm dil setleri 1 Eylül'e kadar ücretsiz!",
+              "Tüm dil setleri 15 Eylül'e kadar ücretsiz!",
               style: GoogleFonts.poppins(
                 color: _isDarkMode ? Colors.green[300] : Colors.green.shade800,
                 fontWeight: FontWeight.w600,

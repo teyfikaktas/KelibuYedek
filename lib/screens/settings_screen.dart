@@ -16,6 +16,7 @@ import '../providers/user_provider.dart';
 import 'about_screen.dart';
 import 'contact_screen.dart';
 import 'loadingIndicator.dart';
+import 'login_screen.dart';
 import 'privacy_conditions_screen.dart';
 import 'privary_policy.dart';
 import 'profile_setting.dart';
@@ -252,7 +253,9 @@ class _SettingsPageState extends State<SettingsPage> {
   void _deleteAccount(int userId, BuildContext context, UserProvider userProvider) async {
     final bool isSuccess = await ApiService().deleteUser(userId);
     if (isSuccess) {
-      logout(context);
+      // Hesap başarıyla silindiğinde
+      await _clearUserData(context);
+      _navigateToLoginScreen(context);
     } else {
       showDialog(
         context: context,
@@ -268,6 +271,16 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
       );
     }
+  }
+
+  Future<void> _clearUserData(BuildContext context) async {
+    final box = await Hive.openBox<bool>('loginBox');
+    await box.put("isLoggedIn", false);
+    Provider.of<UserProvider>(context, listen: false).logout();
+  }
+
+  void _navigateToLoginScreen(BuildContext context) {
+    Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (context) => SplashScreen()));
   }
 
   void logout(BuildContext context) async {
