@@ -10,21 +10,33 @@ class UserProvider with ChangeNotifier {
   String _username = '';
   int _userId = 0;
   String _avatar = "";
-  int _point =0;
+  int _point = 0;
   String _email = "";
   String _phone = "";
   String _phoneVerified = "";
   String _createdAt = "";
-  String _city = ""; // Yeni alan ekleniyor
-  int _birthYear = 0; // Yeni alan ekleniyor
-  String? _team; // Yeni alan ekleniyor, null olabilir
+  String _city = "";
+  int _birthYear = 0;
+  String? _team;
+  int _streakCount = 0;
+
+  void updateStreakCount(int newStreak) {
+    _streakCount = newStreak;
+    notifyListeners();
+  }
+  // Yeni eklenen alanlar
+  int _dailyRank = 0;
+  int _weeklyRank = 0;
+  int _monthlyRank = 0;
+  int _allTimeRank = 0;
+
   String _hashValue(String value) {
-    var bytes = utf8.encode(value); // Veriyi byte dizisine dönüştür
-    var digest = sha256.convert(bytes); // SHA-256 hash fonksiyonunu kullan
-    return digest.toString(); // Hash değerini string olarak döndür
+    var bytes = utf8.encode(value);
+    var digest = sha256.convert(bytes);
+    return digest.toString();
   }
 
-  // Getter'lar ekleniyor
+  // Getter'lar
   String get username => _username;
   int get userId => _userId;
   String get avatar => _avatar;
@@ -33,13 +45,19 @@ class UserProvider with ChangeNotifier {
   String get phone => _phone;
   String get phoneVerified => _phoneVerified;
   String get createdAt => _createdAt;
-  String get city => _city; // Yeni alan için getter
-  int get birthYear => _birthYear; // Yeni alan için getter
-  String? get team => _team; // Yeni alan için getter, null olabilir
+  String get city => _city;
+  int get birthYear => _birthYear;
+  String? get team => _team;
+
+  // Yeni getter'lar
+  int get streakCount => _streakCount;
+  int get dailyRank => _dailyRank;
+  int get weeklyRank => _weeklyRank;
+  int get monthlyRank => _monthlyRank;
+  int get allTimeRank => _allTimeRank;
 
   bool get isLoggedIn => _username.isNotEmpty;
 
-  // setUser fonksiyonunu güncelliyoruz, yeni alanları da içerecek şekilde
   Future<void> setUser(
       String username,
       int userId,
@@ -49,10 +67,14 @@ class UserProvider with ChangeNotifier {
       String phone,
       String phoneVerified,
       String createdAt,
-      String city, // Yeni parametre
-      int birthYear, // Yeni parametre
-      String? team // Yeni parametre, null olabilir
-      ) async {
+      String city,
+      int birthYear,
+      String? team,
+      {int streakCount = 0,
+        int dailyRank = 0,
+        int weeklyRank = 0,
+        int monthlyRank = 0,
+        int allTimeRank = 0}) async {
     _username = username;
     _userId = userId;
     _avatar = avatar;
@@ -61,9 +83,14 @@ class UserProvider with ChangeNotifier {
     _phone = phone;
     _phoneVerified = phoneVerified;
     _createdAt = createdAt;
-    _city = city; // Yeni alanı ayarlıyoruz
-    _birthYear = birthYear; // Yeni alanı ayarlıyoruz
-    _team = team; // Yeni alanı ayarlıyoruz, null olabilir
+    _city = city;
+    _birthYear = birthYear;
+    _team = team;
+    _streakCount = streakCount;
+    _dailyRank = dailyRank;
+    _weeklyRank = weeklyRank;
+    _monthlyRank = monthlyRank;
+    _allTimeRank = allTimeRank;
 
     var box = await Hive.openBox('userBox');
     String usernameHash = _hashValue(username);
@@ -76,28 +103,26 @@ class UserProvider with ChangeNotifier {
     await box.put('phone', phone);
     await box.put('phoneVerified', phoneVerified);
     await box.put('createdAt', createdAt);
-    await box.put('city', city); // Yeni alanı kaydediyoruz
-    await box.put('birthYear', birthYear); // Yeni alanı kaydediyoruz
-    if (team != null) { // team null değilse kaydediyoruz
+    await box.put('city', city);
+    await box.put('birthYear', birthYear);
+    if (team != null) {
       await box.put('team', team);
     }
-
+    await box.put('streakCount', _streakCount);
+    await box.put('dailyRank', dailyRank);
+    await box.put('weeklyRank', weeklyRank);
+    await box.put('monthlyRank', monthlyRank);
+    await box.put('allTimeRank', allTimeRank);
 
     notifyListeners();
   }
+
   Future<void> addPoint(int newPoint) async {
-
-    // Puanı güncelliyoruz.
     _point = newPoint;
-
-    // Hive veritabanında güncellenmiş puanı kaydediyoruz.
     var box = await Hive.openBox('userBox');
     await box.put('point', _point);
-
     notifyListeners();
   }
-
-  // Diğer fonksiyonlarınızda bu yeni alanları kullanabilir ve gerektiğinde güncelleyebilirsiniz.
 
   Future<bool> loadUser() async {
     var box = await Hive.openBox('userBox');
@@ -109,14 +134,19 @@ class UserProvider with ChangeNotifier {
     _phone = box.get('phone', defaultValue: '');
     _phoneVerified = box.get('phoneverifed', defaultValue: '');
     _createdAt = box.get('createdAt', defaultValue: '');
-    _city = box.get('city', defaultValue: ''); // Yeni alanı yüklüyoruz
-    _birthYear = box.get('birthYear', defaultValue: 0); // Yeni alanı yüklüyoruz
-    _team = box.get('team'); // Yeni alanı yüklüyoruz, null olabilir
+    _city = box.get('city', defaultValue: '');
+    _birthYear = box.get('birthYear', defaultValue: 0);
+    _team = box.get('team');
+    _streakCount = box.get('streakCount', defaultValue: 0);
+    _dailyRank = box.get('dailyRank', defaultValue: 0);
+    _weeklyRank = box.get('weeklyRank', defaultValue: 0);
+    _monthlyRank = box.get('monthlyRank', defaultValue: 0);
+    _allTimeRank = box.get('allTimeRank', defaultValue: 0);
 
     notifyListeners();
-    return _username.isNotEmpty; // Kullanıcı adı doluysa true, değilse false döndür
+    return _username.isNotEmpty;
   }
-  // Yeni bir metod ekliyoruz: Kullanıcının avatar URL'sini güncellemek için
+
   Future<void> updateUserAvatarUrl(String newAvatarUrl) async {
     _avatar = newAvatarUrl;
     var box = await Hive.openBox('userBox');
@@ -130,12 +160,13 @@ class UserProvider with ChangeNotifier {
 
     if (hash.isEmpty && _username.isNotEmpty) {
       hash = _hashValue(_username);
-      await box.put('usernameHash', hash); // Yeniden hesaplanan hash değerini kaydet
-      notifyListeners(); // Dinleyicileri güncelle
+      await box.put('usernameHash', hash);
+      notifyListeners();
     }
 
     return hash;
   }
+
   Future<void> logout() async {
     _username = '';
     _userId = 0;
@@ -145,12 +176,41 @@ class UserProvider with ChangeNotifier {
     _phone = '';
     _phoneVerified = '';
     _createdAt = '';
-    _city = ''; // Yeni alanı sıfırlıyoruz
-    _birthYear = 0; // Yeni alanı sıfırlıyoruz
-    _team = null; // Yeni alanı sıfırlıyoruz, nullable olduğu için null olarak ayarlıyoruz
+    _city = '';
+    _birthYear = 0;
+    _team = null;
+    _streakCount = 0;
+    _dailyRank = 0;
+    _weeklyRank = 0;
+    _monthlyRank = 0;
+    _allTimeRank = 0;
 
     var box = await Hive.openBox('userBox');
-    await box.clear(); // Tüm verileri temizliyoruz
+    await box.clear();
+    notifyListeners();
+  }
+
+  // Yeni eklenen metod
+  Future<void> updateRankings({
+    required int streakCount,
+    required int dailyRank,
+    required int weeklyRank,
+    required int monthlyRank,
+    required int allTimeRank,
+  }) async {
+    _streakCount = streakCount;
+    _dailyRank = dailyRank;
+    _weeklyRank = weeklyRank;
+    _monthlyRank = monthlyRank;
+    _allTimeRank = allTimeRank;
+
+    var box = await Hive.openBox('userBox');
+    await box.put('streakCount', streakCount);
+    await box.put('dailyRank', dailyRank);
+    await box.put('weeklyRank', weeklyRank);
+    await box.put('monthlyRank', monthlyRank);
+    await box.put('allTimeRank', allTimeRank);
+
     notifyListeners();
   }
 }

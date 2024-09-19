@@ -137,6 +137,8 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
   @override
   void initState() {
     super.initState();
+    ApiService().logSetEntry('Klasik Kelibu', 'Klasik Kelibuya ', '');
+
     WidgetsBinding.instance.addObserver(this);
     flutterTts.setLanguage("en-US");
     flutterTts.setSpeechRate(0.5);
@@ -588,7 +590,7 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
               ),
             ),
           ),
-          _buildRoundedIconButton(Icons.help, Colors.green, () {
+          _buildRoundedIconButton(Icons.slow_motion_video_sharp, Colors.green, () {
             Navigator.push(
               context,
               MaterialPageRoute(builder: (context) => VideoPlayerScreen(videoUrl: AppUrls.classickelibu)),

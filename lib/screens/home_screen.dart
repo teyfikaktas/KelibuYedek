@@ -1,15 +1,11 @@
-import 'dart:math';
 import 'dart:ui';
-import 'package:animated_toggle_switch/animated_toggle_switch.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:kelibu/screens/settings_screen.dart';
-import 'package:kelibu/screens/custom_loading.dart';
+import 'package:kelibu/screens/streak_widget.dart';
 import 'package:kelibu/screens/study_screen.dart';
-import 'package:kelibu/screens/study_screen_star.dart';
 import 'package:kelibu/screens/video_player.dart';
 import 'package:provider/provider.dart';
 import 'package:kelibu/variables.dart';
@@ -221,6 +217,8 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
+  String promotionMessage = 'Yükleniyor...';
+
   WordOfTheDay? _wordOfTheDay;
   Future<List<Package>>? packagesFuture;
   bool isExpanded = false;
@@ -230,13 +228,14 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isDataLoaded = false;
   bool _isDarkMode = false;
   bool _isExpanded = true; // Yeni state değişkeni
-
   @override
   void initState() {
     super.initState();
     _fetchData();
     _loadWordOfTheDay();
     _getPoint();
+    _loadPromotionMessage();
+
     _loadDarkModePreference();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       showWelcomeMessage(context);
@@ -251,8 +250,18 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     });
   }
-
-
+  Future<void> _loadPromotionMessage() async {
+    try {
+      String message = await ApiService().fetchPromotionMessage();
+      setState(() {
+        promotionMessage = message;
+      });
+    } catch (e) {
+      setState(() {
+        promotionMessage = 'Mesaj yüklenemedi';
+      });
+    }
+  }
   void showWelcomeMessage(BuildContext context) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     bool isFirstTime = prefs.getBool('isFirstTime') ?? true;
@@ -340,7 +349,6 @@ class _HomeScreenState extends State<HomeScreen> {
       await prefs.setBool('isFirstTime', false);
     }
   }
-
   Widget _buildInfoText(String text) {
     return AutoSizeText(
       text,
@@ -350,26 +358,18 @@ class _HomeScreenState extends State<HomeScreen> {
       minFontSize: 10,
     );
   }
-
   Future<void> _loadDarkModePreference() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _isDarkMode = prefs.getBool("darkMode") ?? false;
     });
   }
-
-  Future<void> _saveDarkModePreference(bool isDarkMode) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool("darkMode", isDarkMode);
-  }
-
   Future<void> initializeData() async {
     showLoadingIndicator();
     await syncStarredWords();
     hideLoadingIndicator();
     if (mounted) setState(() {});
   }
-
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -377,7 +377,6 @@ class _HomeScreenState extends State<HomeScreen> {
       _isDataLoaded = true;
     }
   }
-
   Future<void> syncStarredWords() async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     try {
@@ -387,7 +386,6 @@ class _HomeScreenState extends State<HomeScreen> {
       print('Failed to sync starred words: $e');
     }
   }
-
   void showLoadingIndicator() {
     showDialog(
       context: context,
@@ -405,11 +403,9 @@ class _HomeScreenState extends State<HomeScreen> {
       },
     );
   }
-
   void hideLoadingIndicator() {
     Navigator.pop(context);
   }
-
   Future<void> _loadWordOfTheDay() async {
     WordOfTheDay? cachedWord = await WordOfTheDayCache.getCachedWordOfTheDay();
     if (cachedWord != null) {
@@ -427,24 +423,11 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     if (mounted) setState(() {});
   }
-
-  Future<void> _saveWordToPrefs(WordOfTheDay? word) async {
-    final prefs = await SharedPreferences.getInstance();
-    if (word != null) {
-      await prefs.setString('word_term', word.term);
-      await prefs.setString('word_definition', word.definition);
-      if (word.type != null) {
-        await prefs.setString('word_type', word.type!);
-      }
-    }
-  }
-
   Future<void> savePackagesToPrefs(List<Package> packages) async {
     final prefs = await SharedPreferences.getInstance();
     String encodedData = json.encode(packages.map((package) => package.toJson()).toList());
     await prefs.setString('packages', encodedData);
   }
-
   Future<List<Package>> loadPackagesFromPrefs() async {
     final prefs = await SharedPreferences.getInstance();
     String? encodedData = prefs.getString('packages');
@@ -454,7 +437,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     return [];
   }
-
   Future<WordOfTheDay?> _loadWordFromPrefs() async {
     final prefs = await SharedPreferences.getInstance();
     final term = prefs.getString('word_term');
@@ -479,27 +461,34 @@ class _HomeScreenState extends State<HomeScreen> {
       print("Error fetching user point: $error");
     }
   }
-
   void _fetchData() async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     int currentUserId = userProvider.userId;
     ApiService().fetchStarWordsAllSystem(currentUserId);
-    ApiService().fetchUserPoint(currentUserId).then((userData) {
-      setState(() {
-        _userPoint = userData['point'];
-        String newAvatarUrl = userData['avatar'];
-        userProvider.addPoint(_userPoint);
-        userProvider.updateUserAvatarUrl(newAvatarUrl);
-      });
-    }).catchError((error) {
-      print("Error fetching user data: $error");
-    });
 
-    String hash = userProvider.getUsernameHash().toString();
+
+    try {
+      Map<String, dynamic> userData = await ApiService().fetchUserPoint(currentUserId);
+
+      setState(() {
+        userProvider.addPoint(userData['point']);
+        userProvider.updateUserAvatarUrl(userData['avatar']);
+        userProvider.updateRankings(
+          streakCount: userData['streakCount'], // Burayı değiştirdik
+          dailyRank: userData['dailyRank'] is int ? userData['dailyRank'] as int : 0,
+          weeklyRank: userData['weeklyRank'],
+          monthlyRank: userData['monthlyRank'],
+          allTimeRank: userData['allTimeRank'],
+        );
+
+      });
+    } catch (error) {
+      print("Error fetching user data: $error");
+    }
+    String hash = await userProvider.getUsernameHash();
     print('User hash: $hash');
     fetchPackages(currentUserId);
   }
-
   void fetchPackages(int userId) async {
     try {
       List<Package> packages = await ApiService().fetchCategories(userId);
@@ -515,7 +504,6 @@ class _HomeScreenState extends State<HomeScreen> {
       });
     }
   }
-
   void fetchUserPoints() {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     int currentUserId = userProvider.userId;
@@ -528,7 +516,6 @@ class _HomeScreenState extends State<HomeScreen> {
       print("Error fetching user data: $error");
     });
   }
-
   void speak(String text) async {
     await flutterTts.setLanguage('en-US');
     await flutterTts.setSpeechRate(0.5);
@@ -539,11 +526,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   @override
-  @override
   Widget build(BuildContext context) {
-    final userProvider = Provider.of<UserProvider>(context);
-    final colors = _isDarkMode ? darkModeColors : lightModeColors;
     final darkModeProvider = Provider.of<DarkModeProvider>(context);
+    final colors = _isDarkMode ? darkModeColors : lightModeColors;
 
     return ScreenUtilInit(
       designSize: const Size(360, 690),
@@ -551,303 +536,403 @@ class _HomeScreenState extends State<HomeScreen> {
       splitScreenMode: true,
       builder: (context, child) {
         return ConnectivityWrapper(
-          child: Scaffold(
-            backgroundColor: colors["background"],
-            body: Stack(
-              children: [
-                SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 8.h),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Spacer(),
-                          ],
-                        ),
-                      ),
-                      Container(
-                        height: 165.h,
-                        child: _buildUserInfoSection(userProvider),
-                      ),
-                      LearningPanel(
-                        isDarkMode: _isDarkMode,
-                        onWordSetsTap: () {
-                          setState(() {
-                            isExpanded = true;
-                          });
-                        },
-                        onWordOfDayTap: () {
-                          showDialog(
-                            context: context,
-                            builder: (BuildContext context) {
-                              return WordOfTheDayDialog(
-                                isDarkMode: _isDarkMode,
-                                onSpeak: speak,
+          child: Consumer<UserProvider>(
+            builder: (context, userProvider, child) {
+              return Scaffold(
+                backgroundColor: colors["background"],
+                body: Stack(
+                  children: [
+                    SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 8.h),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Spacer(),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            height: 185.h,
+                            child: _buildUserInfoSection(userProvider),
+                          ),
+                          StreakWidget(
+                            streakCount: userProvider.streakCount,
+                            dailyRank: userProvider.dailyRank,
+                            monthlyRank: userProvider.monthlyRank,
+                            weeklyRank: userProvider.weeklyRank,
+                            allTimeRank: userProvider.allTimeRank,
+                          ),
+                          LearningPanel(
+                            isDarkMode: _isDarkMode,
+                            onWordSetsTap: () {
+                              setState(() {
+                                isExpanded = true;
+                              });
+                            },
+                            onWordOfDayTap: () {
+                              showDialog(
+                                context: context,
+                                builder: (BuildContext context) {
+                                  return WordOfTheDayDialog(
+                                    isDarkMode: _isDarkMode,
+                                    onSpeak: speak,
+                                  );
+                                },
                               );
                             },
-                          );
-                        },
-                        onDictionaryTap: () {
-                          showDialog(
-                            context: context,
-                            builder: (BuildContext context) {
-                              return SearchDialog(isDarkMode: _isDarkMode);
+                            onDictionaryTap: () {
+                              showDialog(
+                                context: context,
+                                builder: (BuildContext context) {
+                                  return SearchDialog(isDarkMode: _isDarkMode);
+                                },
+                              );
                             },
-                          );
-                        },
-                      ),
-                      Container(
-                        padding: EdgeInsets.all(16.sp),
-                        decoration: BoxDecoration(
-                          color: _isDarkMode ? Colors.grey[850] : Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [
-                            BoxShadow(
-                              color: _isDarkMode
-                                  ? Colors.black.withOpacity(0.3)
-                                  : Colors.grey.withOpacity(0.3),
-                              spreadRadius: 2,
-                              blurRadius: 10,
-                              offset: Offset(0, 3),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          children: [
-                            _buildSocialMediaInfo(),
-                            SizedBox(height: 16.h),
-                            _buildPromoBanner(),
-                            SizedBox(height: 16.h),
-                            _buildPhdAkademiInfo(),
-                            SizedBox(height: 16.h),
-                            _buildWebsiteLink(),
-                          ],
-                        ),
-                      ),
-                      SizedBox(height: 20.h),
-                    ],
-                  ),
-                ),
-                if (isExpanded)
-                  TweenAnimationBuilder<double>(
-                    tween: Tween(begin: 1, end: 0),
-                    duration: Duration(milliseconds: 300),
-                    curve: Curves.easeOutCubic,
-                    builder: (context, value, child) {
-                      return Transform.translate(
-                        offset: Offset(0, MediaQuery.of(context).size.height * 0.5 * value),
-                        child: child,
-                      );
-                    },
-                    child: GestureDetector(
-                      onVerticalDragUpdate: (details) {
-                        if (details.primaryDelta! > 10) {
-                          setState(() {
-                            isExpanded = false;
-                          });
-                        }
-                      },
-                      child: Container(
-                        height: MediaQuery.of(context).size.height * 0.95,
-                        decoration: BoxDecoration(
-                          color: _isDarkMode ? Color(0xFF1E1E1E) : Colors.white,
-                          borderRadius: BorderRadius.only(
-                            topLeft: Radius.circular(30),
-                            topRight: Radius.circular(30),
                           ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: _isDarkMode ? Colors.black.withOpacity(0.3) : Colors.grey.withOpacity(0.5),
-                              blurRadius: 15,
-                              spreadRadius: 0,
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          children: [
-                            Container(
-                              height: 5,
-                              width: 60,
-                              margin: EdgeInsets.symmetric(vertical: 15),
-                              decoration: BoxDecoration(
-                                color: _isDarkMode ? Colors.grey[700] : Colors.grey[300],
-                                borderRadius: BorderRadius.circular(2.5),
-                              ),
-                            ),
-                            Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 25, vertical: 10),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    "Kelime Setlerim",
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 28,
-                                      fontWeight: FontWeight.bold,
-                                      color: _isDarkMode ? Colors.white : Color(0xFF333333),
-                                      letterSpacing: 0.5,
-                                    ),
-                                  ),
-                                  Container(
-                                    decoration: BoxDecoration(
-                                      color: _isDarkMode ? Colors.grey[800] : Colors.grey[200],
-                                      borderRadius: BorderRadius.circular(15),
-                                    ),
-                                    child: IconButton(
-                                      icon: Icon(Icons.close, color: _isDarkMode ? Colors.white70 : Colors.black54, size: 24),
-                                      onPressed: () {
-                                        setState(() {
-                                          isExpanded = false;
-                                        });
-                                      },
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 25),
-                              child: Text(
-                                _getRandomMessage(),
-                                style: GoogleFonts.poppins(
-                                  fontSize: 16,
-                                  fontStyle: FontStyle.italic,
-                                  color: _isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                          Container(
+                            padding: EdgeInsets.all(16.sp),
+                            decoration: BoxDecoration(
+                              color: _isDarkMode ? Colors.grey[850] : Colors.white,
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: _isDarkMode
+                                      ? Colors.black.withOpacity(0.3)
+                                      : Colors.grey.withOpacity(0.3),
+                                  spreadRadius: 2,
+                                  blurRadius: 10,
+                                  offset: Offset(0, 3),
                                 ),
-                              ),
+                              ],
                             ),
-                            SizedBox(height: 20),
-                            Expanded(
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: _isDarkMode ? Color(0xFF252525) : Colors.grey[100],
-                                  borderRadius: BorderRadius.only(
-                                    topLeft: Radius.circular(30),
-                                    topRight: Radius.circular(30),
-                                  ),
-                                ),
-                                child: PackageListWidget(packagesFuture: ApiService().fetchCategories(userProvider.userId)),
-                              ),
+                            child: Column(
+                              children: [
+                                _buildSocialMediaInfo(),
+                                SizedBox(height: 16.h),
+                                _buildPromoBanner(),
+                              ],
                             ),
-                          ],
-                        ),
+                          ),
+                          SizedBox(height: 20.h),
+                        ],
                       ),
                     ),
-                  ),
-              ],
-            ),
+                    if (isExpanded)
+                      if (isExpanded)
+                        AnimatedContainer(
+                          duration: Duration(milliseconds: 300),
+                          curve: Curves.easeInOut,
+                          height: MediaQuery.of(context).size.height * 0.9,
+                          decoration: BoxDecoration(
+                            color: _isDarkMode ? Color(0xFF1F1F1F) : Colors.white,
+                            borderRadius: BorderRadius.only(
+                              topLeft: Radius.circular(30),
+                              topRight: Radius.circular(30),
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.2),
+                                blurRadius: 10,
+                                spreadRadius: 0,
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            children: [
+                              _buildDraggableHeader(),
+                              _buildWordSetsHeader(),
+                              Expanded(
+                                child: _buildWordSetsList(),
+                              ),
+                            ],
+                          ),
+                        ),
+                  ],
+                ),
+              );
+            },
           ),
         );
       },
     );
   }
-  Widget _buildLearningPanel() {
+  Widget _buildDraggableHeader() {
+    return GestureDetector(
+      onVerticalDragUpdate: (details) {
+        if (details.primaryDelta! > 10) {
+          setState(() {
+            isExpanded = false;
+          });
+        }
+      },
+      child: Container(
+        height: 40,
+        child: Center(
+          child: Container(
+            width: 50,
+            height: 5,
+            decoration: BoxDecoration(
+              color: _isDarkMode ? Colors.grey[600] : Colors.grey[300],
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+  Widget _buildWordSetsHeader() {
     return Container(
-      margin: EdgeInsets.all(16.sp),
-      padding: EdgeInsets.all(16.sp),
+      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 15),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        color: _isDarkMode ? Color(0xFF1F1F1F) : Colors.white,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.1),
             blurRadius: 10,
-            offset: Offset(0, 5),
+            offset: Offset(0, 3),
           ),
         ],
       ),
       child: Column(
         children: [
-          _buildWordSetsButton(),
-          SizedBox(height: 16.h),
-          SearchPanel(isDarkMode: _isDarkMode),
-          SizedBox(height: 16.h),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0, end: 1),
+                duration: Duration(milliseconds: 500),
+                builder: (context, value, child) {
+                  return Opacity(
+                    opacity: value,
+                    child: Transform.translate(
+                      offset: Offset(-20 * (1 - value), 0),
+                      child: child,
+                    ),
+                  );
+                },
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.auto_awesome,
+                      color: Color(0xFF58CC02),
+                      size: 28,
+                    ),
+                    SizedBox(width: 10),
+                    Text(
+                      "Kelime Setleriniz",
+                      style: GoogleFonts.nunito(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: _isDarkMode ? Colors.white : Color(0xFF3C3C3C),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _buildCloseButton(),
+            ],
+          ),
+          SizedBox(height: 10),
+          TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0, end: 1),
+            duration: Duration(milliseconds: 500),
+            builder: (context, value, child) {
+              return Opacity(
+                opacity: value,
+                child: Transform.translate(
+                  offset: Offset(0, 20 * (1 - value)),
+                  child: child,
+                ),
+              );
+            },
+            child: Text(
+              "Öğrenmeye hazır mısınız? Hadi başlayalım!",
+              style: GoogleFonts.nunito(
+                fontSize: 16,
+                color: _isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
-  Widget _buildWordSetsButton() {
-    return GestureDetector(
-      onTap: () {
-        _showWordSetsFullScreen();
-      },
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 15.h),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Colors.purple, Colors.deepPurple],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+  Widget _buildCloseButton() {
+    return TweenAnimationBuilder(
+      tween: Tween<double>(begin: 0, end: 1),
+      duration: Duration(milliseconds: 300),
+      builder: (context, double value, child) {
+        return Transform.rotate(
+          angle: value * 2 * 3.14159,
+          child: Transform.scale(
+            scale: 0.8 + (value * 0.2),
+            child: child,
           ),
-          borderRadius: BorderRadius.circular(30),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.purple.withOpacity(0.3),
-              blurRadius: 8,
-              offset: Offset(0, 4),
-            ),
-          ],
+        );
+      },
+      child: IconButton(
+        icon: Icon(
+          Icons.close_rounded,
+          color: _isDarkMode ? Colors.white70 : Color(0xFF58CC02),
+          size: 28,
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.school, color: Colors.white, size: 28.sp),
-            SizedBox(width: 10.w),
-            Text(
-              "Kelime Setlerine Çalış",
-              style: GoogleFonts.nunito(
-                color: Colors.white,
-                fontSize: 20.sp,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-  void _showWordSetsFullScreen() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.9,
-        minChildSize: 0.5,
-        maxChildSize: 0.95,
-        builder: (_, controller) {
-          return Container(
-            decoration: BoxDecoration(
-              color: _isDarkMode ? Colors.grey[900] : Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-            ),
-            child: Column(
-              children: [
-                Container(
-                  height: 5,
-                  width: 40,
-                  margin: EdgeInsets.symmetric(vertical: 10),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[400],
-                    borderRadius: BorderRadius.circular(2.5),
-                  ),
-                ),
-                Expanded(
-                  child: PackageListWidget(
-                    packagesFuture: ApiService().fetchCategories(Provider.of<UserProvider>(context, listen: false).userId),
-                  ),
-                ),
-              ],
-            ),
-          );
+        onPressed: () {
+          setState(() {
+            isExpanded = false;
+            _fetchData();
+          });
         },
       ),
     );
   }
+  Widget _buildWordSetsList() {
+    return Consumer<UserProvider>(
+      builder: (context, userProvider, child) {
+        return FutureBuilder<List<Package>>(
+          future: ApiService().fetchCategories(userProvider.userId),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return Center(child: LogoLoadingIndicator());
+            } else if (snapshot.hasError) {
+              return Center(child: Text("Hata: ${snapshot.error}"));
+            } else if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+              return ListView.builder(
+                itemCount: snapshot.data!.length,
+                itemBuilder: (context, index) {
+                  return _buildWordSetItem(snapshot.data![index], index);
+                },
+              );
+            } else {
+              return _buildEmptyState();
+            }
+          },
+        );
+      },
+    );
+  }
+  Widget _buildWordSetItem(Package package, int index) {
+    final List<Color> colors = [
+      Color(0xFF58CC02),
+      Color(0xFF1CB0F6),
+      Color(0xFFFFC800),
+      Color(0xFFFF9600),
+      Color(0xFFFF4B4B),
+    ];
+    final color = colors[index % colors.length];
 
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: Duration(milliseconds: 300 + (index * 100)),
+      curve: Curves.easeOutBack,
+      builder: (context, value, child) {
+        return Transform.translate(
+          offset: Offset(0, 50 * (1 - value)),
+          child: Opacity(
+            opacity: value.clamp(0.0, 1.0), // Burayı değiştirdik
+            child: child,
+          ),
+        );
+      },
+      child: GestureDetector(
+        onTap: () => _onListItemTap(context, package.classroom?.id ?? 0, package.classroom?.title ?? 'Varsayılan Başlık'),
+        child: Container(
+          margin: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: color.withOpacity(0.3),
+                blurRadius: 8,
+                offset: Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Stack(
+            children: [
+              Positioned(
+                right: -20,
+                bottom: -20,
+                child: Icon(
+                  Icons.school,
+                  size: 100,
+                  color: Colors.white.withOpacity(0.2),
+                ),
+              ),
+              Padding(
+                padding: EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      package.classroom?.title ?? 'Varsayılan Başlık',
+                      style: GoogleFonts.nunito(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    SizedBox(height: 5),
+
+                    SizedBox(height: 10),
+                    LinearProgressIndicator(
+                      value: 0.7, // İlerleme durumunu buraya ekleyin
+                      backgroundColor: Colors.white.withOpacity(0.3),
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.school,
+            size: 80,
+            color: _isDarkMode ? Colors.grey[600] : Colors.grey[400],
+          ),
+          SizedBox(height: 20),
+          Text(
+            "Henüz kelime setiniz yok",
+            style: GoogleFonts.nunito(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: _isDarkMode ? Colors.grey[400] : Colors.grey[600],
+            ),
+          ),
+          SizedBox(height: 10),
+          Text(
+            "Yeni setler ekleyerek öğrenmeye başlayın!",
+            style: GoogleFonts.nunito(
+              fontSize: 16,
+              color: _isDarkMode ? Colors.grey[500] : Colors.grey[500],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  void _onListItemTap(BuildContext context, int categoryId, String categoryName) {
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (context) => WordListScreen(
+        categoryId: categoryId,
+        categoryName: categoryName,
+      ),
+    ));
+  }
   Widget _buildPromoBanner() {
     return Container(
       padding: EdgeInsets.symmetric(vertical: 10.h, horizontal: 16.w),
@@ -858,14 +943,14 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Row(
         children: [
           Icon(
-              Icons.celebration,
-              color: _isDarkMode ? Colors.green[300] : Colors.green,
-              size: 24.sp
+            Icons.celebration,
+            color: _isDarkMode ? Colors.green[300] : Colors.green,
+            size: 24.sp,
           ),
           SizedBox(width: 10.w),
           Expanded(
             child: AutoSizeText(
-              "Tüm dil setleri 15 Eylül'e kadar ücretsiz!",
+              promotionMessage, // API'den gelen veya önbellekteki mesaj burada gösterilecek
               style: GoogleFonts.poppins(
                 color: _isDarkMode ? Colors.green[300] : Colors.green.shade800,
                 fontWeight: FontWeight.w600,
@@ -879,38 +964,6 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-
-  Widget _buildPhdAkademiInfo() {
-
-    return Container(
-      padding: EdgeInsets.all(8.sp),
-      decoration: BoxDecoration(
-        color: _isDarkMode ? Colors.blue.shade900 : Colors.blue.shade50,
-        borderRadius: BorderRadius.circular(15),
-      ),
-      child: Row(
-        children: [
-          Icon(
-              Icons.school,
-              color: _isDarkMode ? Colors.blue.shade300 : Colors.blue.shade700,
-              size: 24.sp
-          ),
-          SizedBox(width: 10.w),
-          Expanded(
-            child: Text(
-              "PhD Akademi: Profesyonel dil eğitimi",
-              style: GoogleFonts.poppins(
-                color: _isDarkMode ? Colors.blue.shade300 : Colors.blue.shade700,
-                fontWeight: FontWeight.w500,
-                fontSize: 10.sp,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildWebsiteLink() {
 
     return Column(
@@ -965,8 +1018,6 @@ class _HomeScreenState extends State<HomeScreen> {
       ],
     );
   }
-
-
   Widget _buildSocialMediaButton({
     required String icon,
     required String username,
@@ -1004,7 +1055,6 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-
   void _launchPhdAkademiInstagram() async {
     const url = 'https://www.instagram.com/phd.akademi/';
     if (await canLaunch(url)) {
@@ -1013,7 +1063,6 @@ class _HomeScreenState extends State<HomeScreen> {
       throw 'Could not launch $url';
     }
   }
-
   void _launchInstagram() async {
     const url = 'https://www.instagram.com/kelibunet/';
     if (await canLaunch(url)) {
@@ -1023,16 +1072,6 @@ class _HomeScreenState extends State<HomeScreen> {
       // Burada kullanıcıya bir hata mesajı gösterebilirsiniz
     }
   }
-  String _getRandomMessage() {
-    final messages = [
-      "Kelimeler dünyasına hoş geldiniz!",
-      "Bugün kaç kelime öğreneceksiniz?",
-      "Dilinizi geliştirmek için hazır mısınız?",
-      "Kelime hazneniz büyüdükçe dünyanız da büyüyecek!",
-      "Yeni kelimeler, yeni ufuklar demek!",
-    ];
-    return messages[Random().nextInt(messages.length)];
-  }
   void _launchURL(String urlString) async {
     final Uri url = Uri.parse(urlString);
     if (await canLaunchUrl(url)) {
@@ -1041,30 +1080,6 @@ class _HomeScreenState extends State<HomeScreen> {
       throw 'Could not launch $url';
     }
   }
-
-  Widget _socialMediaButton(String url, String assetPath, String label) {
-    return InkWell(
-      onTap: () => _launchURL(url),
-      child: Column(
-        children: [
-          ClipOval(
-            child: Image.asset(assetPath, height: 40.h, width: 40.w, fit: BoxFit.cover),
-          ),
-          SizedBox(height: 5.h),
-          AutoSizeText(
-            label,
-            style: GoogleFonts.poppins(
-              color: Colors.blue.shade600,
-              fontSize: 12.sp,
-            ),
-            maxLines: 1,
-            minFontSize: 8,
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildUserInfoSection(UserProvider userProvider) {
     final colors = _isDarkMode ? darkModeColors : lightModeColors;
 
@@ -1094,12 +1109,46 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           SizedBox(height: 6.h),
           _buildActionButtons(),
+          SizedBox(height: 8.h),
+          _buildPhdAkademiInfo(),
         ],
       ),
     );
   }
-
+  Widget _buildPhdAkademiInfo() {
+    return Container(
+      padding: EdgeInsets.symmetric(vertical: 10.h, horizontal: 8.w),
+      decoration: BoxDecoration(
+        color: _isDarkMode ? Colors.blue.shade900.withOpacity(0.7) : Colors.blue.shade50,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+              Icons.school,
+              color: _isDarkMode ? Colors.blue.shade300 : Colors.blue.shade700,
+              size: 16.sp
+          ),
+          SizedBox(width: 2.w),
+          Flexible(
+            child: Text(
+              "PhD Akademi: Profesyonel dil eğitimi",
+              style: GoogleFonts.poppins(
+                color: _isDarkMode ? Colors.blue.shade300 : Colors.blue.shade700,
+                fontWeight: FontWeight.w500,
+                fontSize: 8.sp,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
   Widget _buildAvatarWithName(UserProvider userProvider) {
+    bool isCorporate = true; // Kurumsal üye olup olmadığını kontrol et
+
     return Row(
       children: [
         GestureDetector(
@@ -1107,35 +1156,64 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Hero(
             tag: 'avatar',
             child: Container(
-              width: 50.w,
-              height: 50.h,
+              width: 40.w,
+              height: 40.h,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                border: Border.all(color: Colors.green, width: 2),
+                border: Border.all(
+                  color: isCorporate ? Colors.blue : Colors.green, // Kurumsal üye ise mavi çerçeve
+                  width: isCorporate ? 3.0 : 1.5, // Kurumsal üye ise daha kalın çerçeve
+                ),
               ),
               child: ClipOval(
                 child: CachedNetworkImage(
                   imageUrl: 'https://kelibu.net/storage/${userProvider.avatar}',
                   fit: BoxFit.cover,
                   placeholder: (context, url) => LogoLoadingIndicator(),
-                  errorWidget: (context, url, error) => Icon(Icons.error),
+                  errorWidget: (context, url, error) => Icon(Icons.error, size: 20.sp),
                 ),
               ),
             ),
           ),
         ),
-        SizedBox(width: 10.w),
+        SizedBox(width: 8.w),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
               'Merhaba,',
-              style: TextStyle(fontSize: 14.sp, color: Colors.grey),
+              style: TextStyle(fontSize: 10.sp, color: Colors.grey),
             ),
-            Text(
-              userProvider.username,
-              style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.bold, color: Colors.green),
+            Row(
+              children: [
+                Text(
+                  userProvider.username,
+                  style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.bold, color: Colors.green),
+                ),
+              ],
             ),
+            if (isCorporate) // Kurumsal üye kontrolü
+              Container(
+                padding: EdgeInsets.all(4.0),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.blue, width: 2.0),
+                  borderRadius: BorderRadius.circular(5.0),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.verified, color: Colors.blue, size: 16),
+                    Text(
+                      "Kurumsal Üye",
+                      style: TextStyle(
+                        color: Colors.blue,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
           ],
         ),
       ],
@@ -1143,7 +1221,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
   Widget _buildPointsDisplay(int points) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+      padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 4.h),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(15),
@@ -1161,13 +1239,13 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           Image.asset(
             'assets/point.png',
-            width: 35.sp,  // Logoyu büyüttük
-            height: 35.sp, // Logoyu büyüttük
+            width: 22.sp,  // Logoyu büyüttük
+            height: 22.sp, // Logoyu büyüttük
           ),
           Text(
             '$points',
             style: TextStyle(
-                fontSize: 18.sp,
+                fontSize: 12.sp,
                 fontWeight: FontWeight.bold,
                 color: Colors.black87
             ),
@@ -1179,15 +1257,11 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildActionButtons() {
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
-        // Toplam genişliğin %80'ini kullanarak ikonlar için alan ayırıyoruz
         double totalWidth = constraints.maxWidth * 0.8;
-        // Her bir ikonun maksimum boyutunu belirliyoruz (örneğin 40)
         double maxIconSize = 70;
-        // İkonlar arası minimum boşluk
         double minSpacing = 8;
 
-        // İkon boyutunu hesaplıyoruz
-        double iconSize = (totalWidth - (3 * minSpacing)) / 4; // 4 ikon için
+        double iconSize = (totalWidth - (4 * minSpacing)) / 5; // 5 ikon için ayarlandı
         iconSize = iconSize > maxIconSize ? maxIconSize : iconSize;
 
         return Row(
@@ -1202,13 +1276,21 @@ class _HomeScreenState extends State<HomeScreen> {
                 _toggleDarkMode,
                 size: iconSize
             ),
-            _buildRoundedIconButton(Icons.help, Colors.green, () {
+            _buildRoundedIconButton(Icons.slow_motion_video_sharp, Colors.green, () {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => VideoPlayerScreen(videoUrl: AppUrls.homescreen)),
               );
             }, size: iconSize),
             _buildRoundedIconButton(Icons.share, Colors.purple, _shareApp, size: iconSize),
+            _buildRoundedIconButton(Icons.search, Colors.teal, () {
+              showDialog(
+                context: context,
+                builder: (BuildContext context) {
+                  return SearchDialog(isDarkMode: _isDarkMode);
+                },
+              );
+            }, size: iconSize),
           ],
         );
       },
@@ -1240,27 +1322,17 @@ Kelime öğrenmenin tadını Kelibu ile çıkarın! 🍭📗
 
     Share.share(message, subject: 'Kelibu - Eğlenceli Kelime Öğrenme Macerası!');
   }
-
   Widget _buildRoundedIconButton(IconData icon, Color color, VoidCallback onPressed, {required double size}) {
     return ElevatedButton(
       onPressed: onPressed,
       style: ElevatedButton.styleFrom(
         backgroundColor: color,
         shape: CircleBorder(),
-        padding: EdgeInsets.all(size * 0.25), // Padding'i ikon boyutuna göre ayarlıyoruz
+        padding: EdgeInsets.all(size * 0.27), // Padding'i ikon boyutuna göre ayarlıyoruz
       ),
-      child: Icon(icon, color: Colors.white, size: size * 0.5), // İkon boyutunu buton boyutuna göre ayarlıyoruz
+      child: Icon(icon, color: Colors.white, size: size * 0.33), // İkon boyutunu buton boyutuna göre ayarlıyoruz
     );
   }
-
-  Widget _buildIconButton(IconData icon, Color color, VoidCallback onPressed, {Key? key}) {
-    return IconButton(
-      key: key,
-      icon: Icon(icon, color: color, size: 30.sp),
-      onPressed: onPressed,
-    );
-  }
-
   void _showEnlargedAvatar(String avatarUrl) {
     showDialog(
       context: context,
@@ -1843,7 +1915,6 @@ class WordOfTheDayDialog extends StatelessWidget {
     );
   }
 }
-
 class ContentBox extends StatelessWidget {
   final bool isDarkMode;
   final Function(String) onSpeak;
@@ -2017,29 +2088,9 @@ class LearningPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: EdgeInsets.symmetric(vertical: 16.h, horizontal: 16.w),
       child: Column(
         children: [
-          _buildFeatureButton(
-            icon: Icons.book,
-            title: "Kelime Setleri",
-            color: Colors.blue,
-            onTap: onWordSetsTap,
-          ),
-          SizedBox(height: 12.h),
-          _buildFeatureButton(
-            icon: Icons.lightbulb,
-            title: "Günün Kelimesi",
-            color: Colors.orange,
-            onTap: onWordOfDayTap,
-          ),
-          SizedBox(height: 12.h),
-          _buildFeatureButton(
-            icon: Icons.search,
-            title: "Sözlük",
-            color: Colors.green,
-            onTap: onDictionaryTap,
-          ),
+          WordSetsButton(onTap: onWordSetsTap, isDarkMode: isDarkMode),
         ],
       ),
     );
@@ -2051,28 +2102,191 @@ class LearningPanel extends StatelessWidget {
     required Color color,
     required VoidCallback onTap,
   }) {
-    return ElevatedButton(
-      onPressed: onTap,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: isDarkMode ? color.withOpacity(0.8) : color,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        padding: EdgeInsets.symmetric(vertical: 16.h, horizontal: 20.w),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: Colors.white, size: 24.sp),
-              SizedBox(width: 12.w),
-              Text(
-                title,
-                style: TextStyle(color: Colors.white, fontSize: 18.sp, fontWeight: FontWeight.bold),
-              ),
-            ],
+    return AnimatedContainer(
+      duration: Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(20),
+          splashColor: color.withOpacity(0.3),
+          child: Container(
+            padding: EdgeInsets.symmetric(vertical: 16.h, horizontal: 16.w),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: color.withOpacity(0.5), width: 2),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, color: color, size: 28.sp),
+                SizedBox(height: 8.h),
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 14.sp,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
           ),
-          Icon(Icons.arrow_forward_ios, color: Colors.white, size: 18.sp),
-        ],
+        ),
+      ),
+    );
+  }
+}
+
+
+
+
+
+class WordSetsButton extends StatefulWidget {
+  final VoidCallback onTap;
+  final bool isDarkMode;
+
+  const WordSetsButton({Key? key, required this.onTap, required this.isDarkMode}) : super(key: key);
+
+  @override
+  _WordSetsButtonState createState() => _WordSetsButtonState();
+}
+
+class _WordSetsButtonState extends State<WordSetsButton> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _shadowAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 100),
+      vsync: this,
+    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+    _shadowAnimation = Tween<double>(begin: 8.0, end: 2.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onTapDown(TapDownDetails details) {
+    _controller.forward();
+  }
+
+  void _onTapUp(TapUpDetails details) {
+    _controller.reverse();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: widget.onTap,
+          onTapDown: _onTapDown,
+          onTapUp: _onTapUp,
+          onTapCancel: () => _controller.reverse(),
+          child: AnimatedBuilder(
+            animation: _controller,
+            builder: (context, child) {
+              return Transform.scale(
+                scale: _scaleAnimation.value,
+                child: Container(
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: widget.isDarkMode ? Color(0xFF1CB0F6) : Color(0xFF58CC02),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: widget.isDarkMode
+                            ? Colors.black.withOpacity(0.3)
+                            : Color(0xFF45A800),
+                        blurRadius: _shadowAnimation.value,
+                        offset: Offset(0, _shadowAnimation.value / 2),
+                      ),
+                    ],
+                    border: Border.all(
+                      color: widget.isDarkMode
+                          ? Colors.lightBlueAccent.withOpacity(0.5)
+                          : Color(0xFF45A800),
+                      width: 2,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.auto_awesome,
+                              color: Colors.white,
+                              size: 30,
+                            ),
+                            SizedBox(width: 15),
+                            Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  "Kelime Setleri",
+                                  style: GoogleFonts.nunito(
+                                    color: Colors.white,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    shadows: [
+                                      Shadow(
+                                        blurRadius: 2,
+                                        color: Colors.black.withOpacity(0.3),
+                                        offset: Offset(0, 1),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                SizedBox(height: 4),
+                                Text(
+                                  "Keşfet ve Öğren!",
+                                  style: GoogleFonts.nunito(
+                                    color: Colors.white.withOpacity(0.9),
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      Padding(
+                        padding: EdgeInsets.only(right: 20),
+                        child: Icon(
+                          Icons.arrow_forward_ios,
+                          color: Colors.white,
+                          size: 24,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
       ),
     );
   }

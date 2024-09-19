@@ -92,7 +92,7 @@ class _StudySetListScreenState extends State<StudySetListScreen> {
         ),
         actions: [
           _buildRoundedIconButton(
-            Icons.help,
+            Icons.slow_motion_video_sharp,
             Colors.green,
                 () {
               Navigator.push(

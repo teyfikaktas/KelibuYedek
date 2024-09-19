@@ -1,549 +1,407 @@
-import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:http/http.dart' as http;
-import 'package:kelibu/providers/user_provider.dart';
-import 'package:kelibu/screens/video_player.dart';
-import 'package:provider/provider.dart';
-import 'dart:convert';
-import 'package:kelibu/variables.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:lottie/lottie.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 
-import '../globalDart/urls.dart';
-import '../main.dart';
-
-class MarketPage extends StatefulWidget {
-  MarketPage({Key? key}) : super(key: key);
-
-  @override
-  _MarketPageState createState() => _MarketPageState();
-}
-
-class _MarketPageState extends State<MarketPage> {
-  List<Map<String, dynamic>> products = [];
-  bool _isDarkMode = false;
-  bool _isLoading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    fetchProducts();
-    _loadDarkModePreference();
-  }
-
-  Future<void> fetchProducts() async {
-    try {
-      final response = await http.get(
-        Uri.parse('https://kelibu.net/api/getProductAll'),
-        headers: {
-          'X-Custom-Header': privacyKey.privacyKeyVariable,
-        },
-      );
-      if (response.statusCode == 200) {
-        List<dynamic> data = jsonDecode(response.body);
-        setState(() {
-          products = data.map<Map<String, dynamic>>((item) => {
-            "id": item["id"],
-            "title": item["title"],
-            "text": item["text"],
-            "image": item["image"],
-            "price": item["price"],
-          }).toList();
-          _isLoading = false;
-        });
-      } else {
-        throw Exception('Failed to load products');
-      }
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-      _showErrorDialog('Ürünler yüklenirken bir hata oluştu.');
-    }
-  }
-
-  Future<void> _loadDarkModePreference() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _isDarkMode = prefs.getBool("darkMode") ?? false;
-    });
-  }
-
-  Future<void> buyProduct(String productId) async {
-    UserProvider userprovider = Provider.of<UserProvider>(context, listen: false);
-    Uri url = Uri.parse('https://kelibu.net/api/buy-product');
-    try {
-      final response = await http.post(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Custom-Header': privacyKey.privacyKeyVariable,
-        },
-        body: json.encode({
-          'userid': userprovider.userId.toString(),
-          'product_id': productId,
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        _showSuccessDialog('Ürün başarıyla kütüphaneye eklendi.');
-      } else if (response.statusCode == 403) {
-        _showErrorDialog('Bu ürüne zaten sahipsiniz.');
-      } else {
-        var responseData = jsonDecode(response.body);
-        var responseError = responseData['error'] ?? 'Bilinmeyen hata.';
-        _showErrorDialog('Satın alma işlemi sırasında bir hata oluştu: $responseError');
-      }
-    } catch (e) {
-      _showErrorDialog('Satın alma işlemi sırasında bir hata meydana geldi: ${e.toString()}');
-    }
-  }
-
-  void _showSuccessDialog(String message) {
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-        child: Container(
-          padding: EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Theme.of(context).cardColor,
-            shape: BoxShape.rectangle,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black26,
-                blurRadius: 10.0,
-                offset: const Offset(0.0, 10.0),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(Icons.check_circle, color: Colors.green, size: 70),
-              ),
-              SizedBox(height: 20),
-              Text(
-                'Başarılı',
-                style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 24),
-              ),
-              SizedBox(height: 10),
-              Text(
-                message,
-                style: GoogleFonts.poppins(fontSize: 16),
-                textAlign: TextAlign.center,
-              ),
-              SizedBox(height: 30),
-              ElevatedButton(
-                child: Text(
-                  'Tamam',
-                  style: GoogleFonts.poppins(color: Colors.white, fontSize: 18),
-                ),
-                onPressed: () {
-                  Navigator.of(context).pop();
-                  Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => MainScreen()));
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  padding: EdgeInsets.symmetric(horizontal: 30, vertical: 10),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showErrorDialog(String message) {
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-        child: Container(
-          padding: EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Theme.of(context).cardColor,
-            shape: BoxShape.rectangle,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black26,
-                blurRadius: 10.0,
-                offset: const Offset(0.0, 10.0),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(Icons.error_outline, color: Colors.red, size: 70),
-              ),
-              SizedBox(height: 20),
-              Text(
-                'Hata',
-                style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 24),
-              ),
-              SizedBox(height: 10),
-              Text(
-                message,
-                style: GoogleFonts.poppins(fontSize: 16),
-                textAlign: TextAlign.center,
-              ),
-              SizedBox(height: 30),
-              ElevatedButton(
-                child: Text(
-                  'Tamam',
-                  style: GoogleFonts.poppins(color: Colors.white, fontSize: 18),
-                ),
-                onPressed: () => Navigator.of(context).pop(),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
-                  padding: EdgeInsets.symmetric(horizontal: 30, vertical: 10),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+class MarketPage extends StatelessWidget {
+  const MarketPage({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    final colors = _isDarkMode ? darkModeColors : lightModeColors;
-
     return Scaffold(
-      backgroundColor: colors["background"]!,
       appBar: AppBar(
-        backgroundColor: colors["background"]!,
-        elevation: 0,
         title: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            ClipOval(
-              child: Image.asset('assets/phdakademi.jpg', height: 40, width: 40, fit: BoxFit.cover),
-            ),
-            SizedBox(width: 10),
-            Text(
-              "Kelibu Kelime Setleri",
-              style: GoogleFonts.poppins(
-                color: colors["text"]!,
-                fontWeight: FontWeight.bold,
-                fontSize: 22,
-              ),
-            ),
+            Image.asset('assets/logo.png', height: 30),
+            const SizedBox(width: 8),
+            const Text('Kelibu Market', style: TextStyle(fontWeight: FontWeight.bold)),
           ],
         ),
-        centerTitle: true,
-        iconTheme: IconThemeData(color: colors["text"]!),
-        actions: [
-          _buildRoundedIconButton(
-            Icons.help,
-            Colors.green,
-                () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => VideoPlayerScreen(videoUrl: AppUrls.market)),
-              );
-            },
+        backgroundColor: Colors.deepPurple,
+        elevation: 0,
+      ),
+      body: AnimationLimiter(
+        child: ListView(
+          children: AnimationConfiguration.toStaggeredList(
+            duration: const Duration(milliseconds: 375),
+            childAnimationBuilder: (widget) => SlideAnimation(
+              horizontalOffset: 50.0,
+              child: FadeInAnimation(
+                child: widget,
+              ),
+            ),
+            children: [
+              _buildLottieHeader(),
+              _buildKelibuProBanner(context),
+              _buildAdditionalBenefits(context),
+              _buildPackageSets(context),
+              _buildNormalPackages(context),
+              _buildDiscountCampaign(context),
+            ],
           ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            _buildPromoBanner(),
-            _isLoading
-                ? Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Colors.blue)))
-                : products.isEmpty
-                ? Center(child: Text('Ürün bulunamadı', style: GoogleFonts.poppins(color: colors["text"]!)))
-                : Padding(
-              padding: const EdgeInsets.all(12.0),
-              child: StaggeredGridView.countBuilder(
-                shrinkWrap: true,
-                physics: NeverScrollableScrollPhysics(),
-                crossAxisCount: 2,
-                itemCount: products.length,
-                itemBuilder: (BuildContext context, int index) {
-                  final product = products[index];
-                  return _buildProductCard(product, colors);
-                },
-                staggeredTileBuilder: (int index) => StaggeredTile.fit(1),
-                mainAxisSpacing: 12.0,
-                crossAxisSpacing: 12.0,
-              ),
-            ),
-          ],
         ),
       ),
     );
   }
 
-  Widget _buildRoundedIconButton(IconData icon, Color color, VoidCallback onPressed) {
-    return ElevatedButton(
-      onPressed: onPressed,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: color,
-        shape: CircleBorder(),
-        padding: EdgeInsets.all(12.sp),
+  Widget _buildLottieHeader() {
+    return Container(
+      height: 200,
+      child: Lottie.network(
+        'https://assets9.lottiefiles.com/packages/lf20_xlmz9xwm.json',
+        fit: BoxFit.cover,
       ),
-      child: Icon(icon, color: Colors.white, size: 24.sp),
     );
   }
 
-  Widget _buildPromoBanner() {
+  Widget _buildKelibuProBanner(BuildContext context) {
     return Container(
-      padding: EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [Colors.blue.shade400, Colors.blue.shade600],
+          colors: [Colors.deepPurple.shade700, Colors.deepPurple.shade300],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-      ),
-      child: Column(
-        children: [
-          Text(
-            "Dil Öğreniminde Yeni Bir Dönem",
-            style: GoogleFonts.poppins(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 22,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          SizedBox(height: 10),
-          Text(
-            "Yoğun istek üzerine kampanyamız uzaltıldı! 15 Eylül'e kadar tüm dil setlerimiz ücretsiz!",
-            style: GoogleFonts.poppins(
-              color: Colors.white,
-              fontWeight: FontWeight.w500,
-              fontSize: 18,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          SizedBox(height: 15),
-          ElevatedButton(
-            onPressed: () => _launchURL('https://phdakademi.com'),
-            child: Text(
-              "Daha fazlası için tıklayın",
-              style: GoogleFonts.poppins(color: Colors.blue.shade600, fontWeight: FontWeight.bold),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.white,
-              padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProductCard(Map<String, dynamic> product, Map<String, Color> colors) {
-    return Container(
-      height: 250, // Kare şeklinde olması için
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.2),
-            spreadRadius: 0,
-            blurRadius: 15,
-            offset: Offset(0, 5),
+            color: Colors.deepPurple.withOpacity(0.3),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
           ),
         ],
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            CachedNetworkImage(
-              imageUrl: 'https://kelibu.net/storage/${product["image"]}',
-              placeholder: (context, url) => Center(
-                child: CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.pink),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Kelibu PRO',
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
                 ),
               ),
-              errorWidget: (context, url, error) => Container(
-                color: Colors.grey[200],
-                child: Icon(Icons.error, color: Colors.pink),
-              ),
-              fit: BoxFit.cover,
-            ),
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Colors.transparent, Colors.black.withOpacity(0.7)],
-                ),
-              ),
-            ),
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: Container(
-                padding: EdgeInsets.all(16),
-                child: Text(
-                  product["title"],
-                  style: GoogleFonts.poppins(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ),
-            Positioned(
-              top: 10,
-              right: 10,
-              child: Container(
-                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: Colors.green,
+                  color: Colors.amber,
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: Text(
-                  'ÜCRETSİZ',
-                  style: GoogleFonts.poppins(
-                    color: Colors.white,
+                child: const Text(
+                  'EN İYİ DEĞER',
+                  style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    fontSize: 14,
+                    color: Colors.black,
                   ),
                 ),
               ),
-            ),
-            Positioned.fill(
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () => _showBuyConfirmation(product),
-                  splashColor: Colors.pink.withOpacity(0.3),
-                  highlightColor: Colors.transparent,
+            ],
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'Tüm özelliklere sınırsız erişim!',
+            style: TextStyle(fontSize: 18, color: Colors.white70),
+          ),
+          const SizedBox(height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildPricingOption('Aylık', '₺199'),
+              _buildPricingOption('Yıllık', '₺899'),
+              ElevatedButton(
+                onPressed: () {
+                  // Satın alma işlemi
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: Colors.deepPurple,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(30),
+                  ),
                 ),
+                child: const Text('HEMEN BAŞLA', style: TextStyle(fontWeight: FontWeight.bold)),
               ),
-            ),
-          ],
-        ),
+            ],
+          ),
+        ],
       ),
     );
   }
 
-void _launchURL(String urlString) async {
-  final Uri url = Uri.parse(urlString);
-  if (await canLaunchUrl(url)) {
-    await launchUrl(url);
-  } else {
-    throw 'Could not launch $url';
-  }
-}
-
-void _showBuyConfirmation(Map<String, dynamic> product) {
-  showDialog(
-    context: context,
-    builder: (context) => Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      elevation: 0,
-      backgroundColor: Colors.transparent,
-      child: Container(
-        padding: EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
-          shape: BoxShape.rectangle,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black26,
-              blurRadius: 10.0,
-              offset: const Offset(0.0, 10.0),
-            ),
-          ],
+  Widget _buildPricingOption(String period, String price) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          period,
+          style: const TextStyle(fontSize: 16, color: Colors.white70),
         ),
+        Text(
+          price,
+          style: const TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAdditionalBenefits(BuildContext context) {
+    final benefits = [
+      {'icon': Icons.library_books, 'text': 'Tüm setlere erişim'},
+      {'icon': Icons.new_releases, 'text': 'Tüm yeni özelliklere erken erişim'},
+      {'icon': Icons.school, 'text': 'PhD Akademi dil kursu üyeliği %10 indirim'},
+      {'icon': Icons.book, 'text': 'PhD Akademi Level 1-2-3 kitaplarına ücretsiz erişim'},
+      {'icon': Icons.phone_android, 'text': 'SelfEnglish uygulamasında %25 indirim'},
+      {'icon': Icons.track_changes, 'text': 'Özelleştirilmiş takip'},
+    ];
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 4,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Text(
-              'Kütüphaneye Ekle',
-              style: GoogleFonts.poppins(
-                fontWeight: FontWeight.bold,
-                fontSize: 22,
-              ),
-            ),
-            SizedBox(height: 20),
-            Text(
-              '${product["title"]} ürününü kütüphaneye eklemek istiyor musunuz?',
-              style: GoogleFonts.poppins(fontSize: 16),
-              textAlign: TextAlign.center,
-            ),
-            SizedBox(height: 30),
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: <Widget>[
-                TextButton(
-                  child: Text(
-                    'Hayır',
-                    style: GoogleFonts.poppins(
-                      color: Colors.grey,
-                      fontSize: 18,
-                    ),
-                  ),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-                ElevatedButton(
-                  child: Text(
-                    'Evet',
-                    style: GoogleFonts.poppins(
-                      color: Colors.white,
-                      fontSize: 18,
-                    ),
-                  ),
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                    buyProduct(product['id'].toString());
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.pink,
-                    padding: EdgeInsets.symmetric(horizontal: 30, vertical: 10),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
+              children: [
+                Icon(Icons.star, color: Colors.amber, size: 24),
+                SizedBox(width: 8),
+                Text(
+                  'Kelibu PRO Avantajları',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: Colors.deepPurple,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ],
             ),
+            const SizedBox(height: 16),
+            ...benefits.map((benefit) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.deepPurple.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(benefit['icon'] as IconData, color: Colors.deepPurple, size: 24),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      benefit['text'] as String,
+                      style: const TextStyle(fontSize: 16, height: 1.3),
+                    ),
+                  ),
+                ],
+              ),
+            )),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () {
+                // PRO üyelik satın alma işlemi
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.deepPurple,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30),
+                ),
+              ),
+              child: const Text('PRO Üyelik Al', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
           ],
         ),
       ),
-    ),
-  );
-}
+    );
+  }
+  Widget _buildPackageSets(BuildContext context) {
+    final packageSets = [
+      {'title': 'Akademi Seti', 'icon': Icons.school},
+      {'title': 'Başlangıç Seti', 'icon': Icons.play_circle_filled},
+      {'title': 'İleri Seviye Seti', 'icon': Icons.trending_up},
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Text(
+            'Özel Paket Setleri',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+        ),
+        ...packageSets.map((set) => _buildPackageSetTile(context, set['title'] as String, set['icon'] as IconData)),
+      ],
+    );
+  }
+
+  Widget _buildPackageSetTile(BuildContext context, String title, IconData icon) {
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: ExpansionTile(
+        leading: Icon(icon, color: Colors.deepPurple),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                _buildPricingRow('Aylık', '₺29'),
+                const SizedBox(height: 8),
+                _buildPricingRow('3 Aylık', '₺50'),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () {
+                    // Satın alma işlemi
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.deepPurple,
+                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                  ),
+                  child: const Text('Satın Al'),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPricingRow(String period, String price) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(period, style: const TextStyle(fontSize: 16)),
+        Text(price, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+      ],
+    );
+  }
+
+  Widget _buildNormalPackages(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Text(
+            'Normal Paketler',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+        ),
+        _buildPackageCard('Aylık Paket', '₺99'),
+        _buildPackageCard('3 Aylık Paket', '₺169'),
+      ],
+    );
+  }
+
+  Widget _buildPackageCard(String title, String price) {
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                Text(price, style: const TextStyle(fontSize: 16, color: Colors.grey)),
+              ],
+            ),
+            ElevatedButton(
+              onPressed: () {
+                // Satın alma işlemi
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.deepPurple,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30),
+                ),
+              ),
+              child: const Text('Satın Al'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDiscountCampaign(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.orange.shade700, Colors.orange.shade300],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.orange.withOpacity(0.3),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Özel Kampanya!',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            '3 ay boyunca %50 indirim',
+            style: TextStyle(fontSize: 18, color: Colors.white70),
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: () {
+              // Kampanya detayları
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: Colors.orange,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(30),
+              ),
+            ),
+            child: const Text('FIRSATI YAKALA', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
 }

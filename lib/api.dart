@@ -126,7 +126,51 @@ class ApiService {
       };
     }
   }
+  Future<void> logSetEntry(String logType,String setName, String Category) async {
+    try {
+      await sendUserLog(
+        type: logType,
+        log: 'Kullanıcı "$setName" "$Category" giriş yaptı.',
+      );
+      print('Set giriş logu başarıyla gönderildi.');
+    } catch (e) {
+      print('Set giriş logu gönderilirken hata oluştu: $e');
+      // Gerekirse kullanıcıya hata bildirimi ekleyebilirsiniz
+    }
+  }
+  Future<void> sendUserLog({required String type, required String log}) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getString('userId'); // Kullanıcı ID'sini SharedPreferences'dan alıyoruz
 
+      if (userId == null) {
+        throw Exception('Kullanıcı ID bulunamadı.');
+      }
+
+      final url = Uri.parse('https://kelibu.net/api/users-logs');;
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Custom-Header': privacyKey.privacyKeyVariable,
+        },
+        body: jsonEncode({
+          'user_id': userId,
+          'type': type,
+          'log': log,
+        }),
+      );
+
+      if (response.statusCode == 201) {
+        print('Log başarıyla gönderildi.');
+      } else {
+        print('Log gönderilemedi. Durum Kodu: ${response.statusCode}');
+        print('Yanıt: ${response.body}');
+      }
+    } catch (e) {
+      print('Log gönderilirken hata oluştu: $e');
+    }
+  }
   Future<void> updateUserPoint(int userId, int newPoint) async {
     var url = Uri.parse('https://kelibu.net/api/user/$userId/updateUserPoint');
     var response = await http.put(
@@ -215,39 +259,117 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> fetchUserPoint(int userId) async {
-    final String apiUrl = 'http://kelibu.net/api/$userId/point';
+    final String apiUrl = 'https://kelibu.net/api/user-ranking';
 
     try {
-      final response = await http.get(
+      final response = await http.post(
         Uri.parse(apiUrl),
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Custom-Header': privacyKey.privacyKeyVariable,
+        },
+        body: json.encode({'user_id': userId}),
+      );
+
+      if (response.statusCode == 200) {
+        final userData = json.decode(response.body) as Map<String, dynamic>;
+        final rankings = userData['rankings'] as Map<String, dynamic>;
+
+        print('API Response: ${json.encode(userData)}');
+
+        // Hata ayıklama için eklenen satır
+        print('Current Streak from API: ${userData['current_streak']}');
+
+        return {
+          'point': userData['point'] ?? 0,
+          'avatar': userData['avatar'] ?? '',
+          'dailyPoint': userData['daily_point'] ?? 0,
+          'weeklyPoint': userData['weekly_point'] ?? 0,
+          'monthlyPoint': userData['monthly_point'] ?? 0,
+          'streakCount': userData['current_streak'] ?? 0,  // Burayı değiştirdik
+          'dailyRank': rankings['daily_point'] ?? 0,
+          'weeklyRank': rankings['weekly_point'] ?? 0,
+          'monthlyRank': rankings['monthly_point'] ?? 0,
+          'allTimeRank': rankings['point'] ?? 0,
+          'team': userData['team'] ?? '',
+          'city': userData['city'] ?? '',
+
+        };
+
+      } else {
+        print('API isteği başarısız: ${response.statusCode}');
+        print('Response body: ${response.body}');
+
+        return _getDefaultUserData();
+      }
+    } catch (error) {
+      print('API isteği sırasında hata oluştu: $error');
+      return _getDefaultUserData();
+    }
+  }
+  Map<String, dynamic> _getDefaultUserData() {
+    return {
+      'point': 0,
+      'avatar': '',
+      'dailyPoint': 0,
+      'weeklyPoint': 0,
+      'monthlyPoint': 0,
+      'streakCount': 0,
+      'dailyRank': 0,
+      'weeklyRank': 0,
+      'monthlyRank': 0,
+      'allTimeRank': 0,
+      'team': '',
+      'city': '',
+    };
+  }
+
+
+  Future<String> fetchPromotionMessage() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final cacheKey = 'promotion_message';
+    final lastFetchKey = 'last_fetch_date';
+    final today = DateTime.now().toIso8601String().split('T')[0];
+
+    // Önbellekten mesajı ve son API çağrısı tarihini çek
+    String? cachedMessage = prefs.getString(cacheKey);
+    String? lastFetchDate = prefs.getString(lastFetchKey);
+
+    // Eğer bugün zaten API çağrısı yapıldıysa önbellekteki mesajı döndür
+    if (lastFetchDate == today && cachedMessage != null) {
+      return cachedMessage;
+    }
+
+    try {
+      // API isteği yap
+      final response = await http.get(
+        Uri.parse('https://kelibu.net/api/app-info'),
         headers: {
           'X-Custom-Header': privacyKey.privacyKeyVariable,
         },
       );
+
       if (response.statusCode == 200) {
-        final userData = json.decode(response.body);
-        final userPoint = userData['point'];
-        final avatar = userData['avatar'];
-        return {
-          'point': userPoint ?? 0,
-          'avatar': avatar ?? '',
-        };
+        final data = jsonDecode(response.body);
+        final promotionMessage = data['description'];
+
+        // Yeni mesajı ve bugünün tarihini kaydet
+        await prefs.setString(cacheKey, promotionMessage);
+        await prefs.setString(lastFetchKey, today);
+
+        return promotionMessage;
       } else {
-        print('API isteği başarısız: ${response.statusCode}');
-        return {
-          'point': 0,
-          'avatar': '',
-        };
+        throw Exception('Failed to load promotion message');
       }
-    } catch (error) {
-      print('API isteği sırasında hata oluştu: $error');
-      return {
-        'point': 0,
-        'avatar': '',
-      };
+    } catch (e) {
+      // API çağrısı başarısızsa önbellekteki mesajı döndür
+      if (cachedMessage != null) {
+        return cachedMessage;
+      } else {
+        throw Exception('No cached data and failed to fetch promotion message');
+      }
     }
   }
-
 
   Future<List<Package>> fetchCategories(int userId) async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();

@@ -61,6 +61,8 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> with Single
   @override
   void initState() {
     super.initState();
+    ApiService().logSetEntry('Dinle yaz', 'Dinle ve Yaz moduna ', '');
+
     _userPoints = ValueNotifier<int>(0);
     _animationController = AnimationController(duration: const Duration(milliseconds: 500), vsync: this);
     _animation = CurvedAnimation(parent: _animationController, curve: Curves.easeInOut);
@@ -368,7 +370,7 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> with Single
             },
           ),
           _buildRoundedIconButton(
-            Icons.help,
+            Icons.slow_motion_video_sharp,
             Colors.green,
                 () {
               Navigator.push(

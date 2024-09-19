@@ -167,7 +167,7 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
               });
             },
           ),
-          _buildRoundedIconButton(Icons.help, Colors.green, () {
+          _buildRoundedIconButton(Icons.slow_motion_video_sharp, Colors.green, () {
             Navigator.push(
               context,
               MaterialPageRoute(builder: (context) => VideoPlayerScreen(videoUrl: AppUrls.mystarwords)),

@@ -229,6 +229,7 @@ class _StudyScreenState extends State<StudyScreen> with SingleTickerProviderStat
   @override
   void initState() {
     super.initState();
+    ApiService().logSetEntry('Çalış Modu', 'Çalış moduna ', '');
 
     // Kontrolcülerin başlatılması
     _scrollController = ScrollController();
@@ -427,7 +428,7 @@ class _StudyScreenState extends State<StudyScreen> with SingleTickerProviderStat
           ScoreDisplay(userPointsNotifier: pointValueNotifier),
 
           _buildRoundedIconButton(
-            Icons.help,
+            Icons.slow_motion_video_sharp,
             Colors.green,
                 () {
               Navigator.push(

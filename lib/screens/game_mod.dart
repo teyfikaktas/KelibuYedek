@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:kelibu/Models/wordDetaik.dart'; // WordDetail modelinizin importu
 import 'package:kelibu/api.dart';
 import 'package:kelibu/screens/flash_card.dart'; // FlashCardScreen sayfasının importu
@@ -21,6 +22,7 @@ import 'listen_write.dart'; // StudyScreen'i içe aktar
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:google_fonts/google_fonts.dart'; // Google Fonts paketini import edin.
+
 class CustomLoadingIndicator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -112,11 +114,12 @@ class _GameModeScreenState extends State<GameModeScreen> with WidgetsBindingObse
 
   @override
   void initState() {
+
     super.initState();
     words = [];
     starredWords = {};
     initializationFuture = _initializeData(); // wordsFuture'ı burada başlatıyoruz.
-
+    ApiService().logSetEntry('Oyun Modları', 'Oyun modlarına', '');
     _searchController.addListener(_filterWords);
 
     appEventBus.on<StarredWordsChangedEvent>().listen((event) async {
@@ -213,12 +216,12 @@ class _GameModeScreenState extends State<GameModeScreen> with WidgetsBindingObse
             style: GoogleFonts.poppins(
               color: colors["text"],
               fontWeight: FontWeight.bold,
+              fontSize: getResponsiveFontSize(context, 24),
             ),
           ),
-
           iconTheme: IconThemeData(color: colors["text"]),
           actions: [
-            _buildRoundedIconButton(Icons.help, Colors.green, () {
+            _buildRoundedIconButton(Icons.slow_motion_video_sharp, Colors.green, () {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => VideoPlayerScreen(videoUrl: AppUrls.gamescreen)),
@@ -241,7 +244,13 @@ class _GameModeScreenState extends State<GameModeScreen> with WidgetsBindingObse
               return CustomLoadingIndicator();
             } else if (snapshot.hasError) {
               return Center(
-                child: Text('Bir hata oluştu: ${snapshot.error}'),
+                child: Text(
+                  'Bir hata oluştu: ${snapshot.error}',
+                  style: GoogleFonts.poppins(
+                    color: colors["text"],
+                    fontSize: getResponsiveFontSize(context, 16),
+                  ),
+                ),
               );
             } else {
               return CustomScrollView(
@@ -251,16 +260,18 @@ class _GameModeScreenState extends State<GameModeScreen> with WidgetsBindingObse
                       duration: Duration(milliseconds: 300),
                       height: _isSearchPanelVisible ? 60.0 : 0.0,
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                         child: TextField(
                           controller: _searchController,
                           decoration: InputDecoration(
+                            prefixIcon: Icon(Icons.search, color: Colors.grey),
                             hintText: 'Kelime ara...',
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12.0),
-                            ),
                             filled: true,
-                            fillColor: _isDarkMode ? Colors.white60 : Colors.white10,
+                            fillColor: _isDarkMode ? Colors.grey[700] : Colors.grey[200],
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(30.0),
+                              borderSide: BorderSide.none,
+                            ),
                           ),
                         ),
                       ),
@@ -281,73 +292,76 @@ class _GameModeScreenState extends State<GameModeScreen> with WidgetsBindingObse
                             ),
                           );
                         },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: _isDarkMode
-                                  ? [Colors.deepPurple.shade800, Colors.deepPurple.shade900]
-                                  : [Colors.deepPurple.shade400, Colors.deepPurple.shade700],
-                            ),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
+                        child: Hero(
+                          tag: "Klasik Kelibu",
                           child: Container(
-                            padding: EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
-                                colors: [
-                                  _isDarkMode ? Colors.deepPurple.shade700 : Colors.deepPurple.shade400,
-                                  _isDarkMode ? Colors.deepPurple.shade900 : Colors.deepPurple.shade600,
+                                colors: _isDarkMode
+                                    ? [Colors.deepPurple.shade800, Colors.deepPurple.shade900]
+                                    : [Colors.deepPurple.shade400, Colors.deepPurple.shade700],
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Container(
+                              padding: EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    _isDarkMode ? Colors.deepPurple.shade700 : Colors.deepPurple.shade400,
+                                    _isDarkMode ? Colors.deepPurple.shade900 : Colors.deepPurple.shade600,
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(16),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.deepPurple.withOpacity(_isDarkMode ? 0.3 : 0.4),
+                                    blurRadius: 10,
+                                    offset: Offset(0, 4),
+                                  ),
                                 ],
                               ),
-                              borderRadius: BorderRadius.circular(16),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.deepPurple.withOpacity(_isDarkMode ? 0.3 : 0.4),
-                                  blurRadius: 10,
-                                  offset: Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: Row(
-                              children: [
-                                Container(
-                                  padding: EdgeInsets.all(10),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.2),
-                                    shape: BoxShape.circle,
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: EdgeInsets.all(10),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.2),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(Icons.gamepad, color: Colors.white, size: 28),
                                   ),
-                                  child: Icon(Icons.gamepad, color: Colors.white, size: 28),
-                                ),
-                                SizedBox(width: 16),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        "Klasik Kelibu",
-                                        style: GoogleFonts.poppins(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 20,
+                                  SizedBox(width: 16),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          "Klasik Kelibu",
+                                          style: GoogleFonts.poppins(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: getResponsiveFontSize(context, 20),
+                                          ),
                                         ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
-                                ),
-                                Container(
-                                  padding: EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.2),
-                                    shape: BoxShape.circle,
+                                  Container(
+                                    padding: EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.2),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(Icons.arrow_forward, color: Colors.white, size: 24),
                                   ),
-                                  child: Icon(Icons.arrow_forward, color: Colors.white, size: 24),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         ),
@@ -360,105 +374,133 @@ class _GameModeScreenState extends State<GameModeScreen> with WidgetsBindingObse
                       childAspectRatio: aspectRatio,
                     ),
                     delegate: SliverChildListDelegate([
-                      _buildGameModeTile(context, "Öğren", Colors.blue, Icons.school, TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18), () {
-                        if (words.length < 4) {
-                          showDialog(
-                            context: context,
-                            builder: (BuildContext context) {
-                              return AlertDialog(
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                title: Text(
-                                  'Ups! Kelimelerimiz Kaçmış!',
-                                  style: GoogleFonts.poppins(
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.amber[800],
+                      _buildGameModeTile(
+                        context,
+                        "Öğren",
+                        Colors.blue,
+                        Icons.school,
+                        TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+                            () {
+                          if (words.length < 4) {
+                            showDialog(
+                              context: context,
+                              builder: (BuildContext context) {
+                                return AlertDialog(
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(20),
                                   ),
-                                ),
-                                content: SingleChildScrollView(
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        Icons.warning_amber_rounded,
-                                        size: 80,
-                                        color: Colors.amber[800],
-                                      ),
-                                      SizedBox(height: 20),
-                                      Text(
-                                        'Öğren modundan en yüksek verimi almanız için en az 4 kelime gerekiyor. Haydi, biraz daha kelime ekleyelim!',
-                                        textAlign: TextAlign.center,
+                                  title: Text(
+                                    'Ups! Kelimelerimiz Kaçmış!',
+                                    style: GoogleFonts.poppins(
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.amber[800],
+                                    ),
+                                  ),
+                                  content: SingleChildScrollView(
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.warning_amber_rounded,
+                                          size: 80,
+                                          color: Colors.amber[800],
+                                        ),
+                                        SizedBox(height: 20),
+                                        Text(
+                                          'Öğren modundan en yüksek verimi almanız için en az 4 kelime gerekiyor. Haydi, biraz daha kelime ekleyelim!',
+                                          textAlign: TextAlign.center,
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 16,
+                                            color: Colors.amber[900],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      child: Text(
+                                        'Tamam',
                                         style: GoogleFonts.poppins(
-                                          fontSize: 16,
-                                          color: Colors.amber[900],
+                                          color: Colors.blue,
+                                          fontWeight: FontWeight.bold,
                                         ),
                                       ),
-                                    ],
-                                  ),
-                                ),
-                                actions: [
-                                  TextButton(
-                                    child: Text(
-                                      'Tamam',
-                                      style: GoogleFonts.poppins(
-                                        color: Colors.blue,
-                                        fontWeight: FontWeight.bold,
-                                      ),
+                                      onPressed: () {
+                                        Navigator.of(context).pop();
+                                      },
                                     ),
-                                    onPressed: () {
-                                      Navigator.of(context).pop();
-                                    },
-                                  ),
-                                ],
-                              );
-                            },
-                          );
-                        } else {
+                                  ],
+                                );
+                              },
+                            );
+                          } else {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) => QuizScreen(
+                                  words: words,
+                                  classroomId: widget.classroomId,
+                                  studySetId: widget.studySetId,
+                                ),
+                              ),
+                            );
+                          }
+                        },
+                      ),
+                      _buildGameModeTile(
+                        context,
+                        "Flash Kart",
+                        Colors.green,
+                        Icons.flash_on,
+                        TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+                            () {
                           Navigator.of(context).push(
                             MaterialPageRoute(
-                              builder: (context) => QuizScreen(
+                              builder: (context) => FlashCardScreen(
                                 words: words,
                                 classroomId: widget.classroomId,
                                 studySetId: widget.studySetId,
                               ),
                             ),
                           );
-                        }
-                      }),
-                      _buildGameModeTile(context, "Flash Kart", Colors.green, Icons.flash_on, TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18), () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => FlashCardScreen(
-                              words: words,
-                              classroomId: widget.classroomId,
-                              studySetId: widget.studySetId,
+                        },
+                      ),
+                      _buildGameModeTile(
+                        context,
+                        "Çalış",
+                        Colors.greenAccent,
+                        Icons.work,
+                        TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+                            () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => StudyScreen(
+                                words: words,
+                                classroomId: widget.classroomId,
+                                studySetId: widget.studySetId,
+                              ),
                             ),
-                          ),
-                        );
-                      }),
-                      _buildGameModeTile(context, "Çalış", Colors.greenAccent, Icons.work, TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18), () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => StudyScreen(
-                              words: words,
-                              classroomId: widget.classroomId,
-                              studySetId: widget.studySetId,
+                          );
+                        },
+                      ),
+                      _buildGameModeTile(
+                        context,
+                        "Dinle",
+                        Colors.deepOrangeAccent,
+                        Icons.music_note,
+                        TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+                            () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => ListenAndWriteScreen(
+                                words: words,
+                                classroomId: widget.classroomId,
+                                studySetId: widget.studySetId,
+                              ),
                             ),
-                          ),
-                        );
-                      }),
-                      _buildGameModeTile(context, "Dinle", Colors.deepOrangeAccent, Icons.music_note, TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18), () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => ListenAndWriteScreen(
-                              words: words,
-                              classroomId: widget.classroomId,
-                              studySetId: widget.studySetId,
-                            ),
-                          ),
-                        );
-                      }),
+                          );
+                        },
+                      ),
                     ]),
                   ),
                   SliverToBoxAdapter(
@@ -529,23 +571,32 @@ class _GameModeScreenState extends State<GameModeScreen> with WidgetsBindingObse
                                             children: [
                                               Row(
                                                 children: [
-                                                  Text(
-                                                    word.word,
-                                                    style: GoogleFonts.inter(
-                                                      fontSize: 18,
-                                                      fontWeight: FontWeight.bold,
-                                                      color: isStarred
-                                                          ? (_isDarkMode ? Colors.amber.shade200 : Colors.amber.shade800)
-                                                          : (_isDarkMode ? Colors.white : Colors.black87),
+                                                  Expanded(
+                                                    child: Text(
+                                                      word.word,
+                                                      style: GoogleFonts.inter(
+                                                        fontSize: getResponsiveFontSize(context, 18),
+                                                        fontWeight: FontWeight.bold,
+                                                        color: isStarred
+                                                            ? (_isDarkMode ? Colors.amber.shade200 : Colors.amber.shade800)
+                                                            : (_isDarkMode ? Colors.white : Colors.black87),
+                                                      ),
                                                     ),
                                                   ),
-                                                  Spacer(),
+                                                  // Yıldız Butonu
                                                   IconButton(
-                                                    icon: Icon(
-                                                      isStarred ? Icons.star : Icons.star_border,
-                                                      color: isStarred
-                                                          ? (_isDarkMode ? Colors.amber.shade300 : Colors.amber.shade600)
-                                                          : (_isDarkMode ? Colors.grey.shade400 : Colors.grey.shade600),
+                                                    icon: AnimatedSwitcher(
+                                                      duration: Duration(milliseconds: 300),
+                                                      transitionBuilder: (child, animation) {
+                                                        return ScaleTransition(scale: animation, child: child);
+                                                      },
+                                                      child: Icon(
+                                                        isStarred ? Icons.star : Icons.star_border,
+                                                        key: ValueKey<bool>(isStarred),
+                                                        color: isStarred
+                                                            ? (_isDarkMode ? Colors.amber.shade300 : Colors.amber.shade600)
+                                                            : (_isDarkMode ? Colors.grey.shade400 : Colors.grey.shade600),
+                                                      ),
                                                     ),
                                                     onPressed: () async {
                                                       setState(() {
@@ -554,9 +605,12 @@ class _GameModeScreenState extends State<GameModeScreen> with WidgetsBindingObse
                                                       await toggleStar(word.id, isStarred);
                                                     },
                                                   ),
+                                                  // Ses Butonu
                                                   IconButton(
-                                                    icon: Icon(Icons.volume_up,
-                                                        color: _isDarkMode ? Colors.blue.shade300 : Colors.blue.shade700),
+                                                    icon: Icon(
+                                                      Icons.volume_up,
+                                                      color: _isDarkMode ? Colors.blue.shade300 : Colors.blue.shade700,
+                                                    ),
                                                     onPressed: () => _speak(word.word),
                                                   ),
                                                 ],
@@ -566,7 +620,7 @@ class _GameModeScreenState extends State<GameModeScreen> with WidgetsBindingObse
                                                 Text(
                                                   word.meaning,
                                                   style: GoogleFonts.inter(
-                                                    fontSize: 14,
+                                                    fontSize: getResponsiveFontSize(context, 14),
                                                     color: isStarred
                                                         ? (_isDarkMode ? Colors.amber.shade100.withOpacity(0.8) : Colors.amber.shade900.withOpacity(0.8))
                                                         : (_isDarkMode ? Colors.white70 : Colors.black54),
@@ -596,6 +650,7 @@ class _GameModeScreenState extends State<GameModeScreen> with WidgetsBindingObse
       ),
     );
   }
+
   Widget _buildSettingsCard({
     required IconData icon,
     required String title,
@@ -631,17 +686,29 @@ class _GameModeScreenState extends State<GameModeScreen> with WidgetsBindingObse
                 Expanded(
                   child: Row(
                     children: [
-                      Icon(
-                        icon,
-                        color: _isDarkMode ? Colors.white70 : Colors.grey[600],
-                        size: 24,
+                      AnimatedSwitcher(
+                        duration: Duration(milliseconds: 300),
+                        transitionBuilder: (child, animation) {
+                          return RotationTransition(
+                            turns: child.key == ValueKey('visible')
+                                ? Tween<double>(begin: 0.75, end: 1.0).animate(animation)
+                                : Tween<double>(begin: 1.0, end: 0.75).animate(animation),
+                            child: child,
+                          );
+                        },
+                        child: Icon(
+                          icon,
+                          key: ValueKey(value),
+                          color: _isDarkMode ? Colors.white70 : Colors.grey[600],
+                          size: 24,
+                        ),
                       ),
                       SizedBox(width: 12),
                       Flexible(
                         child: Text(
                           title,
                           style: GoogleFonts.inter(
-                            fontSize: 16,
+                            fontSize: getResponsiveFontSize(context, 16),
                             fontWeight: FontWeight.w500,
                             color: _isDarkMode ? Colors.white : Colors.black87,
                           ),
@@ -666,6 +733,7 @@ class _GameModeScreenState extends State<GameModeScreen> with WidgetsBindingObse
       ),
     );
   }
+
   void _navigateToWordDetail(WordDetail word) {
     Navigator.of(context).push(MaterialPageRoute(
       builder: (context) => StudyScreen(
@@ -676,16 +744,37 @@ class _GameModeScreenState extends State<GameModeScreen> with WidgetsBindingObse
     ));
   }
 
+
   Future<void> toggleStar(int wordId, bool isStarred) async {
-    await StarredWordsService().toggleWordStarStatus(wordId, !isStarred, widget.classroomId, widget.studySetId);
-    setState(() {
-      if (!isStarred) {
-        _starredWordCount++;
-      } else {
-        _starredWordCount--;
-      }
-    });
+    try {
+      await StarredWordsService().toggleWordStarStatus(wordId, !isStarred, widget.classroomId, widget.studySetId);
+      setState(() {
+        if (!isStarred) {
+          _starredWordCount++;
+        } else {
+          _starredWordCount--;
+        }
+      });
+      Fluttertoast.showToast(
+        msg: isStarred ? 'Yıldız kaldırıldı' : 'Kelime yıldızlandı',
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.BOTTOM,
+        backgroundColor: isStarred ? Colors.redAccent : Colors.green,
+        textColor: Colors.white,
+        fontSize: 16.0,
+      );
+    } catch (e) {
+      Fluttertoast.showToast(
+        msg: 'İşlem başarısız oldu: $e',
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.BOTTOM,
+        backgroundColor: Colors.red,
+        textColor: Colors.white,
+        fontSize: 16.0,
+      );
+    }
   }
+
   Widget _buildDuolingoStyleStarredWordsIndicator() {
     return Container(
       margin: EdgeInsets.symmetric(vertical: 16, horizontal: 16),
@@ -706,51 +795,39 @@ class _GameModeScreenState extends State<GameModeScreen> with WidgetsBindingObse
         children: [
           Row(
             children: [
-              Icon(Icons.star, color: Colors.amber, size: 24),
+              Icon(Icons.star, color: Colors.amber, size: 28),
               SizedBox(width: 8),
-              Text(
-                'Yıldızlı Kelimeleri Göster',
-                style: GoogleFonts.poppins(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: _isDarkMode ? Colors.white : Colors.black87,
+              AnimatedSwitcher(
+                duration: Duration(milliseconds: 300),
+                transitionBuilder: (child, animation) {
+                  return ScaleTransition(scale: animation, child: child);
+                },
+                child: Text(
+                  '$_starredWordCount / ${words.length}',
+                  key: ValueKey<int>(_starredWordCount),
+                  style: GoogleFonts.poppins(
+                    fontSize: getResponsiveFontSize(context, 16),
+                    fontWeight: FontWeight.w600,
+                    color: _isDarkMode ? Colors.white : Colors.black87,
+                  ),
                 ),
               ),
             ],
           ),
-          Row(
-            children: [
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.amber,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  '$_starredWordCount',
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-              SizedBox(width: 12),
-              Switch(
-                value: _showOnlyStarredWords,
-                onChanged: (value) {
-                  setState(() {
-                    _showOnlyStarredWords = value;
-                  });
-                },
-                activeColor: Colors.amber,
-              ),
-            ],
+          Switch(
+            value: _showOnlyStarredWords,
+            onChanged: (value) {
+              setState(() {
+                _showOnlyStarredWords = value;
+              });
+            },
+            activeColor: Colors.amber,
           ),
         ],
       ),
     );
   }
+
   Color _adjustColorForDarkMode(BuildContext context, Color color) {
     if (_isDarkMode) {
       double darknessFactor = 0.7;
@@ -773,46 +850,63 @@ class _GameModeScreenState extends State<GameModeScreen> with WidgetsBindingObse
 
     return Padding(
       padding: EdgeInsets.all(8),
-      child: Material(
-        color: color,
-        borderRadius: BorderRadius.circular(16),
-        elevation: 4,
-        child: InkWell(
-          onTap: onTap ?? () {
-            print('$title tıklandı');
-          },
+      child: Hero(
+        tag: title, // Her buton için benzersiz bir tag
+        child: Material(
+          color: Colors.transparent,
           borderRadius: BorderRadius.circular(16),
-          child: Padding(
-            padding: EdgeInsets.all(padding),
-            child: Row(
-              children: <Widget>[
-                if (icon != null) ...[
-                  Container(
-                    padding: EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(icon, color: Colors.white, size: iconSize),
+          child: InkWell(
+            onTap: onTap ?? () {
+              print('$title tıklandı');
+            },
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [color.withOpacity(0.7), color],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: color.withOpacity(0.5),
+                    blurRadius: 10,
+                    offset: Offset(0, 5),
                   ),
-                  SizedBox(width: 16),
                 ],
-                Expanded(
-                  child: Text(
-                    title,
-                    style: GoogleFonts.inter(
-                      fontSize: fontSize,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
+              ),
+              padding: EdgeInsets.all(padding),
+              child: Row(
+                children: <Widget>[
+                  if (icon != null) ...[
+                    Container(
+                      padding: EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(icon, color: Colors.white, size: iconSize),
+                    ),
+                    SizedBox(width: 16),
+                  ],
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: GoogleFonts.inter(
+                        fontSize: fontSize,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
-                ),
-                Icon(
-                  Icons.arrow_forward_ios,
-                  color: Colors.white.withOpacity(0.7),
-                  size: 20,
-                ),
-              ],
+                  Icon(
+                    Icons.arrow_forward_ios,
+                    color: Colors.white.withOpacity(0.7),
+                    size: 20,
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -831,66 +925,20 @@ class _GameModeScreenState extends State<GameModeScreen> with WidgetsBindingObse
       child: Icon(icon, color: Colors.white, size: 16.sp),
     );
   }
+
   bool hasEnoughWords() {
     return words.length < 4;
   }
-  Widget _buildWarningWidget() {
-    return Container(
-      padding: EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.amber[100],
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.amber.withOpacity(0.3),
-            blurRadius: 10,
-            offset: Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.warning_amber_rounded,
-            size: 100,
-            color: Colors.amber[800],
-          ),
-          SizedBox(height: 20),
-          Text(
-            'Ups! Kelimelerimiz Kaçmış!',
-            style: GoogleFonts.poppins(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Colors.amber[800],
-            ),
-          ),
-          SizedBox(height: 10),
-          Text(
-            'Oyun modundan en yüksek verimi almanız için en az 4 kelime gerekiyor. Haydi, biraz daha kelime ekleyelim!',
-            textAlign: TextAlign.center,
-            style: GoogleFonts.poppins(
-              fontSize: 16,
-              color: Colors.amber[900],
-            ),
-          ),
-          SizedBox(height: 20),
-          ElevatedButton(
-            child: Text('Kelime Ekle'),
-            onPressed: () {
-              // Kelime ekleme sayfasına yönlendirme
-              Navigator.of(context).pop(); // Örnek olarak, önceki sayfaya dönüş
-            },
-            style: ElevatedButton.styleFrom(
-              foregroundColor: Colors.white, backgroundColor: Colors.amber[700],
-              padding: EdgeInsets.symmetric(horizontal: 30, vertical: 15),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(30),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+
+  // Yardımcı Fonksiyon: Responsive Font Size
+  double getResponsiveFontSize(BuildContext context, double baseSize) {
+    double screenWidth = MediaQuery.of(context).size.width;
+    if (screenWidth > 1200) {
+      return baseSize * 1.5;
+    } else if (screenWidth > 800) {
+      return baseSize * 1.2;
+    } else {
+      return baseSize;
+    }
   }
 }

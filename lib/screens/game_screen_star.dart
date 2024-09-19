@@ -214,7 +214,7 @@ class _GameModeStarScreenState extends State<GameModeStarScreen> with TickerProv
                   });
                 },
               ),
-              _buildRoundedIconButton(Icons.help, Colors.green, () {
+              _buildRoundedIconButton(Icons.slow_motion_video_sharp, Colors.green, () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => VideoPlayerScreen(videoUrl: AppUrls.gamescreenstar)),

@@ -29,7 +29,11 @@ class WordListScreen extends StatefulWidget {
   final int categoryId;
   final String categoryName;
 
-  const WordListScreen({Key? key, required this.categoryId, required this.categoryName}) : super(key: key);
+  const WordListScreen({
+    Key? key,
+    required this.categoryId,
+    required this.categoryName,
+  }) : super(key: key);
 
   @override
   _WordListScreenState createState() => _WordListScreenState();
@@ -38,19 +42,37 @@ class WordListScreen extends StatefulWidget {
 class _WordListScreenState extends State<WordListScreen> {
   Future<List<Word>>? wordsFuture;
   bool _isDarkMode = false;
+  ApiService _apiService = ApiService(); // ApiService instance
 
   @override
   void initState() {
     super.initState();
-    wordsFuture = ApiService().fetchWords(widget.categoryId);
+    wordsFuture = _apiService.fetchWords(widget.categoryId);
     _loadDarkModePreference();
+
+    ApiService().logSetEntry('Kategori Giriş',widget.categoryName,'kategorisine'); // Ekran açıldığında log gönder
   }
 
+  /// Dark Mode tercihini yükler
   Future<void> _loadDarkModePreference() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _isDarkMode = prefs.getBool("darkMode") ?? false;
     });
+  }
+
+  /// Ekran giriş logunu gönderir
+  Future<void> _sendEntryLog() async {
+    try {
+      await _apiService.sendUserLog(
+        type: 'screen_entry',
+        log: 'Kullanıcı setler ekranına giriş yaptı.',
+      );
+      print('Giriş logu başarıyla gönderildi.');
+    } catch (e) {
+      print('Giriş logu gönderilirken hata oluştu: $e');
+      // Gerekirse kullanıcıya hata bildirimi ekleyebilirsiniz
+    }
   }
 
   void checkAndNavigate(List<Word> words) {
@@ -67,6 +89,7 @@ class _WordListScreenState extends State<WordListScreen> {
       });
     }
   }
+
   Widget _buildRoundedIconButton(IconData icon, Color color, VoidCallback onPressed) {
     return ElevatedButton(
       onPressed: onPressed,
@@ -77,6 +100,8 @@ class _WordListScreenState extends State<WordListScreen> {
       child: Icon(icon, color: Colors.white, size: 16.sp),
     );
   }
+
+  /// Log gönderme metodu
 
   @override
   Widget build(BuildContext context) {
@@ -100,12 +125,14 @@ class _WordListScreenState extends State<WordListScreen> {
         ),
         actions: [
           _buildRoundedIconButton(
-            Icons.help,
+            Icons.slow_motion_video_sharp,
             Colors.green,
                 () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => VideoPlayerScreen(videoUrl: AppUrls.category)),
+                MaterialPageRoute(
+                  builder: (context) => VideoPlayerScreen(videoUrl: AppUrls.category),
+                ),
               );
             },
           ),
@@ -145,7 +172,11 @@ class _WordListScreenState extends State<WordListScreen> {
                           color: colors["cardBackground"],
                           child: InkWell(
                             borderRadius: BorderRadius.circular(12),
-                            onTap: () {
+                            onTap: () async {
+                              // Log gönderme
+                              await ApiService().logSetEntry('Set Giriş',word.name,'setine');
+
+                              // Set ekranına navigasyon
                               Navigator.of(context).push(
                                 MaterialPageRoute(
                                   builder: (context) => StudySetListScreen(

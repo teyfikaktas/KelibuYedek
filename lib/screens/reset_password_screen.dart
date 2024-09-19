@@ -7,27 +7,26 @@ import 'login_screen.dart';
 import 'package:http/http.dart' as http;
 import 'package:kelibu/variables.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:kelibu/screens/sdk/customShowDialog.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   @override
   _ForgotPasswordScreenState createState() => _ForgotPasswordScreenState();
 }
 
-class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-
-  final TextEditingController _phoneController = TextEditingController();
+class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final TextEditingController _emailController = TextEditingController();
-  final GlobalKey<FormState> _phoneFormKey = GlobalKey<FormState>();
   final GlobalKey<FormState> _emailFormKey = GlobalKey<FormState>();
   bool _isDarkMode = false;
+  bool _isLoading = false;
   final storage = FlutterSecureStorage();
+  List<String> _brainQuotes = [];
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
     _loadDarkModePreference();
+    _loadBrainQuotes();
   }
 
   Future<void> _loadDarkModePreference() async {
@@ -37,12 +36,12 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> with Single
     });
   }
 
-
-  String? validatePhoneNumber(String? value) {
-    if (value == null || value.isEmpty || value.length != 10 || !RegExp(r'^[0-9]+$').hasMatch(value)) {
-      return 'Lütfen geçerli bir telefon numarası giriniz (Örn: 5555555555)';
-    }
-    return null;
+  Future<void> _loadBrainQuotes() async {
+    String data = await DefaultAssetBundle.of(context).loadString('assets/brain.json');
+    List<dynamic> jsonResult = json.decode(data);
+    setState(() {
+      _brainQuotes = jsonResult.map((item) => item['quote'].toString()).toList();
+    });
   }
 
   String? validateEmail(String? value) {
@@ -52,101 +51,106 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> with Single
     return null;
   }
 
-  Future<void>  sendNewPassword(String endpoint, String identifierKey, String identifierValue) async {
-    try {
-      final response = await http.post(
-        Uri.parse('https://www.kelibu.net/api/$endpoint'),
-        headers: <String, String>{
-          'Content-Type': 'application/json; charset=UTF-8',
-          'X-Custom-Header': privacyKey.privacyKeyVariable,
-        },
-        body: jsonEncode(<String, String>{
-          identifierKey: identifierValue,
-        }),
-      );
+  Future<void> sendNewPassword() async {
+    if (_emailFormKey.currentState!.validate()) {
+      setState(() {
+        _isLoading = true;
+      });
 
-      if (response.statusCode == 200) {
-        GFToast.showToast(
-          'Yeni şifre başarıyla gönderildi.',
-          context,
-          toastPosition: GFToastPosition.BOTTOM,
+      try {
+        final response = await http.post(
+          Uri.parse('https://www.kelibu.net/api/send-new-password-email'),
+          headers: <String, String>{
+            'Content-Type': 'application/json; charset=UTF-8',
+            'X-Custom-Header': privacyKey.privacyKeyVariable,
+          },
+          body: jsonEncode(<String, String>{
+            'email': _emailController.text,
+          }),
         );
-        Navigator.pushAndRemoveUntil(
+
+        setState(() {
+          _isLoading = false;
+        });
+
+        final responseData = json.decode(response.body);
+        print(responseData);
+        if (response.statusCode == 200) {
+          showCustomDialog(context, 'Başarılı', 'Yeni şifre başarıyla gönderildi.');
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (context) => LoginScreen()),
+                (Route<dynamic> route) => false,
+          );
+        } else {
+          showCustomDialog(context, 'Hata', responseData['message'] ?? 'Bilinmeyen bir hata oluştu.');
+        }
+      } catch (e) {
+        setState(() {
+          _isLoading = false;
+        });
+        showCustomDialog(
           context,
-          MaterialPageRoute(builder: (context) => LoginScreen()),
-              (Route<dynamic> route) => false,
-        );
-      } else {
-        GFToast.showToast(
-          'Hata alındı, lütfen tekrar deneyiniz.',
-          context,
-          toastPosition: GFToastPosition.BOTTOM,
+          'Hata',
+          'Bağlantı hatası: Lütfen internet bağlantınızı kontrol edin ve tekrar deneyin.\n\nHata detayı: ${e.toString()}',
         );
       }
-    } catch (e) {
-      GFToast.showToast(
-        'Hata alındı, lütfen tekrar deneyiniz.',
-        context,
-        toastPosition: GFToastPosition.BOTTOM,
-      );
     }
   }
 
   Widget _buildTextField(TextEditingController controller, String label, {bool isEmail = false}) {
-    final colors = _isDarkMode ? darkModeColors : lightModeColors;
-
-    return TextFormField(
-      controller: controller,
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(isEmail ? Icons.email : Icons.phone, color: colors["text"]),
-        labelStyle: TextStyle(color: colors["text"]),
-        fillColor: colors["background"],
-        filled: true,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(30),
-          borderSide: BorderSide(color: colors["borderColor"]!),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(30),
-          borderSide: BorderSide(color: colors["borderColor"]!),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(30),
-          borderSide: BorderSide(color: colors["borderColor"]!, width: 2),
-        ),
+    return Container(
+      margin: EdgeInsets.only(bottom: 15),
+      decoration: BoxDecoration(
+        color: _isDarkMode ? Colors.grey[800] : Colors.white,
+        borderRadius: BorderRadius.circular(30),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.2),
+            spreadRadius: 1,
+            blurRadius: 2,
+            offset: Offset(0, 1),
+          ),
+        ],
       ),
-      style: TextStyle(color: colors["text"]),
-      keyboardType: isEmail ? TextInputType.emailAddress : TextInputType.phone,
-      validator: isEmail ? validateEmail : validatePhoneNumber,
+      child: TextFormField(
+        controller: controller,
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: TextStyle(color: _isDarkMode ? Colors.white70 : Colors.grey),
+          prefixIcon: Icon(isEmail ? Icons.email : Icons.phone, color: _isDarkMode ? Colors.white70 : Colors.grey),
+          border: InputBorder.none,
+          contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+        ),
+        style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black),
+        keyboardType: isEmail ? TextInputType.emailAddress : TextInputType.phone,
+        validator: isEmail ? validateEmail : null,
+      ),
     );
   }
 
-  Widget _buildSendButton(BuildContext context, String label, GlobalKey<FormState> formKey, String endpoint, String identifierKey, TextEditingController controller) {
-    final colors = _isDarkMode ? darkModeColors : lightModeColors;
-
+  Widget _buildSendButton(String text, Color color, VoidCallback onPressed) {
     return Container(
       width: double.infinity,
-      height: MediaQuery.of(context).size.height * 0.07,
+      height: 50,
+      margin: EdgeInsets.symmetric(vertical: 10),
       child: ElevatedButton(
-        onPressed: () {
-          if (formKey.currentState!.validate()) {
-            sendNewPassword(endpoint, identifierKey, controller.text);
-          }
-        },
-        style: ElevatedButton.styleFrom(
-          foregroundColor: colors["buttonText"], backgroundColor: colors["buttonBackground"],
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(30),
-          ),
+        onPressed: onPressed,
+        child: _isLoading
+            ? CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+        )
+            : Text(
+          text,
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
-        child: Text(
-          label,
-          style: GoogleFonts.roboto(
-            fontWeight: FontWeight.bold,
-            fontSize: MediaQuery.of(context).size.width * 0.05,
-            color: colors["buttonText"],
+        style: ElevatedButton.styleFrom(
+          backgroundColor: color,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(25),
           ),
+          elevation: 2,
         ),
       ),
     );
@@ -154,128 +158,114 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> with Single
 
   @override
   Widget build(BuildContext context) {
-    final colors = _isDarkMode ? darkModeColors : lightModeColors;
-
     return Scaffold(
-      backgroundColor: colors["background"],
-      appBar: AppBar(
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: colors["text"]),
-          onPressed: () {
-            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => LoginScreen()));
-          },
-        ),
-        title: Text(
-          "Şifremi Unuttum",
-          style: TextStyle(
-            color: colors["text"],
-          ),
-        ),
-        backgroundColor: colors["background"],
-        iconTheme: IconThemeData(color: colors["text"]),
-        elevation: 0,
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: [
-            Tab(text: 'Telefon ile'),
-            Tab(text: 'E-posta ile'),
-          ],
-          indicatorColor: colors["text"],
-          labelColor: colors["text"],
-          unselectedLabelColor: Colors.grey,
-        ),
-      ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          // Telefon ile şifre sıfırlama
-          SingleChildScrollView(
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Form(
-                  key: _phoneFormKey,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: <Widget>[
-                      Container(
-                        width: MediaQuery.of(context).size.width * 0.3,
-                        height: MediaQuery.of(context).size.width * 0.3,
-                        decoration: BoxDecoration(
-                          color: _isDarkMode ? Colors.white : Colors.transparent,
-                          shape: BoxShape.circle,
-                        ),
-                        child: ClipOval(
-                          child: Image.asset(
-                            'assets/logo.png',
-                            fit: BoxFit.contain,
-                          ),
-                        ),
-                      ),
-                      SizedBox(height: MediaQuery.of(context).size.height * 0.02),
-                      Text(
-                        "Telefon numaranıza geçici şifre gönderilecektir.",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: colors["text"]),
-                      ),
-                      SizedBox(height: MediaQuery.of(context).size.height * 0.02),
-                      _buildTextField(_phoneController, 'Telefon Numarası'),
-                      SizedBox(height: MediaQuery.of(context).size.height * 0.02),
-                      _buildSendButton(context, "Şifremi Gönder", _phoneFormKey, 'send-new-password', 'phone', _phoneController),
-                    ],
+      backgroundColor: _isDarkMode ? Colors.grey[900] : Colors.white,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: <Widget>[
+              // Logo
+              Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  image: DecorationImage(
+                    image: AssetImage('assets/logo.png'),
+                    fit: BoxFit.contain,
                   ),
                 ),
               ),
-            ),
-          ),
-          // E-posta ile şifre sıfırlama
-          SingleChildScrollView(
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.all(20.0),
+              SizedBox(height: 20),
+              // Şifre Sıfırlama Başlığı
+              Text(
+                "Şifremi Unuttum",
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: _isDarkMode ? Colors.white : Colors.black,
+                ),
+              ),
+              SizedBox(height: 10),
+              // Açıklama
+              Text(
+                "E-posta adresinize geçici şifre gönderilecektir.",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 16,
+                  color: _isDarkMode ? Colors.white70 : Colors.grey,
+                ),
+              ),
+              SizedBox(height: 30),
+              // Şifre Sıfırlama Formu
+              Container(
+                padding: EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: _isDarkMode ? Colors.grey[800] : Colors.white,
+                  borderRadius: BorderRadius.circular(15),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.1),
+                      spreadRadius: 5,
+                      blurRadius: 7,
+                      offset: Offset(0, 3),
+                    ),
+                  ],
+                ),
                 child: Form(
                   key: _emailFormKey,
                   child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: <Widget>[
-                      Container(
-                        width: MediaQuery.of(context).size.width * 0.3,
-                        height: MediaQuery.of(context).size.width * 0.3,
-                        decoration: BoxDecoration(
-                          color: _isDarkMode ? Colors.white : Colors.transparent,
-                          shape: BoxShape.circle,
-                        ),
-                        child: ClipOval(
-                          child: Image.asset(
-                            'assets/logo.png',
-                            fit: BoxFit.contain,
-                          ),
-                        ),
-                      ),
-                      SizedBox(height: MediaQuery.of(context).size.height * 0.02),
-                      Text(
-                        "E-posta adresinize geçici şifre gönderilecektir.",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: colors["text"]),
-                      ),
-                      SizedBox(height: MediaQuery.of(context).size.height * 0.02),
+                    children: [
                       _buildTextField(_emailController, 'E-posta Adresi', isEmail: true),
-                      SizedBox(height: MediaQuery.of(context).size.height * 0.02),
-                      _buildSendButton(context, "Şifremi Gönder", _emailFormKey, 'send-new-password-email', 'email', _emailController),
+                      SizedBox(height: 10),
+                      _buildSendButton('Şifremi Gönder', Colors.blue, sendNewPassword),
                     ],
                   ),
                 ),
               ),
-            ),
+              SizedBox(height: 15),
+              // Giriş Yap Linki
+              TextButton(
+                onPressed: () {
+                  Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => LoginScreen()));
+                },
+                child: Text(
+                  'Hesabın var mı? Giriş Yap',
+                  style: TextStyle(color: Colors.blue),
+                ),
+              ),
+              SizedBox(height: 30),
+              // Alıntı
+              if (_brainQuotes.isNotEmpty)
+                Text(
+                  _brainQuotes[DateTime.now().millisecond % _brainQuotes.length],
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontStyle: FontStyle.italic,
+                    color: _isDarkMode ? Colors.white70 : Colors.grey,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              SizedBox(height: 10),
+              // Footer
+              Text(
+                'Kelibu, bir PhD Akademi ürünüdür.',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: _isDarkMode ? Colors.white70 : Colors.grey,
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 
   @override
   void dispose() {
-    _phoneController.dispose();
     _emailController.dispose();
     super.dispose();
   }

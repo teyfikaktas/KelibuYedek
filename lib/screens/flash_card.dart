@@ -633,6 +633,7 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    ApiService().logSetEntry('Flash Kart', 'Flash Kartlara ', '');
 
     _currentWordList = widget.words;
 
@@ -896,7 +897,7 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
                 ),
                 ScoreDisplay(userPointsNotifier: pointValueNotife),
                 const SizedBox(width: 16),
-                _buildRoundedIconButton(Icons.help, Colors.green, () {
+                _buildRoundedIconButton(Icons.slow_motion_video_sharp, Colors.green, () {
                   Navigator.push(
                     context,
                     MaterialPageRoute(builder: (context) => VideoPlayerScreen(videoUrl: AppUrls.homescreen)),

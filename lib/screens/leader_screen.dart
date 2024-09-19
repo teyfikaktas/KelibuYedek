@@ -226,7 +226,7 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
             onPressed: _showGroupSettingsPanel,
           ),
           IconButton(
-            icon: Icon(Icons.help_outline, color: colors["text"]),
+            icon: Icon(Icons.slow_motion_video, color: colors["text"]),
             onPressed: () {
               Navigator.push(
                 context,

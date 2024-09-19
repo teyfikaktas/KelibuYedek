@@ -947,6 +947,8 @@ class _QuizScreenState extends State<QuizScreen> {
   @override
   void initState() {
     super.initState();
+    ApiService().logSetEntry('Öğren modu', 'Öğren moduna ', '');
+
     _loadStarredStatusAsync();
     _loadDarkModePreference().then((_) {
       setState(() {
@@ -1807,7 +1809,7 @@ class _QuizScreenState extends State<QuizScreen> {
           onPressed: () => _showExampleSentence(),
         ),
         IconButton(
-          icon: Icon(Icons.help, color: Colors.green),
+          icon: Icon(Icons.slow_motion_video_sharp, color: Colors.green),
           onPressed: () {
             Navigator.push(
               context,

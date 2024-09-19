@@ -32,7 +32,7 @@ dependencies:
   hive: ^2.2.3
   audioplayers: ^5.2.1
   video_player: ^2.8.1
-  flutter_staggered_grid_view: ^0.4.0
+  flutter_staggered_grid_view: ^0.7.0
   path_provider: ^2.1.1
   flutter_translate: ^4.0.4
   animated_text_kit: ^4.2.2
@@ -108,7 +108,10 @@ flutter:
     - assets/Model/
     - assets/trophy.json
     - assets/confetti.json
+    - assets/langue.json
     - assets/race.json
+    - assets/welcome.json
+    - assets/brain.json
     - assets/phdakademi.jpg
     - assets/icons8-instagram.svg
     - assets/point.png
