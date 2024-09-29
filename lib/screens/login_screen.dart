@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:kelibu/main.dart';
 import 'package:kelibu/screens/register.dart';
-import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:lottie/lottie.dart';
 import 'package:kelibu/screens/register_screen.dart';
 import 'package:kelibu/screens/reset_password_screen.dart';
 import 'package:kelibu/screens/video_player.dart';
-import 'package:kelibu/screens/home_screen.dart';
+import 'package:kelibu/screens/home_screen_widgets/home_screen.dart';
 import 'package:kelibu/providers/user_provider.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:lottie/lottie.dart';
+import 'package:kelibu/api.dart'; // ApiService'in doğru yolunu kullanın
 import 'package:kelibu/globalDart/urls.dart';
 import 'package:kelibu/variables.dart';
 
@@ -40,6 +40,9 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
   late Animation<double> _buttonScaleAnimation;
   int _currentLottieIndex = 0;
   final List<String> _lottieFiles = ['assets/langue.json', 'assets/welcome.json'];
+
+  // ApiService örneği
+  final ApiService _apiService = ApiService();
 
   @override
   void initState() {
@@ -119,53 +122,145 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
     });
   }
 
-  Future<void> login(String username, String password) async {
+  bool _isLoading = false;
+
+  Future<void> login(String email, String password) async {
+    setState(() {
+      _isLoading = true;
+    });
+
     try {
-      final response = await http.post(
-        Uri.parse('https://kelibu.net/api/login'),
-        headers: <String, String>{
-          'Content-Type': 'application/json',
-          'X-Custom-Header': privacyKey.privacyKeyVariable,
-        },
-        body: jsonEncode(<String, String>{
-          'email': username,
-          'password': password,
-        }),
+      print('Login started');
+      final responseData = await _apiService.login(email: email, password: password);
+      print('Login response: $responseData');
+
+      if (responseData['error'] != null) {
+        handleLoginError(responseData['error'], responseData['details']);
+        return;
+      }
+
+      final user = responseData['user'];
+      if (user == null) {
+        throw Exception('Kullanıcı verisi bulunamadı.');
+      }
+
+      print('User data: $user');
+
+      final UserProvider userProvider = Provider.of<UserProvider>(context, listen: false);
+      await userProvider.setUser(
+        user['name'] ?? '',
+        user['id'] != null ? int.tryParse(user['id'].toString()) ?? 0 : 0,
+        user['avatar'] ?? '',
+        user['point'] ?? 0,
+        user['email'] ?? '',
+        user['phone'] ?? '',
+        user['phone_verified'] ?? false,
+        user['created_at'] ?? '',
+        user['city'] ?? '',
+        user['birth_year'] != null ? int.tryParse(user['birth_year'].toString()) ?? 0 : 0,
+        user['team'] ?? '',
+        streakCount: user['streak_count'] ?? 0,
+        dailyRank: user['daily_rank'] ?? 0,
+        weeklyRank: user['weekly_rank'] ?? 0,
+        monthlyRank: user['monthly_rank'] ?? 0,
+        allTimeRank: user['all_time_rank'] ?? 0,
       );
 
-      if (response.statusCode == 200) {
-        final responseData = json.decode(response.body);
-        final UserProvider userProvider = Provider.of<UserProvider>(context, listen: false);
-        userProvider.setUser(
-          responseData['name'] ?? '',
-          responseData['id'] ?? '',
-          responseData['avatar'] ?? '',
-          responseData['point'] ?? 0,
-          responseData['email'] ?? '',
-          responseData['phone'] ?? '',
-          responseData['phone_verified'] ?? '',
-          responseData['created_at'] ?? '',
-          responseData['city'] ?? '',
-          int.tryParse(responseData['birth_year'].toString()) ?? 0,
-          responseData['team'] ?? '',
-        );
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => HomeScreen()));
-        // User ID'yi kaydet
-        final prefs = await SharedPreferences.getInstance();
+      print('Provider updated');
 
-        String userId = responseData['id'].toString();
-        await prefs.setString('userId', userId);
+      final prefs = await SharedPreferences.getInstance();
+      String userId = user['id']?.toString() ?? '0';
+      await prefs.setString('userId', userId);
+      print('User ID saved to SharedPreferences');
 
-      } else {
-        _showErrorDialog('Giriş başarısız', 'Bilgileriniz hatalı olabilir. Henüz üye değilseniz, hemen üye olabilirsiniz.');
-      }
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => MainScreen()));
+    } on ApiException catch (e) {
     } catch (e) {
-      print(e);
-      _showErrorDialog('Bağlantı Hatası', 'Bir hata oluştu. Lütfen internet bağlantınızı kontrol edip tekrar deneyin.');
+      _showErrorDialog('Beklenmeyen Hata', 'Bir sorun oluştu. Lütfen daha sonra tekrar deneyin.');
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
+  void handleLoginError(String? error, Map<String, dynamic>? details) {
+    switch (error) {
+      case 'invalid_credentials':
+        _showErrorDialog('Giriş Başarısız', 'E-posta veya şifre yanlış. Lütfen bilgilerinizi kontrol edin.');
+        break;
+      case 'max_sessions_reached':
+        _showMaxSessionsReachedDialog(details);
+        break;
+      case 'token_creation_failed':
+        _showErrorDialog('Giriş Hatası', 'Oturum oluşturulurken bir hata oluştu. Lütfen daha sonra tekrar deneyin.');
+        break;
+      default:
+        _showErrorDialog('Giriş Hatası', 'Giriş yapılırken bir hata oluştu. Lütfen daha sonra tekrar deneyin.');
+    }
+  }
 
+  void _showMaxSessionsReachedDialog(Map<String, dynamic>? details) {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+      barrierColor: Colors.black54,
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (BuildContext buildContext, Animation animation, Animation secondaryAnimation) {
+        return Center(
+          child: Container(
+            width: MediaQuery.of(context).size.width * 0.85,
+            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 30),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(25),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 15,
+                  offset: Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SvgPicture.string(
+                  _errorIconSvg,
+                  width: 80,
+                  height: 80,
+                ),
+                SizedBox(height: 20),
+                Text(
+                  'Maksimum Oturum Sayısına Ulaşıldı',
+                  style: GoogleFonts.comfortaa(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFFE53935),
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 15),
+                Text(
+                  'Şu anda ${details?['active_sessions'] ?? 'birden fazla'} aktif oturumunuz var. '
+                      'En fazla ${details?['max_allowed'] ?? 3} cihazda aynı anda oturum açabilirsiniz. '
+                      'Lütfen diğer cihazlardan birinde oturumu kapatın ve tekrar deneyin.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.quicksand(
+                    fontSize: 18,
+                    color: Colors.black87,
+                  ),
+                ),
+                SizedBox(height: 30),
+                _buildButton('Anladım', () => Navigator.of(context).pop(), Color(0xFFE53935)),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
   void _showErrorDialog(String title, String message) {
     showGeneralDialog(
       context: context,
@@ -184,7 +279,6 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withOpacity(0.1),
-                  spreadRadius: 5,
                   blurRadius: 15,
                   offset: Offset(0, 3),
                 ),
@@ -254,17 +348,16 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
   String _getEsprilyTitle(String title) {
     switch (title) {
       case 'Giriş başarısız':
-        return 'Ups! Kapı Kilitli Gibi 🔒';
+        return 'Girdiğin bilgiler hatalıdır, lütfen kontrol edip tekrar deneyin.';
       case 'Hata':
-        return 'Houston, Bir Sorunumuz Var! 🚀';
+        return 'Bir sorun oluştu. Teknik ekibe bilgi verilmiştir.  🚀';
       default:
         return title;
     }
   }
 
   String _getEsprilyMessage(String message) {
-
-   return message;
+    return message;
   }
 
   final String _errorIconSvg = '''
@@ -273,57 +366,6 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
   <text x="50" y="70" font-family="Arial" font-size="60" text-anchor="middle" fill="#E53935">!</text>
 </svg>
 ''';
-  @override
-  Widget build(BuildContext context) {
-    final colors = _isDarkMode ? darkModeColors : lightModeColors;
-    final screenSize = MediaQuery.of(context).size;
-
-    return Scaffold(
-      backgroundColor: _isDarkMode ? Colors.grey[900] : Colors.white,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: EdgeInsets.all(screenSize.width * 0.05),
-            child: FadeTransition(
-              opacity: _fadeAnimation,
-              child: SlideTransition(
-                position: _slideAnimation,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    _buildHeader(colors),
-                    SizedBox(height: screenSize.height * 0.02),
-                    _buildLogo(screenSize),
-                    SizedBox(height: screenSize.height * 0.02),
-                    _buildLottieAnimation(screenSize),
-                    SizedBox(height: screenSize.height * 0.02),
-                    _buildWelcomeText(colors, screenSize),
-                    SizedBox(height: screenSize.height * 0.02),
-                    _buildInputFields(colors, screenSize),
-                    SizedBox(height: screenSize.height * 0.02),
-                    _buildLoginButton(colors, screenSize),
-                    SizedBox(height: screenSize.height * 0.01),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        _buildForgotPasswordButton(colors, screenSize),
-                        _buildRegisterButton(colors, screenSize),
-                      ],
-                    ),
-                    SizedBox(height: screenSize.height * 0.02),
-                    _buildMotivationalText(colors, screenSize),
-                    SizedBox(height: screenSize.height * 0.01),
-                    _buildPhdAcademyText(colors),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 
   Widget _buildHeader(Map<String, Color?> colors) {
     return Row(
@@ -371,7 +413,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
     return Container(
       height: screenSize.height * 0.1,
       child: Lottie.asset(
-        _lottieFiles[1],
+        _lottieFiles[0],
         fit: BoxFit.contain,
       ),
     );
@@ -611,18 +653,18 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
 
   Widget _buildMotivationalText(Map<String, Color?> colors, Size screenSize) {
     return Container(
-        padding: EdgeInsets.all(screenSize.width * 0.03),
-        decoration: BoxDecoration(
+      padding: EdgeInsets.all(screenSize.width * 0.03),
+      decoration: BoxDecoration(
         color: Color(0xFFF0F8FF),
-    borderRadius: BorderRadius.circular(15),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 10,
-              offset: Offset(0, 4),
-            ),
-          ],
-        ),
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
       child: Text(
         '"Bir dil öğrenmek, dünyaya açılan bir pencere daha demektir.- Çin Atasözü',
         style: GoogleFonts.nunito(
@@ -654,6 +696,58 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
           color: colors["text"]?.withOpacity(0.6),
         ),
         textAlign: TextAlign.center,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = _isDarkMode ? darkModeColors : lightModeColors;
+    final screenSize = MediaQuery.of(context).size;
+
+    return Scaffold(
+      backgroundColor: _isDarkMode ? Colors.grey[900] : Colors.white,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: EdgeInsets.all(screenSize.width * 0.05),
+            child: FadeTransition(
+              opacity: _fadeAnimation,
+              child: SlideTransition(
+                position: _slideAnimation,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    _buildHeader(colors),
+                    SizedBox(height: screenSize.height * 0.02),
+                    _buildLogo(screenSize),
+                    SizedBox(height: screenSize.height * 0.02),
+                    _buildLottieAnimation(screenSize),
+                    SizedBox(height: screenSize.height * 0.02),
+                    _buildWelcomeText(colors, screenSize),
+                    SizedBox(height: screenSize.height * 0.02),
+                    _buildInputFields(colors, screenSize),
+                    SizedBox(height: screenSize.height * 0.02),
+                    _buildLoginButton(colors, screenSize),
+                    SizedBox(height: screenSize.height * 0.01),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        _buildForgotPasswordButton(colors, screenSize),
+                        _buildRegisterButton(colors, screenSize),
+                      ],
+                    ),
+                    SizedBox(height: screenSize.height * 0.02),
+                    _buildMotivationalText(colors, screenSize),
+                    SizedBox(height: screenSize.height * 0.01),
+                    _buildPhdAcademyText(colors),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

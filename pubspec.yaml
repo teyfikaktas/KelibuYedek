@@ -84,6 +84,10 @@ dependencies:
   chewie: 1.7.5
   youtube_player_flutter: ^8.0.0
   connectivity_plus: ^4.0.1
+  fancy_bottom_navigation_plus: ^1.0.3
+  salomon_bottom_bar: ^3.3.2
+  device_info_plus: ^10.1.2
+  google_nav_bar: ^5.0.6
 dev_dependencies:
   flutter_test:
     sdk: flutter

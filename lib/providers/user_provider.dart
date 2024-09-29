@@ -1,10 +1,7 @@
 import 'dart:convert';
-
 import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
-import 'package:provider/provider.dart';
-import 'package:http/http.dart' as http;
 
 class UserProvider with ChangeNotifier {
   String _username = '';
@@ -13,17 +10,13 @@ class UserProvider with ChangeNotifier {
   int _point = 0;
   String _email = "";
   String _phone = "";
-  String _phoneVerified = "";
+  bool _phoneVerified = false;
   String _createdAt = "";
   String _city = "";
   int _birthYear = 0;
   String? _team;
   int _streakCount = 0;
 
-  void updateStreakCount(int newStreak) {
-    _streakCount = newStreak;
-    notifyListeners();
-  }
   // Yeni eklenen alanlar
   int _dailyRank = 0;
   int _weeklyRank = 0;
@@ -43,7 +36,7 @@ class UserProvider with ChangeNotifier {
   int get point => _point;
   String get email => _email;
   String get phone => _phone;
-  String get phoneVerified => _phoneVerified;
+  bool get phoneVerified => _phoneVerified;
   String get createdAt => _createdAt;
   String get city => _city;
   int get birthYear => _birthYear;
@@ -65,7 +58,7 @@ class UserProvider with ChangeNotifier {
       int point,
       String email,
       String phone,
-      String phoneVerified,
+      bool phoneVerified,
       String createdAt,
       String city,
       int birthYear,
@@ -129,10 +122,10 @@ class UserProvider with ChangeNotifier {
     _username = box.get('username', defaultValue: '');
     _userId = box.get('userId', defaultValue: 0);
     _avatar = box.get('avatar', defaultValue: '');
-    _point = int.parse(box.get('point', defaultValue: '0').toString());
+    _point = box.get('point', defaultValue: 0);
     _email = box.get('email', defaultValue: '');
     _phone = box.get('phone', defaultValue: '');
-    _phoneVerified = box.get('phoneverifed', defaultValue: '');
+    _phoneVerified = box.get('phoneVerified', defaultValue: false);
     _createdAt = box.get('createdAt', defaultValue: '');
     _city = box.get('city', defaultValue: '');
     _birthYear = box.get('birthYear', defaultValue: 0);
@@ -174,7 +167,7 @@ class UserProvider with ChangeNotifier {
     _point = 0;
     _email = '';
     _phone = '';
-    _phoneVerified = '';
+    _phoneVerified = false;
     _createdAt = '';
     _city = '';
     _birthYear = 0;

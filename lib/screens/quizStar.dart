@@ -5,7 +5,7 @@ import 'dart:math';
 import 'dart:async';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kelibu/api.dart';
-import 'package:kelibu/screens/home_screen.dart';
+import 'package:kelibu/screens/home_screen_widgets/home_screen.dart';
 import 'package:kelibu/providers/language_provider.dart';
 
 import 'package:audioplayers/audioplayers.dart';

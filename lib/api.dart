@@ -1,23 +1,30 @@
-
 import 'package:http/http.dart' as http;
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:kelibu/shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'variables.dart';
-import 'screens/home_screen.dart';
-import 'package:kelibu/Models/category.dart'; // Doğru yolu girin
-import 'package:kelibu/Models/Classroom.dart'; // Doğru yolu girin
+import 'package:kelibu/Models/category.dart';
+import 'package:kelibu/Models/Classroom.dart';
 import 'package:kelibu/Models/studySet.dart';
 import 'package:kelibu/Models/user.dart';
-import 'package:kelibu/Models/wordDetaik.dart'; // Doğru yolu girin
+import 'package:kelibu/Models/wordDetaik.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter/foundation.dart';
 import 'package:csv/csv.dart';
 import 'package:flutter/services.dart' show rootBundle;
-import 'package:csv/csv.dart';
 import 'package:flutter/services.dart';
 import 'package:collection/collection.dart';
-import 'package:flutter/foundation.dart';
+import 'auth/device_info.dart';
+// api_service.dart içinde en üst kısma ekleyin
+class ApiException implements Exception {
+  final String message;
+  ApiException(this.message);
+
+  @override
+  String toString() => message;
+}
+
 class WordDataCache {
   static List<List<dynamic>>? _wordsData;
   static List<List<dynamic>>? _synonymsData;
@@ -40,6 +47,7 @@ class WordDataCache {
     return const CsvToListConverter(eol: '\n').convert(csvFile);
   }
 }
+
 class CsvLoader {
   Future<List<List<dynamic>>> loadCsv(String path) async {
     final csvFile = await rootBundle.loadString(path);
@@ -70,28 +78,328 @@ class WordDetailService {
   }
 
   Future<List<WordDetail>> fetchWordsDetailFromCsvByWordIds(String filePath, List<int> wordIds) async {
-    // Tüm WordDetail nesnelerini CSV'den oku
     List<WordDetail> allWords = await fetchWordsDetailsFromCsv(filePath);
-
-    // Belirtilen wordIds listesine göre WordDetail nesnelerini filtrele
     List<WordDetail> filteredWords = allWords.where((word) => wordIds.contains(word.id)).toList();
-
     return filteredWords;
   }
 }
 
 class ApiService {
-  Future<Map<String, dynamic>> joinGroup(String code,String id) async {
-    final url = Uri.parse('https://kelibu.net/api/join-group');
+  final String baseUrl = 'https://kelibu.net/api';
+  final FlutterSecureStorage storage = FlutterSecureStorage();
+  final DeviceService deviceService = DeviceService();
+
+  Map<String, dynamic> _handleResponse(http.Response response) {
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return json.decode(response.body);
+    } else {
+      throw Exception('API error: ${response.statusCode} - ${response.body}');
+    }
+  }
+
+  Future<Map<String, String>> _getHeaders() async {
+    String? accessToken = await storage.read(key: 'access_token');
+    String? tokenType = await storage.read(key: 'token_type');
+
+    Map<String, String> headers = {
+      'Content-Type': 'application/json',
+      'X-Custom-Header': privacyKey.privacyKeyVariable,
+    };
+
+    if (accessToken != null && tokenType != null) {
+      headers['Authorization'] = '$tokenType $accessToken';
+    }
+
+    return headers;
+  }
+
+  Future<bool> _isAccessTokenExpired() async {
+    String? expiresAtStr = await storage.read(key: 'expires_at');
+    if (expiresAtStr == null) return true;
+
+    int expiresAtMillis = int.parse(expiresAtStr);
+    DateTime expiresAt = DateTime.fromMillisecondsSinceEpoch(expiresAtMillis);
+    return DateTime.now().isAfter(expiresAt);
+  }
+
+  Future<bool> _refreshAccessToken() async {
+    print('refreshToken');
+
+    String? refreshToken = await storage.read(key: 'refresh_token');
+    String? deviceId = await deviceService.getDeviceId();
+
+    if (refreshToken == null || deviceId == null) {
+      return false;
+    }
+    final url = Uri.parse('$baseUrl/auth/refresh-token');
+    final headers = await _getHeaders();
+
     final response = await http.post(
       url,
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Custom-Header': privacyKey.privacyKeyVariable, // İsteğe eklenen özel header
-      },
+      headers: headers,
+      body: jsonEncode({
+        'refresh_token': refreshToken,
+        'device_id': deviceId,
+      }),
+    );
+    print(response);
+    if (response.statusCode == 200) {
+      final data = _handleResponse(response);
+      await storage.write(key: 'access_token', value: data['access_token']);
+      await storage.write(key: 'refresh_token', value: data['refresh_token']);
+      await storage.write(key: 'expires_at', value: (DateTime.now().millisecondsSinceEpoch + data['expires_in'] * 1000).toString());
+      return true;
+    } else {
+      await logout();
+      return false;
+    }
+  }
+
+  Future<bool> _ensureTokenValidity() async {
+    print('vali,dty');
+    if (await _isAccessTokenExpired()) {
+      print('isaccesstoken');
+
+      return await _refreshAccessToken();
+    }
+    return true;
+  }
+
+  Future<Map<String, dynamic>> register({
+    required String name,
+    required String email,
+    required String password,
+    required String passwordConfirmation,
+  }) async {
+    final deviceId = await deviceService.getDeviceId();
+
+    final url = Uri.parse('$baseUrl/auth/register');
+    final headers = await _getHeaders();
+
+    final response = await http.post(
+      url,
+      headers: headers,
+      body: jsonEncode({
+        'name': name,
+        'email': email,
+        'password': password,
+        'password_confirmation': passwordConfirmation,
+        'device_id': deviceId,
+      }),
+    );
+
+    if (response.statusCode == 201) {
+      final data = _handleResponse(response);
+      await storage.write(key: 'access_token', value: data['access_token']);
+      await storage.write(key: 'refresh_token', value: data['refresh_token']);
+      await storage.write(key: 'token_type', value: data['token_type']);
+      await storage.write(key: 'expires_at', value: (DateTime.now().millisecondsSinceEpoch + data['expires_in'] * 1000).toString());
+
+      return data;
+    } else if (response.statusCode == 422) {
+      throw Exception(json.decode(response.body)['errors']);
+    } else {
+      throw Exception('API error: ${response.statusCode} - ${response.body}');
+    }
+  }
+
+  // Login işlemi
+  Future<Map<String, dynamic>> login({
+    required String email,
+    required String password,
+  }) async {
+    final deviceId = await deviceService.getDeviceId();
+
+    final url = Uri.parse('$baseUrl/auth/login');
+    final headers = await _getHeaders();
+
+    final response = await http.post(
+      url,
+      headers: headers,
+      body: jsonEncode({
+        'email': email,
+        'password': password,
+        'device_id': deviceId,
+      }),
+    );
+
+    print('Login API Response: ${response.body}');
+
+    if (response.statusCode == 200) {
+      final data = _handleResponse(response);
+      await storage.write(key: 'access_token', value: data['access_token']);
+      await storage.write(key: 'refresh_token', value: data['refresh_token']);
+      await storage.write(key: 'token_type', value: data['token_type']);
+      await storage.write(
+        key: 'expires_at',
+        value: (DateTime.now().millisecondsSinceEpoch + data['expires_in'] * 1000).toString(),
+      );
+      await storage.write(key: 'device_id', value: deviceId); // Cihaz ID'sini sakla
+
+      print('Login successful: $data');
+
+      return data;
+    } else if (response.statusCode == 422 || response.statusCode == 401) {
+      final errorData = _handleResponse(response);
+      throw ApiException(errorData['message'] ?? 'Geçersiz kimlik bilgileri.');
+    } else {
+      throw ApiException('API error: ${response.statusCode} - ${response.body}');
+    }
+  }
+
+  Future<bool> _refreshToken() async {
+    String? refreshToken = await storage.read(key: 'refresh_token');
+    String? deviceId = await deviceService.getDeviceId();
+
+    if (refreshToken == null || deviceId == null) {
+      return false;
+    }
+
+    final url = Uri.parse('$baseUrl/auth/refresh-token');
+    final headers = await _getHeaders();
+
+    final response = await http.post(
+      url,
+      headers: headers,
+      body: jsonEncode({
+        'refresh_token': refreshToken,
+        'device_id': deviceId,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      final data = _handleResponse(response);
+      await storage.write(key: 'access_token', value: data['access_token']);
+      await storage.write(key: 'refresh_token', value: data['refresh_token']);
+      await storage.write(key: 'expires_at', value: (DateTime.now().millisecondsSinceEpoch + data['expires_in'] * 1000).toString());
+      return true;
+    } else {
+      await logout();
+      return false;
+    }
+  }
+
+  Future<Map<String, dynamic>> refreshToken() async {
+    bool tokenValid = await _ensureTokenValidity();
+    if (!tokenValid) {
+      throw Exception('Token yenileme başarısız. Lütfen tekrar giriş yapın.');
+    }
+
+    String? accessToken = await storage.read(key: 'access_token');
+    if (accessToken == null) {
+      throw Exception('Yeni access token alınamadı.');
+    }
+
+    return {
+      'access_token': accessToken,
+      'token_type': await storage.read(key: 'token_type'),
+      'expires_in': (await storage.read(key: 'expires_at')) != null ? 60 * 60 * 24 : 0,
+    };
+
+  }
+
+  Future<void> logout() async {
+    try {
+      final url = Uri.parse('$baseUrl/auth/logout');
+      final headers = await _getHeaders();
+
+      final response = await http.post(
+        url,
+        headers: headers,
+      );
+
+      // Sunucu yanıtını kontrol et, ancak her durumda yerel verileri temizle
+      if (response.statusCode == 200) {
+        print('Sunucu tarafında başarılı çıkış');
+      } else {
+        print('Sunucu yanıtı: ${response.statusCode} - ${response.body}');
+      }
+    } catch (e) {
+      print('Çıkış isteği gönderilirken hata: $e');
+    } finally {
+      // Her durumda yerel token ve ilgili verileri temizle
+      await storage.delete(key: 'access_token');
+      await storage.delete(key: 'refresh_token');
+      await storage.delete(key: 'token_type');
+      await storage.delete(key: 'expires_at');
+      print('Yerel oturum verileri temizlendi');
+    }
+  }
+  Future<Map<String, dynamic>> subscribe({
+    required String receipt,
+    required String productId,
+    required String platform,
+
+  }) async {
+    final url = Uri.parse('$baseUrl/auth/subscription/subscribe');
+    final headers = await _getHeaders();
+
+    bool tokenValid = await _ensureTokenValidity();
+    if (!tokenValid) {
+      throw Exception('Token yenileme başarısız. Lütfen tekrar giriş yapın.');
+    }
+
+    final response = await http.post(
+      url,
+      headers: headers,
+      body: jsonEncode({
+        'receipt': receipt,
+        'product_id': productId,
+        'platform' :platform,
+      }),
+    );
+
+    return _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> cancelSubscription() async {
+    final url = Uri.parse('$baseUrl/subscription/cancel');
+    final headers = await _getHeaders();
+
+    bool tokenValid = await _ensureTokenValidity();
+    if (!tokenValid) {
+      throw Exception('Token yenileme başarısız. Lütfen tekrar giriş yapın.');
+    }
+
+    final response = await http.post(
+      url,
+      headers: headers,
+    );
+
+    return _handleResponse(response);
+  }
+  Future<Map<String, dynamic>> getSubscriptionStatus() async {
+    final url = Uri.parse('$baseUrl/auth/subscription/status');
+    final headers = await _getHeaders();
+
+    bool tokenValid = await _ensureTokenValidity();
+    if (!tokenValid) {
+      throw Exception('Token yenileme başarısız. Lütfen tekrar giriş yapın.');
+    }
+
+    final response = await http.get(
+      url,
+      headers: headers,
+    );
+
+    return _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> joinGroup(String code, String id) async {
+    final url = Uri.parse('$baseUrl/join-group');
+    final headers = await _getHeaders();
+
+    bool tokenValid = await _ensureTokenValidity();
+    if (!tokenValid) {
+      throw Exception('Token yenileme başarısız. Lütfen tekrar giriş yapın.');
+    }
+
+    final response = await http.post(
+      url,
+      headers: headers,
       body: jsonEncode({
         'code': code,
-        'user_id': id, // Kullanıcının ID'sini buraya ekleyin
+        'user_id': id,
       }),
     );
 
@@ -104,16 +412,21 @@ class ApiService {
       };
     }
   }
+
   Future<Map<String, dynamic>> leaveGroup(String id) async {
-    final url = Uri.parse('https://kelibu.net/api/join-group');
+    final url = Uri.parse('$baseUrl/join-group');
+    final headers = await _getHeaders();
+
+    bool tokenValid = await _ensureTokenValidity();
+    if (!tokenValid) {
+      throw Exception('Token yenileme başarısız. Lütfen tekrar giriş yapın.');
+    }
+
     final response = await http.post(
       url,
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Custom-Header': privacyKey.privacyKeyVariable, // İsteğe eklenen özel header
-      },
+      headers: headers,
       body: jsonEncode({
-        'user_id': id, // Kullanıcının ID'sini buraya ekleyin
+        'user_id': id,
       }),
     );
 
@@ -126,7 +439,8 @@ class ApiService {
       };
     }
   }
-  Future<void> logSetEntry(String logType,String setName, String Category) async {
+
+  Future<void> logSetEntry(String logType, String setName, String Category) async {
     try {
       await sendUserLog(
         type: logType,
@@ -135,25 +449,24 @@ class ApiService {
       print('Set giriş logu başarıyla gönderildi.');
     } catch (e) {
       print('Set giriş logu gönderilirken hata oluştu: $e');
-      // Gerekirse kullanıcıya hata bildirimi ekleyebilirsiniz
     }
   }
+
   Future<void> sendUserLog({required String type, required String log}) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final userId = prefs.getString('userId'); // Kullanıcı ID'sini SharedPreferences'dan alıyoruz
+      final userId = prefs.getString('userId');
 
       if (userId == null) {
         throw Exception('Kullanıcı ID bulunamadı.');
       }
 
-      final url = Uri.parse('https://kelibu.net/api/users-logs');;
+      final url = Uri.parse('$baseUrl/users-logs');
+      final headers = await _getHeaders();
+
       final response = await http.post(
         url,
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Custom-Header': privacyKey.privacyKeyVariable,
-        },
+        headers: headers,
         body: jsonEncode({
           'user_id': userId,
           'type': type,
@@ -171,14 +484,14 @@ class ApiService {
       print('Log gönderilirken hata oluştu: $e');
     }
   }
+
   Future<void> updateUserPoint(int userId, int newPoint) async {
-    var url = Uri.parse('https://kelibu.net/api/user/$userId/updateUserPoint');
+    var url = Uri.parse('$baseUrl/user/$userId/updateUserPoint');
+    var headers = await _getHeaders();
+
     var response = await http.put(
       url,
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Custom-Header': privacyKey.privacyKeyVariable, // İsteğe eklenen özel header
-      },
+      headers: headers,
       body: jsonEncode({'point': newPoint}),
     );
 
@@ -191,12 +504,12 @@ class ApiService {
 
   Future<int> getCurrentUserPoints(int userId) async {
     try {
-      var url = Uri.parse('https://kelibu.net/api/$userId/point');
+      var url = Uri.parse('$baseUrl/$userId/point');
+      var headers = await _getHeaders();
+
       var response = await http.get(
         url,
-        headers: {
-          'X-Custom-Header': privacyKey.privacyKeyVariable,
-        },
+        headers: headers,
       );
 
       if (response.statusCode == 200) {
@@ -217,29 +530,24 @@ class ApiService {
     try {
       print('Updating user point - UserID: $userId, New Point: $newPoint, Time Point: $timePoint');
 
-      // Mevcut puanı al
       int currentPoints = await getCurrentUserPoints(userId);
       print('Current points: $currentPoints');
 
-      // Yeni puan 1 veya daha azsa, mevcut puanı koru
       if (newPoint <= 1) {
         print('New point is <= 1. Keeping current points.');
         newPoint = currentPoints;
       }
 
-      // Puan düşüşü kontrolü
       if (newPoint < currentPoints) {
         print('Warning: New point ($newPoint) is less than current points ($currentPoints).');
-        // Burada ek bir işlem yapabilirsiniz, örneğin bir log kaydı tutabilir veya bir uyarı gönderebilirsiniz.
       }
 
-      var url = Uri.parse('https://kelibu.net/api/user/new/updateUserPoint');
+      var url = Uri.parse('$baseUrl/user/new/updateUserPoint');
+      var headers = await _getHeaders();
+
       var response = await http.post(
         url,
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Custom-Header': privacyKey.privacyKeyVariable,
-        },
+        headers: headers,
         body: jsonEncode({
           'userId': userId,
           'point': newPoint,
@@ -259,15 +567,13 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> fetchUserPoint(int userId) async {
-    final String apiUrl = 'https://kelibu.net/api/user-ranking';
+    final String apiUrl = '$baseUrl/user-ranking';
 
     try {
+      final headers = await _getHeaders();
       final response = await http.post(
         Uri.parse(apiUrl),
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Custom-Header': privacyKey.privacyKeyVariable,
-        },
+        headers: headers,
         body: json.encode({'user_id': userId}),
       );
 
@@ -276,8 +582,6 @@ class ApiService {
         final rankings = userData['rankings'] as Map<String, dynamic>;
 
         print('API Response: ${json.encode(userData)}');
-
-        // Hata ayıklama için eklenen satır
         print('Current Streak from API: ${userData['current_streak']}');
 
         return {
@@ -286,20 +590,17 @@ class ApiService {
           'dailyPoint': userData['daily_point'] ?? 0,
           'weeklyPoint': userData['weekly_point'] ?? 0,
           'monthlyPoint': userData['monthly_point'] ?? 0,
-          'streakCount': userData['current_streak'] ?? 0,  // Burayı değiştirdik
+          'streakCount': userData['current_streak'] ?? 0,
           'dailyRank': rankings['daily_point'] ?? 0,
           'weeklyRank': rankings['weekly_point'] ?? 0,
           'monthlyRank': rankings['monthly_point'] ?? 0,
           'allTimeRank': rankings['point'] ?? 0,
           'team': userData['team'] ?? '',
           'city': userData['city'] ?? '',
-
         };
-
       } else {
         print('API isteği başarısız: ${response.statusCode}');
         print('Response body: ${response.body}');
-
         return _getDefaultUserData();
       }
     } catch (error) {
@@ -307,6 +608,7 @@ class ApiService {
       return _getDefaultUserData();
     }
   }
+
   Map<String, dynamic> _getDefaultUserData() {
     return {
       'point': 0,
@@ -324,52 +626,34 @@ class ApiService {
     };
   }
 
-
   Future<String> fetchPromotionMessage() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     final cacheKey = 'promotion_message';
     final lastFetchKey = 'last_fetch_date';
     final today = DateTime.now().toIso8601String().split('T')[0];
 
-    // Önbellekten mesajı ve son API çağrısı tarihini çek
     String? cachedMessage = prefs.getString(cacheKey);
     String? lastFetchDate = prefs.getString(lastFetchKey);
 
-    // Eğer bugün zaten API çağrısı yapıldıysa önbellekteki mesajı döndür
-    if (lastFetchDate == today && cachedMessage != null) {
-      return cachedMessage;
-    }
 
-    try {
-      // API isteği yap
+
+      final headers = await _getHeaders();
       final response = await http.get(
-        Uri.parse('https://kelibu.net/api/app-info'),
-        headers: {
-          'X-Custom-Header': privacyKey.privacyKeyVariable,
-        },
+        Uri.parse('$baseUrl/app-info'),
+        headers: headers,
       );
-
+      print(response.body);
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final promotionMessage = data['description'];
 
-        // Yeni mesajı ve bugünün tarihini kaydet
-        await prefs.setString(cacheKey, promotionMessage);
-        await prefs.setString(lastFetchKey, today);
 
         return promotionMessage;
       } else {
         throw Exception('Failed to load promotion message');
       }
-    } catch (e) {
-      // API çağrısı başarısızsa önbellekteki mesajı döndür
-      if (cachedMessage != null) {
-        return cachedMessage;
-      } else {
-        throw Exception('No cached data and failed to fetch promotion message');
       }
-    }
-  }
+
 
   Future<List<Package>> fetchCategories(int userId) async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -386,23 +670,19 @@ class ApiService {
     }
 
     try {
-      // API isteği yap
+      final headers = await _getHeaders();
       final response = await http.get(
-        Uri.parse('https://kelibu.net/api/user/packages?user_id=$userId'),
-        headers: {
-          'X-Custom-Header': privacyKey.privacyKeyVariable,
-        },
+        Uri.parse('$baseUrl/user/packages?user_id=$userId'),
+        headers: headers,
       );
 
       if (response.statusCode == 200) {
         List<dynamic> categoriesJson = json.decode(response.body);
         List<Package> categories = categoriesJson.map((json) => Package.fromJson(json)).toList();
 
-        // ID'ye göre benzersiz paketleri içeren bir Set oluştur
         final uniqueCategoriesSet = categories.toSet();
         List<Package> uniqueCategories = uniqueCategoriesSet.toList();
 
-        // Cache'e kaydet
         prefs.setString(cacheKey, json.encode(uniqueCategories));
 
         return uniqueCategories;
@@ -410,57 +690,54 @@ class ApiService {
         throw Exception('Failed to load categories: ${response.body}');
       }
     } catch (e) {
-      // Hata durumunda önbellekten veri çek
       return fetchFromCache();
     }
   }
+
   Future<int> fetchUserPoints(int userId) async {
+    final headers = await _getHeaders();
     final response = await http.get(
-      Uri.parse('https://kelibu.net/api/$userId/points'),
-      headers: {
-        'X-Custom-Header': privacyKey.privacyKeyVariable,
-      },
+      Uri.parse('$baseUrl/$userId/points'),
+      headers: headers,
     );
     print(response.body);
     if (response.statusCode == 200) {
       var jsonResponse = jsonDecode(response.body);
-      return jsonResponse['points']; // 'points' Laravel API'nizden dönen JSON anahtarıdır
+      return jsonResponse['points'];
     } else {
       throw Exception('Puanlar yüklenemedi');
     }
   }
+
   Future<List<Word>> fetchWords(int classroomId) async {
     final prefs = await SharedPreferences.getInstance();
     final key = 'words_$classroomId';
 
     try {
-      // Önbellekten okuma
       final cachedData = prefs.getString(key);
       if (cachedData != null) {
         return compute(_parseWords, cachedData);
       }
 
-      // API'den çekme
-      final url = Uri.parse('https://kelibu.net/api/user/category/$classroomId');
+      final url = Uri.parse('$baseUrl/user/category/$classroomId');
+      final headers = await _getHeaders();
       final response = await http.get(
         url,
-        headers: {'X-Custom-Header': privacyKey.privacyKeyVariable},
+        headers: headers,
       );
 
       if (response.statusCode == 200) {
-        // Cevabı önbelleğe kaydet
         await prefs.setString(key, response.body);
         return compute(_parseWords, response.body);
       } else {
         throw Exception('API error: ${response.statusCode}');
       }
     } catch (e) {
-      // Hata durumunda önbellekteki eski veriyi kullan
       final cachedData = prefs.getString(key);
       if (cachedData != null) {
         return compute(_parseWords, cachedData);
       }
-      rethrow; // Eğer önbellekte veri yoksa hatayı yeniden fırlat
+      rethrow;
     }
   }
 
@@ -475,23 +752,18 @@ class ApiService {
     final studySetsCached = prefs.getString(key);
 
     if (studySetsCached != null) {
-      // Use cached data
       List<dynamic> studySetsJson = json.decode(studySetsCached);
       return studySetsJson.map((json) => StudySet.fromJson(json)).toList();
     } else {
-      // Fetch data from API and cache it
-      var url = Uri.parse('https://kelibu.net/api/classroom/$classroomId/study-sets/$wordId/user/$userid');
+      var url = Uri.parse('$baseUrl/classroom/$classroomId/study-sets/$wordId/user/$userid');
+      var headers = await _getHeaders();
       var response = await http.get(
         url,
-        headers: {
-          'X-Custom-Header': privacyKey.privacyKeyVariable, // Adding custom header
-        },
+        headers: headers,
       );
 
       if (response.statusCode == 200) {
-        // Cache the response
         prefs.setString(key, response.body);
-        // Parse and return the data
         List<dynamic> studySetsJson = json.decode(response.body);
         return studySetsJson.map((json) => StudySet.fromJson(json)).toList();
       } else {
@@ -505,37 +777,31 @@ class ApiService {
     final key = 'exampleSentences_$term';
 
     try {
-      // Önbellekten okuma
       final cachedData = prefs.getString(key);
       if (cachedData != null) {
         return compute(_parseExampleSentences, cachedData);
       }
 
-      // API'den veri çekme
-      final url = Uri.parse('https://www.kelibu.net/api/example-sentences');
+      final url = Uri.parse('$baseUrl/example-sentences');
+      final headers = await _getHeaders();
       final response = await http.post(
         url,
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Custom-Header': privacyKey.privacyKeyVariable,
-        },
+        headers: headers,
         body: jsonEncode({'terim': term}),
       );
 
       if (response.statusCode == 200) {
-        // Cevabı önbelleğe kaydet
         await prefs.setString(key, response.body);
         return compute(_parseExampleSentences, response.body);
       } else {
         throw Exception('API error: ${response.statusCode}');
       }
     } catch (e) {
-      // Hata durumunda önbellekteki eski veriyi kullan
       final cachedData = prefs.getString(key);
       if (cachedData != null) {
         return compute(_parseExampleSentences, cachedData);
       }
-      rethrow; // Eğer önbellekte veri yoksa hatayı yeniden fırlat
+      rethrow;
     }
   }
 
@@ -543,34 +809,30 @@ class ApiService {
     final parsed = jsonDecode(responseBody) as List;
     return parsed.cast<Map<String, dynamic>>();
   }
+
   Future<String> fetchStudySetsStar(int classroomId, int userId) async {
-    var url = Uri.parse('https://kelibu.net/api/classroom/$classroomId/study-sets-star/$userId');
+    var url = Uri.parse('$baseUrl/classroom/$classroomId/study-sets-star/$userId');
+    var headers = await _getHeaders();
     var response = await http.get(
       url,
-      headers: {
-        'X-Custom-Header': privacyKey.privacyKeyVariable, // Adding custom header
-      },
+      headers: headers,
     );
 
     if (response.statusCode == 200) {
-      // JSON verisini decode ediyoruz
       List<dynamic> jsonData = json.decode(response.body);
       print(response.body);
-
-      // id değerlerini çıkarıp virgülle ayrılmış stringe dönüştürüyoruz
       String idString = jsonData.map((item) => item['word_id'].toString()).join(',');
-
       return idString;
     } else {
       throw Exception('Veri yüklenirken bir hata oluştu: ${response.body}');
     }
   }
+
   Future<List<User>> fetchUsers() async {
+    final headers = await _getHeaders();
     final response = await http.get(
-      Uri.parse('http://kelibu.net/api/users-point'),
-      headers: {
-        'X-Custom-Header': privacyKey.privacyKeyVariable, // Add your custom header here
-      },
+      Uri.parse('$baseUrl/users-point'),
+      headers: headers,
     );
     if (response.statusCode == 200) {
       List<dynamic> usersJson = json.decode(response.body);
@@ -579,16 +841,17 @@ class ApiService {
       throw Exception('Failed to load users');
     }
   }
+
   Future<List<User>> fetchUsersNew(String code, String period) async {
+    final url = Uri.parse('$baseUrl/users-point-period');
+    final headers = await _getHeaders();
     final response = await http.post(
-        Uri.parse('https://kelibu.net/api/users-point-period'),
-        headers: {
-          'X-Custom-Header': privacyKey.privacyKeyVariable, // Add your custom header here
-        },
-        body: {
-          'code': code, // Code parameter to be sent in the request body
-          'period': period, // Period parameter to be sent in the request body
-        }
+      url,
+      headers: headers,
+      body: jsonEncode({
+        'code': code,
+        'period': period,
+      }),
     );
     if (response.statusCode == 200) {
       List<dynamic> usersJson = json.decode(response.body);
@@ -597,13 +860,13 @@ class ApiService {
       throw Exception('Failed to load users');
     }
   }
+
   Future<List<int>> fetchStarWords(int userId, dynamic studySetIds) async {
-    var url = Uri.parse('https://kelibu.net/api/get-star-words');
+    var url = Uri.parse('$baseUrl/get-star-words');
+    var headers = await _getHeaders();
     var response = await http.post(
       url,
-      headers: {
-        'X-Custom-Header': privacyKey.privacyKeyVariable, // Add the custom header here
-      },
+      headers: headers,
       body: json.encode({
         'user_id': userId,
         'study_set_ids': studySetIds is List ? studySetIds : [studySetIds],
@@ -612,7 +875,6 @@ class ApiService {
 
     if (response.statusCode == 200) {
       List<dynamic> starWordsJson = json.decode(response.body);
-      // Sadece kelime ID'lerini döndür
       return starWordsJson.map<int>((json) => json['word_id']).toList();
     } else {
       throw Exception('Yıldızlı kelimeler yüklenirken bir hata oluştu: ${response.body}');
@@ -620,14 +882,12 @@ class ApiService {
   }
 
   Future<List<WordDetail>> fetchStarWordsAll(int userId) async {
-    var url = Uri.parse('https://kelibu.net/api/get-star-words-all');
+    var url = Uri.parse('$baseUrl/get-star-words-all');
 
+    var headers = await _getHeaders();
     var response = await http.post(
       url,
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Custom-Header': privacyKey.privacyKeyVariable, // Adding the custom header
-      },
+      headers: headers,
       body: json.encode({
         'user_id': userId,
       }),
@@ -637,7 +897,6 @@ class ApiService {
       List<dynamic> jsonResponse = json.decode(response.body);
       List<WordDetail> wordCards = jsonResponse.map((data) => WordDetail.fromJson(data)).toList();
 
-      // Benzersiz id'lere göre filtreleme
       var uniqueWordCardsMap = { for (var card in wordCards) card.id: card };
       List<WordDetail> uniqueWordCards = uniqueWordCardsMap.values.toList();
 
@@ -648,14 +907,12 @@ class ApiService {
   }
 
   Future<void> fetchStarWordsAllSystem(int userId) async {
-    var url = Uri.parse('https://kelibu.net/api/starredwords');
+    var url = Uri.parse('$baseUrl/starredwords');
 
+    var headers = await _getHeaders();
     var response = await http.post(
       url,
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Custom-Header': privacyKey.privacyKeyVariable, // Adding the custom header
-      },
+      headers: headers,
       body: json.encode({
         'userid': userId,
       }),
@@ -663,8 +920,8 @@ class ApiService {
 
     if (response.statusCode == 200) {
       var jsonResponse = json.decode(response.body);
-      print('Response JSON: $jsonResponse'); // JSON yanıtını konsola yazdır
-      List<dynamic> starredWords = jsonResponse; // Doğrudan listeyi işliyoruz
+      print('Response JSON: $jsonResponse');
+      List<dynamic> starredWords = jsonResponse;
       final prefs = await SharedPreferences.getInstance();
       for (var word in starredWords) {
         try {
@@ -678,7 +935,6 @@ class ApiService {
           if (!existingWords.contains(wordId.toString())) {
             existingWords.add(wordId.toString());
             await prefs.setStringList(key, existingWords);
-          } else {
           }
         } catch (e) {
           print('Error processing word: $word, error: $e');
@@ -688,8 +944,6 @@ class ApiService {
       throw Exception('Yıldızlı kelimeler yüklenirken bir hata oluştu: ${response.body}');
     }
   }
-
-
 
   List<String>? _getStringListSafe(SharedPreferences prefs, String key) {
     try {
@@ -714,6 +968,7 @@ class ApiService {
 
     return words;
   }
+
   void _attachSynonyms(List<WordDetail> words) {
     for (var csvRow in WordDataCache._synonymsData!.sublist(1)) {
       final wordId = int.parse(csvRow[3]);
@@ -772,13 +1027,14 @@ class ApiService {
     ))
         .toList();
   }
+
   Future<WordDetail?> searchWord(String term) async {
     await WordDataCache.loadAllData();
 
     term = term.trim().toLowerCase();
 
     var matchedWord = WordDataCache._wordsData!.sublist(1).firstWhereOrNull(
-            (row) => row[1].toString().toLowerCase() == term
+          (row) => row[1].toString().toLowerCase() == term,
     );
 
     if (matchedWord != null) {
@@ -796,6 +1052,7 @@ class ApiService {
 
     return null;
   }
+
   Future<WordDetail> loadWordDetails(WordDetail word) async {
     await Future.wait([
       fetchAndAttachSynonymsToWordDetail([word]),
@@ -804,6 +1061,7 @@ class ApiService {
     ]);
     return word;
   }
+
   Future<WordDetail> fetchWordDetails(WordDetail word) async {
     await Future.wait([
       fetchAndAttachSynonymsToWordDetail([word]),
@@ -812,10 +1070,10 @@ class ApiService {
     ]);
     return word;
   }
+
   Future<void> _attachRelatedData(WordDetail word) async {
     final wordId = word.id;
 
-    // Sadece türevleri ekle
     word.derivations = WordDataCache._derivationsData!.sublist(1)
         .where((row) => int.parse(row[3].toString()) == wordId)
         .map((row) => Derivation(
@@ -827,6 +1085,7 @@ class ApiService {
     ))
         .toList();
   }
+
   Future<void> fetchAndAttachRelatedData(List<WordDetail> words) async {
     final synonymsFilePath = 'assets/Model/synonyms.csv';
     final collocationsFilePath = 'assets/Model/collacations.csv';
@@ -869,8 +1128,6 @@ class ApiService {
     }
   }
 
-
-
   Future<void> fetchAndAttachCollocations(List<WordDetail> words) async {
     final collocationsFilePath = 'assets/Model/collacations.csv';
     final csvFile = await rootBundle.loadString(collocationsFilePath);
@@ -903,6 +1160,7 @@ class ApiService {
 
     await compute(_parseDerivations, [csvFile, words]);
   }
+
   void _parseDerivations(List<dynamic> args) {
     final csvFile = args[0] as String;
     final words = args[1] as List<WordDetail>;
@@ -922,26 +1180,26 @@ class ApiService {
       words.firstWhereOrNull((word) => word.id == wordId)?.derivations.add(derivation);
     }
   }
+
   Future<bool> deleteUser(int userId) async {
     print(userId);
-    var url = Uri.parse('https://kelibu.net/api/user/$userId');
+    var url = Uri.parse('$baseUrl/user/$userId');
+    var headers = await _getHeaders();
 
     final response = await http.delete(
       url,
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Custom-Header': privacyKey.privacyKeyVariable, // Custom header added
-      },
+      headers: headers,
     );
 
     if (response.statusCode == 200) {
       print('User deleted successfully');
-      return true; // Başarılı olduğunda true dön
+      return true;
     } else {
       print('Failed to delete user: ${response.body}');
-      return false; // Başarısız olduğunda false dön
+      return false;
     }
   }
+
   Future<void> syncStarredWordsWithServer(int userId) async {
     final prefs = await SharedPreferences.getInstance();
     final keys = prefs.getKeys();
@@ -954,11 +1212,10 @@ class ApiService {
         if (starredWordsList != null) {
           var parts = key.split('_');
           if (parts.length >= 3) {
-            // Düzenli ifade ile sadece sayısal kısımları çıkar
             int? categoryId = int.tryParse(RegExp(r'\d+').firstMatch(parts[1])?.group(0) ?? '');
             int? studySetId = int.tryParse(RegExp(r'\d+').firstMatch(parts[2])?.group(0) ?? '');
 
-            if (categoryId != null && studySetId != null) { // Only add if both IDs could be parsed successfully
+            if (categoryId != null && studySetId != null) {
               dataToSend.add({
                 'c_id': categoryId,
                 'study_set_id': studySetId,
@@ -970,12 +1227,12 @@ class ApiService {
       }
     }
 
+    var url = Uri.parse('$baseUrl/sync_starred_words');
+    var headers = await _getHeaders();
+
     var response = await http.post(
-      Uri.parse('https://kelibu.net/api/sync_starred_words'),
-      headers: {
-        "Content-Type": "application/json",
-        'X-Custom-Header': privacyKey.privacyKeyVariable, // Custom header added
-      },
+      url,
+      headers: headers,
       body: json.encode({
         "user_id": userId,
         "starred_words": dataToSend
@@ -997,7 +1254,6 @@ class ApiService {
 
     for (String key in keys) {
       if (key.startsWith('starredWords')) {
-        // Bu anahtara ait yıldızlanmış kelimelerin listesini göster
         print(key);
       }
     }
@@ -1005,38 +1261,33 @@ class ApiService {
 
     print(starredWords);
     for (var wordData in starredWords) {
-      // Anahtar üretilir
       String key = _generateKey(wordData['c_id'], wordData['study_set_id']);
       print('Key: $key');
 
-      // Burada ilk kelime ID'si alınıyor ve string olarak saklanıyor
       if (wordData['words'] != null && wordData['words'].isNotEmpty) {
         String firstWordId = wordData['words'][0].toString();
         print('Word ID: $firstWordId');
-
-        // SharedPreferences'a tek bir kelime ID'si olarak kaydediliyor
         await prefs.setString(key, firstWordId);
       }
     }
   }
+
   String _generateKey(int classroomId, int studySetId) {
-    // Kelimenin benzersizliğini sağlayacak bir key üretiyoruz
     return 'starredWords_classroomId:${classroomId}_studySetId:${studySetId}';
   }
-
 
   Future<List<WordDetail>> fetchWordsDetailStar(int classroomId, List<int> studySetId) async {
     final service = StarredWordsService();
     final starredWordIds = await service.loadClassroomStarredWordsAll(classroomId, studySetId);
     return fetchWordsDetail(starredWordIds.toList());
   }
+
   Future<bool> checkStarred(int wordId, int studySetId, int userId) async {
-    var url = Uri.parse('https://kelibu.net/api/check-starred?word_id=$wordId&study_set_id=$studySetId&user_id=$userId');
+    var url = Uri.parse('$baseUrl/check-starred?word_id=$wordId&study_set_id=$studySetId&user_id=$userId');
+    var headers = await _getHeaders();
     var response = await http.get(
       url,
-      headers: {
-        'X-Custom-Header': privacyKey.privacyKeyVariable, // Custom header added
-      },
+      headers: headers,
     );
 
     if (response.statusCode == 200) {
@@ -1046,39 +1297,35 @@ class ApiService {
       throw Exception('Yıldızlanma durumunu kontrol ederken bir hata oluştu: ${response.body}');
     }
   }
+
   Future<void> starWord(int wordId, int categoryID, int studySetID, int userID) async {
-
-    var url = Uri.parse('https://kelibu.net/api/star-word'); // Backend API'nizin URL'si
+    var url = Uri.parse('$baseUrl/star-word');
+    var headers = await _getHeaders();
     var response = await http.post(
       url,
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Custom-Header': privacyKey.privacyKeyVariable, // Custom header added
-      },
+      headers: headers,
       body: json.encode({
         'word_id': wordId,
-        'userid' : userID,
-        'category_id' : categoryID,
-        'study_set_id' : studySetID,
+        'userid': userID,
+        'category_id': categoryID,
+        'study_set_id': studySetID,
       }),
     );
     print(response.body);
     if (response.statusCode != 200) {
       throw Exception('Yıldızlama işlemi sırasında bir hata oluştu: ${response.body}');
     }
-
   }
+
   Future<void> starWordDeleteAll(int wordId, int userID) async {
-    var url = Uri.parse('https://kelibu.net/api/star-word-star-delete'); // Backend API'nizin URL'si
+    var url = Uri.parse('$baseUrl/star-word-star-delete');
+    var headers = await _getHeaders();
     var response = await http.post(
       url,
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Custom-Header': privacyKey.privacyKeyVariable, // Custom header added
-      },
+      headers: headers,
       body: json.encode({
         'word_id': wordId,
-        'userid' : userID,
+        'userid': userID,
       }),
     );
     print(response.body);
@@ -1086,33 +1333,29 @@ class ApiService {
       throw Exception('Yıldızlama işlemi sırasında bir hata oluştu: ${response.body}');
     }
   }
+
   Future<void> starWordDelete(int wordId, int categoryID, int studySetID, int userID) async {
-
-    var url = Uri.parse('https://kelibu.net/api/star-word-star'); // Backend API'nizin URL'si
+    var url = Uri.parse('$baseUrl/star-word-star');
+    var headers = await _getHeaders();
     var response = await http.post(
       url,
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: headers,
       body: json.encode({
         'word_id': wordId,
-        'userid' : userID,
-        'category_id' : categoryID,
-        'study_set_id' : studySetID,
+        'userid': userID,
+        'category_id': categoryID,
+        'study_set_id': studySetID,
       }),
     );
     print(response.body);
     if (response.statusCode != 200) {
       throw Exception('Yıldızlama işlemi sırasında bir hata oluştu: ${response.body}');
     }
-
   }
+
   Future<Map<int, bool>> checkStarredBulk(List<int> wordIds, int studySetId, int userId) async {
-    var url = Uri.parse('https://kelibu.net/api/check-starred-bulk');
-    var headers = {
-      'Content-Type': 'application/json',
-      'X-Custom-Header': privacyKey.privacyKeyVariable, // Custom header added
-    };
+    var url = Uri.parse('$baseUrl/check-starred-bulk');
+    var headers = await _getHeaders();
     var body = jsonEncode({
       'word_ids': wordIds,
       'study_set_id': studySetId.toString(),
@@ -1120,8 +1363,8 @@ class ApiService {
     });
 
     int retryCount = 0;
-    const maxRetries = 3; // Maksimum yeniden deneme sayısı
-    const retryDelay = Duration(seconds: 2); // Yeniden denemeler arasındaki bekleme süresi
+    const maxRetries = 3;
+    const retryDelay = Duration(seconds: 2);
 
     while (true) {
       try {
@@ -1131,11 +1374,11 @@ class ApiService {
           var isStarredMap = (data['isStarred'] as Map<String, dynamic>)
               .map<int, bool>((key, value) => MapEntry(int.parse(key), value));
           return isStarredMap;
-        } else if (response.statusCode == 429 && retryCount < maxRetries) { // Çok fazla istek hatası kontrolü
+        } else if (response.statusCode == 429 && retryCount < maxRetries) {
           retryCount++;
           print('Request rate limit reached, retrying... Attempt: $retryCount');
-          await Future.delayed(retryDelay); // Belirli bir süre bekle
-          continue; // Yeniden dene
+          await Future.delayed(retryDelay);
+          continue;
         } else {
           print('Request failed with status: ${response.statusCode}.');
           print('Response body: ${response.body}');
@@ -1147,10 +1390,11 @@ class ApiService {
         }
         retryCount++;
         print('An error occurred, retrying... Attempt: $retryCount');
-        await Future.delayed(retryDelay); // Hata durumunda belirli bir süre bekle ve yeniden dene
+        await Future.delayed(retryDelay);
       }
     }
   }
+
   Map<String, dynamic> _parseJson(String responseBody) {
     return json.decode(responseBody) as Map<String, dynamic>;
   }
@@ -1161,38 +1405,33 @@ class ApiService {
     final exampleSentencesCached = prefs.getString(key);
 
     if (exampleSentencesCached != null) {
-      // Cache'den okuma
       Map<String, dynamic> data = json.decode(exampleSentencesCached);
       return data.map<String, List<String>>((key, value) {
         var sentences = (value as List<dynamic>).map((item) => item.toString()).toList();
         return MapEntry(key, sentences);
       });
     } else {
-      // API'den çekme ve cache'e kaydetme
-      var url = Uri.parse('https://kelibu.net/api/example-sentences-word');
+      var url = Uri.parse('$baseUrl/example-sentences-word');
+      var headers = await _getHeaders();
       var response = await http.post(
-          url,
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Custom-Header': privacyKey.privacyKeyVariable, // Custom header added
-          },
-          body: json.encode({
-            'terimler': terms,
-          })
+        url,
+        headers: headers,
+        body: json.encode({
+          'terimler': terms,
+        }),
       );
 
       if (response.statusCode == 200) {
-        // JSON çözümlemesini arka planda yap
         Map<String, dynamic> data = await compute(_parseJson, response.body);
         Map<String, List<String>> sentencesMap = data.map<String, List<String>>((key, value) {
           var sentences = (value as List).map<String>((item) => item['cumle'].toString()).toList();
           return MapEntry(key, sentences);
         });
-        // Sonucu JSON string olarak cache'e kaydet
         prefs.setString(key, json.encode(sentencesMap));
         return sentencesMap;
       } else {
         throw Exception('Data could not be fetched: ${response.statusCode}');
       }
     }
-  }}
+  }
+}

@@ -4,6 +4,8 @@ PODS:
   - connectivity_plus (0.0.1):
     - Flutter
     - ReachabilitySwift
+  - device_info_plus (0.0.1):
+    - Flutter
   - Flutter (1.0.0)
   - flutter_inappwebview (0.0.1):
     - Flutter
@@ -56,6 +58,7 @@ PODS:
 DEPENDENCIES:
   - audioplayers_darwin (from `.symlinks/plugins/audioplayers_darwin/ios`)
   - connectivity_plus (from `.symlinks/plugins/connectivity_plus/ios`)
+  - device_info_plus (from `.symlinks/plugins/device_info_plus/ios`)
   - Flutter (from `Flutter`)
   - flutter_inappwebview (from `.symlinks/plugins/flutter_inappwebview/ios`)
   - flutter_secure_storage (from `.symlinks/plugins/flutter_secure_storage/ios`)
@@ -85,6 +88,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/audioplayers_darwin/ios"
   connectivity_plus:
     :path: ".symlinks/plugins/connectivity_plus/ios"
+  device_info_plus:
+    :path: ".symlinks/plugins/device_info_plus/ios"
   Flutter:
     :path: Flutter
   flutter_inappwebview:
@@ -123,6 +128,7 @@ EXTERNAL SOURCES:
 SPEC CHECKSUMS:
   audioplayers_darwin: 877d9a4d06331c5c374595e46e16453ac7eafa40
   connectivity_plus: 07c49e96d7fc92bc9920617b83238c4d178b446a
+  device_info_plus: 97af1d7e84681a90d0693e63169a5d50e0839a0d
   Flutter: e0871f40cf51350855a761d2e70bf5af5b9b5de7
   flutter_inappwebview: 3d32228f1304635e7c028b0d4252937730bbc6cf
   flutter_secure_storage: d33dac7ae2ea08509be337e775f6b59f1ff45f12

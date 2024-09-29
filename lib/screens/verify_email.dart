@@ -157,7 +157,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> with SingleTicker
           final int point = userData['point'];
           final String email = userData['email'].toString();
           final String phone = userData['phone'].toString();
-          final String phoneVerified = userData['phone_verified'].toString();
+          final bool phoneVerified = userData['phone_verified']??false;
           final String createdAt = userData['created_at'].toString();
           final String city = userData['city'].toString();
           final int birthYear = int.tryParse(userData['birth_year'].toString()) ?? 0;
@@ -176,6 +176,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> with SingleTicker
               birthYear,
               team
           );
+
           _loginBox.put('isLoggedIn', true);
 
           Navigator.of(context).pushAndRemoveUntil(

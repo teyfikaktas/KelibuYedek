@@ -4,63 +4,57 @@ import 'package:kelibu/api.dart';
 import 'package:kelibu/providers/connectivity.dart';
 import 'package:kelibu/providers/darkmodeprovider.dart';
 import 'package:kelibu/providers/socket.dart';
-import 'package:kelibu/screens/RaceScreen.dart';
+import 'package:kelibu/providers/sub_provider.dart';
 import 'package:kelibu/screens/connectivyplus.dart';
 import 'package:kelibu/screens/connectivywrapper.dart';
+import 'package:kelibu/screens/my_learn_path.dart';
 import 'package:kelibu/screens/onboarding_screen.dart';
 import 'package:path_provider/path_provider.dart' as path_provider;
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_player/video_player.dart';
 import 'providers/user_provider.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'screens/market_store.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:kelibu/screens/my_learn_path.dart';
 import 'providers/volume_provider.dart';
 import 'providers/language_provider.dart';
 import 'providers/starred_word_provider.dart';
-import 'package:kelibu/screens/leader_screen.dart'; // Liderlik tablosu sayfası
-import 'package:kelibu/screens/home_screen.dart'; // Ana sayfa ekranı
-import 'package:kelibu/screens/login_screen.dart'; // Ana sayfa ekranı
-import 'package:kelibu/screens/noInternetPage.dart'; // Ana sayfa ekranı
-import 'package:kelibu/screens/InternetConnectionCheckPage.dart'; // Ana sayfa ekranı
-import 'package:flutter_speed_dial/flutter_speed_dial.dart';
-import 'package:kelibu/screens/classic_kelibu.dart'; // Liderlik tablosu sayfası
-import 'package:kelibu/screens/settings_screen.dart'; // Liderlik tablosu sayfası
-import 'package:event_bus/event_bus.dart';
-import 'package:flutter/services.dart' show rootBundle;
-import 'dart:io';
-import 'package:path/path.dart' as path;
-import 'package:animated_bottom_navigation_bar/animated_bottom_navigation_bar.dart'; // Animasyonlu alt navigasyon çubuğu paketi
+import 'package:kelibu/screens/leader_screen.dart';
+import 'package:kelibu/screens/home_screen_widgets/home_screen.dart';
+import 'package:kelibu/screens/login_screen.dart';
+import 'package:kelibu/screens/noInternetPage.dart';
+import 'package:kelibu/screens/InternetConnectionCheckPage.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:salomon_bottom_bar/salomon_bottom_bar.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
-UserProvider? userProviderGlobal;
-EventBus eventBus = EventBus();
+late UserProvider userProviderGlobal;
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final appDocumentDirectory = await path_provider.getApplicationDocumentsDirectory();
   Hive.init(appDocumentDirectory.path);
 
   userProviderGlobal = UserProvider();
-  await userProviderGlobal?.loadUser();
-
+  await userProviderGlobal.loadUser();
 
   runApp(MultiProvider(
     providers: [
       ChangeNotifierProvider(create: (_) => SocketService()),
-      ChangeNotifierProvider(create: (context) => userProviderGlobal),
-      ChangeNotifierProvider(create: (context) => StarredWordsProvider()),
-      ChangeNotifierProvider(create: (context) => VolumeProvider()),
-      ChangeNotifierProvider(create: (context) => LanguageProvider()),
-      ChangeNotifierProvider(create: (context) => DarkModeProvider()),
+      ChangeNotifierProvider(create: (_) => userProviderGlobal),
+      ChangeNotifierProvider(create: (_) => StarredWordsProvider()),
+      ChangeNotifierProvider(create: (_) => VolumeProvider()),
+      ChangeNotifierProvider(create: (_) => LanguageProvider()),
+      ChangeNotifierProvider(create: (_) => DarkModeProvider()),
       ChangeNotifierProvider<ConnectivityService>(create: (_) => ConnectivityService()),
+      ChangeNotifierProvider(create: (_) => SubscriptionProvider()),
     ],
     child: const MyApp(),
   ));
 }
+
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  const MyApp({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -81,87 +75,127 @@ class MyApp extends StatelessWidget {
     );
   }
 }
+
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({super.key});
+  const SplashScreen({Key? key}) : super(key: key);
 
   @override
   _SplashScreenState createState() => _SplashScreenState();
 }
 
 class _SplashScreenState extends State<SplashScreen> {
-  VideoPlayerController? _controller;
+  late VideoPlayerController _controller;
   bool _dataLoaded = false;
+  bool _mounted = true;
 
   @override
   void initState() {
     super.initState();
+    _initializeVideoPlayer();
+    _loadData();
+  }
+
+  void _initializeVideoPlayer() {
     _controller = VideoPlayerController.asset('assets/splash_video.mp4')
       ..initialize().then((_) {
-        setState(() {});
-        _controller!.play().then((_) {
-          Future.delayed(const Duration(seconds: 4), () {
-            _checkInternetAndNavigate();
+        if (_mounted) {
+          setState(() {});
+          _controller.play().then((_) {
+            Future.delayed(const Duration(seconds: 4), _checkInternetAndNavigate);
           });
-        });
+        }
       });
-    _loadData();
-
   }
+
   Future<void> _loadData() async {
     await WordDataCache.loadAllData();
-    setState(() {
-      _dataLoaded = true;
-    });
+    if (_mounted) {
+      setState(() {
+        _dataLoaded = true;
+      });
+      _checkInternetAndNavigate();
+    }
   }
 
   void _checkInternetAndNavigate() async {
+    if (!_dataLoaded || !_mounted) return;
+
     var internetChecker = InternetConnectionChecker();
     if (await internetChecker.isConnected()) {
       _checkOnboardingStatus();
     } else {
-      Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => NoInternetPage()));
+      if (_mounted) {
+        Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => NoInternetPage()));
+      }
     }
   }
 
   void _checkOnboardingStatus() async {
+    if (!_mounted) return;
     SharedPreferences prefs = await SharedPreferences.getInstance();
     bool onboardingComplete = prefs.getBool('onboarding_complete') ?? false;
 
     if (onboardingComplete) {
       _checkUser();
     } else {
-      Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => OnboardingScreen()));
+      if (_mounted) {
+        Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => OnboardingScreen()));
+      }
     }
   }
 
   void _checkUser() async {
-    // Provider'ı context'ten almak yerine, userProviderGlobal'i kullanın
-    bool userLoaded = await userProviderGlobal!.loadUser();
-    if (!userLoaded) {
+    if (!_mounted) return;
+    bool userLoaded = await userProviderGlobal.loadUser();
+    String? token = await _getToken();
+
+    if (!_mounted) return;
+
+    if (token != null && token.isNotEmpty) {
+      try {
+        await _updateUserInfo();
+        if (!_mounted) return;
+        Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => MainScreen()));
+      } catch (error) {
+        print("Kullanıcı bilgileri güncellenirken hata oluştu: $error");
+        if (!_mounted) return;
+        Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => LoginScreen()));
+      }
+    } else if (!userLoaded) {
+      if (!_mounted) return;
       Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => LoginScreen()));
     } else {
-      int userId = userProviderGlobal!.userId;
-      print('hash');
-      String hash = await userProviderGlobal!.getUsernameHash();
-      print(hash);
-
-      try {
-        Map<String, dynamic> userData = await ApiService().fetchUserPoint(userId);
-        int userPoint = userData['point'];
-        print('User Point: $userPoint');
-        await userProviderGlobal!.addPoint(userPoint);
-      } catch (error) {
-        print("Error fetching user point: $error");
-      }
-      print('checkuser');
-
+      await _updateUserInfo();
+      if (!_mounted) return;
       Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => MainScreen()));
+    }
+  }
+
+  Future<String?> _getToken() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    return prefs.getString('token');
+  }
+
+  Future<void> _updateUserInfo() async {
+    if (!_mounted) return;
+    int userId = userProviderGlobal.userId;
+    String hash = await userProviderGlobal.getUsernameHash();
+
+    try {
+      Map<String, dynamic> userData = await ApiService().fetchUserPoint(userId);
+      int userPoint = userData['point'];
+      if (_mounted) {
+        await userProviderGlobal.addPoint(userPoint);
+      }
+    } catch (error) {
+      print("Kullanıcı puanı güncellenirken hata oluştu: $error");
     }
   }
 
   @override
   void dispose() {
-    _controller!.dispose();
+    _mounted = false;
+    _controller.dispose();
     super.dispose();
   }
 
@@ -169,102 +203,104 @@ class _SplashScreenState extends State<SplashScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Center(
-        child: Container(
-          color: Colors.white, // Beyaz arka plan rengi
-          child: Center(
-            child: _controller!.value.isInitialized
-                ? AspectRatio(
-              aspectRatio: _controller!.value.aspectRatio,
-              child: VideoPlayer(_controller!),
-            )
-                : const CircularProgressIndicator(),
-          ),
-        ),
+        child: _controller.value.isInitialized
+            ? AspectRatio(
+          aspectRatio: _controller.value.aspectRatio,
+          child: VideoPlayer(_controller),
+        )
+            : const CircularProgressIndicator(),
       ),
     );
   }
 }
 
 class MainScreen extends StatefulWidget {
-  MainScreen({super.key});
+  MainScreen({Key? key}) : super(key: key);
 
   @override
   _MainScreenState createState() => _MainScreenState();
 }
 
-Future<void> _clearSharedPreferences() async {
-  final prefs = await SharedPreferences.getInstance();
-  await prefs.clear();
-  print("Tüm SharedPreferences verileri silindi.");
-}
-
-
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
-  bool _isDarkMode = false;
-
-  final iconList = <IconData>[
-    Icons.home,
-    Icons.leaderboard,
-    Icons.store,
-    Icons.star,
-  ];
 
   final List<Widget> _pages = [
-    HomeScreen(),
-    const LeaderboardPage(),
-    MarketPage(),
-    const StarredWordsScreen(),
+    HomeScreen(key: ValueKey('HomeScreen')),
+    LeaderboardPage(key: ValueKey('LeaderboardPage')),
+    MarketPage(key: ValueKey('MarketPage')),
+    StarredWordsScreen(key: ValueKey('StarredWordsScreen')),
   ];
 
-  Widget _getPage(int index) {
-    return _pages[index];
-  }
-
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-  }
-  Future<void> _loadDarkModePreference() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _isDarkMode = prefs.getBool("darkMode") ?? false;
-    });
-  }
   @override
   Widget build(BuildContext context) {
-    final darkModeProvider = Provider.of<DarkModeProvider>(context);
+    final theme = Theme.of(context);
 
-    return ConnectivityWrapper(
-      child: Scaffold(
-        backgroundColor: Color(0xFF212121), // Daha hafif bir siyah ton
-        body: _getPage(_selectedIndex),
-        floatingActionButton: FloatingActionButton(
-          onPressed: () {
-            Navigator.of(context).push(MaterialPageRoute(
-              builder: (context) => RaceScreenBuild(),
-            ));
-          },
-          child: Icon(Icons.videogame_asset, color: Colors.white),
-          backgroundColor: Colors.grey[850],
+    return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
+      body: AnimatedSwitcher(
+        duration: Duration(milliseconds: 300),
+        transitionBuilder: (Widget child, Animation<double> animation) {
+          return FadeTransition(
+            opacity: animation,
+            child: child,
+          );
+        },
+        child: Container(
+          key: ValueKey<int>(_selectedIndex),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFFF0F4FF), Color(0xFFE6EEFF)],
+            ),
+          ),
+          child: _pages[_selectedIndex],
         ),
-        floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-        bottomNavigationBar: AnimatedBottomNavigationBar(
-          icons: iconList,
-          activeIndex: _selectedIndex,
-          gapLocation: GapLocation.center,
-          notchSmoothness: NotchSmoothness.smoothEdge,
-          backgroundColor: Colors.grey[850],
-          leftCornerRadius: 32,
-          rightCornerRadius: 32,
-          activeColor: Colors.white,
-          inactiveColor: Colors.grey,
-          splashColor: Colors.white,
-          onTap: (index) => _onItemTapped(index),
+      ),
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 10,
+            ),
+          ],
+        ),
+        child: SalomonBottomBar(
+          currentIndex: _selectedIndex,
+          onTap: (index) {
+            if (index != _selectedIndex) {
+              setState(() {
+                _selectedIndex = index;
+              });
+            }
+          },
+          items: [
+            SalomonBottomBarItem(
+              icon: Icon(Icons.home),
+              title: Text("Ana Sayfa"),
+              selectedColor: Color(0xFF3D5AFE),
+            ),
+            SalomonBottomBarItem(
+              icon: Icon(Icons.leaderboard),
+              title: Text("Sıralama"),
+              selectedColor: Color(0xFF00BFA5),
+            ),
+            SalomonBottomBarItem(
+              icon: FaIcon(FontAwesomeIcons.crown),
+              title: Text("VIP Market"),
+              selectedColor: Color(0xFFFFAB40),
+            ),
+            SalomonBottomBarItem(
+              icon: Icon(Icons.star),
+              title: Text("Favoriler"),
+              selectedColor: Color(0xFFFF4081),
+            ),
+          ],
+          unselectedItemColor: Colors.grey[600],
+          backgroundColor: Colors.white,
         ),
       ),
     );
   }
-
 }

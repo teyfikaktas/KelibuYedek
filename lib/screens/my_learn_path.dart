@@ -1,8 +1,8 @@
 import 'dart:async';
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kelibu/screens/video_player.dart';
+import 'package:kelibu/shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../Models/wordDetaik.dart';
@@ -10,7 +10,6 @@ import '../globalDart/urls.dart';
 import '../providers/user_provider.dart';
 import 'package:kelibu/api.dart';
 import 'package:kelibu/screens/study_screen_star.dart';
-import '../shared_preferences/shared_preferences.dart';
 import '../variables.dart';
 import 'game_screen_star.dart';
 import 'loadingIndicator.dart';
@@ -28,18 +27,12 @@ class StarredWordsScreen extends StatefulWidget {
 
 class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBindingObserver {
   bool isPageView = true;
-  int _currentPage = 0;
   bool _hasMoreItems = true;
   Timer? _debounce;
 
-  static const int _itemsPerPage = 20;
-  ScrollController _scrollController = ScrollController();
   List<WordDetail> words = [];
   List<WordDetail> filteredWords = [];
   TextEditingController searchController = TextEditingController();
-  bool isLoading = true;
-  late StarredWordsService _starredWordsService;
-  late List<WordDetail> wordDetails;
   String starredWordsString = "";
   final FlutterTts flutterTts = FlutterTts();
   bool _isDarkMode = false;
@@ -47,24 +40,8 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
   @override
   void initState() {
     super.initState();
-    _starredWordsService = StarredWordsService();
     WidgetsBinding.instance.addObserver(this);
-    _scrollController.addListener(_scrollListener);
-    _initialize();
-  }
-
-  void _scrollListener() {
-    if (_scrollController.offset >= _scrollController.position.maxScrollExtent &&
-        !_scrollController.position.outOfRange &&
-        _hasMoreItems &&
-        searchController.text.isEmpty) {
-      fetchWords();
-    }
-  }
-
-  Future<void> _initialize() async {
-    await _loadDarkModePreference();
-    await fetchWords();
+    _loadDarkModePreference();
   }
 
   Future<void> _loadDarkModePreference() async {
@@ -77,8 +54,7 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
   @override
   void dispose() {
     _debounce?.cancel();
-    _scrollController.removeListener(_scrollListener);
-    _scrollController.dispose();
+    searchController.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -87,32 +63,22 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.resumed) {
-      fetchWords();
+      setState(() {}); // Trigger a rebuild to refresh UI if needed
     }
   }
 
-  Future<void> fetchWords() async {
-    setState(() {
-      isLoading = true;
-    });
+  Future<List<WordDetail>> fetchWords() async {
     try {
       UserProvider userProvider = Provider.of<UserProvider>(context, listen: false);
-      var starredWordsSet = await _starredWordsService.loadAllStarredWordsAll();
+      var starredWordsSet = await StarredWordsService().loadAllStarredWordsAll();
       var starredWordsList = starredWordsSet.toList();
       starredWordsString = starredWordsList.join(', ');
 
       List<WordDetail> newWordDetails = await ApiService().fetchWordsDetail(starredWordsList);
-
-      setState(() {
-        words = newWordDetails;
-        filteredWords = words;
-        isLoading = false;
-      });
+      return newWordDetails;
     } catch (error) {
       print("Error fetching words: $error");
-      setState(() {
-        isLoading = false;
-      });
+      throw error;
     }
   }
 
@@ -122,16 +88,20 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
       setState(() {
         if (query.isEmpty) {
           filteredWords = words;
-          _hasMoreItems = true;
+          _hasMoreItems = false; // All items are loaded
         } else {
           filteredWords = words.where((word) =>
           word.word.toLowerCase().contains(query.toLowerCase()) ||
               word.meaning.toLowerCase().contains(query.toLowerCase())
           ).toList();
-          _hasMoreItems = false;
+          _hasMoreItems = false; // Filtering, no pagination
         }
       });
     });
+  }
+
+  Future<void> speak(String text) async {
+    await flutterTts.speak(text);
   }
 
   @override
@@ -178,17 +148,98 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
           color: colors["text"]!,
         ),
       ),
-      body: Column(
+      body: FutureBuilder<List<WordDetail>>(
+        future: fetchWords(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return _buildLoadingIndicator(colors);
+          } else if (snapshot.hasError) {
+            return _buildErrorState(colors, snapshot.error.toString());
+          } else if (snapshot.hasData) {
+            words = snapshot.data!;
+            filteredWords = words;
+
+            return Column(
+              children: [
+                _buildStudyButton(colors),
+                isPageView ? buildSearchBar(colors) : SizedBox.shrink(),
+                isPageView ? buildSearchInfo(colors) : SizedBox.shrink(),
+                Expanded(
+                  child: words.isEmpty
+                      ? _buildEmptyState(colors)
+                      : isPageView ? buildListView(colors) : buildPageView(colors),
+                ),
+              ],
+            );
+          } else {
+            return _buildEmptyState(colors);
+          }
+        },
+      ),
+    );
+  }
+
+  Widget _buildLoadingIndicator(Map<String, Color> colors) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          _buildStudyButton(colors),
-          if (isPageView) buildSearchBar(colors),
-          if (isPageView) buildSearchInfo(colors),
-          Expanded(
-            child: isLoading
-                ? Center(child: CircularProgressIndicator(color: colors["buttonBackground"]))
-                : words.isEmpty
-                ? _buildEmptyState(colors)
-                : isPageView ? buildListView(colors) : buildPageView(colors),
+          Image.asset(
+            'assets/logo.png',
+            width: 100,
+            height: 100,
+          ),
+          SizedBox(height: 20),
+          CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(colors["buttonBackground"]!),
+          ),
+          SizedBox(height: 20),
+          Text(
+            "Yükleniyor...",
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              color: colors["text"],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorState(Map<String, Color> colors, String errorMessage) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.error_outline,
+            size: 80,
+            color: Colors.red,
+          ),
+          SizedBox(height: 20),
+          Text(
+            "Bir hata oluştu!",
+            style: GoogleFonts.poppins(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: colors["text"],
+            ),
+          ),
+          SizedBox(height: 10),
+          Text(
+            errorMessage,
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              color: colors["text"],
+            ),
+            textAlign: TextAlign.center,
+          ),
+          SizedBox(height: 20),
+          ElevatedButton(
+            onPressed: () {
+              setState(() {}); // Retry fetching data
+            },
+            child: Text("Tekrar Deneyin"),
           ),
         ],
       ),
@@ -196,14 +247,17 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
   }
 
   Widget _buildRoundedIconButton(IconData icon, Color color, VoidCallback onPressed) {
-    return ElevatedButton(
-      onPressed: onPressed,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: color,
-        shape: CircleBorder(),
-        padding: EdgeInsets.all(12.sp),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8.0),
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: color,
+          shape: CircleBorder(),
+          padding: EdgeInsets.all(12.sp),
+        ),
+        child: Icon(icon, color: Colors.white, size: 24.sp),
       ),
-      child: Icon(icon, color: Colors.white, size: 24.sp),
     );
   }
 
@@ -246,6 +300,7 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
       ),
     );
   }
+
   Widget buildSearchInfo(Map<String, Color> colors) {
     if (searchController.text.isEmpty) return SizedBox.shrink();
 
@@ -301,10 +356,6 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
     );
   }
 
-  Future<void> speak(String text) async {
-    await flutterTts.speak(text);
-  }
-
   Widget buildWordCard(WordDetail word, int index, Map<String, Color> colors) {
     return Container(
       margin: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -313,7 +364,7 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: colors["shadow"]!.withOpacity(0.1),
             blurRadius: 10,
             offset: Offset(0, 5),
           ),
@@ -403,15 +454,14 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
                           color: colors["buttonBackground"],
                           borderRadius: BorderRadius.circular(20),
                         ),
-                        child: Row(
-                          children: [
-                            Icon(Icons.volume_up, color: colors["buttonText"], size: 20),
-                            SizedBox(width: 5),
-                            Text(
-                              'Dinle',
-                              style: TextStyle(color: colors["buttonText"], fontWeight: FontWeight.bold),
-                            ),
-                          ],
+                        child: Row(children: [
+                          Icon(Icons.volume_up, color: colors["buttonText"], size: 20),
+                          SizedBox(width: 5),
+                          Text(
+                            'Dinle',
+                            style: TextStyle(color: colors["buttonText"], fontWeight: FontWeight.bold),
+                          ),
+                        ],
                         ),
                       ),
                     ),
@@ -427,7 +477,6 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
 
   Widget buildListView(Map<String, Color> colors) {
     return ListView.builder(
-        controller: _scrollController,
       itemCount: filteredWords.length + 1,
       itemBuilder: (context, index) {
         if (index < filteredWords.length) {
@@ -506,7 +555,7 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
             ),
           ).then((value) {
             if (value != null) {
-              fetchWords();
+              setState(() {}); // Refresh the screen if needed
             }
           });
         },

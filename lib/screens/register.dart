@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:http/http.dart' as http;
-import 'package:kelibu/screens/verify_email.dart';
-import 'dart:convert';
-import 'package:kelibu/screens/sdk/customShowDialog.dart';
-import 'package:kelibu/variables.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
+import 'package:kelibu/screens/verify_email.dart';
+import 'package:kelibu/screens/sdk/customShowDialog.dart';
+import 'package:kelibu/variables.dart';
+
+import '../api.dart'; // ApiService'in yolu doğru olmalıdır
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({Key? key}) : super(key: key);
@@ -16,8 +17,9 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
+  // 'username' yerine 'name' kullanıyoruz
+  final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController = TextEditingController();
   bool _isLoading = false;
@@ -26,6 +28,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _isPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
   List<String> _brainQuotes = [];
+
+  // ApiService örneği
+  final ApiService _apiService = ApiService();
 
   @override
   void initState() {
@@ -53,90 +58,92 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email);
   }
 
+  bool isStrongPassword(String password) {
+    // En az 8 karakter, bir büyük harf, bir küçük harf, bir rakam ve bir özel karakter gerektirir
+    RegExp regex = RegExp(r'^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$%^&*-]).{8,}$');
+    return regex.hasMatch(password);
+  }
+
   Future<void> register() async {
+    // Önce form doğrulaması yapalım
+    if (_nameController.text.isEmpty ||
+        _emailController.text.isEmpty ||
+        _passwordController.text.isEmpty ||
+        _confirmPasswordController.text.isEmpty) {
+      showCustomDialog(context, 'Hata', 'Lütfen tüm alanları doldurun.');
+      return;
+    }
+
+    if (!isValidEmail(_emailController.text)) {
+      showCustomDialog(context, 'Hata', 'Geçerli bir e-posta adresi girin.');
+      return;
+    }
+
+    if (!isStrongPassword(_passwordController.text)) {
+      showCustomDialog(context, 'Hata', 'Şifreniz en az 8 karakter, bir büyük harf, bir küçük harf, bir rakam ve bir özel karakter içermelidir.');
+      return;
+    }
+
+    if (_passwordController.text != _confirmPasswordController.text) {
+      showCustomDialog(context, 'Hata', 'Şifreler eşleşmiyor.');
+      return;
+    }
+
     setState(() {
       _isLoading = true;
     });
 
     try {
-      final response = await http.post(
-        Uri.parse('https://www.kelibu.net/api/registerCreateApi'),
-        headers: <String, String>{
-          'Content-Type': 'application/json',
-          'X-Custom-Header': 'Hilal',
-        },
-        body: jsonEncode(<String, String>{
-          'name': _usernameController.text,
-          'email': _emailController.text,
-          'phone': '000000000', // Varsayılan değer, gerekirse değiştirin
-          'password': _passwordController.text,
-        }),
+      // ApiService'in register metodunu kullanıyoruz
+      final responseData = await _apiService.register(
+        name: _nameController.text,
+        email: _emailController.text,
+        password: _passwordController.text,
+        passwordConfirmation: _confirmPasswordController.text,
       );
 
       setState(() {
         _isLoading = false;
       });
 
-      // İçerik tipi JSON mu kontrol et
-      if (response.headers['content-type'] != null &&
-          response.headers['content-type']!.contains('application/json')) {
-        final responseData = json.decode(response.body);
-        print(responseData);
-
-        if (response.statusCode == 201) {
-          // Yeni kullanıcı başarıyla oluşturuldu
+      // Başarılı kayıt durumunu kontrol ediyoruz
+      if (responseData != null) {
+        if (responseData.containsKey('message') && responseData['message'].toString().contains('verify')) {
+          // Doğrulama kodu gönderildi
           Navigator.push(
             context,
             MaterialPageRoute(
               builder: (context) => VerifyEmailScreen(email: _emailController.text),
             ),
           );
-          showCustomDialog(context, 'Başarılı', responseData['message']);
-        } else if (response.statusCode == 200) {
-          // Kullanıcı zaten var, yeni doğrulama kodu gönderildi
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => VerifyEmailScreen(email: _emailController.text),
-            ),
-          );
-          showCustomDialog(context, 'Bilgi', responseData['message']);
-        } else if (response.statusCode == 422) {
-          // Doğrulama hatası
-          String errorMessage = 'Girdiğiniz bilgilerde bazı hatalar var:';
-          if (responseData['errors'] != null) {
-            (responseData['errors'] as Map<String, dynamic>).forEach((key, value) {
-              if (value is List && value.isNotEmpty) {
-                errorMessage += '\n- ${value[0]}';
-              }
-            });
-          } else {
-            errorMessage = responseData['message'] ?? 'Bilinmeyen bir doğrulama hatası oluştu.';
-          }
-          showCustomDialog(context, 'Hata', errorMessage);
-        } else if (response.statusCode == 400) {
-          // E-posta zaten doğrulanmış veya diğer 400 hataları
-          showCustomDialog(context, 'Hata', responseData['message']);
-        } else if (response.statusCode == 429) {
-          // Çok fazla deneme hatası
-          showCustomDialog(context, 'Hata', responseData['message'] ?? 'Çok fazla deneme yapıyorsunuz. Lütfen daha sonra tekrar deneyin.');
+          showCustomDialog(context, 'Bilgi', responseData['message'] ?? 'Doğrulama kodu gönderildi.');
         } else {
-          // Diğer hatalar
-          showCustomDialog(context, 'Hata', responseData['message'] ?? 'Bilinmeyen bir hata oluştu.');
+          // Diğer başarılı durumlar
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => VerifyEmailScreen(email: _emailController.text),
+            ),
+          );
+          showCustomDialog(context, 'Başarılı', responseData['message'] ?? 'Kayıt başarılı.');
         }
-      } else {
-        // JSON olmayan yanıtlar için genel hata mesajı
-        showCustomDialog(context, 'Hata', 'Sunucudan beklenmeyen bir yanıt alındı.');
       }
+    } on ApiException catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      // ApiService'den gelen özel hataları yakalıyoruz
+      showCustomDialog(context, 'Hata', e.message);
     } catch (e) {
       setState(() {
         _isLoading = false;
       });
+      // Diğer hatalar
       showCustomDialog(context, 'Hata', 'Bağlantı hatası: Lütfen internet bağlantınızı kontrol edin ve tekrar deneyin.\n\nHata detayı: ${e.toString()}');
     }
   }
 
-  Widget _buildTextField(TextEditingController controller, String label, IconData icon, {bool isPassword = false}) {
+  Widget _buildTextField(TextEditingController controller, String label, IconData icon, {bool isPassword = false, bool isConfirm = false}) {
     return Container(
       margin: EdgeInsets.only(bottom: 15),
       decoration: BoxDecoration(
@@ -153,21 +160,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
       ),
       child: TextField(
         controller: controller,
-        obscureText: isPassword && !_isPasswordVisible,
+        obscureText: isPassword && !(isConfirm ? _isConfirmPasswordVisible : _isPasswordVisible),
+        keyboardType: isConfirm ? TextInputType.visiblePassword : null,
         style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black),
         decoration: InputDecoration(
           labelText: label,
           labelStyle: TextStyle(color: _isDarkMode ? Colors.white70 : Colors.grey),
           prefixIcon: Icon(icon, color: _isDarkMode ? Colors.white70 : Colors.grey),
-          suffixIcon: isPassword
+          suffixIcon: isPassword || isConfirm
               ? IconButton(
             icon: Icon(
-              _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+              isConfirm
+                  ? (_isConfirmPasswordVisible ? Icons.visibility : Icons.visibility_off)
+                  : (_isPasswordVisible ? Icons.visibility : Icons.visibility_off),
               color: _isDarkMode ? Colors.white70 : Colors.grey,
             ),
             onPressed: () {
               setState(() {
-                _isPasswordVisible = !_isPasswordVisible;
+                if (isConfirm) {
+                  _isConfirmPasswordVisible = !_isConfirmPasswordVisible;
+                } else {
+                  _isPasswordVisible = !_isPasswordVisible;
+                }
               });
             },
           )
@@ -288,10 +302,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ),
                           child: Column(
                             children: [
-                              _buildTextField(_usernameController, 'Kullanıcı Adı', Icons.person),
+                              _buildTextField(_nameController, 'İsim', Icons.person),
                               _buildTextField(_emailController, 'E-posta', Icons.email),
                               _buildTextField(_passwordController, 'Şifre', Icons.lock, isPassword: true),
-                              _buildTextField(_confirmPasswordController, 'Şifre Tekrar', Icons.lock, isPassword: true),
+                              _buildTextField(_confirmPasswordController, 'Şifre Tekrar', Icons.lock, isPassword: true, isConfirm: true),
                               SizedBox(height: constraints.maxHeight * 0.01),
                               _isLoading
                                   ? Center(child: CircularProgressIndicator())

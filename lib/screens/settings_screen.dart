@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:math';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:path/path.dart' as p;
 import 'package:image/image.dart' as img;
@@ -285,15 +286,35 @@ class _SettingsPageState extends State<SettingsPage> {
 
   void logout(BuildContext context) async {
     try {
+      // API üzerinden çıkış yapma
+      await ApiService().logout();
+
+      // Hive'dan çıkış yapma işlemi
       final box = await Hive.openBox<bool>('loginBox');
       await box.put("isLoggedIn", false);
+
+      // Token ve diğer oturum bilgilerini silme
+      final storage = FlutterSecureStorage();
+      await storage.delete(key: 'access_token');
+      await storage.delete(key: 'refresh_token');
+      await storage.delete(key: 'token_type');
+      await storage.delete(key: 'expires_at');
+
+      // UserProvider'dan çıkış yapma
       Provider.of<UserProvider>(context, listen: false).logout();
-      Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (context) => SplashScreen()));
+
+      // Tüm sayfaları temizleyip SplashScreen'e yönlendirme
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => SplashScreen()),
+            (Route<dynamic> route) => false,
+      );
     } catch (e) {
-      print('Hive işlemi sırasında bir hata oluştu: $e');
+      print('Çıkış yapma sırasında bir hata oluştu: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Çıkış yapılırken bir hata oluştu. Lütfen tekrar deneyin.')),
+      );
     }
   }
-
   Future _selectImage(BuildContext context) async {
     final ImagePicker _picker = ImagePicker();
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);

@@ -7,7 +7,7 @@ import 'package:back_button_interceptor/back_button_interceptor.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kelibu/api.dart';
 import 'package:kelibu/providers/language_provider.dart';
-import 'package:kelibu/screens/home_screen.dart';
+import 'package:kelibu/screens/home_screen_widgets/home_screen.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:kelibu/screens/loadingIndicator.dart';
 import 'package:kelibu/screens/video_player.dart';

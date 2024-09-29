@@ -3,6 +3,10 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:kelibu/screens/home_screen_widgets/phdakademiinfo.dart';
+import 'package:kelibu/screens/market_store.dart';
+import 'package:kelibu/screens/point/point.dart';
 import 'package:kelibu/screens/settings_screen.dart';
 import 'package:kelibu/screens/streak_widget.dart';
 import 'package:kelibu/screens/study_screen.dart';
@@ -11,10 +15,11 @@ import 'package:provider/provider.dart';
 import 'package:kelibu/variables.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../Models/category.dart';
-import '../Models/wordDetaik.dart';
-import '../globalDart/urls.dart';
-import '../providers/user_provider.dart';
+import '../../Models/category.dart';
+import '../../Models/wordDetaik.dart';
+import '../../globalDart/urls.dart';
+import '../../providers/sub_provider.dart';
+import '../../providers/user_provider.dart';
 import 'package:kelibu/api.dart';
 import 'package:kelibu/screens/WordListScreen.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -23,17 +28,24 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shimmer/shimmer.dart';
-import '../screens/leader_screen.dart';
+import '../leader_screen.dart';
 import 'package:getwidget/getwidget.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:csv/csv.dart';
 import 'package:provider/provider.dart';
-import '../providers/darkmodeprovider.dart';
-import 'RaceScreen.dart';
-import 'connectivywrapper.dart';
-import 'library_star.dart';
-import 'loadingIndicator.dart';
+import '../../providers/darkmodeprovider.dart';
+import '../RaceScreen.dart';
+import '../connectivywrapper.dart';
+import 'soscial_media.dart';
+import '../library_star.dart';
+import '../loadingIndicator.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:in_app_purchase/in_app_purchase.dart';
 
 class RaceScreen extends StatefulWidget {
   const RaceScreen({Key? key}) : super(key: key);
@@ -41,7 +53,6 @@ class RaceScreen extends StatefulWidget {
   @override
   _RaceScreenState createState() => _RaceScreenState();
 }
-
 class _RaceScreenState extends State<RaceScreen> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _animation;
@@ -194,7 +205,6 @@ class WordOfTheDay {
     );
   }
 }
-
 Future<WordOfTheDay> fetchWordOfTheDay() async {
   final uri = Uri.parse('https://kelibu.net/api/daily-word');
   final response = await http.get(uri, headers: {
@@ -207,14 +217,12 @@ Future<WordOfTheDay> fetchWordOfTheDay() async {
     throw Exception('Failed to load word of the day');
   }
 }
-
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
   @override
   _HomeScreenState createState() => _HomeScreenState();
 }
-
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
   String promotionMessage = 'Yükleniyor...';
@@ -227,11 +235,12 @@ class _HomeScreenState extends State<HomeScreen> {
   bool isInitialized = false;
   bool _isDataLoaded = false;
   bool _isDarkMode = false;
-  bool _isExpanded = true; // Yeni state değişkeni
   @override
   void initState() {
     super.initState();
     _fetchData();
+    checkSubscriptionStatus();
+
     _loadWordOfTheDay();
     _getPoint();
     _loadPromotionMessage();
@@ -240,15 +249,10 @@ class _HomeScreenState extends State<HomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       showWelcomeMessage(context);
     });
-
-    // 5 saniye sonra küçültülmüş görünüme geç
-    Future.delayed(Duration(seconds: 5), () {
-      if (mounted) {
-        setState(() {
-          _isExpanded = false;
-        });
-      }
-    });
+  }
+  Future<void> checkSubscriptionStatus() async {
+    SubscriptionProvider provider = Provider.of<SubscriptionProvider>(context, listen: false);
+    await provider.fetchSubscriptionStatus();
   }
   Future<void> _loadPromotionMessage() async {
     try {
@@ -260,6 +264,7 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         promotionMessage = 'Mesaj yüklenemedi';
       });
+      print(e);
     }
   }
   void showWelcomeMessage(BuildContext context) async {
@@ -556,7 +561,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
                           Container(
-                            height: 185.h,
+                            height: 200.h,
                             child: _buildUserInfoSection(userProvider),
                           ),
                           StreakWidget(
@@ -611,7 +616,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                             child: Column(
                               children: [
-                                _buildSocialMediaInfo(),
+                                RefinedSocialMediaInfo(),
                                 SizedBox(height: 16.h),
                                 _buildPromoBanner(),
                               ],
@@ -998,26 +1003,6 @@ class _HomeScreenState extends State<HomeScreen> {
       ],
     );
   }
-  Widget _buildSocialMediaInfo() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        _buildSocialMediaButton(
-          icon: 'assets/icons8-instagram.svg',
-          username: "@kelibunet",
-          onTap: _launchInstagram,
-          color: Colors.purple,
-        ),
-        SizedBox(width: 8.w), // İki buton arasında biraz boşluk
-        _buildSocialMediaButton(
-          icon: 'assets/icons8-instagram.svg', // PHD Akademi için de aynı ikonu kullanıyoruz
-          username: "@phd.akademi",
-          onTap: _launchPhdAkademiInstagram,
-          color: Colors.blue, // PHD Akademi için farklı bir renk kullanıyoruz
-        ),
-      ],
-    );
-  }
   Widget _buildSocialMediaButton({
     required String icon,
     required String username,
@@ -1085,7 +1070,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Container(
       margin: EdgeInsets.all(12.sp),
-      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
       decoration: BoxDecoration(
         color: colors["background"],
         borderRadius: BorderRadius.circular(20),
@@ -1103,158 +1088,123 @@ class _HomeScreenState extends State<HomeScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildAvatarWithName(userProvider),
-              _buildPointsDisplay(userProvider.point),
+              _buildAvatarWithName(context, userProvider), // Hem context hem de userProvider geçirin
+              PointsDisplay(points: 1111111,),
             ],
           ),
-          SizedBox(height: 6.h),
+          SizedBox(height: 3.h),
           _buildActionButtons(),
-          SizedBox(height: 8.h),
-          _buildPhdAkademiInfo(),
+          SizedBox(height: 3.h),
+          PhdAkademiInfo(isDarkMode:_isDarkMode ,),
         ],
       ),
     );
   }
-  Widget _buildPhdAkademiInfo() {
-    return Container(
-      padding: EdgeInsets.symmetric(vertical: 10.h, horizontal: 8.w),
-      decoration: BoxDecoration(
-        color: _isDarkMode ? Colors.blue.shade900.withOpacity(0.7) : Colors.blue.shade50,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-              Icons.school,
-              color: _isDarkMode ? Colors.blue.shade300 : Colors.blue.shade700,
-              size: 16.sp
-          ),
-          SizedBox(width: 2.w),
-          Flexible(
-            child: Text(
-              "PhD Akademi: Profesyonel dil eğitimi",
-              style: GoogleFonts.poppins(
-                color: _isDarkMode ? Colors.blue.shade300 : Colors.blue.shade700,
-                fontWeight: FontWeight.w500,
-                fontSize: 8.sp,
-              ),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-  Widget _buildAvatarWithName(UserProvider userProvider) {
-    bool isCorporate = true; // Kurumsal üye olup olmadığını kontrol et
 
-    return Row(
-      children: [
-        GestureDetector(
-          onTap: () => _showEnlargedAvatar(userProvider.avatar),
-          child: Hero(
-            tag: 'avatar',
-            child: Container(
-              width: 40.w,
-              height: 40.h,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: isCorporate ? Colors.blue : Colors.green, // Kurumsal üye ise mavi çerçeve
-                  width: isCorporate ? 3.0 : 1.5, // Kurumsal üye ise daha kalın çerçeve
-                ),
-              ),
-              child: ClipOval(
-                child: CachedNetworkImage(
-                  imageUrl: 'https://kelibu.net/storage/${userProvider.avatar}',
-                  fit: BoxFit.cover,
-                  placeholder: (context, url) => LogoLoadingIndicator(),
-                  errorWidget: (context, url, error) => Icon(Icons.error, size: 20.sp),
-                ),
-              ),
-            ),
-          ),
-        ),
-        SizedBox(width: 8.w),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
+
+  Widget _buildAvatarWithName(BuildContext context, UserProvider userProvider) {
+    return Consumer<SubscriptionProvider>(
+      builder: (context, subscriptionProvider, _) {
+        bool isSubscribed = subscriptionProvider.isVip;
+        return Row(
           children: [
-            Text(
-              'Merhaba,',
-              style: TextStyle(fontSize: 10.sp, color: Colors.grey),
+            GestureDetector(
+              onTap: () => _showEnlargedAvatar(userProvider.avatar),
+              child: Hero(
+                tag: 'avatar',
+                child: Container(
+                  width: 50.w,
+                  height: 50.h,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: isSubscribed ? Colors.amber : Colors.green,
+                      width: isSubscribed ? 3.0 : 1.5,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        spreadRadius: 1,
+                        blurRadius: 3,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: ClipOval(
+                    child: CachedNetworkImage(
+                      imageUrl: 'https://kelibu.net/storage/${userProvider.avatar}',
+                      fit: BoxFit.cover,
+                      placeholder: (context, url) => LogoLoadingIndicator(),
+                      errorWidget: (context, url, error) => FaIcon(FontAwesomeIcons.userCircle, size: 25.sp),
+                    ),
+                  ),
+                ),
+              ),
             ),
-            Row(
+            SizedBox(width: 12.w),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
                   userProvider.username,
-                  style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.bold, color: Colors.green),
+                  style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold, color: Colors.black87),
                 ),
+                SizedBox(height: 4.h),
+                if (isSubscribed)
+                  Row(
+                    children: [
+                      Text(
+                        "Kelibu",
+                        style: TextStyle(
+                          color: Colors.black87,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14.sp,
+                        ),
+                      ),
+                      SizedBox(width: 2.w),
+                      Container(
+                        padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 2.h),
+                        decoration: BoxDecoration(
+                          color: Colors.orange,
+                          borderRadius: BorderRadius.circular(4.r),
+                        ),
+                        child: Text(
+                          "PRO",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 10.sp,
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
+                else
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => MarketPage()),
+                      );
+                    },
+                    child: Text('Hemen VIP ol!'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.amber,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20.r),
+                      ),
+                      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+                    ),
+                  ),
               ],
             ),
-            if (isCorporate) // Kurumsal üye kontrolü
-              Container(
-                padding: EdgeInsets.all(4.0),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.blue, width: 2.0),
-                  borderRadius: BorderRadius.circular(5.0),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.verified, color: Colors.blue, size: 16),
-                    Text(
-                      "Kurumsal Üye",
-                      style: TextStyle(
-                        color: Colors.blue,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
           ],
-        ),
-      ],
+        );
+      },
     );
-  }
-  Widget _buildPointsDisplay(int points) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 4.h),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.3),
-            spreadRadius: 1,
-            blurRadius: 5,
-            offset: Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Image.asset(
-            'assets/point.png',
-            width: 22.sp,  // Logoyu büyüttük
-            height: 22.sp, // Logoyu büyüttük
-          ),
-          Text(
-            '$points',
-            style: TextStyle(
-                fontSize: 12.sp,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-  Widget _buildActionButtons() {
+  }  Widget _buildActionButtons() {
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
         double totalWidth = constraints.maxWidth * 0.8;
@@ -1267,23 +1217,23 @@ class _HomeScreenState extends State<HomeScreen> {
         return Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            _buildRoundedIconButton(Icons.settings, Colors.blue, () {
+            _buildRoundedIconButton(FontAwesomeIcons.cog, Colors.blue, () {
               Navigator.of(context).push(MaterialPageRoute(builder: (context) => SettingsPage()));
             }, size: iconSize),
             _buildRoundedIconButton(
-                _isDarkMode ? Icons.nights_stay : Icons.wb_sunny,
+                _isDarkMode ? FontAwesomeIcons.moon : FontAwesomeIcons.sun,
                 _isDarkMode ? Colors.indigo : Colors.orange,
                 _toggleDarkMode,
                 size: iconSize
             ),
-            _buildRoundedIconButton(Icons.slow_motion_video_sharp, Colors.green, () {
+            _buildRoundedIconButton(FontAwesomeIcons.playCircle, Colors.green, () {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => VideoPlayerScreen(videoUrl: AppUrls.homescreen)),
               );
             }, size: iconSize),
-            _buildRoundedIconButton(Icons.share, Colors.purple, _shareApp, size: iconSize),
-            _buildRoundedIconButton(Icons.search, Colors.teal, () {
+            _buildRoundedIconButton(FontAwesomeIcons.shareAlt, Colors.purple, _shareApp, size: iconSize),
+            _buildRoundedIconButton(FontAwesomeIcons.search, Colors.teal, () {
               showDialog(
                 context: context,
                 builder: (BuildContext context) {
@@ -1294,6 +1244,34 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         );
       },
+    );
+  }
+
+  Widget _buildRoundedIconButton(IconData icon, Color color, VoidCallback onPressed, {required double size}) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: color.withOpacity(0.1),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.2),
+            blurRadius: 6,
+            offset: Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          customBorder: CircleBorder(),
+          onTap: onPressed,
+          child: Center(
+            child: FaIcon(icon, size: size * 0.5, color: color),
+          ),
+        ),
+      ),
     );
   }
   void _shareApp() {
@@ -1321,17 +1299,6 @@ Kelime öğrenmenin tadını Kelibu ile çıkarın! 🍭📗
   """;
 
     Share.share(message, subject: 'Kelibu - Eğlenceli Kelime Öğrenme Macerası!');
-  }
-  Widget _buildRoundedIconButton(IconData icon, Color color, VoidCallback onPressed, {required double size}) {
-    return ElevatedButton(
-      onPressed: onPressed,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: color,
-        shape: CircleBorder(),
-        padding: EdgeInsets.all(size * 0.27), // Padding'i ikon boyutuna göre ayarlıyoruz
-      ),
-      child: Icon(icon, color: Colors.white, size: size * 0.33), // İkon boyutunu buton boyutuna göre ayarlıyoruz
-    );
   }
   void _showEnlargedAvatar(String avatarUrl) {
     showDialog(
@@ -1407,7 +1374,6 @@ Kelime öğrenmenin tadını Kelibu ile çıkarın! 🍭📗
     );
   }
 }
-
 class PackageListWidget extends StatelessWidget {
   final Future<List<Package>> packagesFuture;
 
@@ -1479,7 +1445,6 @@ class PackageListWidget extends StatelessWidget {
     ));
   }
 }
-
 class WordCard {
   final int id;
   final String? type;
@@ -1502,8 +1467,6 @@ class WordCard {
     );
   }
 }
-
-
 class SearchPanel extends StatelessWidget {
   final bool isDarkMode;
 
@@ -1552,7 +1515,6 @@ class SearchPanel extends StatelessWidget {
     );
   }
 }
-
 class SearchDialog extends StatefulWidget {
   final bool isDarkMode;
 
@@ -1561,7 +1523,6 @@ class SearchDialog extends StatefulWidget {
   @override
   _SearchDialogState createState() => _SearchDialogState();
 }
-
 class _SearchDialogState extends State<SearchDialog> {
   TextEditingController _searchController = TextEditingController();
   bool _isSearching = false;
@@ -2141,38 +2102,54 @@ class LearningPanel extends StatelessWidget {
   }
 }
 
-
-
-
-
 class WordSetsButton extends StatefulWidget {
   final VoidCallback onTap;
   final bool isDarkMode;
 
-  const WordSetsButton({Key? key, required this.onTap, required this.isDarkMode}) : super(key: key);
+  WordSetsButton({required this.onTap, required this.isDarkMode});
 
   @override
   _WordSetsButtonState createState() => _WordSetsButtonState();
 }
 
-class _WordSetsButtonState extends State<WordSetsButton> with SingleTickerProviderStateMixin {
+class _WordSetsButtonState extends State<WordSetsButton>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
   late Animation<double> _shadowAnimation;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
 
   @override
   void initState() {
     super.initState();
+    // Animation Controller
     _controller = AnimationController(
-      duration: const Duration(milliseconds: 100),
+      duration: const Duration(milliseconds: 300),
       vsync: this,
     );
+
+    // Tap Animations
     _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
     );
     _shadowAnimation = Tween<double>(begin: 8.0, end: 2.0).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
     );
+
+    // Entrance Animations
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeIn),
+    );
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.1),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
+    );
+
+    // Start entrance animation
+    _controller.forward();
   }
 
   @override
@@ -2182,109 +2159,248 @@ class _WordSetsButtonState extends State<WordSetsButton> with SingleTickerProvid
   }
 
   void _onTapDown(TapDownDetails details) {
-    _controller.forward();
+    _controller.reverse(); // Scale down on tap down
   }
 
   void _onTapUp(TapUpDetails details) {
-    _controller.reverse();
+    _controller.forward(); // Scale up on tap up
   }
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: GestureDetector(
-          onTap: widget.onTap,
-          onTapDown: _onTapDown,
-          onTapUp: _onTapUp,
-          onTapCancel: () => _controller.reverse(),
-          child: AnimatedBuilder(
-            animation: _controller,
-            builder: (context, child) {
-              return Transform.scale(
-                scale: _scaleAnimation.value,
-                child: Container(
-                  height: 80,
-                  decoration: BoxDecoration(
-                    color: widget.isDarkMode ? Color(0xFF1CB0F6) : Color(0xFF58CC02),
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
+    // Responsive sizing using MediaQuery
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+
+    // Define relative sizes
+    final double paddingHorizontal = screenWidth * 0.05; // %5 of screen width
+    final double paddingVertical = screenHeight * 0.01; // %1 of screen height
+    final double containerHeight = screenHeight * 0.1; // %10 of screen height
+    final double iconSize = screenWidth * 0.07; // %7 of screen width
+    final double titleFontSize = screenWidth * 0.045; // %4.5 of screen width
+    final double subtitleFontSize = screenWidth * 0.035; // %3.5 of screen width
+    final double arrowIconSize = screenWidth * 0.06; // %6 of screen width
+
+    return FadeTransition(
+      opacity: _fadeAnimation,
+      child: SlideTransition(
+        position: _slideAnimation,
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+              horizontal: paddingHorizontal, vertical: paddingVertical),
+          child: MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: widget.onTap,
+              onTapDown: _onTapDown,
+              onTapUp: _onTapUp,
+              onTapCancel: () => _controller.forward(),
+              child: AnimatedBuilder(
+                animation: _controller,
+                builder: (context, child) {
+                  return Transform.scale(
+                    scale: _scaleAnimation.value,
+                    child: Container(
+                      height: containerHeight,
+                      decoration: BoxDecoration(
                         color: widget.isDarkMode
-                            ? Colors.black.withOpacity(0.3)
-                            : Color(0xFF45A800),
-                        blurRadius: _shadowAnimation.value,
-                        offset: Offset(0, _shadowAnimation.value / 2),
+                            ? Color(0xFF1CB0F6)
+                            : Color(0xFF58CC02),
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: widget.isDarkMode
+                                ? Colors.black.withOpacity(0.3)
+                                : Color(0xFF45A800),
+                            blurRadius: _shadowAnimation.value,
+                            offset:
+                            Offset(0, _shadowAnimation.value / 2),
+                          ),
+                        ],
+                        border: Border.all(
+                          color: widget.isDarkMode
+                              ? Colors.lightBlueAccent.withOpacity(0.5)
+                              : Color(0xFF45A800),
+                          width: 2,
+                        ),
                       ),
-                    ],
-                    border: Border.all(
-                      color: widget.isDarkMode
-                          ? Colors.lightBlueAccent.withOpacity(0.5)
-                          : Color(0xFF45A800),
-                      width: 2,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.auto_awesome,
-                              color: Colors.white,
-                              size: 30,
-                            ),
-                            SizedBox(width: 15),
-                            Column(
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  "Kelime Setleri",
-                                  style: GoogleFonts.nunito(
-                                    color: Colors.white,
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    shadows: [
-                                      Shadow(
-                                        blurRadius: 2,
-                                        color: Colors.black.withOpacity(0.3),
-                                        offset: Offset(0, 1),
-                                      ),
-                                    ],
-                                  ),
+                                Icon(
+                                  Icons.auto_awesome,
+                                  color: Colors.white,
+                                  size: iconSize,
                                 ),
-                                SizedBox(height: 4),
-                                Text(
-                                  "Keşfet ve Öğren!",
-                                  style: GoogleFonts.nunito(
-                                    color: Colors.white.withOpacity(0.9),
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                                SizedBox(width: screenWidth * 0.04),
+                                Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment:
+                                  CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      "Kelime Setleri",
+                                      style: GoogleFonts.nunito(
+                                        color: Colors.white,
+                                        fontSize: titleFontSize,
+                                        fontWeight: FontWeight.bold,
+                                        shadows: [
+                                          Shadow(
+                                            blurRadius: 2,
+                                            color: Colors.black
+                                                .withOpacity(0.3),
+                                            offset: Offset(0, 1),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    SizedBox(height: screenHeight * 0.005),
+                                    Text(
+                                      "Keşfet ve Öğren!",
+                                      style: GoogleFonts.nunito(
+                                        color: Colors.white.withOpacity(0.9),
+                                        fontSize: subtitleFontSize,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
-                          ],
-                        ),
+                          ),
+                          Padding(
+                            padding:
+                            EdgeInsets.only(right: screenWidth * 0.05),
+                            child: Icon(
+                              Icons.arrow_forward_ios,
+                              color: Colors.white,
+                              size: arrowIconSize,
+                            ),
+                          ),
+                        ],
                       ),
-                      Padding(
-                        padding: EdgeInsets.only(right: 20),
-                        child: Icon(
-                          Icons.arrow_forward_ios,
-                          color: Colors.white,
-                          size: 24,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+class ActionButton {
+  final IconData icon;
+  final Color color;
+  final VoidCallback onPressed;
+
+  ActionButton({required this.icon, required this.color, required this.onPressed});
+}
+class ActionButtons extends StatelessWidget {
+  final bool isDarkMode;
+  final VoidCallback toggleDarkMode;
+  final VoidCallback shareApp;
+
+  const ActionButtons({
+    Key? key,
+    required this.isDarkMode,
+    required this.toggleDarkMode,
+    required this.shareApp,
+  }) : super(key: key);
+
+  List<ActionButton> _getButtons(BuildContext context) => [
+    ActionButton(
+      icon: FontAwesomeIcons.gear,
+      color: Colors.blue,
+      onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (context) => SettingsPage())),
+    ),
+    ActionButton(
+      icon: isDarkMode ? FontAwesomeIcons.moon : FontAwesomeIcons.sun,
+      color: isDarkMode ? Colors.indigo : Colors.orange,
+      onPressed: toggleDarkMode,
+    ),
+    ActionButton(
+      icon: FontAwesomeIcons.playCircle,
+      color: Colors.green,
+      onPressed: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => VideoPlayerScreen(videoUrl: AppUrls.homescreen)),
+      ),
+    ),
+    ActionButton(
+      icon: FontAwesomeIcons.shareNodes,
+      color: Colors.purple,
+      onPressed: shareApp,
+    ),
+    ActionButton(
+      icon: FontAwesomeIcons.magnifyingGlass,
+      color: Colors.teal,
+      onPressed: () => showDialog(
+        context: context,
+        builder: (BuildContext context) => SearchDialog(isDarkMode: isDarkMode),
+      ),
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final buttons = _getButtons(context);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final double totalWidth = constraints.maxWidth;
+        final double maxIconSize = 70.w;
+        final double minSpacing = 8.w;
+
+        double iconSize = (totalWidth - (buttons.length - 1) * minSpacing) / buttons.length;
+        iconSize = iconSize.clamp(0, maxIconSize);
+
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: buttons.map((button) => _buildAnimatedButton(button, iconSize)).toList(),
+        );
+      },
+    );
+  }
+
+  Widget _buildAnimatedButton(ActionButton button, double size) {
+    return AnimatedContainer(
+      duration: Duration(milliseconds: 200),
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: button.color.withOpacity(0.1),
+        boxShadow: [
+          BoxShadow(
+            color: button.color.withOpacity(0.2),
+            blurRadius: 6,
+            offset: Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          customBorder: CircleBorder(),
+          onTap: button.onPressed,
+          child: Center(
+            child: AnimatedSwitcher(
+              duration: Duration(milliseconds: 200),
+              transitionBuilder: (Widget child, Animation<double> animation) {
+                return ScaleTransition(scale: animation, child: child);
+              },
+              child: FaIcon(
+                button.icon,
+                key: ValueKey<IconData>(button.icon),
+                size: size * 0.5,
+                color: button.color,
+              ),
+            ),
           ),
         ),
       ),
