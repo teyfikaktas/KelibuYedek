@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kelibu/Models/wordDetaik.dart';
 import 'package:flutter_tts/flutter_tts.dart';
@@ -15,7 +16,102 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../shared_preferences/shared_preferences.dart';
 import '../variables.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
+class ScoreDisplay extends StatefulWidget {
+  final ValueNotifier<int> userPointsNotifier;
 
+  const ScoreDisplay({Key? key, required this.userPointsNotifier}) : super(key: key);
+
+  @override
+  _ScoreDisplayState createState() => _ScoreDisplayState();
+}
+
+class _ScoreDisplayState extends State<ScoreDisplay> with TickerProviderStateMixin {
+  late AnimationController _colorController;
+  late Animation<Color?> _colorAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _colorController = AnimationController(
+      duration: const Duration(milliseconds: 1000),
+      vsync: this,
+    );
+
+    _colorAnimation = ColorTween(
+      begin: Colors.green,
+      end: Colors.transparent,
+    ).animate(_colorController);
+
+    widget.userPointsNotifier.addListener(_onScoreChanged);
+  }
+
+  void _onScoreChanged() {
+    _colorController.forward(from: 0.0);
+  }
+
+  @override
+  void dispose() {
+    _colorController.dispose();
+    widget.userPointsNotifier.removeListener(_onScoreChanged);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final backgroundColor = isDarkMode ? Colors.grey[900] : Colors.white;
+    final textColor = isDarkMode ? Colors.white : Colors.black87;
+    final borderColor = isDarkMode ? Colors.grey[700] : Colors.grey[300];
+
+    return AnimatedBuilder(
+      animation: _colorAnimation,
+      builder: (context, child) {
+        return Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: backgroundColor,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: borderColor!,
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: _colorAnimation.value ?? Colors.transparent,
+                blurRadius: 10,
+                spreadRadius: 2,
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SvgPicture.asset(
+                'assets/trophy.svg',
+                width: 40,
+                height: 40,
+              ),
+              const SizedBox(width: 8),
+              ValueListenableBuilder<int>(
+                valueListenable: widget.userPointsNotifier,
+                builder: (context, value, child) {
+                  return Text(
+                    "$value",
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: textColor,
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }}
 class ListenAndWriteScreen extends StatefulWidget {
   final List<WordDetail> words;
   final int classroomId;
@@ -593,59 +689,7 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> with Single
             ),
           ),
           SizedBox(width: 20),
-          Expanded(
-            flex: 1,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  'Puan',
-                  style: TextStyle(
-                    color: _isDarkMode ? Colors.white70 : Colors.black54,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                SizedBox(height: 5),
-                ValueListenableBuilder<int>(
-                  valueListenable: _userPoints,
-                  builder: (_, value, __) => Container(
-                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(15),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.grey.withOpacity(0.3),
-                          spreadRadius: 1,
-                          blurRadius: 5,
-                          offset: Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Image.asset(
-                          'assets/point.png',
-                          width: 24,
-                          height: 24,
-                        ),
-                        SizedBox(width: 8),
-                        Text(
-                          '$value',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: _isDarkMode ? Colors.tealAccent[700] : Colors.indigo,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+          ScoreDisplay(userPointsNotifier: _userPoints,)
         ],
       ),
     );

@@ -1,10 +1,15 @@
+import 'package:animations/animations.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:hive/hive.dart';
 import 'package:kelibu/api.dart';
 import 'package:kelibu/providers/connectivity.dart';
 import 'package:kelibu/providers/darkmodeprovider.dart';
 import 'package:kelibu/providers/socket.dart';
 import 'package:kelibu/providers/sub_provider.dart';
+import 'package:kelibu/screens/advantages/books_pro.dart';
+import 'package:kelibu/screens/betaprogram/beta_apply.dart';
+import 'package:kelibu/screens/betaprogram/phdakademi.dart';
 import 'package:kelibu/screens/connectivyplus.dart';
 import 'package:kelibu/screens/connectivywrapper.dart';
 import 'package:kelibu/screens/my_learn_path.dart';
@@ -40,6 +45,8 @@ void main() async {
 
   runApp(MultiProvider(
     providers: [
+      ChangeNotifierProvider(create: (_) => VIPAdvantagesPanelProvider()),
+
       ChangeNotifierProvider(create: (_) => SocketService()),
       ChangeNotifierProvider(create: (_) => userProviderGlobal),
       ChangeNotifierProvider(create: (_) => StarredWordsProvider()),
@@ -67,6 +74,12 @@ class MyApp extends StatelessWidget {
         home: ConnectivityWrapper(child: SplashScreen()),
         routes: {
           '/noInternet': (context) => NoInternetPage(),
+          '/free-ebooks': (context) => KelibuProListWidget(),
+          '/beta-apply': (context) => BetaApplicationPage(),
+          '/home': (context) => MainScreen(),
+          '/phd-academy-info': (context) => EgitimBasvuruPage(),
+          '/self-english': (context) => KelibuProListWidget(),
+          '/race': (context) => RaceScreen(isVip: true,),
         },
         builder: (context, child) {
           return ConnectivityWrapper(child: child!);
@@ -85,110 +98,109 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen> {
   late VideoPlayerController _controller;
-  bool _dataLoaded = false;
+  bool _videoInitialized = false;
   bool _mounted = true;
+  final FlutterSecureStorage storage = FlutterSecureStorage();
 
   @override
   void initState() {
     super.initState();
-    _initializeVideoPlayer();
-    _loadData();
+    _initializeSplash();
+  }
+  Future<void> _initializeSplash() async {
+    await Future.wait([
+      _initializeVideoPlayer(),
+      _initializeAppInBackground(),
+    ]);
   }
 
-  void _initializeVideoPlayer() {
-    _controller = VideoPlayerController.asset('assets/splash_video.mp4')
-      ..initialize().then((_) {
-        if (_mounted) {
-          setState(() {});
-          _controller.play().then((_) {
-            Future.delayed(const Duration(seconds: 4), _checkInternetAndNavigate);
-          });
-        }
-      });
-  }
-
-  Future<void> _loadData() async {
-    await WordDataCache.loadAllData();
+  Future<void> _initializeVideoPlayer() async {
+    _controller = VideoPlayerController.asset('assets/splash_video.mp4');
+    await _controller.initialize();
     if (_mounted) {
-      setState(() {
-        _dataLoaded = true;
-      });
-      _checkInternetAndNavigate();
+      setState(() => _videoInitialized = true);
+      _controller.play();
     }
-  }
-
-  void _checkInternetAndNavigate() async {
-    if (!_dataLoaded || !_mounted) return;
-
-    var internetChecker = InternetConnectionChecker();
-    if (await internetChecker.isConnected()) {
-      _checkOnboardingStatus();
-    } else {
-      if (_mounted) {
-        Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => NoInternetPage()));
+    _controller.addListener(() {
+      if (_controller.value.position >= _controller.value.duration) {
+        _checkUserAndNavigate();
       }
+    });
+  }
+
+  Future<void> _initializeAppInBackground() async {
+    try {
+      await WordDataCache.loadAllData();
+      // Diğer arka plan yükleme işlemleri buraya eklenebilir
+    } catch (e) {
+      print('Background initialization error: $e');
     }
   }
 
-  void _checkOnboardingStatus() async {
+  Future<void> _checkUserAndNavigate() async {
     if (!_mounted) return;
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    bool onboardingComplete = prefs.getBool('onboarding_complete') ?? false;
 
-    if (onboardingComplete) {
-      _checkUser();
+    String? token = await storage.read(key: 'access_token');
+    if (token == null || token.isEmpty || await _isAccessTokenExpired()) {
+      await _handleTokenExpiration();
     } else {
-      if (_mounted) {
-        Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => OnboardingScreen()));
-      }
-    }
-  }
-
-  void _checkUser() async {
-    if (!_mounted) return;
-    bool userLoaded = await userProviderGlobal.loadUser();
-    String? token = await _getToken();
-
-    if (!_mounted) return;
-
-    if (token != null && token.isNotEmpty) {
       try {
         await _updateUserInfo();
-        if (!_mounted) return;
-        Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => MainScreen()));
+        if (_mounted) {
+          Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => MainScreen()));
+        }
       } catch (error) {
-        print("Kullanıcı bilgileri güncellenirken hata oluştu: $error");
-        if (!_mounted) return;
-        Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => LoginScreen()));
+        debugPrint("Kullanıcı bilgileri güncellenirken hata oluştu: $error");
+        await _handleTokenExpiration();
       }
-    } else if (!userLoaded) {
-      if (!_mounted) return;
-      Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => LoginScreen()));
-    } else {
-      await _updateUserInfo();
-      if (!_mounted) return;
-      Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => MainScreen()));
+    }
+  }
+  Future<bool> _isAccessTokenExpired() async {
+    try {
+      String? expiresAtStr = await storage.read(key: 'expires_at');
+      if (expiresAtStr == null) return true;
+      int expiresAtMillis = int.parse(expiresAtStr);
+      DateTime expiresAt = DateTime.fromMillisecondsSinceEpoch(expiresAtMillis);
+      return DateTime.now().isAfter(expiresAt);
+    } catch (e) {
+      print('Token süresi kontrol edilirken hata oluştu: $e');
+      return true;
     }
   }
 
-  Future<String?> _getToken() async {
+  Future<void> _handleTokenExpiration() async {
+    print('Token süresi doldu veya geçersiz, oturum kapatılıyor...');
+
+    await storage.deleteAll();
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    return prefs.getString('token');
+    await prefs.clear();
+
+    Provider.of<UserProvider>(context, listen: false).logout();
+
+    if (_mounted) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => LoginScreen(
+            warning: 'Güvenliğiniz için tekrar giriş yapmanız gerekmektedir.',
+          ),
+        ),
+      );
+    }
   }
 
   Future<void> _updateUserInfo() async {
     if (!_mounted) return;
-    int userId = userProviderGlobal.userId;
-    String hash = await userProviderGlobal.getUsernameHash();
+    int userId = Provider.of<UserProvider>(context, listen: false).userId;
 
     try {
       Map<String, dynamic> userData = await ApiService().fetchUserPoint(userId);
       int userPoint = userData['point'];
       if (_mounted) {
-        await userProviderGlobal.addPoint(userPoint);
+        await Provider.of<UserProvider>(context, listen: false).addPoint(userPoint);
       }
     } catch (error) {
       print("Kullanıcı puanı güncellenirken hata oluştu: $error");
+      throw error;
     }
   }
 
@@ -202,13 +214,14 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       body: Center(
-        child: _controller.value.isInitialized
+        child: _videoInitialized
             ? AspectRatio(
           aspectRatio: _controller.value.aspectRatio,
           child: VideoPlayer(_controller),
         )
-            : const CircularProgressIndicator(),
+            : CircularProgressIndicator(),
       ),
     );
   }
@@ -225,10 +238,10 @@ class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
 
   final List<Widget> _pages = [
-    HomeScreen(key: ValueKey('HomeScreen')),
-    LeaderboardPage(key: ValueKey('LeaderboardPage')),
-    MarketPage(key: ValueKey('MarketPage')),
-    StarredWordsScreen(key: ValueKey('StarredWordsScreen')),
+    HomeScreen(),
+    LeaderboardPage(),
+    MarketPage(),
+    StarredWordsScreen(),
   ];
 
   @override
@@ -237,25 +250,16 @@ class _MainScreenState extends State<MainScreen> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      body: AnimatedSwitcher(
+      body: PageTransitionSwitcher(
         duration: Duration(milliseconds: 300),
-        transitionBuilder: (Widget child, Animation<double> animation) {
-          return FadeTransition(
-            opacity: animation,
+        transitionBuilder: (Widget child, Animation<double> primaryAnimation, Animation<double> secondaryAnimation) {
+          return FadeThroughTransition(
+            animation: primaryAnimation,
+            secondaryAnimation: secondaryAnimation,
             child: child,
           );
         },
-        child: Container(
-          key: ValueKey<int>(_selectedIndex),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFFF0F4FF), Color(0xFFE6EEFF)],
-            ),
-          ),
-          child: _pages[_selectedIndex],
-        ),
+        child: _pages[_selectedIndex],
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
@@ -269,11 +273,9 @@ class _MainScreenState extends State<MainScreen> {
         child: SalomonBottomBar(
           currentIndex: _selectedIndex,
           onTap: (index) {
-            if (index != _selectedIndex) {
-              setState(() {
-                _selectedIndex = index;
-              });
-            }
+            setState(() {
+              _selectedIndex = index;
+            });
           },
           items: [
             SalomonBottomBarItem(

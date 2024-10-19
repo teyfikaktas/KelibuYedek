@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flip_card/flip_card.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:kelibu/Models/wordDetaik.dart';
 import 'package:kelibu/api.dart';
@@ -95,12 +96,12 @@ class _ScoreDisplayState extends State<ScoreDisplay> with TickerProviderStateMix
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Image.asset(
-                'assets/point.png',
+              SvgPicture.asset(
+                'assets/trophy.svg',
                 width: 40,
                 height: 40,
               ),
-              const SizedBox(width: 2),
+              const SizedBox(width: 8),
               ValueListenableBuilder<int>(
                 valueListenable: widget.userPointsNotifier,
                 builder: (context, value, child) {
@@ -119,8 +120,7 @@ class _ScoreDisplayState extends State<ScoreDisplay> with TickerProviderStateMix
         );
       },
     );
-  }
-}
+  }}
 class SwipeHintAnimation extends StatefulWidget {
   final Function onAnimationComplete;
 
@@ -900,7 +900,7 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
                 _buildRoundedIconButton(Icons.slow_motion_video_sharp, Colors.green, () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => VideoPlayerScreen(videoUrl: AppUrls.homescreen)),
+                    MaterialPageRoute(builder: (context) => VideoPlayerScreen(videoUrl: AppUrls.flashcard)),
                   );
                 }),
               ],

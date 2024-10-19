@@ -84,21 +84,68 @@ class CustomDialog extends StatelessWidget {
   }
 }
 
-void showCustomDialog(BuildContext context, String title, String content, {
-  String buttonText = 'Tamam',
-  String? imagePath,
-  VoidCallback? onPressed,
-}) {
-  showDialog(
+Future<void> showCustomDialog(BuildContext context, String title, String message) {
+  return showDialog<void>(
     context: context,
-    barrierDismissible: false,
+    barrierDismissible: false, // Kullanıcı dışarı tıklayarak kapatamaz
     builder: (BuildContext context) {
-      return CustomDialog(
-        title: title,
-        content: content,
-        buttonText: buttonText,
-        imagePath: imagePath,
-        onPressed: onPressed,
+      return AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        backgroundColor: Colors.white,
+        title: Row(
+          children: [
+            // Hata ikonunu ve emoji ekleyerek başlığı daha çekici hale getirin
+            SizedBox(width: 10),
+            Text(
+              "$title ",
+              style: GoogleFonts.comfortaa(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Colors.red,
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              message,
+              style: GoogleFonts.quicksand(
+                fontSize: 18,
+                color: Colors.black87,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 20),
+            // Eğlenceli bir emoji ekleyebilirsiniz
+          ],
+        ),
+        actions: <Widget>[
+          Center(
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red, // Buton rengini hata temasına uygun yapın
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18.0),
+                ),
+                padding: EdgeInsets.symmetric(horizontal: 30, vertical: 10),
+              ),
+              child: Text(
+                'Anladım',
+                style: GoogleFonts.comfortaa(
+                  fontSize: 16,
+                  color: Colors.white,
+                ),
+              ),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+          ),
+        ],
       );
     },
   );

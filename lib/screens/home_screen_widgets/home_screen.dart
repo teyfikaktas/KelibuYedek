@@ -1,9 +1,12 @@
 import 'dart:ui';
+import 'package:animated_text_kit/animated_text_kit.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:hive/hive.dart';
 import 'package:kelibu/screens/home_screen_widgets/phdakademiinfo.dart';
 import 'package:kelibu/screens/market_store.dart';
 import 'package:kelibu/screens/point/point.dart';
@@ -28,6 +31,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shimmer/shimmer.dart';
+import '../../shared_preferences/shared_preferences.dart';
 import '../leader_screen.dart';
 import 'package:getwidget/getwidget.dart';
 import 'package:flutter_tts/flutter_tts.dart';
@@ -46,12 +50,109 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:flutter_spinkit/flutter_spinkit.dart';
 
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:auto_size_text/auto_size_text.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+class RaceModeButton extends StatelessWidget {
+  final bool isVip;
+  final VoidCallback onPressed;
+
+  const RaceModeButton({
+    Key? key,
+    required this.isVip,
+    required this.onPressed,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return ElevatedButton(
+      onPressed: onPressed,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: isVip ? Colors.blue : Colors.grey,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(30),
+        ),
+        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (isVip)
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.yellow,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                'VIP',
+                style: TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          if (isVip) SizedBox(width: 10),
+          Text(
+            'Yarış Modu',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
+          ),
+          SizedBox(width: 10),
+          FaIcon(
+            isVip ? FontAwesomeIcons.flagCheckered : FontAwesomeIcons.lock,
+            color: Colors.white,
+            size: 16,
+          ),
+        ],
+      ),
+    );
+  }
+}
 class RaceScreen extends StatefulWidget {
-  const RaceScreen({Key? key}) : super(key: key);
+  final bool isVip;
+
+  const RaceScreen({Key? key, required this.isVip}) : super(key: key);
 
   @override
   _RaceScreenState createState() => _RaceScreenState();
+}
+class VIPAdvantagesPanelProvider extends ChangeNotifier {
+  bool _shouldShowPanel = false;
+
+  bool get shouldShowPanel => _shouldShowPanel;
+
+  Future<void> checkAndShowPanel(BuildContext context) async {
+    final subscriptionProvider = Provider.of<SubscriptionProvider>(context, listen: false);
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    bool hasShownVIPAdvantagesPanel = prefs.getBool('VIP') ?? false;
+
+    print("Subscription Status: isVip=${subscriptionProvider.isVip}, hasShownVIPAdvantagesPanel=$hasShownVIPAdvantagesPanel");
+
+    if (subscriptionProvider.isVip && hasShownVIPAdvantagesPanel) {
+      print("Setting _shouldShowPanel = true");
+      await prefs.setBool('VIP',false);
+
+      _shouldShowPanel = true;
+      notifyListeners();
+    } else {
+      print("No need to show VIP panel");
+    }
+  }
+
+  void panelShown() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('hasShownVIPAdvantagesPanel', true);
+    _shouldShowPanel = false;
+    notifyListeners();
+  }
 }
 class _RaceScreenState extends State<RaceScreen> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
@@ -76,15 +177,87 @@ class _RaceScreenState extends State<RaceScreen> with SingleTickerProviderStateM
     super.dispose();
   }
 
+  void _showVipDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
+        child: Container(
+          padding: EdgeInsets.all(20.w),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20.r),
+            gradient: LinearGradient(
+              colors: [Colors.purple.shade300, Colors.purple.shade900],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Image.asset(
+                'assets/logo.png',
+                height: 80.h,
+              ),
+              SizedBox(height: 20.h),
+              Text(
+                'Kelibu Canlı Yarış',
+                style: GoogleFonts.poppins(
+                  fontSize: 24.sp,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 10.h),
+              Text(
+                'Beta aşamasında olduğu için şu an sadece pro üyelere açıktır.',
+                style: GoogleFonts.poppins(
+                  fontSize: 16.sp,
+                  color: Colors.white70,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 20.h),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: Colors.purple.shade900,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(30.r),
+                  ),
+                  padding: EdgeInsets.symmetric(horizontal: 30.w, vertical: 12.h),
+                ),
+                child: Text(
+                  'Anladım',
+                  style: GoogleFonts.poppins(
+                    fontSize: 16.sp,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ScreenUtilInit(
       designSize: const Size(360, 690),
       minTextAdapt: true,
       splitScreenMode: true,
+
       builder: (context, child) {
         return Scaffold(
           body: Container(
+            height: 200.h, // Sabit bir yükseklik verin veya ekran yüksekliğine göre ayarlayın
             width: double.infinity,
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -93,55 +266,103 @@ class _RaceScreenState extends State<RaceScreen> with SingleTickerProviderStateM
                 colors: [Colors.pink.shade300, Colors.purple.shade900],
               ),
             ),
-            child: Row(
+            child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
-                Padding(
-                  padding: EdgeInsets.all(20.sp),
-                  child: ScaleTransition(
-                    scale: _animation,
-                    child: Icon(
-                      Icons.videogame_asset,
-                      size: 60.sp,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: AutoSizeText(
-                    'Canlı Yarış',
-                    style: GoogleFonts.pressStart2p(
-                      textStyle: TextStyle(
-                        fontSize: 32.sp,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                        letterSpacing: 1.2,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Padding(
+                      padding: EdgeInsets.all(20.sp),
+                      child: ScaleTransition(
+                        scale: _animation,
+                        child: Icon(
+                          Icons.videogame_asset,
+                          size: 60.sp,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
-                    maxLines: 1,
-                    minFontSize: 16,
-                  ),
+                    Expanded(
+                      child: AutoSizeText(
+                        'Canlı Yarış',
+                        style: GoogleFonts.pressStart2p(
+                          textStyle: TextStyle(
+                            fontSize: 32.sp,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                        maxLines: 1,
+                        minFontSize: 16,
+                      ),
+                    ),
+                    Container(
+                      margin: EdgeInsets.all(8.sp),
+                      height: 60.h,
+                      width: 60.w,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Padding(
+                        padding: EdgeInsets.all(8.sp),
+                        child: Image.asset('assets/logo.png'),
+                      ),
+                    ),
+                  ],
                 ),
-                Container(
-                  margin: EdgeInsets.all(8.sp),
-                  height: 60.h,
-                  width: 60.w,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Padding(
-                    padding: EdgeInsets.all(8.sp),
-                    child: Image.asset('assets/logo.png'),
-                  ),
-                ),
-                IconButton(
-                  icon: Icon(Icons.arrow_forward_ios, color: Colors.white, size: 30.sp),
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (context) => RaceScreenBuild()),
-                    );
-                  },
+                SizedBox(height: 30.h),
+                Stack(
+                  children: [
+                    Container(
+                      width: 200.w,
+                      height: 60.h,
+                      child: ElevatedButton(
+                        onPressed: widget.isVip
+                            ? () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(builder: (context) => RaceScreenBuild()),
+                          );
+                        }
+                            : _showVipDialog,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: widget.isVip ? Colors.amber : Colors.grey,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(30.r),
+                          ),
+                        ),
+                        child: Text(
+                          'Yarış Modu',
+                          style: GoogleFonts.poppins(
+                            fontSize: 18.sp,
+                            fontWeight: FontWeight.bold,
+                            color: widget.isVip ? Colors.black : Colors.white54,
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (widget.isVip)
+                      Positioned(
+                        right: 0,
+                        child: Container(
+                          padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            borderRadius: BorderRadius.circular(10.r),
+                          ),
+                          child: Text(
+                            'VIP',
+                            style: GoogleFonts.poppins(
+                              fontSize: 12.sp,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ],
             ),
@@ -149,6 +370,639 @@ class _RaceScreenState extends State<RaceScreen> with SingleTickerProviderStateM
         );
       },
     );
+  }
+}
+class KelibuProPanel extends StatefulWidget {
+  @override
+  _KelibuProPanelState createState() => _KelibuProPanelState();
+}
+class _KelibuProPanelState extends State<KelibuProPanel> {
+  final PageController _pageController = PageController();
+  int _currentPage = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+      elevation: 0,
+      backgroundColor: Colors.transparent,
+      child: Container(
+        height: 550,
+        padding: EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(28),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 20,
+              offset: Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Expanded(
+              child: PageView.builder(
+                controller: _pageController,
+                itemCount: ProFeaturesList.proFeatures.length + 1, // +1 for welcome page
+                onPageChanged: (index) {
+                  setState(() {
+                    _currentPage = index;
+                  });
+                },
+                itemBuilder: (context, index) {
+                  if (index == 0) {
+                    return _buildWelcomePage();
+                  }
+                  final proFeature = ProFeaturesList.proFeatures[index - 1];
+                  return ProFeatureSlide(
+                    icon: proFeature['icon'] as IconData,
+                    title: proFeature['title'] as String,
+                    description: proFeature['description'] as String,
+                    color: proFeature['color'] as Color,
+                    details: proFeature['details'] as String,
+                  );
+                },
+              ),
+            ),
+            SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                for (int i = 0; i < ProFeaturesList.proFeatures.length + 1; i++)
+                  AnimatedContainer(
+                    duration: Duration(milliseconds: 300),
+                    margin: EdgeInsets.symmetric(horizontal: 4),
+                    width: _currentPage == i ? 24 : 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(4),
+                      color: _currentPage == i ? Colors.orange : Colors.grey.shade300,
+                    ),
+                  ),
+              ],
+            ),
+            SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: () {
+                if (_currentPage < ProFeaturesList.proFeatures.length) {
+                  _pageController.nextPage(
+                    duration: Duration(milliseconds: 300),
+                    curve: Curves.easeInOut,
+                  );
+                } else {
+                  Navigator.of(context).pop();
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                foregroundColor: Colors.white, backgroundColor: Colors.orange,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                padding: EdgeInsets.symmetric(horizontal: 40, vertical: 16),
+                elevation: 0,
+              ),
+              child: Text(
+                _currentPage < ProFeaturesList.proFeatures.length ? 'Devam Et' : 'Harika!',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ).animate().fadeIn(delay: 300.milliseconds).scale(),
+          ],
+        ),
+      ),
+    );
+  }
+
+
+  Widget _buildWelcomePage() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            "Kelibu",
+            style: GoogleFonts.poppins(
+              fontSize: 24.sp, // .sp kullanarak font boyutunu ayarlayın
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                "PRO",
+                style: GoogleFonts.poppins(
+                  fontSize: 24.sp,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.orange,
+                ),
+              ),
+              Text(
+                " Dünyasına",
+                style: GoogleFonts.poppins(
+                  fontSize: 24.sp,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 24.h), // .h kullanarak yüksekliği ayarlayın
+          Text(
+            "Hoş Geldiniz!",
+            style: GoogleFonts.poppins(
+              fontSize: 36.sp,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+          SizedBox(height: 24.h),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 40.w), // .w kullanarak genişliği ayarlayın
+            child: Text(
+              "Dil öğrenme yolculuğunuzda size özel ayrıcalıklar ve fırsatlar sizi bekliyor.",
+              textAlign: TextAlign.center,
+              style: GoogleFonts.poppins(
+                fontSize: 18.sp,
+                color: Colors.black54,
+              ),
+            ),
+          ),
+        ],
+      ).animate().fadeIn().slideY(begin: 0.2, end: 0),
+    );
+  }
+}
+class ProFeatureSlide extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String description;
+  final String details;
+  final Color color;
+
+  const ProFeatureSlide({
+    Key? key,
+    required this.icon,
+    required this.title,
+    required this.description,
+    required this.details,
+    required this.color,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 80, color: color),
+          SizedBox(height: 24),
+          Text(
+            title,
+            style: GoogleFonts.poppins(
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          SizedBox(height: 16),
+          Text(
+            description,
+            style: GoogleFonts.poppins(
+              fontSize: 18,
+              color: Colors.black54,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          SizedBox(height: 24),
+          Text(
+            details,
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              color: Colors.black87,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    ).animate().fadeIn().slideY(begin: 0.2, end: 0);
+  }
+}
+class KelibuProDialog extends StatelessWidget {
+  static const String _shownKey = 'kelibu_pro_shown';
+
+  const KelibuProDialog({Key? key}) : super(key: key);
+
+  static Future<void> showIfNotShown(BuildContext context) async {
+    final prefs = await SharedPreferences.getInstance();
+    final shown = prefs.getBool(_shownKey) ?? false;
+    if (!shown) {
+      await showDialog(
+        context: context,
+        builder: (context) => const KelibuProDialog(),
+      );
+      await prefs.setBool(_shownKey, true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return KelibuProPanel();
+  }
+}
+class ProFeaturesList {
+  static const List<Map<String, dynamic>> proFeatures = [
+    {
+      'icon': Icons.book,
+      'title': 'Sınırsız Setler',
+      'description': "Kelibu'nun tüm setlerine sınırsız erişim",
+      'color': Colors.blue,
+      'details': 'A1, A2 (temel), B1, B2 (orta) ve C1, C2 (ileri) seviye İngilizce setleri dahil, tüm dil seviyelerine uygun onlarca sete erişim. YÖKDİL, YDT gibi ÖSYM sınavları ile TOEFL, IELTS gibi uluslararası sınavlara özel hazırlık setleri de mevcut!',    },
+    {
+      'icon': Icons.rocket_launch,
+      'title': 'Erken Erişim',
+      'description': 'Tüm yeni özelliklere öncelikli erişim',
+      'color': Colors.orange,
+      'details': 'Yeni çıkacak özellikleri, setleri ve güncellemeleri herkesten önce deneyimleyin. Kelibu\'nun geleceğini şekillendirmede söz sahibi olun!',
+    },
+    {
+      'icon': Icons.school,
+      'title': 'PhD Akademi İndirimi',
+      'description': 'Dil kurslarında %10 özel indirim',
+      'color': Colors.green,
+      'details': 'PhD Akademi\'nin sunduğu tüm online ve yüz yüze dil kurslarında %10 indirim hakkı kazanın. Bu fırsat ders paketleri için geçerlidir.',
+    },
+    {
+      'icon': Icons.menu_book,
+      'title': 'Ücretsiz E-Kitaplar',
+      'description': 'PhD Akademi Level 1-2-3 kitaplarına ücretsiz erişim',
+      'color': Colors.purple,
+      'details': 'PhD Akademi\'nin popüler Level 1, 2 ve 3 e-kitaplarına tamamen ücretsiz erişim sağlayın. Bu kitaplar, dil öğrenme yolculuğunuzda size rehberlik edecek.',
+    },
+    {
+      'icon': Icons.phone_android,
+      'title': 'SelfEnglish Beta',
+      'description': 'SelfEnglish uygulamasına özel beta erişimi',
+      'color': Colors.teal,
+      'details': 'Yakında çıkacak SelfEnglish uygulamamızın beta sürümüne erken erişim kazanın. Yapay zeka destekli bu yeni uygulamamızı ilk siz deneyin ve geri bildirimlerinizle şekillenmesine katkıda bulunun.',
+    },
+    {
+      'icon': Icons.analytics,
+      'title': 'Gelişmiş Takip',
+      'description': 'Özelleştirilmiş ilerleme takibi ve analizler',
+      'color': Colors.red,
+      'details': 'Detaylı ilerleme grafikleri, kişiselleştirilmiş öğrenme önerileri ve haftalık performans raporları ile dil öğrenme yolculuğunuzu optimize edin. Güçlü ve zayıf yönlerinizi keşfedin.',
+    },
+    {
+      'icon': Icons.edit_document,
+      'title': 'Kelibu Doodle',
+      'description': 'PDF düzenleme ve not alma özelliği',
+      'color': Colors.indigo,
+      'details': 'Kelibu Doodle ile PDF belgeleriniz üzerinde not alın, işaretlemeler yapın ve düzenlemeler gerçekleştirin. Level 1, 2 ve 3 kitapları üzerinde çalışırken interaktif bir deneyim yaşayın.',
+    },
+  ];
+}
+
+class KelibuProAdvantagesPanel extends StatefulWidget {
+  @override
+  _KelibuProAdvantagesPanelState createState() => _KelibuProAdvantagesPanelState();
+}
+
+class _KelibuProAdvantagesPanelState extends State<KelibuProAdvantagesPanel> {
+  final PageController _pageController = PageController();
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+      elevation: 0,
+      backgroundColor: Colors.transparent,
+      child: Container(
+        height: 400,
+        padding: EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(28),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 20,
+              offset: Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Expanded(
+              child: PageView.builder(
+                controller: _pageController,
+                itemCount: AdvantagesList.advantages.length,
+                itemBuilder: (context, index) {
+                  final advantage = AdvantagesList.advantages[index];
+                  return AdvantageSlide(
+                    icon: advantage['icon'] as IconData,
+                    title: advantage['title'] as String,
+                    description: advantage['description'] as String,
+                    color: advantage['color'] as Color,
+                  );
+                },
+              ),
+            ),
+            SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                  child: Text('Kapat'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class AdvantageSlide extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String description;
+  final Color color;
+
+  const AdvantageSlide({
+    Key? key,
+    required this.icon,
+    required this.title,
+    required this.description,
+    required this.color,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(icon, size: 60, color: color),
+        SizedBox(height: 16),
+        Text(
+          title,
+          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          textAlign: TextAlign.center,
+        ),
+        SizedBox(height: 8),
+        Text(
+          description,
+          style: TextStyle(fontSize: 16),
+          textAlign: TextAlign.center,
+        ),
+      ],
+    );
+  }
+}
+
+class KelibuProAdvantagesDialog extends StatelessWidget {
+  static const String _shownKey = 'kelibu_pro_advantages_shown';
+
+  const KelibuProAdvantagesDialog({Key? key}) : super(key: key);
+
+  static Future<void> showIfNotShown(BuildContext context) async {
+    final prefs = await SharedPreferences.getInstance();
+    final shown = prefs.getBool(_shownKey) ?? false;
+    if (!shown) {
+      await showDialog(
+        context: context,
+        builder: (context) => const KelibuProAdvantagesDialog(),
+      );
+      await prefs.setBool(_shownKey, true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28.r)),
+      elevation: 0,
+      backgroundColor: Colors.transparent,
+      child: SingleChildScrollView(
+        child: Container(
+          padding: EdgeInsets.all(24.w),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(28.r),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildSubscriptionBadge(context),
+              SizedBox(height: 10.h),
+              const AdvantagesList(),
+              SizedBox(height: 10.h),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue[700],
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(30.r),
+                  ),
+                  padding: EdgeInsets.symmetric(horizontal: 40.w, vertical: 16.h),
+                  elevation: 0,
+                ),
+                child: Text(
+                  'Harika!',
+                  style: GoogleFonts.poppins(
+                    fontSize: 18.sp,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ).animate().fadeIn(delay: 1200.ms).scale(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSubscriptionBadge(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(
+          "Kelibu",
+          style: TextStyle(
+            color: Colors.black87,
+            fontWeight: FontWeight.bold,
+            fontSize: 14.sp,
+          ),
+        ),
+        SizedBox(width: 2.w),
+        Container(
+          padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 2.h),
+          decoration: BoxDecoration(
+            color: Colors.orange,
+            borderRadius: BorderRadius.circular(4.r),
+          ),
+          child: Text(
+            "PRO",
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 10.sp,
+            ),
+          ),
+        ),
+        SizedBox(width: 4.w),
+        Text(
+          "Avantajlarınız!",
+          style: TextStyle(
+            color: Colors.black87,
+            fontWeight: FontWeight.bold,
+            fontSize: 14.sp,
+          ),
+        ),
+      ],
+    ).animate().fadeIn().slideY(begin: -0.2, end: 0);
+  }
+}
+class AdvantagesList extends StatelessWidget {
+  static const List<Map<String, dynamic>> advantages = [
+    const {
+      'icon': FontAwesomeIcons.book,
+      'title': 'Setler',
+      'description': "Kelibu'nun tüm setlerine erişim",
+      'color': Colors.yellow,
+    },
+    const {
+      'icon': FontAwesomeIcons.rocket,
+      'title': 'Erken Erişim',
+      'description': 'Tüm yeni özelliklere öncelikli erişim',
+      'color': Colors.orange,
+    },
+    const {
+      'icon': FontAwesomeIcons.graduationCap,
+      'title': 'PhD Akademi İndirimi',
+      'description': 'Dil kurslarında %10 özel indirim',
+      'color': Colors.green,
+    },
+    const {
+      'icon': FontAwesomeIcons.book,
+      'title': 'Ücretsiz E-Kitaplar',
+      'description': 'PhD Akademi Level 1-2-3 kitaplarına ücretsiz erişim',
+      'color': Colors.purple,
+    },
+    const {
+      'icon': FontAwesomeIcons.mobileScreen,
+      'title': 'SelfEnglish Beta',
+      'description': 'SelfEnglish uygulamasına özel beta erişimi',
+      'color': Colors.blue,
+    },
+    const {
+      'icon': FontAwesomeIcons.chartLine,
+      'title': 'Gelişmiş Takip',
+      'description': 'Özelleştirilmiş ilerleme takibi ve analizler',
+      'color': Colors.red,
+    },
+  ];
+
+  const AdvantagesList({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.separated(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: advantages.length,
+      separatorBuilder: (context, index) => SizedBox(height: 16.h),
+      itemBuilder: (context, index) {
+        final advantage = advantages[index];
+        return AdvantageItem(
+          icon: advantage['icon'] as IconData,
+          title: advantage['title'] as String,
+          description: advantage['description'] as String,
+          color: advantage['color'] as Color,
+          delay: (index * 200).ms,
+        );
+      },
+    );
+  }
+}
+
+class AdvantageItem extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String description;
+  final Color color;
+  final Duration delay;
+
+  const AdvantageItem({
+    Key? key,
+    required this.icon,
+    required this.title,
+    required this.description,
+    required this.color,
+    required this.delay,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.all(16.w),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(16.r),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: EdgeInsets.all(12.w),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.2),
+              shape: BoxShape.circle,
+            ),
+            child: FaIcon(icon, color: color, size: 24.sp),
+          ),
+          SizedBox(width: 16.w),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.poppins(
+                    fontSize: 18.sp,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+                SizedBox(height: 4.h),
+                Text(
+                  description,
+                  style: GoogleFonts.poppins(fontSize: 14.sp, color: Colors.black54),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ).animate().fadeIn(delay: delay).slideX(begin: 0.2, end: 0);
   }
 }
 class WordOfTheDayService {
@@ -218,199 +1072,92 @@ Future<WordOfTheDay> fetchWordOfTheDay() async {
   }
 }
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final String? message;
 
+  const HomeScreen({Key? key, this.message}) : super(key: key);
   @override
   _HomeScreenState createState() => _HomeScreenState();
 }
-class _HomeScreenState extends State<HomeScreen> {
-  int _selectedIndex = 0;
-  String promotionMessage = 'Yükleniyor...';
 
+class _HomeScreenState extends State<HomeScreen> {
+  ValueNotifier<int> pointValueNotifier = ValueNotifier(0);
+  String promotionMessage = 'Yükleniyor...';
   WordOfTheDay? _wordOfTheDay;
-  Future<List<Package>>? packagesFuture;
+  List<Package>? _packages;
   bool isExpanded = false;
-  int _userPoint = 0;
   final FlutterTts flutterTts = FlutterTts();
-  bool isInitialized = false;
-  bool _isDataLoaded = false;
   bool _isDarkMode = false;
+  OverlayEntry? _overlayEntry;
+
   @override
   void initState() {
     super.initState();
-    _fetchData();
-    checkSubscriptionStatus();
-
-    _loadWordOfTheDay();
-    _getPoint();
-    _loadPromotionMessage();
-
-    _loadDarkModePreference();
+    _initializeData();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      showWelcomeMessage(context);
+      _checkAndShowVipPanel();
     });
   }
+  Future<void> _initializeData() async {
+  //  _showLoadingOverlay();
+    var userProvider = Provider.of<UserProvider>(context, listen: false);
+
+    pointValueNotifier.value = userProvider.point;
+
+    try {
+      await Future.wait([
+        _fetchData(),
+        checkSubscriptionStatus(),
+        _loadWordOfTheDay(),
+        _loadPromotionMessage(),
+        _loadDarkModePreference(),
+      ]);
+    } finally {
+    //  _hideLoadingOverlay();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _showVipBenefitsPanel();
+      });
+    }
+    print('widget.message');
+
+    print(widget.message);
+  }
+
+  Future<void> _showVipBenefitsPanel() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    bool isVip = Provider.of<SubscriptionProvider>(context, listen: false).isVip;
+    bool hasShownVipPanel = prefs.getBool('hasShownVipPanel') ?? false;
+
+    if ((!isVip) && (!hasShownVipPanel)) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
+          child: EnhancedProBenefitsCard(
+            onSubscribe: () {
+              prefs.setBool('hasShownVipPanel', true);
+            },
+          ),
+        ),
+      );
+    }
+  }
+
   Future<void> checkSubscriptionStatus() async {
-    SubscriptionProvider provider = Provider.of<SubscriptionProvider>(context, listen: false);
+    final provider = Provider.of<SubscriptionProvider>(context, listen: false);
     await provider.fetchSubscriptionStatus();
   }
+
   Future<void> _loadPromotionMessage() async {
     try {
       String message = await ApiService().fetchPromotionMessage();
-      setState(() {
-        promotionMessage = message;
-      });
+      setState(() => promotionMessage = message);
     } catch (e) {
-      setState(() {
-        promotionMessage = 'Mesaj yüklenemedi';
-      });
+      setState(() => promotionMessage = 'Mesaj yüklenemedi');
       print(e);
     }
   }
-  void showWelcomeMessage(BuildContext context) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    bool isFirstTime = prefs.getBool('isFirstTime') ?? true;
 
-    if (isFirstTime) {
-      showDialog(
-        context: context,
-        builder: (BuildContext context) {
-          return Dialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: SingleChildScrollView(
-              child: Container(
-                padding: EdgeInsets.all(24.sp),
-                decoration: BoxDecoration(
-                  color: Colors.blue[50],
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    AutoSizeText(
-                      "Kelibu'ya Hoş Geldiniz! 🎉",
-                      style: GoogleFonts.nunito(
-                        fontSize: 24.sp,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue[800],
-                      ),
-                      textAlign: TextAlign.center,
-                      maxLines: 1,
-                      minFontSize: 16,
-                    ),
-                    SizedBox(height: 20.h),
-                    _buildInfoText(
-                      "Kelime haznenizi genişletmeye hazır mısınız? Uzman kadrolarımızın titizlikle hazırladığı kelime setleri, sizi dil öğrenme macerasında bir Indiana Jones gibi hissettirmeye hazır!",
-                    ),
-                    SizedBox(height: 12.h),
-                    _buildInfoText(
-                      "Size özel bir sürprizimiz var: En popüler kelimelerimizi içeren Demo Set'i ücretsiz olarak hesabınıza tanımladık. Bu set, dil öğrenme yolculuğunuzda size pusula olacak!",
-                    ),
-                    SizedBox(height: 12.h),
-                    _buildInfoText(
-                      "Kelibu'yu nasıl en verimli şekilde kullanacağınızı merak ediyorsanız, her modun üstündeki sihirli soru işareti ikonuna tıklayın. Dil öğrenme gurusu Veysel Hoca size tüm püf noktaları anlatacak!",
-                    ),
-                    SizedBox(height: 12.h),
-                    _buildInfoText(
-                      "Öneri ve görüşleriniz bizim için altın değerinde! Ayarlar kısmından bize ulaşabilir, daha fazla bilgi için phdakademi.com adresini ziyaret edebilirsiniz.",
-                    ),
-                    SizedBox(height: 20.h),
-                    AutoSizeText(
-                      "Haydi, dil öğrenme maceranız başlasın! 🚀",
-                      style: GoogleFonts.nunito(
-                        fontSize: 18.sp,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue[800],
-                      ),
-                      textAlign: TextAlign.center,
-                      maxLines: 1,
-                      minFontSize: 14,
-                    ),
-                    SizedBox(height: 24.h),
-                    ElevatedButton(
-                      child: Text("Maceraya Başla!"),
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                      },
-                      style: ElevatedButton.styleFrom(
-                        foregroundColor: Colors.white, backgroundColor: Colors.blue[700],
-                        padding: EdgeInsets.symmetric(vertical: 16.h),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        },
-      );
-
-      await prefs.setBool('isFirstTime', false);
-    }
-  }
-  Widget _buildInfoText(String text) {
-    return AutoSizeText(
-      text,
-      style: GoogleFonts.nunito(fontSize: 14.sp, color: Colors.blue[900]),
-      textAlign: TextAlign.center,
-      maxLines: 4,
-      minFontSize: 10,
-    );
-  }
-  Future<void> _loadDarkModePreference() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _isDarkMode = prefs.getBool("darkMode") ?? false;
-    });
-  }
-  Future<void> initializeData() async {
-    showLoadingIndicator();
-    await syncStarredWords();
-    hideLoadingIndicator();
-    if (mounted) setState(() {});
-  }
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (!_isDataLoaded) {
-      _isDataLoaded = true;
-    }
-  }
-  Future<void> syncStarredWords() async {
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
-    try {
-      await ApiService().syncStarredWordsWithServer(userProvider.userId);
-      print('Starred words synced successfully.');
-    } catch (e) {
-      print('Failed to sync starred words: $e');
-    }
-  }
-  void showLoadingIndicator() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return Dialog(
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              LogoLoadingIndicator(),
-              Text("Sistemde gerekli ayarlar yapılıyor..."),
-            ],
-          ),
-        );
-      },
-    );
-  }
-  void hideLoadingIndicator() {
-    Navigator.pop(context);
-  }
   Future<void> _loadWordOfTheDay() async {
     WordOfTheDay? cachedWord = await WordOfTheDayCache.getCachedWordOfTheDay();
     if (cachedWord != null) {
@@ -421,27 +1168,15 @@ class _HomeScreenState extends State<HomeScreen> {
       try {
         _wordOfTheDay = await fetchWordOfTheDay();
         await WordOfTheDayCache.cacheWordOfTheDay(_wordOfTheDay!);
+        setState(() {});
       } catch (error) {
         print('API Error: $error');
         _wordOfTheDay = await _loadWordFromPrefs();
+        setState(() {});
       }
     }
-    if (mounted) setState(() {});
   }
-  Future<void> savePackagesToPrefs(List<Package> packages) async {
-    final prefs = await SharedPreferences.getInstance();
-    String encodedData = json.encode(packages.map((package) => package.toJson()).toList());
-    await prefs.setString('packages', encodedData);
-  }
-  Future<List<Package>> loadPackagesFromPrefs() async {
-    final prefs = await SharedPreferences.getInstance();
-    String? encodedData = prefs.getString('packages');
-    if (encodedData != null) {
-      List<dynamic> decodedData = json.decode(encodedData);
-      return decodedData.map((packageJson) => Package.fromJson(packageJson)).toList();
-    }
-    return [];
-  }
+
   Future<WordOfTheDay?> _loadWordFromPrefs() async {
     final prefs = await SharedPreferences.getInstance();
     final term = prefs.getString('word_term');
@@ -452,89 +1187,71 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     return null;
   }
-  late AnimationController _controller;
-  late Animation<double> _animation;
-  void _getPoint() async {
-    int userId = Provider.of<UserProvider>(context, listen: false).userId;
-    String hash = await Provider.of<UserProvider>(context, listen: false).getUsernameHash();
-    try {
-      Map<String, dynamic> userData = await ApiService().fetchUserPoint(userId);
-      int userPoint = userData['point'];
-      print('User Point: $userPoint');
-      Provider.of<UserProvider>(context, listen: false).addPoint(userPoint);
-    } catch (error) {
-      print("Error fetching user point: $error");
-    }
+
+  Future<void> _loadDarkModePreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _isDarkMode = prefs.getBool("darkMode") ?? false;
+    });
   }
-  void _fetchData() async {
+
+  Future<void> _fetchData() async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     int currentUserId = userProvider.userId;
-    ApiService().fetchStarWordsAllSystem(currentUserId);
 
+    // Fetch starred words
+    ApiService().fetchStarWordsAllSystem(currentUserId);
 
     try {
       Map<String, dynamic> userData = await ApiService().fetchUserPoint(currentUserId);
-
-      setState(() {
-        userProvider.addPoint(userData['point']);
-        userProvider.updateUserAvatarUrl(userData['avatar']);
-        userProvider.updateRankings(
-          streakCount: userData['streakCount'], // Burayı değiştirdik
-          dailyRank: userData['dailyRank'] is int ? userData['dailyRank'] as int : 0,
-          weeklyRank: userData['weeklyRank'],
-          monthlyRank: userData['monthlyRank'],
-          allTimeRank: userData['allTimeRank'],
-        );
-
-      });
+      userProvider.addPoint(userData['point']);
+      userProvider.updateUserAvatarUrl(userData['avatar']);
+      userProvider.updateRankings(
+        streakCount: userData['streakCount'] is int ? userData['streakCount'] as int : 0,
+        dailyRank: userData['dailyRank'] is int ? userData['dailyRank'] as int : 0,
+        weeklyRank: userData['weeklyRank'],
+        monthlyRank: userData['monthlyRank'],
+        allTimeRank: userData['allTimeRank'],
+      );
+      pointValueNotifier.value = userProvider.point;
     } catch (error) {
       print("Error fetching user data: $error");
     }
-    String hash = await userProvider.getUsernameHash();
-    print('User hash: $hash');
-    fetchPackages(currentUserId);
+
+    await fetchPackages(currentUserId);
   }
-  void fetchPackages(int userId) async {
+
+  Future<void> fetchPackages(int userId) async {
     try {
       List<Package> packages = await ApiService().fetchCategories(userId);
-      await savePackagesToPrefs(packages);
       setState(() {
-        packagesFuture = Future.value(packages);
+        _packages = packages;
       });
     } catch (error) {
       print("API Error, loading packages from prefs: $error");
-      List<Package> packages = await loadPackagesFromPrefs();
-      setState(() {
-        packagesFuture = Future.value(packages);
-      });
     }
   }
-  void fetchUserPoints() {
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
-    int currentUserId = userProvider.userId;
 
-    ApiService().fetchUserPoint(currentUserId).then((userData) {
-      setState(() {
-        _userPoint = userData['point'];
-      });
-    }).catchError((error) {
-      print("Error fetching user data: $error");
-    });
+  Future<void> savePackagesToPrefs(List<Package> packages) async {
+    final prefs = await SharedPreferences.getInstance();
+    String encodedData = json.encode(packages.map((package) => package.toJson()).toList());
+    await prefs.setString('packages', encodedData);
   }
+  Future<bool> checkIfBuyed() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('isbuyed') ?? false;
+  }
+
   void speak(String text) async {
     await flutterTts.setLanguage('en-US');
     await flutterTts.setSpeechRate(0.5);
     await flutterTts.setVolume(1.0);
     await flutterTts.setPitch(1.0);
-
     await flutterTts.speak(text);
   }
 
   @override
   Widget build(BuildContext context) {
-    final darkModeProvider = Provider.of<DarkModeProvider>(context);
-    final colors = _isDarkMode ? darkModeColors : lightModeColors;
-
     return ScreenUtilInit(
       designSize: const Size(360, 690),
       minTextAdapt: true,
@@ -544,118 +1261,13 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Consumer<UserProvider>(
             builder: (context, userProvider, child) {
               return Scaffold(
-                backgroundColor: colors["background"],
+                backgroundColor: _getBackgroundColor(),
                 body: Stack(
                   children: [
-                    SingleChildScrollView(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 8.h),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Spacer(),
-                              ],
-                            ),
-                          ),
-                          Container(
-                            height: 200.h,
-                            child: _buildUserInfoSection(userProvider),
-                          ),
-                          StreakWidget(
-                            streakCount: userProvider.streakCount,
-                            dailyRank: userProvider.dailyRank,
-                            monthlyRank: userProvider.monthlyRank,
-                            weeklyRank: userProvider.weeklyRank,
-                            allTimeRank: userProvider.allTimeRank,
-                          ),
-                          LearningPanel(
-                            isDarkMode: _isDarkMode,
-                            onWordSetsTap: () {
-                              setState(() {
-                                isExpanded = true;
-                              });
-                            },
-                            onWordOfDayTap: () {
-                              showDialog(
-                                context: context,
-                                builder: (BuildContext context) {
-                                  return WordOfTheDayDialog(
-                                    isDarkMode: _isDarkMode,
-                                    onSpeak: speak,
-                                  );
-                                },
-                              );
-                            },
-                            onDictionaryTap: () {
-                              showDialog(
-                                context: context,
-                                builder: (BuildContext context) {
-                                  return SearchDialog(isDarkMode: _isDarkMode);
-                                },
-                              );
-                            },
-                          ),
-                          Container(
-                            padding: EdgeInsets.all(16.sp),
-                            decoration: BoxDecoration(
-                              color: _isDarkMode ? Colors.grey[850] : Colors.white,
-                              borderRadius: BorderRadius.circular(20),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: _isDarkMode
-                                      ? Colors.black.withOpacity(0.3)
-                                      : Colors.grey.withOpacity(0.3),
-                                  spreadRadius: 2,
-                                  blurRadius: 10,
-                                  offset: Offset(0, 3),
-                                ),
-                              ],
-                            ),
-                            child: Column(
-                              children: [
-                                RefinedSocialMediaInfo(),
-                                SizedBox(height: 16.h),
-                                _buildPromoBanner(),
-                              ],
-                            ),
-                          ),
-                          SizedBox(height: 20.h),
-                        ],
-                      ),
-                    ),
-                    if (isExpanded)
-                      if (isExpanded)
-                        AnimatedContainer(
-                          duration: Duration(milliseconds: 300),
-                          curve: Curves.easeInOut,
-                          height: MediaQuery.of(context).size.height * 0.9,
-                          decoration: BoxDecoration(
-                            color: _isDarkMode ? Color(0xFF1F1F1F) : Colors.white,
-                            borderRadius: BorderRadius.only(
-                              topLeft: Radius.circular(30),
-                              topRight: Radius.circular(30),
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.2),
-                                blurRadius: 10,
-                                spreadRadius: 0,
-                              ),
-                            ],
-                          ),
-                          child: Column(
-                            children: [
-                              _buildDraggableHeader(),
-                              _buildWordSetsHeader(),
-                              Expanded(
-                                child: _buildWordSetsList(),
-                              ),
-                            ],
-                          ),
-                        ),
+                    _buildMainContent(userProvider),
+                    if (isExpanded) _buildExpandedWordSets(),
+                    if (widget.message != null)
+                      KelibuProPanel()
                   ],
                 ),
               );
@@ -665,6 +1277,460 @@ class _HomeScreenState extends State<HomeScreen> {
       },
     );
   }
+
+// Mesaj panelini oluşturan yeni bir metod
+  Widget _buildMessagePanel() {
+    return Positioned(
+      top: 20, // Üstten 20 piksel aşağıda
+      left: 20, // Soldan 20 piksel içeride
+      right: 20, // Sağdan 20 piksel içeride
+      child: Container(
+        padding: EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 4,
+              offset: Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Text(
+          'message',
+          style: TextStyle(fontSize: 16),
+        ),
+      ),
+    );
+  }
+  Future<void> _checkAndShowVipPanel() async {
+    final vipProvider = Provider.of<VIPAdvantagesPanelProvider>(context, listen: false);
+    await vipProvider.checkAndShowPanel(context);
+    if (vipProvider.shouldShowPanel) {
+      // VIP panelini göster
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => KelibuProPanel(),
+      ).then((_) {
+        // Panel gösterildikten sonra durumu güncelle
+        vipProvider.panelShown();
+      });
+    }
+  }
+  Widget _buildMainContent(UserProvider userProvider) {
+    return ListView(
+      shrinkWrap: true,
+      children: [
+
+        _buildUserInfoSection(userProvider),
+        _buildLearningPanel(),
+
+        _buildStreakWidget(userProvider),
+        _buildSocialMediaInfo(),
+        PhdAkademiInfo(isDarkMode: _isDarkMode),
+
+        SizedBox(height: 20.h),
+      ],
+    );
+  }
+
+  Widget _buildHeader() {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 8.h),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Spacer(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUserInfoSection(UserProvider userProvider) {
+    return Container(
+      margin: EdgeInsets.all(12.sp),
+      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+      decoration: BoxDecoration(
+        color: _getBackgroundColor(),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: _getShadowColor(),
+            spreadRadius: 2,
+            blurRadius: 7,
+            offset: Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildAvatarWithName(userProvider),
+              ScoreDisplay(userPointsNotifier: pointValueNotifier),
+            ],
+          ),
+          SizedBox(height: 3.h),
+          _buildActionButtons(),
+          SizedBox(height: 3.h),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAvatarWithName(UserProvider userProvider) {
+    return Consumer<SubscriptionProvider>(
+      builder: (context, subscriptionProvider, _) {
+        bool isSubscribed = subscriptionProvider.isVip;
+        return Row(
+          children: [
+            GestureDetector(
+              onTap: () => _showEnlargedAvatar(userProvider.avatar),
+              child: Hero(
+                tag: 'avatar',
+                child: TweenAnimationBuilder(
+                  duration: Duration(seconds: 1),
+                  tween: Tween<double>(begin: 0, end: 1),
+                  builder: (context, double value, child) {
+                    return Transform.translate(
+                      offset: Offset(0, 50 * (1 - value)),
+                      child: Opacity(
+                        opacity: value,
+                        child: Container(
+                          width: 54.w,
+                          height: 54.h,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: isSubscribed
+                                  ? (_isDarkMode ? Colors.amberAccent : Colors.amber)
+                                  : (_isDarkMode ? Colors.greenAccent : Colors.green),
+                              width: isSubscribed ? 3.0 : 2.0,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: _isDarkMode
+                                    ? Colors.black.withOpacity(0.2)
+                                    : Colors.black.withOpacity(0.1),
+                                spreadRadius: 1,
+                                blurRadius: 4,
+                                offset: Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: ClipOval(
+                            child: CachedNetworkImage(
+                              imageUrl: 'https://kelibu.net/storage/${userProvider.avatar}',
+                              fit: BoxFit.cover,
+                              placeholder: (context, url) => LogoLoadingIndicator(),
+                              errorWidget: (context, url, error) => FaIcon(
+                                FontAwesomeIcons.userCircle,
+                                size: 27.sp,
+                                color: _isDarkMode ? Colors.white70 : Colors.black54,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+            SizedBox(width: 14.w),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(height: 2.h),
+                Text(
+                  userProvider.username,
+                  style: GoogleFonts.raleway(
+                    fontSize: 18.sp,
+                    fontWeight: FontWeight.w600,
+                    color: _isDarkMode ? Colors.white : Colors.black87,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                SizedBox(height: 5.h),
+                if (isSubscribed)
+                  _buildSubscriptionBadge()
+                else
+                  _buildVipButton(),
+              ],
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildSubscriptionBadge() {
+    return Row(
+      children: [
+        Text(
+          "Kelibu",
+          style: TextStyle(
+            color: _isDarkMode ? Colors.white : Colors.black87,
+            fontWeight: FontWeight.bold,
+            fontSize: 14.sp,
+          ),
+        ),
+        SizedBox(width: 2.w),
+        Container(
+          padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 2.h),
+          decoration: BoxDecoration(
+            color: Colors.orange,
+            borderRadius: BorderRadius.circular(4.r),
+          ),
+          child: Text(
+            "PRO",
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 10.sp,
+            ),
+          ),
+        ),
+        SizedBox(width: 4.w),
+        GestureDetector(
+          onTap: () => _showProAdvantagesDialog(),
+          child: Icon(
+            FontAwesomeIcons.crown,
+            color: Colors.orange,
+            size: 16.sp,
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showProAdvantagesDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => KelibuProAdvantagesDialog(),
+    );
+  }
+
+  Widget _buildVipButton() {
+    return ElevatedButton(
+      onPressed: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => MarketPage()),
+        );
+      },
+      child: Text('Kelibu Prolu ol!'),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.amber,
+        foregroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20.r),
+        ),
+        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+      ),
+    );
+  }
+
+  Widget _buildActionButtons() {
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        double totalWidth = constraints.maxWidth * 0.8;
+        double maxIconSize = 70;
+        double minSpacing = 8;
+        double iconSize = (totalWidth - (4 * minSpacing)) / 5;
+        iconSize = iconSize > maxIconSize ? maxIconSize : iconSize;
+
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            _buildCompactIconButton(
+                icon: FontAwesomeIcons.cog,
+                color: Colors.blue,
+                onPressed: _openSettings,
+                size: iconSize),
+            _buildCompactIconButton(
+                icon: _isDarkMode ? FontAwesomeIcons.solidSun : FontAwesomeIcons.moon,
+                color: _isDarkMode ? Colors.orange : Colors.indigo,
+                onPressed: _toggleDarkMode,
+                size: iconSize),
+            _buildCompactIconButton(
+                icon: FontAwesomeIcons.playCircle,
+                color: Colors.green,
+                onPressed: _openVideoPlayer,
+                size: iconSize),
+            _buildCompactIconButton(
+                icon: FontAwesomeIcons.shareAlt,
+                color: Colors.purple,
+                onPressed: _shareApp,
+                size: iconSize),
+            _buildCompactIconButton(
+                icon: FontAwesomeIcons.search,
+                color: Colors.teal,
+                onPressed: _openSearchDialog,
+                size: iconSize),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildCompactIconButton(
+      {required IconData icon, required Color color, required VoidCallback onPressed, required double size}) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: color.withOpacity(0.1),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.2),
+            blurRadius: 6,
+            offset: Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          customBorder: CircleBorder(),
+          onTap: onPressed,
+          child: Center(
+            child: FaIcon(icon, size: size * 0.5, color: color),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openSettings() {
+    Navigator.of(context).push(MaterialPageRoute(builder: (context) => SettingsPage()));
+  }
+
+  void _toggleDarkMode() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _isDarkMode = !_isDarkMode;
+    });
+    await prefs.setBool('darkMode', _isDarkMode);
+  }
+
+  void _openVideoPlayer() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => VideoPlayerScreen(videoUrl: AppUrls.homescreen)),
+    );
+  }
+
+  void _shareApp() {
+    final String message = """
+🚀 Kelibu ile kelime haznenizi genişletin! 🧠💪
+
+Her gün yeni kelimeler öğrenin, eğlenceli quizler çözün ve dil becerilerinizi geliştirin. 📚✨
+
+📱 Kelibu'yu hemen indirin ve kelime dünyasına dalın! 🌊
+
+🍎 iOS kullanıcıları için: 
+   Elmanızı bilgiyle parlatın! 🍏✨
+   https://apps.apple.com/tr/app/kelibu/id6484268631
+
+🤖 Android severler için:
+   Robotunuzu kelimelerle programlayın! 🦾📚
+   https://play.google.com/store/apps/details?id=com.phdakademi.kelibu
+
+💻 Web'de takılanlar için:
+   Tarayıcınızı bir kelime makinesine dönüştürün! 🕸️📖
+   Kelibu.net
+
+Hadi, birlikte öğrenelim ve büyüyelim! 🌟🎉
+Kelime öğrenmenin tadını Kelibu ile çıkarın! 🍭📗
+    """;
+
+    Share.share(message, subject: 'Kelibu - Eğlenceli Kelime Öğrenme Macerası!');
+  }
+
+  void _openSearchDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return SearchDialog(isDarkMode: _isDarkMode);
+      },
+    );
+  }
+
+  Widget _buildStreakWidget(UserProvider userProvider) {
+    return StreakWidget(
+      isDarkMode: _isDarkMode,
+      streakCount: userProvider.streakCount,
+      dailyRank: userProvider.dailyRank,
+      monthlyRank: userProvider.monthlyRank,
+      weeklyRank: userProvider.weeklyRank,
+      allTimeRank: userProvider.allTimeRank,
+    );
+  }
+
+  Widget _buildLearningPanel() {
+    return LearningPanel(
+      isDarkMode: _isDarkMode,
+      onWordSetsTap: _expandWordSets,
+      onWordOfDayTap: _showWordOfDayDialog,
+      onDictionaryTap: _openSearchDialog,
+    );
+  }
+
+  Widget _buildSocialMediaInfo() {
+    return Container(
+      padding: EdgeInsets.all(16.sp),
+      decoration: BoxDecoration(
+        color: _getSocialMediaInfoColor(),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: _getShadowColor(),
+            spreadRadius: 2,
+            blurRadius: 10,
+            offset: Offset(0, 3),
+          ),
+        ],
+      ),
+      child: CompactDuolingoStyleSocialPanel(isDarkMode: _isDarkMode),
+    );
+  }
+
+  Widget _buildExpandedWordSets() {
+    return AnimatedContainer(
+      duration: Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+      height: MediaQuery.of(context).size.height * 0.9,
+      decoration: BoxDecoration(
+        color: _isDarkMode ? Color(0xFF1F1F1F) : Colors.white,
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(30),
+          topRight: Radius.circular(30),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 10,
+            spreadRadius: 0,
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          _buildDraggableHeader(),
+          _buildWordSetsHeader(),
+          Expanded(
+            child: _buildWordSetsList(),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildDraggableHeader() {
     return GestureDetector(
       onVerticalDragUpdate: (details) {
@@ -689,6 +1755,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+
   Widget _buildWordSetsHeader() {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 20, vertical: 15),
@@ -707,66 +1774,75 @@ class _HomeScreenState extends State<HomeScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              TweenAnimationBuilder<double>(
-                tween: Tween(begin: 0, end: 1),
-                duration: Duration(milliseconds: 500),
-                builder: (context, value, child) {
-                  return Opacity(
-                    opacity: value,
-                    child: Transform.translate(
-                      offset: Offset(-20 * (1 - value), 0),
-                      child: child,
-                    ),
-                  );
-                },
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.auto_awesome,
-                      color: Color(0xFF58CC02),
-                      size: 28,
-                    ),
-                    SizedBox(width: 10),
-                    Text(
-                      "Kelime Setleriniz",
-                      style: GoogleFonts.nunito(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: _isDarkMode ? Colors.white : Color(0xFF3C3C3C),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              _buildWordSetsTitle(),
               _buildCloseButton(),
             ],
           ),
           SizedBox(height: 10),
-          TweenAnimationBuilder<double>(
-            tween: Tween(begin: 0, end: 1),
-            duration: Duration(milliseconds: 500),
-            builder: (context, value, child) {
-              return Opacity(
-                opacity: value,
-                child: Transform.translate(
-                  offset: Offset(0, 20 * (1 - value)),
-                  child: child,
-                ),
-              );
-            },
-            child: Text(
-              "Öğrenmeye hazır mısınız? Hadi başlayalım!",
-              style: GoogleFonts.nunito(
-                fontSize: 16,
-                color: _isDarkMode ? Colors.grey[400] : Colors.grey[600],
-                fontStyle: FontStyle.italic,
-              ),
+          _buildWordSetsSubtitle(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWordSetsTitle() {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: Duration(milliseconds: 500),
+      builder: (context, value, child) {
+        return Opacity(
+          opacity: value,
+          child: Transform.translate(
+            offset: Offset(-20 * (1 - value), 0),
+            child: child,
+          ),
+        );
+      },
+      child: Row(
+        children: [
+          Icon(
+            Icons.auto_awesome,
+            color: Color(0xFF58CC02),
+            size: 28,
+          ),
+          SizedBox(width: 10),
+          Text(
+            "Kelime Setleriniz",
+            style: GoogleFonts.nunito(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: _isDarkMode ? Colors.white : Color(0xFF3C3C3C),
             ),
           ),
         ],
       ),
     );
   }
+
+  Widget _buildWordSetsSubtitle() {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: Duration(milliseconds: 500),
+      builder: (context, value, child) {
+        return Opacity(
+          opacity: value,
+          child: Transform.translate(
+            offset: Offset(0, 20 * (1 - value)),
+            child: child,
+          ),
+        );
+      },
+      child: Text(
+        "Öğrenmeye hazır mısınız? Hadi başlayalım!",
+        style: GoogleFonts.nunito(
+          fontSize: 16,
+          color: _isDarkMode ? Colors.grey[400] : Colors.grey[600],
+          fontStyle: FontStyle.italic,
+        ),
+      ),
+    );
+  }
+
   Widget _buildCloseButton() {
     return TweenAnimationBuilder(
       tween: Tween<double>(begin: 0, end: 1),
@@ -789,37 +1865,30 @@ class _HomeScreenState extends State<HomeScreen> {
         onPressed: () {
           setState(() {
             isExpanded = false;
-            _fetchData();
           });
         },
       ),
     );
   }
+
   Widget _buildWordSetsList() {
-    return Consumer<UserProvider>(
-      builder: (context, userProvider, child) {
-        return FutureBuilder<List<Package>>(
-          future: ApiService().fetchCategories(userProvider.userId),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return Center(child: LogoLoadingIndicator());
-            } else if (snapshot.hasError) {
-              return Center(child: Text("Hata: ${snapshot.error}"));
-            } else if (snapshot.hasData && snapshot.data!.isNotEmpty) {
-              return ListView.builder(
-                itemCount: snapshot.data!.length,
-                itemBuilder: (context, index) {
-                  return _buildWordSetItem(snapshot.data![index], index);
-                },
-              );
-            } else {
-              return _buildEmptyState();
-            }
-          },
-        );
-      },
-    );
+    print('packeage=');
+    print(_packages);
+    if (_packages == null) {
+      return Center(child: LogoLoadingIndicator());
+    } else if (_packages!.isEmpty) {
+      print('eöpty');
+      return _buildEmptyState();
+    } else {
+      return ListView.builder(
+        itemCount: _packages!.length,
+        itemBuilder: (context, index) {
+          return _buildWordSetItem(_packages![index], index);
+        },
+      );
+    }
   }
+
   Widget _buildWordSetItem(Package package, int index) {
     final List<Color> colors = [
       Color(0xFF58CC02),
@@ -838,13 +1907,13 @@ class _HomeScreenState extends State<HomeScreen> {
         return Transform.translate(
           offset: Offset(0, 50 * (1 - value)),
           child: Opacity(
-            opacity: value.clamp(0.0, 1.0), // Burayı değiştirdik
+            opacity: value.clamp(0.0, 1.0),
             child: child,
           ),
         );
       },
       child: GestureDetector(
-        onTap: () => _onListItemTap(context, package.classroom?.id ?? 0, package.classroom?.title ?? 'Varsayılan Başlık'),
+        onTap: () => _onListItemTap(package.classroom?.id ?? 0, package.classroom?.title ?? 'Varsayılan Başlık'),
         child: Container(
           margin: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
           decoration: BoxDecoration(
@@ -883,10 +1952,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                     SizedBox(height: 5),
-
                     SizedBox(height: 10),
                     LinearProgressIndicator(
-                      value: 0.7, // İlerleme durumunu buraya ekleyin
+                      value: 0.7, // Update with actual progress
                       backgroundColor: Colors.white.withOpacity(0.3),
                       valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                     ),
@@ -899,6 +1967,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+
   Widget _buildEmptyState() {
     return Center(
       child: Column(
@@ -930,7 +1999,8 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-  void _onListItemTap(BuildContext context, int categoryId, String categoryName) {
+
+  void _onListItemTap(int categoryId, String categoryName) {
     Navigator.of(context).push(MaterialPageRoute(
       builder: (context) => WordListScreen(
         categoryId: categoryId,
@@ -938,368 +2008,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     ));
   }
-  Widget _buildPromoBanner() {
-    return Container(
-      padding: EdgeInsets.symmetric(vertical: 10.h, horizontal: 16.w),
-      decoration: BoxDecoration(
-        color: Colors.green.shade100,
-        borderRadius: BorderRadius.circular(15),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            Icons.celebration,
-            color: _isDarkMode ? Colors.green[300] : Colors.green,
-            size: 24.sp,
-          ),
-          SizedBox(width: 10.w),
-          Expanded(
-            child: AutoSizeText(
-              promotionMessage, // API'den gelen veya önbellekteki mesaj burada gösterilecek
-              style: GoogleFonts.poppins(
-                color: _isDarkMode ? Colors.green[300] : Colors.green.shade800,
-                fontWeight: FontWeight.w600,
-                fontSize: 12.sp,
-              ),
-              maxLines: 2,
-              minFontSize: 12,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-  Widget _buildWebsiteLink() {
 
-    return Column(
-      children: [
-        Text(
-          "Daha fazlası ve güncel eğitimler için:",
-          style: GoogleFonts.poppins(
-            color: _isDarkMode ? Colors.grey.shade400 : Colors.grey.shade600,
-            fontWeight: FontWeight.w400,
-            fontSize: 8.sp,
-          ),
-        ),
-        SizedBox(height: 4.h),
-        ElevatedButton(
-          onPressed: () => _launchURL('https://phdakademi.com'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: _isDarkMode ? Colors.blue.shade800 : Colors.blue.shade600,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(30),
-            ),
-            padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 7.h),
-          ),
-          child: Text(
-            "phdakademi.com",
-            style: GoogleFonts.poppins(
-              color: Colors.white,
-              fontWeight: FontWeight.w500,
-              fontSize: 10.sp,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-  Widget _buildSocialMediaButton({
-    required String icon,
-    required String username,
-    required VoidCallback onTap,
-    required MaterialColor color,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: EdgeInsets.symmetric(vertical: 8.h, horizontal: 16.w),
-        decoration: BoxDecoration(
-          color: _isDarkMode ? color[900] : color[50],
-          borderRadius: BorderRadius.circular(30),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SvgPicture.asset(
-              icon,
-              width: 12.w,
-              height: 12.h,
-              color: _isDarkMode ? color[200] : color[700],
-            ),
-            SizedBox(width: 4.w),
-            Text(
-              username,
-              style: GoogleFonts.poppins(
-                color: _isDarkMode ? color[200] : color[700],
-                fontWeight: FontWeight.w500,
-                fontSize: 7.sp,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-  void _launchPhdAkademiInstagram() async {
-    const url = 'https://www.instagram.com/phd.akademi/';
-    if (await canLaunch(url)) {
-      await launch(url);
-    } else {
-      throw 'Could not launch $url';
-    }
-  }
-  void _launchInstagram() async {
-    const url = 'https://www.instagram.com/kelibunet/';
-    if (await canLaunch(url)) {
-      await launch(url);
-    } else {
-      print('Could not launch $url');
-      // Burada kullanıcıya bir hata mesajı gösterebilirsiniz
-    }
-  }
-  void _launchURL(String urlString) async {
-    final Uri url = Uri.parse(urlString);
-    if (await canLaunchUrl(url)) {
-      await launchUrl(url);
-    } else {
-      throw 'Could not launch $url';
-    }
-  }
-  Widget _buildUserInfoSection(UserProvider userProvider) {
-    final colors = _isDarkMode ? darkModeColors : lightModeColors;
-
-    return Container(
-      margin: EdgeInsets.all(12.sp),
-      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
-      decoration: BoxDecoration(
-        color: colors["background"],
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: colors["shadowColor"] ?? Colors.grey.withOpacity(0.5),
-            spreadRadius: 2,
-            blurRadius: 7,
-            offset: Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _buildAvatarWithName(context, userProvider), // Hem context hem de userProvider geçirin
-              PointsDisplay(points: 1111111,),
-            ],
-          ),
-          SizedBox(height: 3.h),
-          _buildActionButtons(),
-          SizedBox(height: 3.h),
-          PhdAkademiInfo(isDarkMode:_isDarkMode ,),
-        ],
-      ),
-    );
-  }
-
-
-  Widget _buildAvatarWithName(BuildContext context, UserProvider userProvider) {
-    return Consumer<SubscriptionProvider>(
-      builder: (context, subscriptionProvider, _) {
-        bool isSubscribed = subscriptionProvider.isVip;
-        return Row(
-          children: [
-            GestureDetector(
-              onTap: () => _showEnlargedAvatar(userProvider.avatar),
-              child: Hero(
-                tag: 'avatar',
-                child: Container(
-                  width: 50.w,
-                  height: 50.h,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: isSubscribed ? Colors.amber : Colors.green,
-                      width: isSubscribed ? 3.0 : 1.5,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        spreadRadius: 1,
-                        blurRadius: 3,
-                        offset: Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: ClipOval(
-                    child: CachedNetworkImage(
-                      imageUrl: 'https://kelibu.net/storage/${userProvider.avatar}',
-                      fit: BoxFit.cover,
-                      placeholder: (context, url) => LogoLoadingIndicator(),
-                      errorWidget: (context, url, error) => FaIcon(FontAwesomeIcons.userCircle, size: 25.sp),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            SizedBox(width: 12.w),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  userProvider.username,
-                  style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold, color: Colors.black87),
-                ),
-                SizedBox(height: 4.h),
-                if (isSubscribed)
-                  Row(
-                    children: [
-                      Text(
-                        "Kelibu",
-                        style: TextStyle(
-                          color: Colors.black87,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14.sp,
-                        ),
-                      ),
-                      SizedBox(width: 2.w),
-                      Container(
-                        padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 2.h),
-                        decoration: BoxDecoration(
-                          color: Colors.orange,
-                          borderRadius: BorderRadius.circular(4.r),
-                        ),
-                        child: Text(
-                          "PRO",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 10.sp,
-                          ),
-                        ),
-                      ),
-                    ],
-                  )
-                else
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => MarketPage()),
-                      );
-                    },
-                    child: Text('Hemen VIP ol!'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.amber,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20.r),
-                      ),
-                      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
-                    ),
-                  ),
-              ],
-            ),
-          ],
-        );
-      },
-    );
-  }  Widget _buildActionButtons() {
-    return LayoutBuilder(
-      builder: (BuildContext context, BoxConstraints constraints) {
-        double totalWidth = constraints.maxWidth * 0.8;
-        double maxIconSize = 70;
-        double minSpacing = 8;
-
-        double iconSize = (totalWidth - (4 * minSpacing)) / 5; // 5 ikon için ayarlandı
-        iconSize = iconSize > maxIconSize ? maxIconSize : iconSize;
-
-        return Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            _buildRoundedIconButton(FontAwesomeIcons.cog, Colors.blue, () {
-              Navigator.of(context).push(MaterialPageRoute(builder: (context) => SettingsPage()));
-            }, size: iconSize),
-            _buildRoundedIconButton(
-                _isDarkMode ? FontAwesomeIcons.moon : FontAwesomeIcons.sun,
-                _isDarkMode ? Colors.indigo : Colors.orange,
-                _toggleDarkMode,
-                size: iconSize
-            ),
-            _buildRoundedIconButton(FontAwesomeIcons.playCircle, Colors.green, () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => VideoPlayerScreen(videoUrl: AppUrls.homescreen)),
-              );
-            }, size: iconSize),
-            _buildRoundedIconButton(FontAwesomeIcons.shareAlt, Colors.purple, _shareApp, size: iconSize),
-            _buildRoundedIconButton(FontAwesomeIcons.search, Colors.teal, () {
-              showDialog(
-                context: context,
-                builder: (BuildContext context) {
-                  return SearchDialog(isDarkMode: _isDarkMode);
-                },
-              );
-            }, size: iconSize),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildRoundedIconButton(IconData icon, Color color, VoidCallback onPressed, {required double size}) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: color.withOpacity(0.1),
-        boxShadow: [
-          BoxShadow(
-            color: color.withOpacity(0.2),
-            blurRadius: 6,
-            offset: Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          customBorder: CircleBorder(),
-          onTap: onPressed,
-          child: Center(
-            child: FaIcon(icon, size: size * 0.5, color: color),
-          ),
-        ),
-      ),
-    );
-  }
-  void _shareApp() {
-    final String message = """
-🚀 Kelibu ile kelime haznenizi genişletin! 🧠💪
-
-Her gün yeni kelimeler öğrenin, eğlenceli quizler çözün ve dil becerilerinizi geliştirin. 📚✨
-
-📱 Kelibu'yu hemen indirin ve kelime dünyasına dalın! 🌊
-
-🍎 iOS kullanıcıları için: 
-   Elmanızı bilgiyle parlatın! 🍏✨
-   https://apps.apple.com/tr/app/kelibu/id6484268631
-
-🤖 Android severler için:
-   Robotunuzu kelimelerle programlayın! 🦾📚
-   https://play.google.com/store/apps/details?id=com.phdakademi.kelibu
-
-💻 Web'de takılanlar için:
-   Tarayıcınızı bir kelime makinesine dönüştürün! 🕸️📖
-   Kelibu.net
-
-Hadi, birlikte öğrenelim ve büyüyelim! 🌟🎉
-Kelime öğrenmenin tadını Kelibu ile çıkarın! 🍭📗
-  """;
-
-    Share.share(message, subject: 'Kelibu - Eğlenceli Kelime Öğrenme Macerası!');
-  }
   void _showEnlargedAvatar(String avatarUrl) {
     showDialog(
       context: context,
@@ -1319,61 +2028,41 @@ Kelime öğrenmenin tadını Kelibu ile çıkarın! 🍭📗
       },
     );
   }
-  void _toggleDarkMode() async {
-    final prefs = await SharedPreferences.getInstance();
-    final isDarkMode = prefs.getBool('darkMode') ?? false;
 
+  void _expandWordSets() {
     setState(() {
-      _isDarkMode = !isDarkMode;
+      isExpanded = true;
     });
-
-    await prefs.setBool('darkMode', _isDarkMode);
   }
-  Widget buildWordOfTheDayButton() {
-    return GestureDetector(
-      onTap: () {
-        showDialog(
-          context: context,
-          builder: (BuildContext context) {
-            return WordOfTheDayDialog(
-              isDarkMode: _isDarkMode,
-              onSpeak: speak,
-            );
-          },
+
+  void _showWordOfDayDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return WordOfTheDayDialog(
+          isDarkMode: _isDarkMode,
+          onSpeak: speak,
         );
       },
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 10.h),
-        decoration: BoxDecoration(
-          color: Colors.green,
-          borderRadius: BorderRadius.circular(30),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.2),
-              blurRadius: 5,
-              offset: Offset(0, 3),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.lightbulb, color: Colors.white, size: 24.sp),
-            SizedBox(width: 2.w),
-            Text(
-              "Günün Kelimesi",
-              style: GoogleFonts.nunito(
-                color: Colors.white,
-                fontSize: 18.sp,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
+
+  Color _getBackgroundColor() {
+    final colors = _isDarkMode ? darkModeColors : lightModeColors;
+    return colors["background"] ?? Colors.white;
+  }
+
+  Color _getSocialMediaInfoColor() {
+    return _isDarkMode ? Colors.grey[850]! : Colors.white;
+  }
+
+  Color _getShadowColor() {
+    return _isDarkMode
+        ? Colors.black.withOpacity(0.3)
+        : Colors.grey.withOpacity(0.3);
+  }
 }
+
 class PackageListWidget extends StatelessWidget {
   final Future<List<Package>> packagesFuture;
 
@@ -1784,11 +2473,6 @@ class _SearchDialogState extends State<SearchDialog> {
 
       if (detailedWords.isNotEmpty) {
         WordDetail detailedWord = detailedWords.first;
-        print("Detailed word loaded:");
-        print("Synonyms: ${detailedWord.synonyms.length}");
-        print("Collocations: ${detailedWord.collocations.length}");
-        print("Derivations: ${detailedWord.derivations.length}");
-
         Navigator.of(context).pop(); // Loading dialog'u kapat
 
         Navigator.of(context).push(MaterialPageRoute(
@@ -1803,7 +2487,6 @@ class _SearchDialogState extends State<SearchDialog> {
         throw Exception('Detaylı kelime bilgisi bulunamadı.');
       }
     } catch (e) {
-      print("Error loading word details: $e");
       Navigator.of(context).pop(); // Loading dialog'u kapat
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Kelime detayları yüklenirken bir hata oluştu.')),
@@ -2406,4 +3089,174 @@ class ActionButtons extends StatelessWidget {
       ),
     );
   }
+}
+
+
+class EnhancedLoadingIndicator extends StatelessWidget {
+  final String message;
+
+  const EnhancedLoadingIndicator({
+    Key? key,
+    this.message = "Sistemde gerekli ayarlar yapılıyor... Uygulamızı sizin için en iyi hale getiriyoruz. Merak etmeyin, uzun sürmeyecek.",
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.0)),
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SpinKitFoldingCube(
+              color: Theme.of(context).primaryColor,
+              size: 50.0,
+            ),
+            SizedBox(height: 24.0),
+            Text(
+              message,
+              style: GoogleFonts.nunito(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 16.0),
+            LinearProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).primaryColor),
+              backgroundColor: Colors.grey[200],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+void showLoadingIndicator(BuildContext context) {
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (BuildContext context) {
+      return WillPopScope(
+        onWillPop: () async => false,
+        child: EnhancedLoadingIndicator(),
+      );
+    },
+  );
+}
+class MarqueeWidget extends StatefulWidget {
+  final Widget child;
+  final Axis direction;
+  final Duration animationDuration, backDuration, pauseDuration;
+
+  MarqueeWidget({
+    required this.child,
+    this.direction = Axis.horizontal,
+    this.animationDuration = const Duration(milliseconds: 3000),
+    this.backDuration = const Duration(milliseconds: 800),
+    this.pauseDuration = const Duration(milliseconds: 800),
+  });
+
+  @override
+  _MarqueeWidgetState createState() => _MarqueeWidgetState();
+}
+
+class _MarqueeWidgetState extends State<MarqueeWidget> {
+  ScrollController? scrollController;
+
+  @override
+  void initState() {
+    scrollController = ScrollController(initialScrollOffset: 50.0);
+    WidgetsBinding.instance.addPostFrameCallback(scroll);
+    super.initState();
+  }
+
+  @override
+  void dispose() {
+    scrollController?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      child: widget.child,
+      scrollDirection: widget.direction,
+      controller: scrollController,
+    );
+  }
+
+  void scroll(_) async {
+    while (scrollController!.hasClients) {
+      await Future.delayed(widget.pauseDuration);
+      if (scrollController!.hasClients) {
+        await scrollController!.animateTo(
+          scrollController!.position.maxScrollExtent,
+          duration: widget.animationDuration,
+          curve: Curves.ease,
+        );
+      }
+      await Future.delayed(widget.pauseDuration);
+      if (scrollController!.hasClients) {
+        await scrollController!.animateTo(
+          0.0,
+          duration: widget.backDuration,
+          curve: Curves.easeOut,
+        );
+      }
+    }
+  }
+}
+
+
+Widget buildCompactIconButton({
+  required IconData icon,
+  required Color color,
+  required VoidCallback onPressed,
+  required double size,
+  String? text,
+}) {
+  return Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: color,
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            customBorder: CircleBorder(),
+            onTap: onPressed,
+            child: Center(
+              child: FaIcon(
+                icon,
+                size: size * 0.6,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ),
+      ),
+      if (text != null)
+        Padding(
+          padding: EdgeInsets.only(top: 4),
+          child: Text(
+            text,
+            style: TextStyle(
+              color: color,
+              fontWeight: FontWeight.bold,
+              fontSize: size * 0.25,
+            ),
+          ),
+        ),
+    ],
+  );
 }

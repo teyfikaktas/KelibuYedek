@@ -145,8 +145,8 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> with SingleTicker
       setState(() {
         _isLoading = false;
       });
-
-      if (response.statusCode == 201) {
+      print(response.statusCode );
+      if (response.statusCode == 200) {
         final responseData = json.decode(response.body);
         if (responseData.containsKey('user')) {
           final userData = responseData['user'];
@@ -183,23 +183,24 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> with SingleTicker
             MaterialPageRoute(builder: (context) => MainScreen()),
                 (Route<dynamic> route) => false,
           );
-        } else {
+        }
+        else {
           showCustomDialog(context, 'Hata', 'Doğrulama başarısız oldu. Lütfen tekrar deneyin.');
         }
       } else {
         final responseBody = response.body;
         try {
           final errorBody = json.decode(responseBody);
-          showCustomDialog(context, 'Hata', 'Doğrulama işlemi başarısız. Durum Kodu: ${response.statusCode}, Hata: ${errorBody['error']}');
+          showCustomDialog(context, 'Hata', ' Hata: ${errorBody['message']}');
         } catch (e) {
-          showCustomDialog(context, 'Hata', 'Doğrulama işlemi başarısız. Durum Kodu: ${response.statusCode}, Yanıt: $responseBody');
+          showCustomDialog(context, 'Hata', 'Yanıt: $responseBody');
         }
       }
     } catch (e) {
       setState(() {
         _isLoading = false;
       });
-      showCustomDialog(context, 'Hata', 'Doğrulama işlemi sırasında bir hata oluştu. Lütfen tekrar deneyin.');
+      showCustomDialog(context, 'Hata', 'Doğrulama işlemi sırasında bir hata oluştu: $e');
     }
   }
 

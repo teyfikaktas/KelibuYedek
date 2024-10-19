@@ -17,6 +17,7 @@
 		97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FD1CF9000F007C117D /* Assets.xcassets */; };
 		97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */; };
 		C4B85E7C9535EC992AFD52ED /* Pods_Runner.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4BE030E27D4D2EA8AC6C004E /* Pods_Runner.framework */; };
+		EE29E6492CBC57270061A124 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EE29E6482CBC57270061A124 /* StoreKit.framework */; };
 		EE7E0E722BC6A447005F029A /* Storyboard.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = EE7E0E712BC6A447005F029A /* Storyboard.storyboard */; };
 /* End PBXBuildFile section */
 
@@ -67,6 +68,7 @@
 		A952A4F20E88326B6D33BB2C /* Pods-Runner.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.debug.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.debug.xcconfig"; sourceTree = "<group>"; };
 		B3799B2D69365001C6E257AE /* GoogleService-Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; name = "GoogleService-Info.plist"; path = "Runner/GoogleService-Info.plist"; sourceTree = "<group>"; };
 		E8F2115229EED25F43F6686E /* Pods-RunnerTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.debug.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.debug.xcconfig"; sourceTree = "<group>"; };
+		EE29E6482CBC57270061A124 /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
 		EE7E0E712BC6A447005F029A /* Storyboard.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = Storyboard.storyboard; sourceTree = "<group>"; };
 		EF1D2D166007C96269146F0E /* Pods-Runner.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.release.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -85,6 +87,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				C4B85E7C9535EC992AFD52ED /* Pods_Runner.framework in Frameworks */,
+				EE29E6492CBC57270061A124 /* StoreKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -115,6 +118,7 @@
 		8D16E3A572FE6A22EA0B83E0 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				EE29E6482CBC57270061A124 /* StoreKit.framework */,
 				4BE030E27D4D2EA8AC6C004E /* Pods_Runner.framework */,
 				4B909BB13C35A1C10EFDA1F9 /* Pods_RunnerTests.framework */,
 			);
@@ -204,6 +208,7 @@
 				9705A1C41CF9048500538489 /* Embed Frameworks */,
 				3B06AD1E1E4923F5004D2608 /* Thin Binary */,
 				8A13ED993E05F5E0097F81E8 /* [CP] Embed Pods Frameworks */,
+				4000ACF27319EDADA7A6FBD6 /* [CP] Copy Pods Resources */,
 			);
 			buildRules = (
 			);
@@ -314,6 +319,23 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "/bin/sh \"$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh\" embed_and_thin";
+		};
+		4000ACF27319EDADA7A6FBD6 /* [CP] Copy Pods Resources */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-resources-${CONFIGURATION}-input-files.xcfilelist",
+			);
+			name = "[CP] Copy Pods Resources";
+			outputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-resources-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-resources.sh\"\n";
+			showEnvVarsInLog = 0;
 		};
 		4F5ACAD1D06A688C1F9E61C6 /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;

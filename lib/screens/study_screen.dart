@@ -5,6 +5,7 @@ import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:kelibu/Models/wordDetaik.dart'; // WordDetail modelinizin importu
 import 'package:kelibu/api.dart';
 import 'package:kelibu/screens/flash_card.dart'; // FlashCardScreen sayfasının importu
@@ -95,12 +96,12 @@ class _ScoreDisplayState extends State<ScoreDisplay> with TickerProviderStateMix
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Image.asset(
-                'assets/point.png',
+              SvgPicture.asset(
+                'assets/trophy.svg',
                 width: 40,
                 height: 40,
               ),
-              const SizedBox(width: 2),
+              const SizedBox(width: 8),
               ValueListenableBuilder<int>(
                 valueListenable: widget.userPointsNotifier,
                 builder: (context, value, child) {
@@ -119,8 +120,7 @@ class _ScoreDisplayState extends State<ScoreDisplay> with TickerProviderStateMix
         );
       },
     );
-  }
-}
+  }}
 class CustomLoadingIndicator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {

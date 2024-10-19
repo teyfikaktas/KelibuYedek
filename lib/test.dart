@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
+import 'package:kelibu/api.dart';
+import 'package:kelibu/shared_preferences/shared_preferences.dart';
+
 void main() {
   runApp(const MyApp());
 }
@@ -40,6 +43,7 @@ class _MyHomePageState extends State<MyHomePage> {
   bool _passwordVisible = false;
 
   void _logout() {
+    StarredWordsService().clearCache();
     setState(() {
       _isLoggedIn = false;
       _username = '';

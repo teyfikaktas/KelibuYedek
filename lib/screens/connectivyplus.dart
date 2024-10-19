@@ -1,37 +1,49 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 
-class ConnectivityService extends ChangeNotifier {
-  final Connectivity _connectivity = Connectivity();
-  late StreamSubscription<ConnectivityResult> _connectivitySubscription;
-  bool _isConnected = true;
+class ConnectivityService extends ChangeNotifier with WidgetsBindingObserver {
+  bool isConnected = true;
 
   ConnectivityService() {
+    // Mevcut bağlantı dinleyicinizi burada başlatıyorsunuz
+    WidgetsBinding.instance.addObserver(this);
     _initConnectivity();
-    _connectivitySubscription =
-        _connectivity.onConnectivityChanged.listen(_updateConnectionStatus);
   }
 
-  bool get isConnected => _isConnected;
-
-  Future<void> _initConnectivity() async {
-    try {
-      var result = await _connectivity.checkConnectivity();
-      _updateConnectionStatus(result);
-    } catch (e) {
-      print("Connectivity check failed: $e");
-    }
-  }
-
-  void _updateConnectionStatus(ConnectivityResult result) {
-    _isConnected = (result != ConnectivityResult.none);
-    notifyListeners();
+  void _initConnectivity() {
+    // Uygulama ilk açıldığında internet bağlantısını kontrol edin
+    _checkConnectivity();
   }
 
   @override
   void dispose() {
-    _connectivitySubscription.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Uygulama ön plana geldiğinde internet bağlantısını kontrol edin
+      _checkConnectivity();
+    }
+  }
+
+  void _checkConnectivity() async {
+    // Burada internet bağlantısını kontrol edin ve isConnected değişkenini güncelleyin
+    // Örnek:
+    try {
+      final result = await InternetAddress.lookup('example.com');
+      if (result.isNotEmpty && result[0].rawAddress.isNotEmpty) {
+        isConnected = true;
+      } else {
+        isConnected = false;
+      }
+    } on SocketException catch (_) {
+      isConnected = false;
+    }
+    notifyListeners();
   }
 }

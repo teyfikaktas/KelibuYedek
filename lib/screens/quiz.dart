@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:kelibu/Models/wordDetaik.dart';
 import 'dart:math';
 import 'dart:async';
@@ -101,12 +102,12 @@ class _ScoreDisplayState extends State<ScoreDisplay> with TickerProviderStateMix
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Image.asset(
-                'assets/point.png',
+              SvgPicture.asset(
+                'assets/trophy.svg',
                 width: 40,
                 height: 40,
               ),
-              const SizedBox(width: 2),
+              const SizedBox(width: 8),
               ValueListenableBuilder<int>(
                 valueListenable: widget.userPointsNotifier,
                 builder: (context, value, child) {
@@ -125,8 +126,8 @@ class _ScoreDisplayState extends State<ScoreDisplay> with TickerProviderStateMix
         );
       },
     );
-  }
-}
+  }}
+
 class ExampleSentenceContent extends StatelessWidget {
   final QuizQuestion question;
   final Function(String) onListen;
@@ -783,6 +784,9 @@ class _QuizScreenState extends State<QuizScreen> {
   bool isStarredMode = false;
 
   ValueNotifier<bool> get isStarredNotifier {
+    if (questions.isEmpty) {
+      return ValueNotifier(false);
+    }
     int questionId = questions[currentQuestionIndex].id;
     return starredNotifiers[questionId] ?? ValueNotifier(false);
   }
@@ -904,11 +908,15 @@ class _QuizScreenState extends State<QuizScreen> {
     var sortedWords = List<WordDetail>.from(widget.words)..shuffle();
     var generatedQuestions = await generateQuizQuestions(sortedWords, isTurkish);
 
-    setState(() {
-      questions = generatedQuestions;
-      currentQuestionIndex = 0;
-      _pageController.jumpToPage(0);
-    });
+    if (mounted) {
+      setState(() {
+        questions = generatedQuestions;
+        currentQuestionIndex = 0;
+        if (_pageController.hasClients) {
+          _pageController.jumpToPage(0);
+        }
+      });
+    }
   }
   Future<void> _updateUserScore(int newScore) async {
     try {
@@ -1757,11 +1765,16 @@ class _QuizScreenState extends State<QuizScreen> {
 
     if (questions.isEmpty) {
       return Scaffold(
-        backgroundColor: const Color(0xFFFEFAF6),
-        body: Center(child: CircularProgressIndicator()),
+        backgroundColor: colors["background"],
+        appBar: AppBar(
+          title: Text('Öğren Modu'),
+          backgroundColor: colors["buttonBackground"],
+        ),
+        body: _buildWarningWidget(),
       );
     }
-    if (hasEnoughWords()) {
+
+    if (!hasEnoughWords()) {
       return Scaffold(
         backgroundColor: colors["background"],
         appBar: AppBar(
@@ -1773,7 +1786,6 @@ class _QuizScreenState extends State<QuizScreen> {
         ),
       );
     }
-
     return Scaffold(
       backgroundColor: colors["background"],
       floatingActionButton: _buildJokerButton(),
@@ -1874,7 +1886,7 @@ class _QuizScreenState extends State<QuizScreen> {
     );
   }
   bool hasEnoughWords() {
-    return questions.length <5;
+    return questions.length >= 5;
   }
   Widget _buildWarningWidget() {
     return Container(
@@ -1909,25 +1921,11 @@ class _QuizScreenState extends State<QuizScreen> {
           ),
           SizedBox(height: 10),
           Text(
-            'Öğren modundan en yüksek verimi almanız için en az 4 yıldızlı kelime gerekiyor. Haydi, biraz daha kelime ekleyelim!',
+            'Öğren modundan en yüksek verimi almanız için en az 5 yıldızlı kelime gerekiyor. Haydi, biraz daha kelime yıldızlayalım!',
             textAlign: TextAlign.center,
             style: GoogleFonts.poppins(
               fontSize: 16,
               color: Colors.amber[900],
-            ),
-          ),
-          SizedBox(height: 20),
-          ElevatedButton(
-            child: Text('Kelime Ekle'),
-            onPressed: () {
-              // Kelime ekleme sayfasına yönlendirme
-            },
-            style: ElevatedButton.styleFrom(
-              foregroundColor: Colors.white, backgroundColor: Colors.amber[700],
-              padding: EdgeInsets.symmetric(horizontal: 30, vertical: 15),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(30),
-              ),
             ),
           ),
         ],
@@ -2081,11 +2079,21 @@ Future<List<QuizQuestion>> generateQuizQuestions(List<WordDetail> words, ValueNo
   var random = Random();
   var questions = <QuizQuestion>[];
 
+  if (words.length < 4) {
+    // Yeterli kelime yoksa boş liste dön
+    return questions;
+  }
+
   for (var word in words) {
     Set<String> options = isLanguageTurkish.value ? {word.meaning} : {word.word};
-    while (options.length < 4) {
+    while (options.length < 4 && options.length < words.length) {
       var randomWord = words[random.nextInt(words.length)];
       options.add(isLanguageTurkish.value ? randomWord.meaning : randomWord.word);
+    }
+
+    if (options.length < 4) {
+      // Yeterli şık oluşturulamadıysa bu soruyu atla
+      continue;
     }
 
     var shuffledOptions = options.toList()..shuffle();
@@ -2104,7 +2112,6 @@ Future<List<QuizQuestion>> generateQuizQuestions(List<WordDetail> words, ValueNo
 
   return questions;
 }
-
 class QuizResultsScreen extends StatefulWidget {
   final List<QuizQuestion> questions;
 

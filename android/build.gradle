@@ -1,15 +1,18 @@
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
 buildscript {
-    ext.kotlin_version = '1.9.10' // 2.0.0 yerine daha kararlı bir sürüm
+    ext {
+        agp_version = '8.4.1'
+        kotlin_version = '1.9.20'
+    }
     repositories {
         google()
         mavenCentral()
     }
-
     dependencies {
+        classpath "com.android.tools.build:gradle:$agp_version"
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
-        classpath 'com.android.tools.build:gradle:8.1.0'
-
-
+        // Bu sürümü 8.6 ile uyumlu olacak şekilde güncelleyin
     }
 }
 
@@ -20,14 +23,33 @@ allprojects {
     }
 }
 
-rootProject.buildDir = '../build'
-subprojects {
-    project.buildDir = "${rootProject.buildDir}/${project.name}"
-}
-subprojects {
-    project.evaluationDependsOn(':app')
+subprojects { subproject ->
+    subproject.afterEvaluate {
+        if (subproject.hasProperty('android')) {
+            subproject.android {
+                compileOptions {
+                    sourceCompatibility JavaVersion.VERSION_17
+                    targetCompatibility JavaVersion.VERSION_17
+                }
+            }
+            subproject.tasks.withType(KotlinCompile).configureEach {
+                kotlinOptions {
+                    jvmTarget = "17"
+                }
+            }
+        }
+    }
 }
 
-tasks.register("clean", Delete) {
-    delete rootProject.buildDir
+tasks.register('updateBuildGradleFiles') {
+    doLast {
+        def buildFiles = project.rootProject.subprojects.buildFile + project.rootProject.buildFile
+        buildFiles.each { File buildFile ->
+            def text = buildFile.text
+            text = text.replaceAll(/compileSdkVersion\s+\d+/, 'compileSdkVersion 34')
+            text = text.replaceAll(/minSdkVersion\s+\d+/, 'minSdkVersion 21')
+            text = text.replaceAll(/targetSdkVersion\s+\d+/, 'targetSdkVersion 34')
+            buildFile.write(text)
+        }
+    }
 }

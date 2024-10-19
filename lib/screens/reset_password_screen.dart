@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:getwidget/getwidget.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'login_screen.dart';
@@ -19,7 +18,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final GlobalKey<FormState> _emailFormKey = GlobalKey<FormState>();
   bool _isDarkMode = false;
   bool _isLoading = false;
-  final storage = FlutterSecureStorage();
+  final FlutterSecureStorage storage = FlutterSecureStorage();
   List<String> _brainQuotes = [];
 
   @override
@@ -37,11 +36,16 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   }
 
   Future<void> _loadBrainQuotes() async {
-    String data = await DefaultAssetBundle.of(context).loadString('assets/brain.json');
-    List<dynamic> jsonResult = json.decode(data);
-    setState(() {
-      _brainQuotes = jsonResult.map((item) => item['quote'].toString()).toList();
-    });
+    try {
+      String data = await DefaultAssetBundle.of(context).loadString('assets/brain.json');
+      List<dynamic> jsonResult = json.decode(data);
+      setState(() {
+        _brainQuotes = jsonResult.map((item) => item['quote'].toString()).toList();
+      });
+    } catch (e) {
+      print('Brain quotes yüklenirken hata oluştu: $e');
+      // Hata durumunda gerekli önlemleri alabilirsiniz
+    }
   }
 
   String? validateEmail(String? value) {
@@ -74,22 +78,28 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         });
 
         final responseData = json.decode(response.body);
-        print(responseData);
+        print('API Response: $responseData');
+
         if (response.statusCode == 200) {
-          showCustomDialog(context, 'Başarılı', 'Yeni şifre başarıyla gönderildi.');
+          // Dialog'u göstermek ve tamamlanmasını beklemek için await kullanıyoruz
+          await showCustomDialog(context, 'Başarılı', 'Yeni şifre E-posta adresinize başarıyla gönderildi. E-posta istenmeyen klasörüne düşebilir. Kontrol etmeyi unutmayın!');
+
+          // Tüm önceki sayfaları kaldırarak LoginScreen'e yönlendirme
           Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(builder: (context) => LoginScreen()),
                 (Route<dynamic> route) => false,
           );
         } else {
-          showCustomDialog(context, 'Hata', responseData['message'] ?? 'Bilinmeyen bir hata oluştu.');
+          // Hata durumunda dialog gösterme
+          await showCustomDialog(context, 'Hata', responseData['message'] ?? 'Bilinmeyen bir hata oluştu.');
         }
       } catch (e) {
         setState(() {
           _isLoading = false;
         });
-        showCustomDialog(
+        // Bağlantı hatası gibi durumlarda dialog gösterme
+        await showCustomDialog(
           context,
           'Hata',
           'Bağlantı hatası: Lütfen internet bağlantınızı kontrol edin ve tekrar deneyin.\n\nHata detayı: ${e.toString()}',
@@ -229,7 +239,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               // Giriş Yap Linki
               TextButton(
                 onPressed: () {
-                  Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => LoginScreen()));
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(builder: (context) => LoginScreen()),
+                        (Route<dynamic> route) => false,
+                  );
                 },
                 child: Text(
                   'Hesabın var mı? Giriş Yap',

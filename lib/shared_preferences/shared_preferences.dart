@@ -26,10 +26,14 @@ class StarredWordsService {
     final starredWordsSet = await _getStarredWords(key);
     final userID = userProviderGlobal!.userId;
 
+    print("Toggling star status for wordId: $wordId, isStarred: $isStarred");
+
     await Future.wait([
       ApiService().starWord(wordId, classroomId, studySetId, userID),
       _updateStarredWords(key, starredWordsSet, wordId, isStarred),
     ]);
+
+    print("After toggle - Starred words for $key: ${await _getStarredWords(key)}");
 
     appEventBus.fire(StarredWordsChangedEvent(starredWordsSet.length));
   }
@@ -44,6 +48,7 @@ class StarredWordsService {
         .map((key) => _removeWordFromSet(key, wordId));
 
     await Future.wait(futures);
+    print("Removed wordId $wordId from all sets");
   }
 
   Future<void> removeWordFromAllById(int wordId) async {
@@ -70,6 +75,7 @@ class StarredWordsService {
       allStarredWords.addAll(starredWords);
     }
 
+    print("Loaded ${allStarredWords.length} starred words for classroom $classroomId");
     return allStarredWords;
   }
 
@@ -83,7 +89,7 @@ class StarredWordsService {
         allStarredWords.addAll(starredWords);
       }
     }
-
+    print("Total starred words: ${allStarredWords.length}");
     return allStarredWords;
   }
 
@@ -91,6 +97,7 @@ class StarredWordsService {
     await ensureInitialized();
     final allKeys = _prefs!.getKeys();
 
+    print("All SharedPreferences keys and values:");
     for (String key in allKeys) {
       var value = _prefs!.get(key);
       print('$key: $value');
@@ -98,11 +105,20 @@ class StarredWordsService {
   }
 
   Future<Set<int>> _getStarredWords(String key) async {
+    print('Fetching starred words for key: $key');
     if (!_cache.containsKey(key)) {
       final List<String>? starredWordsStringList = _prefs!.getStringList(key);
       _cache[key] = starredWordsStringList?.map(int.parse).toSet() ?? {};
+      print('Loaded from SharedPreferences: ${_cache[key]}');
+    } else {
+      print('Loaded from cache: ${_cache[key]}');
     }
     return _cache[key]!;
+  }
+
+  Future<void> clearCache() async {
+    _cache.clear();
+    print('Cache cleared');
   }
 
   Future<void> _updateStarredWords(String key, Set<int> starredWords, int wordId, bool isStarred) async {
@@ -113,6 +129,7 @@ class StarredWordsService {
     }
     _cache[key] = starredWords;
     await _prefs!.setStringList(key, starredWords.map((id) => id.toString()).toList());
+    print("Updated starred words for $key: $starredWords");
   }
 
   Future<void> _removeWordFromSet(String key, int wordId) async {
@@ -120,6 +137,7 @@ class StarredWordsService {
     if (starredWords.remove(wordId)) {
       _cache[key] = starredWords;
       await _prefs!.setStringList(key, starredWords.map((id) => id.toString()).toList());
+      print("Removed wordId $wordId from $key");
     }
   }
 

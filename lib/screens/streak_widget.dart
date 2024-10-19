@@ -9,6 +9,7 @@ class StreakWidget extends StatelessWidget {
   final int? weeklyRank;
   final int? monthlyRank;
   final int? allTimeRank;
+  final bool isDarkMode;
 
   const StreakWidget({
     Key? key,
@@ -17,57 +18,71 @@ class StreakWidget extends StatelessWidget {
     this.weeklyRank,
     this.monthlyRank,
     this.allTimeRank,
+    required this.isDarkMode,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Container(
-        padding: EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Color(0xFFFFF9C4),
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              spreadRadius: 0,
-              blurRadius: 10,
-              offset: Offset(0, 4),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxWidth = constraints.maxWidth;
+        final isSmallScreen = maxWidth < 600;
+        final scaleFactor = maxWidth / 400; // Base scale on a 400px width
+
+        return Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: 16 * scaleFactor,
+            vertical: 12 * scaleFactor,
+          ),
+          child: Container(
+            padding: EdgeInsets.all(16 * scaleFactor),
+            decoration: BoxDecoration(
+              color: isDarkMode ? Color(0xFF2C2C2C) : Color(0xFFFFF9C4),
+              borderRadius: BorderRadius.circular(20 * scaleFactor),
+              boxShadow: [
+                BoxShadow(
+                  color: isDarkMode ? Colors.black : Colors.black.withOpacity(0.1),
+                  spreadRadius: 0,
+                  blurRadius: 10 * scaleFactor,
+                  offset: Offset(0, 4 * scaleFactor),
+                ),
+              ],
             ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildStreakDisplay(),  // Yeni eklenen metod
-            SizedBox(height: 12),
-            _buildTallyMarks(),
-            SizedBox(height: 12),
-            _buildRankings(),
-          ],
-        ),
-      ),
-    ).animate().fadeIn(duration: 400.ms).scale(duration: 400.ms, curve: Curves.elasticOut);
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildStreakDisplay(scaleFactor),
+                SizedBox(height: 10 * scaleFactor),
+                _buildTallyMarks(scaleFactor),
+                SizedBox(height: 10 * scaleFactor),
+                _buildRankings(scaleFactor, isSmallScreen),
+                SizedBox(height: 10 * scaleFactor),
+              ],
+            ),
+          ),
+        ).animate().fadeIn(duration: 400.ms).scale(duration: 400.ms, curve: Curves.elasticOut);
+      },
+    );
   }
 
-  Widget _buildStreakDisplay() {
+  Widget _buildStreakDisplay(double scaleFactor) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Text(
           "Seri: ",
           style: GoogleFonts.indieFlower(
-            fontSize: 24,
+            fontSize: 20 * scaleFactor,
             fontWeight: FontWeight.bold,
-            color: Colors.brown[800],
+            color: isDarkMode ? Colors.white70 : Colors.brown[800],
           ),
         ),
-        _buildYearMonthDayDisplay(),
+        _buildYearMonthDayDisplay(scaleFactor),
       ],
     ).animate().slideY(begin: -0.5, end: 0, duration: 500.ms, curve: Curves.elasticOut);
   }
-  Widget _buildYearMonthDayDisplay() {
+
+  Widget _buildYearMonthDayDisplay(double scaleFactor) {
     int years = streakCount ~/ 365;
     int months = (streakCount % 365) ~/ 30;
     int days = streakCount % 30;
@@ -75,36 +90,36 @@ class StreakWidget extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        if (years > 0) _buildTimeUnit(years, "Yıl", Colors.purple, HandDrawnYearPainter()),
-        if (years > 0 && (months > 0 || days > 0)) SizedBox(width: 4),
-        if (months > 0) _buildTimeUnit(months, "Ay", Colors.green[700]!, HandDrawnMonthPainter()),
-        if (months > 0 && days > 0) SizedBox(width: 4),
-        if (days > 0 || (years == 0 && months == 0)) _buildTimeUnit(days, "Gün", Colors.orange, HandDrawnDayPainter()),
+        if (years > 0) _buildTimeUnit(years, "Yıl", isDarkMode ? Colors.purpleAccent : Colors.purple, HandDrawnYearPainter(isDarkMode), scaleFactor),
+        if (years > 0 && (months > 0 || days > 0)) SizedBox(width: 4 * scaleFactor),
+        if (months > 0) _buildTimeUnit(months, "Ay", isDarkMode ? Colors.greenAccent[700]! : Colors.green[700]!, HandDrawnMonthPainter(isDarkMode), scaleFactor),
+        if (months > 0 && days > 0) SizedBox(width: 4 * scaleFactor),
+        if (days > 0 || (years == 0 && months == 0)) _buildTimeUnit(days, "Gün", isDarkMode ? Colors.orangeAccent : Colors.orange, HandDrawnDayPainter(isDarkMode), scaleFactor),
       ],
     );
   }
 
-  Widget _buildTimeUnit(int count, String unit, Color color, CustomPainter iconPainter) {
+  Widget _buildTimeUnit(int count, String unit, Color color, CustomPainter iconPainter, double scaleFactor) {
     return Row(
       children: [
         CustomPaint(
-          size: Size(20, 20),
+          size: Size(16 * scaleFactor, 16 * scaleFactor),
           painter: iconPainter,
         ),
-        SizedBox(width: 2),
+        SizedBox(width: 2 * scaleFactor),
         Text(
           '$count',
           style: GoogleFonts.indieFlower(
-            fontSize: 24,
+            fontSize: 20 * scaleFactor,
             fontWeight: FontWeight.bold,
             color: color,
           ),
         ),
-        SizedBox(width: 2),
+        SizedBox(width: 2 * scaleFactor),
         Text(
           unit,
           style: GoogleFonts.indieFlower(
-            fontSize: 18,
+            fontSize: 14 * scaleFactor,
             fontWeight: FontWeight.bold,
             color: color,
           ),
@@ -113,26 +128,26 @@ class StreakWidget extends StatelessWidget {
     ).animate().scale(duration: 300.ms, curve: Curves.elasticOut);
   }
 
-  Widget _buildTallyMarks() {
+  Widget _buildTallyMarks(double scaleFactor) {
     int remainingDays = streakCount % 30;
     int groupCount = (remainingDays / 5).ceil();
 
     return LayoutBuilder(
       builder: (context, constraints) {
         final maxWidth = constraints.maxWidth;
-        final baseSize = maxWidth / 12;
-        final size = max(15.0, min(baseSize, 30.0));
+        final baseSize = maxWidth / 15;
+        final size = max(12.0 * scaleFactor, min(baseSize, 24.0 * scaleFactor));
 
         return Wrap(
-          spacing: 4,
-          runSpacing: 4,
+          spacing: 4 * scaleFactor,
+          runSpacing: 4 * scaleFactor,
           alignment: WrapAlignment.center,
           children: List.generate(groupCount, (index) {
             int marksInGroup = index == groupCount - 1 ? remainingDays % 5 : 5;
             if (marksInGroup == 0) marksInGroup = 5;
             return CustomPaint(
               size: Size(size, size * 1.25),
-              painter: TallyMarksPainter(marksInGroup, (index + 1) % 7 == 0),
+              painter: TallyMarksPainter(marksInGroup, (index + 1) % 7 == 0, isDarkMode),
             ).animate(delay: (50 * index).ms).scale(duration: 300.ms, curve: Curves.elasticOut);
           }),
         );
@@ -140,97 +155,66 @@ class StreakWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildRankings() {
+  Widget _buildRankings(double scaleFactor, bool isSmallScreen) {
     return Column(
       children: [
         Text(
           "Sıralamalarımız",
           style: GoogleFonts.indieFlower(
-            fontSize: 18,
+            fontSize: 16 * scaleFactor,
             fontWeight: FontWeight.bold,
-            color: Colors.brown[800],
+            color: isDarkMode ? Colors.white70 : Colors.brown[800],
           ),
         ),
-        SizedBox(height: 4),
+        SizedBox(height: 4 * scaleFactor),
         Wrap(
-          spacing: 8,
-          runSpacing: 4,
+          spacing: 8 * scaleFactor,
+          runSpacing: 4 * scaleFactor,
           alignment: WrapAlignment.center,
           children: [
-            if (dailyRank != null) _buildRankingItem("Günlük", dailyRank!),
-            if (weeklyRank != null) _buildRankingItem("Haftalık", weeklyRank!),
-            if (monthlyRank != null) _buildRankingItem("Aylık", monthlyRank!),
-            if (allTimeRank != null) _buildRankingItem("Tüm Zaman", allTimeRank!),
+            if (dailyRank != null) _buildRankingItem("Günlük", dailyRank!, scaleFactor, isSmallScreen),
+            if (weeklyRank != null) _buildRankingItem("Haftalık", weeklyRank!, scaleFactor, isSmallScreen),
+            if (monthlyRank != null) _buildRankingItem("Aylık", monthlyRank!, scaleFactor, isSmallScreen),
+            if (allTimeRank != null) _buildRankingItem("Tüm Zaman", allTimeRank!, scaleFactor, isSmallScreen),
           ],
         ),
       ],
     );
   }
 
-  Widget _buildRankingItem(String label, dynamic rank) {
+  Widget _buildRankingItem(String label, dynamic rank, double scaleFactor, bool isSmallScreen) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      padding: EdgeInsets.symmetric(horizontal: 6 * scaleFactor, vertical: 2 * scaleFactor),
       decoration: BoxDecoration(
-        color: Colors.brown[100],
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.brown[300]!, width: 1),
+        color: isDarkMode ? Colors.grey[800] : Colors.brown[100],
+        borderRadius: BorderRadius.circular(6 * scaleFactor),
+        border: Border.all(color: isDarkMode ? Colors.grey[600]! : Colors.brown[300]!, width: 1 * scaleFactor),
       ),
       child: RichText(
         text: TextSpan(
-          style: GoogleFonts.indieFlower(fontSize: 14, color: Colors.brown[800]),
+          style: GoogleFonts.indieFlower(fontSize: (isSmallScreen ? 10 : 12) * scaleFactor, color: isDarkMode ? Colors.white70 : Colors.brown[800]),
           children: [
             TextSpan(text: "$label: ", style: TextStyle(fontWeight: FontWeight.bold)),
             TextSpan(
               text: rank == 'not_ranked' ? "Sıralamada Yok" : "#$rank",
-              style: GoogleFonts.permanentMarker(fontSize: 16),
+              style: GoogleFonts.permanentMarker(fontSize: (isSmallScreen ? 12 : 14) * scaleFactor),
             ),
           ],
         ),
       ),
     ).animate().slideX(begin: 0.3, end: 0, duration: 300.ms, curve: Curves.easeOut);
   }
-  Widget _buildMotivationalMessage() {
-    return Container(
-      padding: EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-      decoration: BoxDecoration(
-        color: Colors.brown[100],
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.brown[300]!, width: 1),
-      ),
-      child: Text(
-        _getRandomMotivationalMessage(),
-        textAlign: TextAlign.center,
-        style: GoogleFonts.comicNeue(
-          fontSize: 16,
-          fontWeight: FontWeight.w700,
-          color: Colors.brown[800],
-        ),
-      ),
-    ).animate().fadeIn(duration: 400.ms, delay: 400.ms).slideY(begin: 0.2, end: 0);
-  }
-
-  String _getRandomMotivationalMessage() {
-    final messages = [
-      "Harika gidiyorsun! Devam et!",
-      "Her gün yeni bir fırsat!",
-      "Başarı, tutarlılığın ödülüdür!",
-      "Kendini her gün biraz daha geliştiriyorsun!",
-      "Bu seriyi bozmak yok!",
-      "Öğrenme yolculuğunda emin adımlarla ilerliyorsun!",
-      "Bugün de hedefine bir adım daha yaklaştın!",
-      "Tutarlılığın gücünü hisset!",
-      "Her gün yeni bir kelime, yeni bir dünya!",
-      "Dil öğrenme serüveninde kararlılıkla ilerliyorsun!",
-    ];
-    return messages[Random().nextInt(messages.length)];
-  }
 }
 
 class HandDrawnYearPainter extends CustomPainter {
+  final bool isDarkMode;
+
+  HandDrawnYearPainter(this.isDarkMode);
+
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.purple
+      ..color = isDarkMode ? Colors.purpleAccent : Colors.purple
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5
       ..strokeCap = StrokeCap.round;
@@ -293,10 +277,14 @@ class HandDrawnYearPainter extends CustomPainter {
 }
 
 class HandDrawnMonthPainter extends CustomPainter {
+  final bool isDarkMode;
+
+  HandDrawnMonthPainter(this.isDarkMode);
+
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.green[700]!
+      ..color = isDarkMode ? Colors.greenAccent[700]! : Colors.green[700]!
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5
       ..strokeCap = StrokeCap.round;
@@ -316,10 +304,14 @@ class HandDrawnMonthPainter extends CustomPainter {
 }
 
 class HandDrawnDayPainter extends CustomPainter {
+  final bool isDarkMode;
+
+  HandDrawnDayPainter(this.isDarkMode);
+
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.orange
+      ..color = isDarkMode ? Colors.orangeAccent : Colors.orange
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5
       ..strokeCap = StrokeCap.round;
@@ -345,13 +337,14 @@ class HandDrawnDayPainter extends CustomPainter {
 class TallyMarksPainter extends CustomPainter {
   final int count;
   final bool isWeek;
+  final bool isDarkMode;
 
-  TallyMarksPainter(this.count, this.isWeek);
+  TallyMarksPainter(this.count, this.isWeek, this.isDarkMode);
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.brown[800]!
+      ..color = isDarkMode ? Colors.white70 : Colors.brown[800]!
       ..strokeWidth = 1.5
       ..strokeCap = StrokeCap.round;
 
@@ -377,7 +370,7 @@ class TallyMarksPainter extends CustomPainter {
       canvas.drawLine(
         Offset(size.width - spacing, 0),
         Offset(0, size.height),
-        paint..color = Colors.red,
+        paint..color = isDarkMode ? Colors.redAccent : Colors.red,
       );
     }
 

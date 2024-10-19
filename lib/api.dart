@@ -19,10 +19,9 @@ import 'auth/device_info.dart';
 // api_service.dart içinde en üst kısma ekleyin
 class ApiException implements Exception {
   final String message;
-  ApiException(this.message);
+  final Map<String, dynamic>? details;
 
-  @override
-  String toString() => message;
+  ApiException(this.message, {this.details});
 }
 
 class WordDataCache {
@@ -90,12 +89,9 @@ class ApiService {
   final DeviceService deviceService = DeviceService();
 
   Map<String, dynamic> _handleResponse(http.Response response) {
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      return json.decode(response.body);
-    } else {
-      throw Exception('API error: ${response.statusCode} - ${response.body}');
-    }
+    return json.decode(response.body);
   }
+
 
   Future<Map<String, String>> _getHeaders() async {
     String? accessToken = await storage.read(key: 'access_token');
@@ -114,54 +110,64 @@ class ApiService {
   }
 
   Future<bool> _isAccessTokenExpired() async {
-    String? expiresAtStr = await storage.read(key: 'expires_at');
-    if (expiresAtStr == null) return true;
+    try {
+      String? expiresAtStr = await storage.read(key: 'expires_at');
+      if (expiresAtStr == null) return true;
 
-    int expiresAtMillis = int.parse(expiresAtStr);
-    DateTime expiresAt = DateTime.fromMillisecondsSinceEpoch(expiresAtMillis);
-    return DateTime.now().isAfter(expiresAt);
+      int expiresAtMillis = int.parse(expiresAtStr);
+      DateTime expiresAt = DateTime.fromMillisecondsSinceEpoch(expiresAtMillis);
+      return DateTime.now().isAfter(expiresAt);
+    } catch (e) {
+      print('Hata oluştu: $e');
+      return true; // Hata durumunda token'ın süresi dolmuş kabul edilir
+    }
   }
 
   Future<bool> _refreshAccessToken() async {
-    print('refreshToken');
+    try {
+      print('refreshToken');
 
-    String? refreshToken = await storage.read(key: 'refresh_token');
-    String? deviceId = await deviceService.getDeviceId();
+      String? refreshToken = await storage.read(key: 'refresh_token');
+      String? deviceId = await deviceService.getDeviceId();
 
-    if (refreshToken == null || deviceId == null) {
-      return false;
-    }
-    final url = Uri.parse('$baseUrl/auth/refresh-token');
-    final headers = await _getHeaders();
+      if (refreshToken == null || deviceId == null) {
+        print('Refresh token veya device ID bulunamadı');
+        return false;
+      }
 
-    final response = await http.post(
-      url,
-      headers: headers,
-      body: jsonEncode({
-        'refresh_token': refreshToken,
-        'device_id': deviceId,
-      }),
-    );
-    print(response);
-    if (response.statusCode == 200) {
-      final data = _handleResponse(response);
-      await storage.write(key: 'access_token', value: data['access_token']);
-      await storage.write(key: 'refresh_token', value: data['refresh_token']);
-      await storage.write(key: 'expires_at', value: (DateTime.now().millisecondsSinceEpoch + data['expires_in'] * 1000).toString());
-      return true;
-    } else {
-      await logout();
+      final url = Uri.parse('$baseUrl/auth/refresh-token');
+      final headers = await _getHeaders();
+
+      final response = await http.post(
+        url,
+        headers: headers,
+        body: jsonEncode({
+          'refresh_token': refreshToken,
+          'device_id': deviceId,
+        }),
+      );
+      print(response);
+
+      if (response.statusCode == 200) {
+        final data = _handleResponse(response);
+        await storage.write(key: 'access_token', value: data['access_token']);
+        await storage.write(key: 'refresh_token', value: data['refresh_token']);
+        await storage.write(
+          key: 'expires_at',
+          value: (DateTime.now().millisecondsSinceEpoch + data['expires_in'] * 1000).toString(),
+        );
+        return true;
+      } else {
+        print('Token yenileme başarısız: ${response.statusCode}');
+        return false;
+      }
+    } catch (e) {
+      print('Token yenileme sırasında hata oluştu: $e');
       return false;
     }
   }
-
   Future<bool> _ensureTokenValidity() async {
-    print('vali,dty');
-    if (await _isAccessTokenExpired()) {
-      print('isaccesstoken');
 
-      return await _refreshAccessToken();
-    }
     return true;
   }
 
@@ -203,7 +209,6 @@ class ApiService {
     }
   }
 
-  // Login işlemi
   Future<Map<String, dynamic>> login({
     required String email,
     required String password,
@@ -232,7 +237,7 @@ class ApiService {
       await storage.write(key: 'token_type', value: data['token_type']);
       await storage.write(
         key: 'expires_at',
-        value: (DateTime.now().millisecondsSinceEpoch + data['expires_in'] * 1000).toString(),
+        value: (DateTime.now().millisecondsSinceEpoch + (data['expires_in'] * 1000)).toString(),
       );
       await storage.write(key: 'device_id', value: deviceId); // Cihaz ID'sini sakla
 
@@ -241,11 +246,41 @@ class ApiService {
       return data;
     } else if (response.statusCode == 422 || response.statusCode == 401) {
       final errorData = _handleResponse(response);
-      throw ApiException(errorData['message'] ?? 'Geçersiz kimlik bilgileri.');
+      print('Login API Error Data: $errorData');
+      throw ApiException(
+        errorData['message'] ?? 'Geçersiz kimlik bilgileri.',
+        details: errorData['errors'], // 'errors' alanını detay olarak ekle
+      );
     } else {
       throw ApiException('API error: ${response.statusCode} - ${response.body}');
     }
   }
+
+  Future<Map<String, dynamic>> refreshToken() async {
+    bool tokenValid = await _ensureTokenValidity();
+    if (!tokenValid) {
+      throw Exception('Token yenileme başarısız. Lütfen tekrar giriş yapın.');
+    }
+
+    String? accessToken = await storage.read(key: 'access_token');
+    if (accessToken == null) {
+      throw Exception('Yeni access token alınamadı.');
+    }
+
+    // Backend'den gelen yeni 'expires_in' değerini kullanın
+    String? expiresAtStr = await storage.read(key: 'expires_at');
+    if (expiresAtStr != null) {
+      int expiresAtMillis = int.parse(expiresAtStr);
+      // Bu değeri kullanarak yeni 'expires_at' hesaplaması yapabilirsiniz.
+    }
+
+    return {
+      'access_token': accessToken,
+      'token_type': await storage.read(key: 'token_type'),
+      'expires_in': 60 * 60 * 24 * 30, // 30 gün (saniye cinsinden)
+    };
+  }
+
 
   Future<bool> _refreshToken() async {
     String? refreshToken = await storage.read(key: 'refresh_token');
@@ -271,32 +306,14 @@ class ApiService {
       final data = _handleResponse(response);
       await storage.write(key: 'access_token', value: data['access_token']);
       await storage.write(key: 'refresh_token', value: data['refresh_token']);
-      await storage.write(key: 'expires_at', value: (DateTime.now().millisecondsSinceEpoch + data['expires_in'] * 1000).toString());
+      int expiresAtMillis = DateTime.now().millisecondsSinceEpoch + 2592000000;
+      await storage.write(key: 'expires_at', value: expiresAtMillis.toString());
       return true;
     } else {
-      await logout();
       return false;
     }
   }
 
-  Future<Map<String, dynamic>> refreshToken() async {
-    bool tokenValid = await _ensureTokenValidity();
-    if (!tokenValid) {
-      throw Exception('Token yenileme başarısız. Lütfen tekrar giriş yapın.');
-    }
-
-    String? accessToken = await storage.read(key: 'access_token');
-    if (accessToken == null) {
-      throw Exception('Yeni access token alınamadı.');
-    }
-
-    return {
-      'access_token': accessToken,
-      'token_type': await storage.read(key: 'token_type'),
-      'expires_in': (await storage.read(key: 'expires_at')) != null ? 60 * 60 * 24 : 0,
-    };
-
-  }
 
   Future<void> logout() async {
     try {
@@ -317,6 +334,7 @@ class ApiService {
     } catch (e) {
       print('Çıkış isteği gönderilirken hata: $e');
     } finally {
+
       // Her durumda yerel token ve ilgili verileri temizle
       await storage.delete(key: 'access_token');
       await storage.delete(key: 'refresh_token');
@@ -325,6 +343,7 @@ class ApiService {
       print('Yerel oturum verileri temizlendi');
     }
   }
+
   Future<Map<String, dynamic>> subscribe({
     required String receipt,
     required String productId,
@@ -334,10 +353,6 @@ class ApiService {
     final url = Uri.parse('$baseUrl/auth/subscription/subscribe');
     final headers = await _getHeaders();
 
-    bool tokenValid = await _ensureTokenValidity();
-    if (!tokenValid) {
-      throw Exception('Token yenileme başarısız. Lütfen tekrar giriş yapın.');
-    }
 
     final response = await http.post(
       url,
@@ -585,16 +600,16 @@ class ApiService {
         print('Current Streak from API: ${userData['current_streak']}');
 
         return {
-          'point': userData['point'] ?? 0,
+          'point': _parseInt(userData['point']),
           'avatar': userData['avatar'] ?? '',
-          'dailyPoint': userData['daily_point'] ?? 0,
-          'weeklyPoint': userData['weekly_point'] ?? 0,
-          'monthlyPoint': userData['monthly_point'] ?? 0,
-          'streakCount': userData['current_streak'] ?? 0,
-          'dailyRank': rankings['daily_point'] ?? 0,
-          'weeklyRank': rankings['weekly_point'] ?? 0,
-          'monthlyRank': rankings['monthly_point'] ?? 0,
-          'allTimeRank': rankings['point'] ?? 0,
+          'dailyPoint': _parseInt(userData['daily_point']),
+          'weeklyPoint': _parseInt(userData['weekly_point']),
+          'monthlyPoint': _parseInt(userData['monthly_point']),
+          'streakCount': _parseInt(userData['current_streak']),
+          'dailyRank': _parseInt(rankings['daily_point']),
+          'weeklyRank': _parseInt(rankings['weekly_point']),
+          'monthlyRank': _parseInt(rankings['monthly_point']),
+          'allTimeRank': _parseInt(rankings['point']),
           'team': userData['team'] ?? '',
           'city': userData['city'] ?? '',
         };
@@ -606,6 +621,17 @@ class ApiService {
     } catch (error) {
       print('API isteği sırasında hata oluştu: $error');
       return _getDefaultUserData();
+    }
+  }
+
+// Güvenli bir şekilde integer'a dönüştürmek için yardımcı metod
+  int _parseInt(dynamic value) {
+    if (value is int) {
+      return value;
+    } else if (value is String) {
+      return int.tryParse(value) ?? 0;
+    } else {
+      return 0;
     }
   }
 
@@ -656,18 +682,6 @@ class ApiService {
 
 
   Future<List<Package>> fetchCategories(int userId) async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    final cacheKey = 'categories_$userId';
-
-    List<Package> fetchFromCache() {
-      final cachedData = prefs.getString(cacheKey);
-      if (cachedData != null) {
-        List<dynamic> categoriesJson = json.decode(cachedData);
-        List<Package> categories = categoriesJson.map((json) => Package.fromJson(json)).toList();
-        return categories.toSet().toList();
-      }
-      throw Exception('No cached data available');
-    }
 
     try {
       final headers = await _getHeaders();
@@ -680,19 +694,31 @@ class ApiService {
         List<dynamic> categoriesJson = json.decode(response.body);
         List<Package> categories = categoriesJson.map((json) => Package.fromJson(json)).toList();
 
-        final uniqueCategoriesSet = categories.toSet();
-        List<Package> uniqueCategories = uniqueCategoriesSet.toList();
-
-        prefs.setString(cacheKey, json.encode(uniqueCategories));
-
-        return uniqueCategories;
+        // Cache'e sadece başarılı bir şekilde veri çekildiğinde kaydedilir
+        return categories;
       } else {
         throw Exception('Failed to load categories: ${response.body}');
       }
     } catch (e) {
-      return fetchFromCache();
+      // Hata durumunda cache'den veri çekmeyi engelle
+      throw Exception('Failed to load categories and cache fetching is disabled.');
     }
   }
+
+  List<Package> removeDuplicateByText(List<Package> packages) {
+    final seenTexts = <String>{};
+    final uniquePackages = <Package>[];
+
+    for (var package in packages) {
+      if (package.text != null && !seenTexts.contains(package.text)) {
+        seenTexts.add(package.text!);
+        uniquePackages.add(package);
+      }
+    }
+
+    return uniquePackages;
+  }
+
 
   Future<int> fetchUserPoints(int userId) async {
     final headers = await _getHeaders();
@@ -714,33 +740,28 @@ class ApiService {
     final key = 'words_$classroomId';
 
     try {
-      final cachedData = prefs.getString(key);
-      if (cachedData != null) {
-        return compute(_parseWords, cachedData);
-      }
-
+      // API'den veri çekmeyi dene
       final url = Uri.parse('$baseUrl/user/category/$classroomId');
       final headers = await _getHeaders();
-      final response = await http.get(
-        url,
-        headers: headers,
-      );
+      final response = await http.get(url, headers: headers);
 
       if (response.statusCode == 200) {
-        await prefs.setString(key, response.body);
+        // API'den veri başarıyla alındı
+        await prefs.setString(key, response.body); // Cache'e kaydet
         return compute(_parseWords, response.body);
       } else {
         throw Exception('API error: ${response.statusCode}');
       }
     } catch (e) {
+      // API'den veri alınamadı, cache'i kontrol et
       final cachedData = prefs.getString(key);
       if (cachedData != null) {
         return compute(_parseWords, cachedData);
       }
+      // Cache'de de veri yoksa hatayı fırlat
       rethrow;
     }
   }
-
   List<Word> _parseWords(String responseBody) {
     final parsed = jsonDecode(responseBody).cast<Map<String, dynamic>>();
     return parsed.map<Word>((json) => Word.fromJson(json)).toList();
@@ -749,12 +770,9 @@ class ApiService {
   Future<List<StudySet>> fetchStudySets(int classroomId, int wordId, String userid) async {
     final prefs = await SharedPreferences.getInstance();
     final key = 'studySets_${classroomId}_${wordId}_$userid';
-    final studySetsCached = prefs.getString(key);
 
-    if (studySetsCached != null) {
-      List<dynamic> studySetsJson = json.decode(studySetsCached);
-      return studySetsJson.map((json) => StudySet.fromJson(json)).toList();
-    } else {
+    try {
+      // Her zaman önce API'den veri çekmeyi dene
       var url = Uri.parse('$baseUrl/classroom/$classroomId/study-sets/$wordId/user/$userid');
       var headers = await _getHeaders();
       var response = await http.get(
@@ -763,15 +781,24 @@ class ApiService {
       );
 
       if (response.statusCode == 200) {
-        prefs.setString(key, response.body);
+        // API'den veri başarıyla alındı
+        prefs.setString(key, response.body); // Cache'e kaydet
         List<dynamic> studySetsJson = json.decode(response.body);
         return studySetsJson.map((json) => StudySet.fromJson(json)).toList();
       } else {
-        throw Exception('Study sets couldn\'t be loaded: ${response.body}');
+        throw Exception('API error: ${response.statusCode}');
       }
+    } catch (e) {
+      // API'den veri alınamadı, cache'i kontrol et
+      final studySetsCached = prefs.getString(key);
+      if (studySetsCached != null) {
+        List<dynamic> studySetsJson = json.decode(studySetsCached);
+        return studySetsJson.map((json) => StudySet.fromJson(json)).toList();
+      }
+      // Cache'de de veri yoksa hatayı fırlat
+      rethrow;
     }
   }
-
   Future<List<Map<String, dynamic>>> fetchExampleSentences(String term) async {
     final prefs = await SharedPreferences.getInstance();
     final key = 'exampleSentences_$term';
@@ -860,7 +887,41 @@ class ApiService {
       throw Exception('Failed to load users');
     }
   }
-
+  Future<Map<String, dynamic>> fetchInstitutionUsersPointPeriod(String userId, String period, bool isInstitutionMode) async {
+    final url = Uri.parse('$baseUrl/institution-users-point-period');
+    final headers = await _getHeaders();
+    try {
+      final response = await http.post(
+        url,
+        headers: headers,
+        body: jsonEncode({
+          'user_id': userId,
+          'period': period,
+          'is_institution_mode': isInstitutionMode,
+        }),
+      );
+      if (response.statusCode == 200) {
+        var decodedResponse = json.decode(response.body);
+        if (decodedResponse['has_institution'] == false && isInstitutionMode) {
+          // Kurumsal mod istendi ama kullanıcının kurumu yok
+          print('User does not have an institution, but institution mode was requested');
+          return {
+            'has_institution': false,
+            'message': decodedResponse['message'],
+            'users': [],
+          };
+        }
+        return decodedResponse;
+      } else {
+        print('Server responded with status code: ${response.statusCode}');
+        print('Response body: ${response.body}');
+        throw Exception('Failed to load users. Status code: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Exception occurred while fetching users: $e');
+      throw Exception('Failed to load users. Error: $e');
+    }
+  }
   Future<List<int>> fetchStarWords(int userId, dynamic studySetIds) async {
     var url = Uri.parse('$baseUrl/get-star-words');
     var headers = await _getHeaders();
@@ -957,18 +1018,18 @@ class ApiService {
       return null;
     }
   }
-
   Future<List<WordDetail>> fetchWordsDetail(List<int> wordIds) async {
     await WordDataCache.loadAllData();
+    print("Fetching details for ${wordIds.length} starred words");
 
     final words = _parseWordsDetail(wordIds);
     _attachSynonyms(words);
     _attachCollocations(words);
     _attachDerivations(words);
 
+    print("Fetched ${words.length} word details");
     return words;
   }
-
   void _attachSynonyms(List<WordDetail> words) {
     for (var csvRow in WordDataCache._synonymsData!.sublist(1)) {
       final wordId = int.parse(csvRow[3]);
@@ -1241,6 +1302,7 @@ class ApiService {
 
     if (response.statusCode == 200) {
       print("Starred words synced successfully");
+      print("Raw response: ${response.body}");  // Ham yanıtı yazdır
       updateSharedPreferences(json.decode(response.body)['starred_words']);
       print(json.decode(response.body)['starred_words']);
     } else {
@@ -1250,28 +1312,14 @@ class ApiService {
 
   void updateSharedPreferences(List<dynamic> starredWords) async {
     final prefs = await SharedPreferences.getInstance();
-    final keys = prefs.getKeys();
-
-    for (String key in keys) {
-      if (key.startsWith('starredWords')) {
-        print(key);
-      }
-    }
-    print('starredWords');
-
-    print(starredWords);
     for (var wordData in starredWords) {
       String key = _generateKey(wordData['c_id'], wordData['study_set_id']);
-      print('Key: $key');
-
       if (wordData['words'] != null && wordData['words'].isNotEmpty) {
-        String firstWordId = wordData['words'][0].toString();
-        print('Word ID: $firstWordId');
-        await prefs.setString(key, firstWordId);
+        List<String> wordIds = (wordData['words'] as List).map((w) => w.toString()).toList();
+        await prefs.setStringList(key, wordIds);
       }
     }
   }
-
   String _generateKey(int classroomId, int studySetId) {
     return 'starredWords_classroomId:${classroomId}_studySetId:${studySetId}';
   }

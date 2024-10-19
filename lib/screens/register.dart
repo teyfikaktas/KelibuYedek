@@ -1,3 +1,4 @@
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -7,7 +8,8 @@ import 'package:kelibu/screens/verify_email.dart';
 import 'package:kelibu/screens/sdk/customShowDialog.dart';
 import 'package:kelibu/variables.dart';
 
-import '../api.dart'; // ApiService'in yolu doğru olmalıdır
+import '../api.dart';
+import 'login_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({Key? key}) : super(key: key);
@@ -17,7 +19,6 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  // 'username' yerine 'name' kullanıyoruz
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
@@ -29,7 +30,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _isConfirmPasswordVisible = false;
   List<String> _brainQuotes = [];
 
-  // ApiService örneği
   final ApiService _apiService = ApiService();
 
   @override
@@ -59,88 +59,126 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   bool isStrongPassword(String password) {
-    // En az 8 karakter, bir büyük harf, bir küçük harf, bir rakam ve bir özel karakter gerektirir
-    RegExp regex = RegExp(r'^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$%^&*-]).{8,}$');
+    RegExp regex = RegExp(r'^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9]).{8,}$');
     return regex.hasMatch(password);
   }
 
   Future<void> register() async {
-    // Önce form doğrulaması yapalım
-    if (_nameController.text.isEmpty ||
-        _emailController.text.isEmpty ||
-        _passwordController.text.isEmpty ||
-        _confirmPasswordController.text.isEmpty) {
-      showCustomDialog(context, 'Hata', 'Lütfen tüm alanları doldurun.');
+    if (!await _checkInternetConnection()) {
+      showCustomDialog(context, 'Bağlantı Hatası', 'İnternet bağlantınızı kontrol edip tekrar deneyiniz.');
       return;
     }
 
-    if (!isValidEmail(_emailController.text)) {
-      showCustomDialog(context, 'Hata', 'Geçerli bir e-posta adresi girin.');
-      return;
-    }
+    if (!_validateForm()) return;
 
-    if (!isStrongPassword(_passwordController.text)) {
-      showCustomDialog(context, 'Hata', 'Şifreniz en az 8 karakter, bir büyük harf, bir küçük harf, bir rakam ve bir özel karakter içermelidir.');
-      return;
-    }
-
-    if (_passwordController.text != _confirmPasswordController.text) {
-      showCustomDialog(context, 'Hata', 'Şifreler eşleşmiyor.');
-      return;
-    }
-
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
 
     try {
-      // ApiService'in register metodunu kullanıyoruz
       final responseData = await _apiService.register(
-        name: _nameController.text,
-        email: _emailController.text,
-        password: _passwordController.text,
-        passwordConfirmation: _confirmPasswordController.text,
+        name: _nameController.text.trim(),
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
+        passwordConfirmation: _confirmPasswordController.text.trim(),
       );
 
-      setState(() {
-        _isLoading = false;
-      });
-
-      // Başarılı kayıt durumunu kontrol ediyoruz
-      if (responseData != null) {
-        if (responseData.containsKey('message') && responseData['message'].toString().contains('verify')) {
-          // Doğrulama kodu gönderildi
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => VerifyEmailScreen(email: _emailController.text),
-            ),
-          );
-          showCustomDialog(context, 'Bilgi', responseData['message'] ?? 'Doğrulama kodu gönderildi.');
-        } else {
-          // Diğer başarılı durumlar
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => VerifyEmailScreen(email: _emailController.text),
-            ),
-          );
-          showCustomDialog(context, 'Başarılı', responseData['message'] ?? 'Kayıt başarılı.');
-        }
-      }
+      _handleSuccessfulRegistration(responseData);
     } on ApiException catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-      // ApiService'den gelen özel hataları yakalıyoruz
-      showCustomDialog(context, 'Hata', e.message);
+      _handleApiException(e);
     } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-      // Diğer hatalar
-      showCustomDialog(context, 'Hata', 'Bağlantı hatası: Lütfen internet bağlantınızı kontrol edin ve tekrar deneyin.\n\nHata detayı: ${e.toString()}');
+      _handleGeneralException(e);
+    } finally {
+      setState(() => _isLoading = false);
     }
+  }
+
+  bool _validateForm() {
+    if (_nameController.text.trim().isEmpty ||
+        _emailController.text.trim().isEmpty ||
+        _passwordController.text.trim().isEmpty ||
+        _confirmPasswordController.text.trim().isEmpty) {
+      showCustomDialog(context, 'Eksik Bilgi', 'Lütfen tüm alanları doldurunuz.');
+      return false;
+    }
+
+    if (!isValidEmail(_emailController.text.trim())) {
+      showCustomDialog(context, 'Geçersiz E-posta', 'Lütfen geçerli bir e-posta adresi giriniz.');
+      return false;
+    }
+
+    if (!isStrongPassword(_passwordController.text.trim())) {
+      showCustomDialog(context, 'Zayıf Şifre', 'Şifreniz en az 8 karakter olmalı ve büyük harf, küçük harf ve rakam içermelidir.');
+      return false;
+    }
+
+    if (_passwordController.text.trim() != _confirmPasswordController.text.trim()) {
+      showCustomDialog(context, 'Şifre Uyuşmazlığı', 'Girdiğiniz şifreler birbiriyle uyuşmuyor.');
+      return false;
+    }
+
+    return true;
+  }
+
+  void _handleSuccessfulRegistration(Map<String, dynamic> responseData) {
+    print(responseData);
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => VerifyEmailScreen(email: _emailController.text.trim())),
+      );
+      showCustomDialog(context, 'Doğrulama Gerekli', 'Lütfen e-postanıza gönderilen doğrulama kodunu giriniz.');
+
+  }
+
+  void _handleApiException(ApiException e) {
+    print('API Hatası: ${e.message}');
+
+    String message = 'Bir hata oluştu. ';
+
+    if (e.details != null && e.details!.containsKey('errors')) {
+      final errors = e.details?['errors'] as List<dynamic>;
+      if (errors.isNotEmpty) {
+        message = errors.join('\n');
+      }
+    } else {
+      message += 'Lütfen daha sonra tekrar deneyiniz.';
+    }
+
+    showCustomDialog(context, 'Kayıt Hatası', message);
+  }
+
+  void _handleGeneralException(Object e) {
+    print(e);
+    String errorMessage = e.toString().toLowerCase();
+    String title = 'Beklenmeyen Hata';
+    String content = 'Bir hata oluştu. Lütfen daha sonra tekrar deneyin.';
+
+    if (errorMessage.contains('zaten kullanımda') || errorMessage.contains('unique')) {
+      title = 'E-posta Kullanımda';
+      content = 'E-posta adresi zaten kullanımda. Giriş ekranından giriş yapabilirsiniz.';
+    } else if (errorMessage.contains('e-posta alanı') || errorMessage.contains('email')) {
+      title = 'E-posta Hatası';
+      if (errorMessage.contains('gereklidir')) {
+        content = 'E-posta alanı gereklidir.';
+      } else if (errorMessage.contains('geçerli')) {
+        content = 'Geçerli bir e-posta adresi girin.';
+      }
+    } else if (errorMessage.contains('isim alanı')) {
+      title = 'İsim Hatası';
+      content = 'İsim alanı gereklidir.';
+    } else if (errorMessage.contains('şifre')) {
+      title = 'Şifre Hatası';
+      if (errorMessage.contains('gereklidir')) {
+        content = 'Şifre alanı gereklidir.';
+      } else if (errorMessage.contains('en az 8')) {
+        content = 'Şifreniz en az 8 karakterden oluşmalıdır.';
+      } else if (errorMessage.contains('eşleşmiyor')) {
+        content = 'Şifreler eşleşmiyor.';
+      }
+    }
+    showCustomDialog(context, title, content);
+  }
+  Future<bool> _checkInternetConnection() async {
+    var connectivityResult = await (Connectivity().checkConnectivity());
+    return connectivityResult != ConnectivityResult.none;
   }
 
   Widget _buildTextField(TextEditingController controller, String label, IconData icon, {bool isPassword = false, bool isConfirm = false}) {
@@ -189,6 +227,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
           border: InputBorder.none,
           contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 15),
         ),
+        onChanged: (value) {
+          controller.text = value.trim();
+          controller.selection = TextSelection.fromPosition(TextPosition(offset: controller.text.length));
+        },
       ),
     );
   }
@@ -219,146 +261,146 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _isDarkMode ? Colors.grey[900] : Colors.white,
-      body: SafeArea(
+        backgroundColor: _isDarkMode ? Colors.grey[900] : Colors.white,
+        body: SafeArea(
         child: LayoutBuilder(
-          builder: (context, constraints) {
-            return SingleChildScrollView(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                child: IntrinsicHeight(
-                  child: Padding(
-                    padding: EdgeInsets.all(constraints.maxWidth * 0.05),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            IconButton(
-                              icon: Icon(
-                                Icons.arrow_back,
-                                color: _isDarkMode ? Colors.white : Colors.black,
-                              ),
-                              onPressed: () => Navigator.of(context).pop(),
-                            ),
-                            IconButton(
-                              icon: Icon(Icons.help_outline, color: _isDarkMode ? Colors.white : Colors.black),
-                              onPressed: () {
-                                // Yardım sayfasına yönlendirme yapılabilir
-                              },
-                            ),
-                          ],
-                        ),
-                        SizedBox(height: constraints.maxHeight * 0.02),
-                        Center(
-                          child: Container(
-                            width: constraints.maxWidth * 0.25,
-                            height: constraints.maxWidth * 0.25,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              image: DecorationImage(
-                                image: AssetImage('assets/logo.png'),
-                                fit: BoxFit.contain,
-                              ),
-                            ),
-                          ),
-                        ),
-                        SizedBox(height: constraints.maxHeight * 0.01),
-                        Center(
-                          child: Text(
-                            "Kelibu'ya Hoş Geldiniz!",
-                            style: TextStyle(
-                              fontSize: constraints.maxWidth * 0.05,
-                              fontWeight: FontWeight.bold,
-                              color: _isDarkMode ? Colors.white : Colors.black,
-                            ),
-                          ),
-                        ),
-                        SizedBox(height: constraints.maxHeight * 0.005),
-                        Center(
-                          child: Text(
-                            "Kelime haznenizi genişletmeye hazır mısınız?",
-                            style: TextStyle(
-                              fontSize: constraints.maxWidth * 0.035,
-                              color: _isDarkMode ? Colors.white70 : Colors.grey,
-                            ),
-                          ),
-                        ),
-                        SizedBox(height: constraints.maxHeight * 0.03),
-                        Container(
-                          padding: EdgeInsets.all(constraints.maxWidth * 0.05),
-                          decoration: BoxDecoration(
-                            color: _isDarkMode ? Colors.grey[800] : Colors.white,
-                            borderRadius: BorderRadius.circular(15),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.grey.withOpacity(0.1),
-                                spreadRadius: 5,
-                                blurRadius: 7,
-                                offset: Offset(0, 3),
-                              ),
-                            ],
-                          ),
-                          child: Column(
-                            children: [
-                              _buildTextField(_nameController, 'İsim', Icons.person),
-                              _buildTextField(_emailController, 'E-posta', Icons.email),
-                              _buildTextField(_passwordController, 'Şifre', Icons.lock, isPassword: true),
-                              _buildTextField(_confirmPasswordController, 'Şifre Tekrar', Icons.lock, isPassword: true, isConfirm: true),
-                              SizedBox(height: constraints.maxHeight * 0.01),
-                              _isLoading
-                                  ? Center(child: CircularProgressIndicator())
-                                  : _buildButton('Kayıt Ol', Colors.blue, register),
-                            ],
-                          ),
-                        ),
-                        SizedBox(height: constraints.maxHeight * 0.015),
-                        Center(
-                          child: TextButton(
-                            onPressed: () {
-                              Navigator.pop(context);
-                            },
-                            child: Text(
-                              'Zaten hesabın var mı? Giriş Yap',
-                              style: TextStyle(color: Colors.blue),
-                            ),
-                          ),
-                        ),
-                        Spacer(),
-                        if (_brainQuotes.isNotEmpty)
-                          Center(
-                            child: Padding(
-                              padding: EdgeInsets.symmetric(vertical: constraints.maxHeight * 0.01),
-                              child: Text(
-                                _brainQuotes[DateTime.now().millisecond % _brainQuotes.length],
-                                style: TextStyle(
-                                  fontSize: constraints.maxWidth * 0.03,
-                                  fontStyle: FontStyle.italic,
-                                  color: _isDarkMode ? Colors.white70 : Colors.grey,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-                          ),
-                        Center(
-                          child: Text(
-                            'Kelibu, bir PhD Akademi ürünüdür.',
-                            style: TextStyle(
-                              fontSize: constraints.maxWidth * 0.03,
-                              color: _isDarkMode ? Colors.white70 : Colors.grey,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            );
+        builder: (context, constraints) {
+      return SingleChildScrollView(
+          child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: constraints.maxHeight),
+    child: IntrinsicHeight(
+    child: Padding(
+    padding: EdgeInsets.all(constraints.maxWidth * 0.05),
+    child: Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: <Widget>[
+    Row(
+    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    children: [
+    IconButton(
+    icon: Icon(
+    Icons.arrow_back,
+    color: _isDarkMode ? Colors.white : Colors.black,
+    ),
+    onPressed: () => Navigator.of(context).pop(),
+    ),
+    IconButton(
+    icon: Icon(Icons.help_outline, color: _isDarkMode ? Colors.white : Colors.black),
+    onPressed: () {
+    // Yardım sayfasına yönlendirme yapılabilir
+    },
+    ),
+    ],
+    ),
+    SizedBox(height: constraints.maxHeight * 0.02),
+    Center(
+    child: Container(
+    width: constraints.maxWidth * 0.25,
+    height: constraints.maxWidth * 0.25,
+    decoration: BoxDecoration(
+    shape: BoxShape.circle,
+    image: DecorationImage(
+    image: AssetImage('assets/logo.png'),
+    fit: BoxFit.contain,
+    ),
+    ),
+    ),
+    ),
+    SizedBox(height: constraints.maxHeight * 0.01),
+    Center(
+    child: Text(
+    "Kelibu'ya Hoş Geldiniz!",
+    style: TextStyle(
+    fontSize: constraints.maxWidth * 0.05,
+    fontWeight: FontWeight.bold,
+    color: _isDarkMode ? Colors.white : Colors.black,
+    ),
+    ),
+    ),
+    SizedBox(height: constraints.maxHeight * 0.005),
+    Center(
+    child: Text(
+    "Kelime haznenizi genişletmeye hazır mısınız?",
+    style: TextStyle(
+    fontSize: constraints.maxWidth * 0.035,
+    color: _isDarkMode ? Colors.white70 : Colors.grey,
+    ),
+    ),
+    ),
+    SizedBox(height: constraints.maxHeight * 0.03),
+    Container(
+    padding: EdgeInsets.all(constraints.maxWidth * 0.05),
+    decoration: BoxDecoration(
+    color: _isDarkMode ? Colors.grey[800] : Colors.white,
+    borderRadius: BorderRadius.circular(15),
+    boxShadow: [
+    BoxShadow(
+    color: Colors.grey.withOpacity(0.1),
+    spreadRadius: 5,
+    blurRadius: 7,
+    offset: Offset(0, 3),
+    ),
+    ],
+    ),
+    child: Column(
+    children: [
+    _buildTextField(_nameController, 'İsim', Icons.person),
+    _buildTextField(_emailController, 'E-posta', Icons.email),
+    _buildTextField(_passwordController, 'Şifre', Icons.lock, isPassword: true),
+    _buildTextField(_confirmPasswordController, 'Şifre Tekrar', Icons.lock, isPassword: true, isConfirm: true),
+    SizedBox(height: constraints.maxHeight * 0.01),
+    _isLoading
+    ? Center(child: CircularProgressIndicator())
+        : _buildButton('Kayıt Ol', Colors.blue, register),
+    ],
+    ),
+    ),
+      SizedBox(height: constraints.maxHeight * 0.015),
+      Center(
+        child: TextButton(
+          onPressed: () {
+            Navigator.pop(context);
           },
+          child: Text(
+            'Zaten hesabın var mı? Giriş Yap',
+            style: TextStyle(color: Colors.blue),
+          ),
         ),
       ),
+      Spacer(),
+      if (_brainQuotes.isNotEmpty)
+        Center(
+          child: Padding(
+            padding: EdgeInsets.symmetric(vertical: constraints.maxHeight * 0.01),
+            child: Text(
+              _brainQuotes[DateTime.now().millisecond % _brainQuotes.length],
+              style: TextStyle(
+                fontSize: constraints.maxWidth * 0.03,
+                fontStyle: FontStyle.italic,
+                color: _isDarkMode ? Colors.white70 : Colors.grey,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+      Center(
+        child: Text(
+          'Kelibu, bir PhD Akademi ürünüdür.',
+          style: TextStyle(
+            fontSize: constraints.maxWidth * 0.03,
+            color: _isDarkMode ? Colors.white70 : Colors.grey,
+          ),
+        ),
+      ),
+    ],
+    ),
+    ),
+    ),
+          ),
+      );
+        },
+        ),
+        ),
     );
   }
 }

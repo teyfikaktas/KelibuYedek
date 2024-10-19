@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // inputFormatters için eklenmeli
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kelibu/main.dart';
@@ -19,8 +20,9 @@ import 'package:kelibu/variables.dart';
 class LoginScreen extends StatefulWidget {
   final String username;
   final String password;
+  final String? warning; // Yeni opsiyonel parametre
 
-  LoginScreen({this.username = '', this.password = ''});
+  LoginScreen({this.username = '', this.password = '', this.warning});
 
   @override
   _LoginScreenState createState() => _LoginScreenState();
@@ -32,14 +34,22 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
   bool _obscureText = true;
   bool _isDarkMode = false;
   final storage = FlutterSecureStorage();
+
+  // Fade ve Slide Animasyon Kontrolcüleri
   late AnimationController _fadeAnimationController;
   late AnimationController _slideAnimationController;
-  late AnimationController _buttonAnimationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
-  late Animation<double> _buttonScaleAnimation;
-  int _currentLottieIndex = 0;
-  final List<String> _lottieFiles = ['assets/langue.json', 'assets/welcome.json'];
+
+  // Buton Animasyon Kontrolcüleri ve Animasyonları
+  late AnimationController _loginButtonAnimationController;
+  late Animation<double> _loginButtonScaleAnimation;
+
+  late AnimationController _forgotPasswordButtonAnimationController;
+  late Animation<double> _forgotPasswordButtonScaleAnimation;
+
+  late AnimationController _registerButtonAnimationController;
+  late Animation<double> _registerButtonScaleAnimation;
 
   // ApiService örneği
   final ApiService _apiService = ApiService();
@@ -49,21 +59,19 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
     super.initState();
     _loadDarkModePreference();
 
+    // Fade Animasyon Kontrolcüsü
     _fadeAnimationController = AnimationController(
       vsync: this,
       duration: Duration(milliseconds: 1000),
     );
 
+    // Slide Animasyon Kontrolcüsü
     _slideAnimationController = AnimationController(
       vsync: this,
       duration: Duration(milliseconds: 1000),
     );
 
-    _buttonAnimationController = AnimationController(
-      vsync: this,
-      duration: Duration(milliseconds: 200),
-    );
-
+    // Fade ve Slide Animasyonlarını Başlatma
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _fadeAnimationController, curve: Curves.easeIn),
     );
@@ -72,27 +80,57 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
       CurvedAnimation(parent: _slideAnimationController, curve: Curves.easeOutCubic),
     );
 
-    _buttonScaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
-      CurvedAnimation(parent: _buttonAnimationController, curve: Curves.easeInOut),
-    );
-
     _fadeAnimationController.forward();
     _slideAnimationController.forward();
 
-    if (widget.username.isNotEmpty && widget.password.isNotEmpty) {
-      _usernameController.text = widget.username;
-      _passwordController.text = widget.password;
-      WidgetsBinding.instance.addPostFrameCallback((_) => login(widget.username, widget.password));
-    }
+    // Buton Animasyon Kontrolcüleri ve Animasyonlar
+    _loginButtonAnimationController = AnimationController(
+      vsync: this,
+      duration: Duration(milliseconds: 200),
+    );
 
-    _startLottieAnimation();
+    _loginButtonScaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
+      CurvedAnimation(parent: _loginButtonAnimationController, curve: Curves.easeInOut),
+    );
+
+    _forgotPasswordButtonAnimationController = AnimationController(
+      vsync: this,
+      duration: Duration(milliseconds: 200),
+    );
+
+    _forgotPasswordButtonScaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
+      CurvedAnimation(parent: _forgotPasswordButtonAnimationController, curve: Curves.easeInOut),
+    );
+
+    _registerButtonAnimationController = AnimationController(
+      vsync: this,
+      duration: Duration(milliseconds: 200),
+    );
+
+    _registerButtonScaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
+      CurvedAnimation(parent: _registerButtonAnimationController, curve: Curves.easeInOut),
+    );
+
+    // Önceden doldurulmuş kullanıcı adı ve şifre varsa giriş yapma
+    if (widget.username.trim().isNotEmpty && widget.password.trim().isNotEmpty) {
+      _usernameController.text = widget.username.trim();
+      _passwordController.text = widget.password.trim();
+      WidgetsBinding.instance.addPostFrameCallback((_) => login(
+        _usernameController.text,
+        _passwordController.text,
+      ));
+    }
   }
 
   @override
   void dispose() {
     _fadeAnimationController.dispose();
     _slideAnimationController.dispose();
-    _buttonAnimationController.dispose();
+
+    _loginButtonAnimationController.dispose();
+    _forgotPasswordButtonAnimationController.dispose();
+    _registerButtonAnimationController.dispose();
+
     super.dispose();
   }
 
@@ -111,17 +149,6 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
     await prefs.setBool("darkMode", _isDarkMode);
   }
 
-  void _startLottieAnimation() {
-    Future.delayed(Duration(seconds: 5), () {
-      if (mounted) {
-        setState(() {
-          _currentLottieIndex = (_currentLottieIndex + 1) % _lottieFiles.length;
-        });
-        _startLottieAnimation();
-      }
-    });
-  }
-
   bool _isLoading = false;
 
   Future<void> login(String email, String password) async {
@@ -131,14 +158,10 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
 
     try {
       print('Login started');
-      final responseData = await _apiService.login(email: email, password: password);
-      print('Login response: $responseData');
+      final responseData = await _apiService.login(email: email.trim(), password: password.trim());
+      print('Login API Response: $responseData');
 
-      if (responseData['error'] != null) {
-        handleLoginError(responseData['error'], responseData['details']);
-        return;
-      }
-
+      // Başarılı giriş işlemleri
       final user = responseData['user'];
       if (user == null) {
         throw Exception('Kullanıcı verisi bulunamadı.');
@@ -146,6 +169,19 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
 
       print('User data: $user');
 
+      // Token ve expires_at değerlerini saklama
+      if (responseData['access_token'] != null && responseData['expires_in'] != null) {
+        String accessToken = responseData['access_token'];
+        int expiresIn = responseData['expires_in']; // Token süresini saniye cinsinden alabilirsiniz
+        int expiresAtMillis = DateTime.now().add(Duration(seconds: expiresIn)).millisecondsSinceEpoch;
+
+        await storage.write(key: 'access_token', value: accessToken);
+        await storage.write(key: 'expires_at', value: expiresAtMillis.toString());
+      } else {
+        throw Exception('Token bilgisi eksik.');
+      }
+
+      // Kullanıcı verilerini sağlayıcıya ayarlama
       final UserProvider userProvider = Provider.of<UserProvider>(context, listen: false);
       await userProvider.setUser(
         user['name'] ?? '',
@@ -173,11 +209,45 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
       await prefs.setString('userId', userId);
       print('User ID saved to SharedPreferences');
 
+      // Başarı mesajını gösterme
+      final message = responseData['message'] ?? 'Giriş başarılı!';
+      if (message.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+
+      // Ana ekrana yönlendirme
       Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => MainScreen()));
     } on ApiException catch (e) {
+      // Doğrulama hatalarını işleme
+      if (e.details != null) {
+        List<String> errorMessages = [];
+        e.details!.forEach((field, messages) {
+          errorMessages.addAll(List<String>.from(messages));
+        });
+        String combinedMessage = errorMessages.join('\n');
+        _showErrorDialog('Hatalar', combinedMessage);
+      }
+      else if(e.message.contains('Too Many Requests')){
+        _showErrorDialog('Çok Fazla Deneme', 'Çok fazla giriş denemesi yaptınız. Lütfen biraz bekleyip tekrar deneyin. Bu sistem sizi korumak içindir.');
+      }
+      else {
+        // Diğer API hatalarını işleme
+        _showErrorDialog('Hata', e.message);
+      }
     } catch (e) {
-      _showErrorDialog('Beklenmeyen Hata', 'Bir sorun oluştu. Lütfen daha sonra tekrar deneyin.');
-    } finally {
+      if (e is ApiException && e.message.contains('Too Many Requests')) {
+        _showErrorDialog('Çok Fazla Deneme', 'Çok fazla giriş denemesi yaptınız. Lütfen biraz bekleyip tekrar deneyin. Bu sistem sizi korumak içindir.');
+      } else {
+        _showErrorDialog('Beklenmeyen Hata', 'Bir sorun oluştu. Lütfen daha sonra tekrar deneyin.');
+      }
+    }
+    finally {
       setState(() {
         _isLoading = false;
       });
@@ -187,17 +257,105 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
   void handleLoginError(String? error, Map<String, dynamic>? details) {
     switch (error) {
       case 'invalid_credentials':
-        _showErrorDialog('Giriş Başarısız', 'E-posta veya şifre yanlış. Lütfen bilgilerinizi kontrol edin.');
+        _showErrorDialog(
+          'Giriş Başarısız',
+          'E-posta veya şifre yanlış. Lütfen bilgilerinizi kontrol edin.',
+          errorCode: 'invalid_credentials',
+        );
         break;
       case 'max_sessions_reached':
         _showMaxSessionsReachedDialog(details);
         break;
       case 'token_creation_failed':
-        _showErrorDialog('Giriş Hatası', 'Oturum oluşturulurken bir hata oluştu. Lütfen daha sonra tekrar deneyin.');
+        _showErrorDialog(
+          'Giriş Hatası',
+          'Oturum oluşturulurken bir hata oluştu. Lütfen daha sonra tekrar deneyin.',
+        );
+        break;
+    // Yeni hata durumları ekleyebilirsiniz
+      case 'account_locked':
+        _showErrorDialog(
+          'Hesap Kilitlendi',
+          'Güvenlik nedeniyle hesabınız kilitlendi. Lütfen destek ile iletişime geçin.',
+        );
         break;
       default:
-        _showErrorDialog('Giriş Hatası', 'Giriş yapılırken bir hata oluştu. Lütfen daha sonra tekrar deneyin.');
+        _showErrorDialog(
+          'Giriş Hatası',
+          'Giriş yapılırken bir hata oluştu. Lütfen daha sonra tekrar deneyin.',
+        );
     }
+  }
+
+  void _showInfoDialog(String title, String message) {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+      barrierColor: Colors.black54,
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (BuildContext buildContext, Animation animation, Animation secondaryAnimation) {
+        return Center(
+          child: Container(
+            width: MediaQuery.of(context).size.width * 0.85,
+            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 30),
+            decoration: BoxDecoration(
+              color: _isDarkMode ? Colors.grey[800] : Colors.white,
+              borderRadius: BorderRadius.circular(25),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 15,
+                  offset: Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.warning_amber_rounded,
+                  size: 80,
+                  color: Colors.orange,
+                ),
+                SizedBox(height: 20),
+                Text(
+                  title,
+                  style: GoogleFonts.comfortaa(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.orange,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 15),
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.quicksand(
+                    fontSize: 18,
+                    color: _isDarkMode ? Colors.white70 : Colors.black87,
+                  ),
+                ),
+                SizedBox(height: 30),
+                ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: Text('Tamam'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    padding: EdgeInsets.symmetric(horizontal: 30, vertical: 10),
+                    textStyle: TextStyle(fontSize: 18),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   void _showMaxSessionsReachedDialog(Map<String, dynamic>? details) {
@@ -261,7 +419,8 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
       },
     );
   }
-  void _showErrorDialog(String title, String message) {
+
+  void _showErrorDialog(String title, String message, {String? errorCode}) {
     showGeneralDialog(
       context: context,
       barrierDismissible: true,
@@ -294,7 +453,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                 ),
                 SizedBox(height: 20),
                 Text(
-                  _getEsprilyTitle(title),
+                  title,
                   style: GoogleFonts.comfortaa(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
@@ -304,7 +463,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                 ),
                 SizedBox(height: 15),
                 Text(
-                  _getEsprilyMessage(message),
+                  message,
                   textAlign: TextAlign.center,
                   style: GoogleFonts.quicksand(
                     fontSize: 18,
@@ -315,12 +474,16 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    _buildButton('Anladım.', () => Navigator.of(context).pop(), Color(0xFFE53935)),
-                    if (title == 'Giriş başarısız')
-                      _buildButton('Üye Ol', () {
-                        Navigator.of(context).pop();
-                        Navigator.push(context, MaterialPageRoute(builder: (context) => RegisterScreen()));
-                      }, Color(0xFF4CAF50)),
+                    _buildButton('Anladım', () => Navigator.of(context).pop(), Color(0xFFE53935)),
+                    if (errorCode == 'invalid_credentials')
+                      _buildButton(
+                        'Üye Ol',
+                            () {
+                          Navigator.of(context).pop();
+                          Navigator.push(context, MaterialPageRoute(builder: (context) => RegisterScreen()));
+                        },
+                        Color(0xFF4CAF50),
+                      ),
                   ],
                 ),
               ],
@@ -413,7 +576,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
     return Container(
       height: screenSize.height * 0.1,
       child: Lottie.asset(
-        _lottieFiles[0],
+        'assets/welcome.json',
         fit: BoxFit.contain,
       ),
     );
@@ -459,8 +622,14 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
       ),
       child: Column(
         children: [
+          // E-posta (Username) TextField
           TextField(
             controller: _usernameController,
+            textInputAction: TextInputAction.next,
+            keyboardType: TextInputType.emailAddress,
+            inputFormatters: [
+              FilteringTextInputFormatter.deny(RegExp(r'\s')), // Boşlukları engeller
+            ],
             decoration: InputDecoration(
               hintText: 'E-posta',
               prefixIcon: Icon(Icons.email, color: colors["text"], size: screenSize.width * 0.05),
@@ -478,9 +647,14 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
             style: TextStyle(color: colors["text"], fontSize: screenSize.width * 0.04),
           ),
           SizedBox(height: screenSize.height * 0.01),
+          // Şifre TextField
           TextField(
             controller: _passwordController,
             obscureText: _obscureText,
+            textInputAction: TextInputAction.done,
+            inputFormatters: [
+              FilteringTextInputFormatter.deny(RegExp(r'\s')), // Boşlukları engeller
+            ],
             decoration: InputDecoration(
               hintText: 'Şifre',
               prefixIcon: Icon(Icons.lock, color: colors["text"], size: screenSize.width * 0.05),
@@ -506,77 +680,35 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
     );
   }
 
-  Widget _buildLoginButton(Map<String, Color?> colors, Size screenSize) {
+  // Özel AnimatedButton Widget'ı
+  Widget _buildAnimatedButton({
+    required String text,
+    required VoidCallback onPressed,
+    required Gradient gradient,
+    required AnimationController controller,
+    required Animation<double> scaleAnimation,
+    required IconData icon,
+    required Color iconColor,
+    required double iconSize,
+    required double fontSize,
+  }) {
     return GestureDetector(
-      onTapDown: (_) => _buttonAnimationController.forward(),
+      onTapDown: (_) => controller.forward(),
       onTapUp: (_) {
-        _buttonAnimationController.reverse();
-        login(_usernameController.text, _passwordController.text);
+        controller.reverse();
+        onPressed();
       },
-      onTapCancel: () => _buttonAnimationController.reverse(),
+      onTapCancel: () => controller.reverse(),
       child: ScaleTransition(
-        scale: _buttonScaleAnimation,
+        scale: scaleAnimation,
         child: Container(
-          width: screenSize.width * 0.8,
-          height: screenSize.height * 0.06,
+          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: _isDarkMode
-                  ? [Color(0xFF2A5298), Color(0xFF3A6DB0)]
-                  : [Color(0xFF4A90E2), Color(0xFF5AB1FF)],
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-            ),
-            borderRadius: BorderRadius.circular(30),
-            boxShadow: [
-              BoxShadow(
-                color: (_isDarkMode ? Color(0xFF2A5298) : Color(0xFF4A90E2)).withOpacity(0.3),
-                blurRadius: 10,
-                offset: Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Center(
-            child: Text(
-              'Giriş Yap',
-              style: TextStyle(
-                  color: Colors.white,
-                  fontSize: screenSize.width * 0.045,
-                  fontWeight: FontWeight.bold
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildForgotPasswordButton(Map<String, Color?> colors, Size screenSize) {
-    return GestureDetector(
-      onTapDown: (_) => _buttonAnimationController.forward(),
-      onTapUp: (_) {
-        _buttonAnimationController.reverse();
-        Navigator.push(context, MaterialPageRoute(builder: (context) => ForgotPasswordScreen()));
-      },
-      child: ScaleTransition(
-        scale: _buttonScaleAnimation,
-        child: Container(
-          padding: EdgeInsets.symmetric(
-              horizontal: screenSize.width * 0.04,
-              vertical: screenSize.height * 0.015
-          ),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: _isDarkMode
-                  ? [Color(0xFFB03060), Color(0xFFD2691E)]
-                  : [Color(0xFFFE6B8B), Color(0xFFFF8E53)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
+            gradient: gradient,
             borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(_isDarkMode ? 0.3 : 0.2),
+                color: Colors.black.withOpacity(gradient.colors.first.opacity * 0.3),
                 blurRadius: 6,
                 offset: Offset(0, 4),
               ),
@@ -585,8 +717,114 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
+              Icon(icon, color: Colors.white, size: iconSize),
+              SizedBox(width: 8),
+              Text(
+                text,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: fontSize,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoginButton(Map<String, Color?> colors, Size screenSize) {
+    return ScaleTransition(
+      scale: _loginButtonScaleAnimation,
+      child: GestureDetector(
+        onTapDown: (_) => _loginButtonAnimationController.forward(),
+        onTapUp: (_) {
+          _loginButtonAnimationController.reverse();
+          // Trim uygulaması eklendi
+          login(_usernameController.text.trim(), _passwordController.text.trim());
+        },
+        onTapCancel: () => _loginButtonAnimationController.reverse(),
+        child: Container(
+          width: double.infinity,
+          padding: EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+          decoration: BoxDecoration(
+            gradient: _isDarkMode
+                ? LinearGradient(
+              colors: [Color(0xFF2A5298), Color(0xFF3A6DB0)],
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+            )
+                : LinearGradient(
+              colors: [Color(0xFF4A90E2), Color(0xFF5AB1FF)],
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+            ),
+            borderRadius: BorderRadius.circular(30),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.2),
+                blurRadius: 10,
+                offset: Offset(0, 5),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.login, color: Colors.white, size: screenSize.width * 0.05),
+              SizedBox(width: 10),
+              Text(
+                'Giriş Yap',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: screenSize.width * 0.045,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildForgotPasswordButton(Map<String, Color?> colors, Size screenSize) {
+    return ScaleTransition(
+      scale: _forgotPasswordButtonScaleAnimation,
+      child: GestureDetector(
+        onTapDown: (_) => _forgotPasswordButtonAnimationController.forward(),
+        onTapUp: (_) {
+          _forgotPasswordButtonAnimationController.reverse();
+          Navigator.push(context, MaterialPageRoute(builder: (context) => ForgotPasswordScreen()));
+        },
+        onTapCancel: () => _forgotPasswordButtonAnimationController.reverse(),
+        child: Container(
+          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+          decoration: BoxDecoration(
+            gradient: _isDarkMode
+                ? LinearGradient(
+              colors: [Color(0xFFB03060), Color(0xFFD2691E)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            )
+                : LinearGradient(
+              colors: [Color(0xFFFE6B8B), Color(0xFFFF8E53)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.2),
+                blurRadius: 6,
+                offset: Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
               Icon(Icons.lock_outline, color: Colors.white, size: screenSize.width * 0.04),
-              SizedBox(width: screenSize.width * 0.02),
+              SizedBox(width: 5),
               Text(
                 'Şifremi Unuttum',
                 style: TextStyle(
@@ -602,41 +840,42 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
   }
 
   Widget _buildRegisterButton(Map<String, Color?> colors, Size screenSize) {
-    return GestureDetector(
-      onTapDown: (_) => _buttonAnimationController.forward(),
-      onTapUp: (_) {
-        _buttonAnimationController.reverse();
-        Navigator.push(context, MaterialPageRoute(builder: (context) => RegisterScreen()));
-      },
-      child: ScaleTransition(
-        scale: _buttonScaleAnimation,
+    return ScaleTransition(
+      scale: _registerButtonScaleAnimation,
+      child: GestureDetector(
+        onTapDown: (_) => _registerButtonAnimationController.forward(),
+        onTapUp: (_) {
+          _registerButtonAnimationController.reverse();
+          Navigator.push(context, MaterialPageRoute(builder: (context) => RegisterScreen()));
+        },
+        onTapCancel: () => _registerButtonAnimationController.reverse(),
         child: Container(
-          padding: EdgeInsets.symmetric(
-              horizontal: screenSize.width * 0.04,
-              vertical: screenSize.height * 0.015
-          ),
+          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: _isDarkMode
-                  ? [Color(0xFF1E90FF), Color(0xFF4169E1)]
-                  : [Color(0xFF36D1DC), Color(0xFF5B86E5)],
+            gradient: _isDarkMode
+                ? LinearGradient(
+              colors: [Color(0xFF1E90FF), Color(0xFF4169E1)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            )
+                : LinearGradient(
+              colors: [Color(0xFF36D1DC), Color(0xFF5B86E5)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(_isDarkMode ? 0.3 : 0.2),
+                color: Colors.black.withOpacity(0.2),
                 blurRadius: 6,
                 offset: Offset(0, 4),
               ),
             ],
           ),
           child: Row(
-            mainAxisSize: MainAxisSize.min,
             children: [
               Icon(Icons.person_add_alt_1, color: Colors.white, size: screenSize.width * 0.04),
-              SizedBox(width: screenSize.width * 0.02),
+              SizedBox(width: 5),
               Text(
                 'Kayıt Ol',
                 style: TextStyle(
@@ -729,8 +968,6 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                     SizedBox(height: screenSize.height * 0.02),
                     _buildInputFields(colors, screenSize),
                     SizedBox(height: screenSize.height * 0.02),
-                    _buildLoginButton(colors, screenSize),
-                    SizedBox(height: screenSize.height * 0.01),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
@@ -739,6 +976,8 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                       ],
                     ),
                     SizedBox(height: screenSize.height * 0.02),
+                    _buildLoginButton(colors, screenSize),
+                    SizedBox(height: screenSize.height * 0.01),
                     _buildMotivationalText(colors, screenSize),
                     SizedBox(height: screenSize.height * 0.01),
                     _buildPhdAcademyText(colors),

@@ -572,15 +572,29 @@ class _GameModeScreenState extends State<GameModeScreen> with WidgetsBindingObse
                                               Row(
                                                 children: [
                                                   Expanded(
-                                                    child: Text(
-                                                      word.word,
-                                                      style: GoogleFonts.inter(
-                                                        fontSize: getResponsiveFontSize(context, 18),
-                                                        fontWeight: FontWeight.bold,
-                                                        color: isStarred
-                                                            ? (_isDarkMode ? Colors.amber.shade200 : Colors.amber.shade800)
-                                                            : (_isDarkMode ? Colors.white : Colors.black87),
-                                                      ),
+                                                    child: Column(
+                                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                                      children: [
+                                                        Text(
+                                                          word.word,
+                                                          style: GoogleFonts.inter(
+                                                            fontSize: getResponsiveFontSize(context, 18),
+                                                            fontWeight: FontWeight.bold,
+                                                            color: isStarred
+                                                                ? (_isDarkMode ? Colors.amber.shade200 : Colors.amber.shade800)
+                                                                : (_isDarkMode ? Colors.white : Colors.black87),
+                                                          ),
+                                                        ),
+                                                        SizedBox(height: 4),
+                                                        Text(
+                                                          word.type?.isNotEmpty == true ? word.type! : "Tip belirsiz",
+                                                          style: GoogleFonts.inter(
+                                                            fontSize: getResponsiveFontSize(context, 14),
+                                                            fontStyle: FontStyle.italic,
+                                                            color: _isDarkMode ? Colors.white60 : Colors.black45,
+                                                          ),
+                                                        ),
+                                                      ],
                                                     ),
                                                   ),
                                                   // Yıldız Butonu
@@ -632,8 +646,7 @@ class _GameModeScreenState extends State<GameModeScreen> with WidgetsBindingObse
                                         ),
                                       ),
                                     ),
-                                  ),
-                                );
+                                  ),                                );
                               },
                             );
                           },

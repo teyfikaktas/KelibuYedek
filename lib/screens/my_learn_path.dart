@@ -70,11 +70,20 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
   Future<List<WordDetail>> fetchWords() async {
     try {
       UserProvider userProvider = Provider.of<UserProvider>(context, listen: false);
+
+      // Senkronizasyonu deneyin ve sonucu yazdırın
+      print("Syncronization completed");
+
       var starredWordsSet = await StarredWordsService().loadAllStarredWordsAll();
+      print("Starred words set: $starredWordsSet");
+
       var starredWordsList = starredWordsSet.toList();
       starredWordsString = starredWordsList.join(', ');
+      print("Starred words list: $starredWordsList");
 
       List<WordDetail> newWordDetails = await ApiService().fetchWordsDetail(starredWordsList);
+      print("Fetched word details: ${newWordDetails.length}");
+
       return newWordDetails;
     } catch (error) {
       print("Error fetching words: $error");

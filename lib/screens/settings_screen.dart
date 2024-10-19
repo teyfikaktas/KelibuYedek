@@ -5,6 +5,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:kelibu/screens/setting/subscription_settings.dart';
 import 'package:path/path.dart' as p;
 import 'package:image/image.dart' as img;
 import 'package:http/http.dart' as http;
@@ -149,6 +150,9 @@ class _SettingsPageState extends State<SettingsPage> {
           _buildSettingsItem(Icons.account_circle, 'Hesap Bilgileri', () {
             Navigator.push(context, MaterialPageRoute(builder: (context) => AccountPage()));
           }),
+          _buildSettingsItem(Icons.subscriptions, 'Abonelik Bilgileri', () {
+            Navigator.push(context, MaterialPageRoute(builder: (context) => SubscriptionSettingsPage()));
+          }),
           _buildDivider(),
           _buildSettingsItem(Icons.info_outline, 'Hakkımızda', () {
             Navigator.push(context, MaterialPageRoute(builder: (context) => AboutPage()));
@@ -166,6 +170,7 @@ class _SettingsPageState extends State<SettingsPage> {
             Navigator.push(context, MaterialPageRoute(builder: (context) => PrivacyPolicyPage()));
           }),
           _buildDivider(),
+
           _buildSettingsItem(Icons.delete, 'Hesabımı Sil', () {
             _confirmDeleteAccount(context, Provider.of<UserProvider>(context, listen: false));
           }, color: Colors.red),

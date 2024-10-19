@@ -1,87 +1,105 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-class PhdAkademiInfo extends StatefulWidget {
+class PhdAkademiInfo extends StatelessWidget {
   final bool isDarkMode;
 
   const PhdAkademiInfo({Key? key, required this.isDarkMode}) : super(key: key);
 
-  @override
-  _PhdAkademiInfoState createState() => _PhdAkademiInfoState();
-}
-
-class _PhdAkademiInfoState extends State<PhdAkademiInfo> {
-  bool _isPressed = false;
-
-  void _onTapDown(TapDownDetails details) {
-    setState(() {
-      _isPressed = true;
-    });
-  }
-
-  void _onTapUp(TapUpDetails details) {
-    setState(() {
-      _isPressed = false;
-    });
-  }
-
-  void _onTapCancel() {
-    setState(() {
-      _isPressed = false;
-    });
+  Future<void> _launchURL() async {
+    final Uri url = Uri.parse('https://www.phdakademi.com');
+    if (!await launchUrl(url)) {
+      throw Exception('Could not launch $url');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: _onTapDown,
-      onTapUp: _onTapUp,
-      onTapCancel: _onTapCancel,
-      onTap: () {
-        // TODO: Implement action when tapped (e.g., open PhD Akademi page)
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 100),
-        padding: EdgeInsets.symmetric(vertical: 8.h, horizontal: 12.w),
-        decoration: BoxDecoration(
-          color: widget.isDarkMode
-              ? (_isPressed ? Colors.blue.shade800 : Colors.blue.shade900)
-              : (_isPressed ? Colors.blue.shade200 : Colors.blue.shade100),
-          borderRadius: BorderRadius.circular(8.r),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.school,
-              color: widget.isDarkMode ? Colors.white : Colors.blue.shade900,
-              size: 18.sp,
-            ),
-            SizedBox(width: 8.w),
-            Flexible(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+    return Card(
+      color: isDarkMode ? Colors.indigo.shade900 : Colors.blue.shade100,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12.r), // Yuvarlaklığı koruduk
+      ),
+      elevation: 4, // Elevation değeri korundu
+      margin: EdgeInsets.symmetric(vertical: 6.h, horizontal: 12.w), // Margin azaltıldı
+      child: InkWell(
+        onTap: _launchURL,
+        borderRadius: BorderRadius.circular(12.r),
+        splashColor: isDarkMode
+            ? Colors.indigo.shade700.withOpacity(0.2)
+            : Colors.blue.shade300.withOpacity(0.2), // Splash efekti hafifletildi
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h), // Padding azaltıldı
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Sol Kısım: Logo ve Başlık
+              Row(
                 children: [
-                  Text(
-                    "PhD Akademi",
-                    style: TextStyle(
-                      color: widget.isDarkMode ? Colors.white : Colors.blue.shade900,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12.sp,
+                  Container(
+                    width: 35.w, // Logo boyutu küçültüldü
+                    height: 35.h,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 3,
+                          offset: Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                    child: Padding(
+                      padding: EdgeInsets.all(5.r), // İç boşluk azaltıldı
+                      child: Image.asset('assets/phd.png'),
                     ),
                   ),
-                  Text(
-                    "Profesyonel dil eğitimi",
-                    style: TextStyle(
-                      color: widget.isDarkMode ? Colors.white70 : Colors.blue.shade800,
-                      fontSize: 9.sp,
-                    ),
-                    overflow: TextOverflow.ellipsis,
+                  SizedBox(width: 10.w), // Boşluk azaltıldı
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "PhD Akademi",
+                        style: TextStyle(
+                          color:
+                          isDarkMode ? Colors.white : Colors.blue.shade900,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 16.sp, // Font boyutu küçültüldü
+                          fontFamily: 'Roboto',
+                        ),
+                      ),
+                      SizedBox(height: 2.h), // Boşluk azaltıldı
+                      Text(
+                        "Profesyonel Dil Eğitimi", // İtalik kaldırıldı ve metin sadeleştirildi
+                        style: TextStyle(
+                          color: isDarkMode
+                              ? Colors.white70
+                              : Colors.blueGrey.shade800,
+                          fontSize: 12.sp, // Font boyutu küçültüldü
+                          // İtalik stil kaldırıldı
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ),
-          ],
+              // Sağ Kısım: İkon
+              Row(
+                children: [
+                  Icon(
+                    Icons.arrow_forward_ios,
+                    color: isDarkMode
+                        ? Colors.white70
+                        : Colors.blueGrey.shade800,
+                    size: 16.sp, // İkon boyutu küçültüldü
+                  ),
+                  SizedBox(width: 4.w), // Boşluk azaltıldı
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
