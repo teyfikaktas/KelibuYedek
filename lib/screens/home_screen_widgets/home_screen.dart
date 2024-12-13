@@ -1,6 +1,8 @@
+import 'dart:io';
 import 'dart:ui';
 import 'package:animated_text_kit/animated_text_kit.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -32,6 +34,7 @@ import 'dart:convert';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../shared_preferences/shared_preferences.dart';
+import '../WordsSetList.dart';
 import '../leader_screen.dart';
 import 'package:getwidget/getwidget.dart';
 import 'package:flutter_tts/flutter_tts.dart';
@@ -41,6 +44,7 @@ import 'package:provider/provider.dart';
 import '../../providers/darkmodeprovider.dart';
 import '../RaceScreen.dart';
 import '../connectivywrapper.dart';
+import '../privary_policy.dart';
 import 'soscial_media.dart';
 import '../library_star.dart';
 import '../loadingIndicator.dart';
@@ -679,16 +683,17 @@ class _KelibuProAdvantagesPanelState extends State<KelibuProAdvantagesPanel> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isMacOS = Theme.of(context).platform == TargetPlatform.macOS;
+
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-      elevation: 0,
       backgroundColor: Colors.transparent,
       child: Container(
-        height: 400,
-        padding: EdgeInsets.all(16),
+        width: isMacOS ? 800 : 400, // Sabit genişlik
+        height: isMacOS ? 600 : 500, // Sabit yükseklik
+        padding: EdgeInsets.all(24),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(28),
+          borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.1),
@@ -698,30 +703,87 @@ class _KelibuProAdvantagesPanelState extends State<KelibuProAdvantagesPanel> {
           ],
         ),
         child: Column(
+          mainAxisSize: MainAxisSize.min, // Önemli
           children: [
+            // Başlık ve Kapat butonu satırı
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Kelibu Pro Avantajları',
+                  style: TextStyle(
+                    fontSize: isMacOS ? 24 : 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(Icons.close),
+                  onPressed: () => Navigator.of(context).pop(),
+                  padding: EdgeInsets.zero, // Padding'i sıfırla
+                ),
+              ],
+            ),
+            Divider(),
+            // İçerik
             Expanded(
               child: PageView.builder(
                 controller: _pageController,
                 itemCount: AdvantagesList.advantages.length,
                 itemBuilder: (context, index) {
                   final advantage = AdvantagesList.advantages[index];
-                  return AdvantageSlide(
-                    icon: advantage['icon'] as IconData,
-                    title: advantage['title'] as String,
-                    description: advantage['description'] as String,
-                    color: advantage['color'] as Color,
+                  return SingleChildScrollView(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 32),
+                      child: AdvantageSlide(
+                        icon: advantage['icon'] as IconData,
+                        title: advantage['title'] as String,
+                        description: advantage['description'] as String,
+                        color: advantage['color'] as Color,
+                      ),
+                    ),
                   );
                 },
               ),
             ),
+            // Dots indicator
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(
+                AdvantagesList.advantages.length,
+                    (index) => Container(
+                  width: 8,
+                  height: 8,
+                  margin: EdgeInsets.symmetric(horizontal: 4),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Theme.of(context).primaryColor.withOpacity(
+                        _pageController.hasClients &&
+                            _pageController.page?.round() == index ? 1 : 0.3
+                    ),
+                  ),
+                ),
+              ),
+            ),
             SizedBox(height: 16),
+            // Butonlar
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                if (isMacOS) ...[
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: Text('İptal'),
+                  ),
+                  SizedBox(width: 8),
+                ],
                 ElevatedButton(
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                  },
+                  style: ElevatedButton.styleFrom(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 32,
+                      vertical: 16,
+                    ),
+                  ),
+                  onPressed: () => Navigator.of(context).pop(),
                   child: Text('Kapat'),
                 ),
               ],
@@ -732,7 +794,6 @@ class _KelibuProAdvantagesPanelState extends State<KelibuProAdvantagesPanel> {
     );
   }
 }
-
 class AdvantageSlide extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -749,27 +810,46 @@ class AdvantageSlide extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(icon, size: 60, color: color),
-        SizedBox(height: 16),
-        Text(
-          title,
-          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-          textAlign: TextAlign.center,
-        ),
-        SizedBox(height: 8),
-        Text(
-          description,
-          style: TextStyle(fontSize: 16),
-          textAlign: TextAlign.center,
-        ),
-      ],
+    final bool isMacOS = Theme.of(context).platform == TargetPlatform.macOS;
+
+    return Container(
+      padding: EdgeInsets.symmetric(vertical: 24),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            icon,
+            size: isMacOS ? 60 : 40,
+            color: color,
+          ),
+          SizedBox(height: 24),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: isMacOS ? 22 : 18,
+              fontWeight: FontWeight.bold,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          SizedBox(height: 16),
+          Text(
+            description,
+            style: TextStyle(
+              fontSize: isMacOS ? 16 : 14,
+              color: Colors.grey[700],
+              height: 1.5,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 4,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
     );
   }
 }
-
 class KelibuProAdvantagesDialog extends StatelessWidget {
   static const String _shownKey = 'kelibu_pro_advantages_shown';
 
@@ -1088,6 +1168,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final FlutterTts flutterTts = FlutterTts();
   bool _isDarkMode = false;
   OverlayEntry? _overlayEntry;
+  int activeUserCount = 0;
 
   @override
   void initState() {
@@ -1110,6 +1191,8 @@ class _HomeScreenState extends State<HomeScreen> {
         _loadWordOfTheDay(),
         _loadPromotionMessage(),
         _loadDarkModePreference(),
+        _fetchActiveUsers(), // Yeni eklenen
+
       ]);
     } finally {
     //  _hideLoadingOverlay();
@@ -1120,6 +1203,103 @@ class _HomeScreenState extends State<HomeScreen> {
     print('widget.message');
 
     print(widget.message);
+  }
+  Future<void> _fetchActiveUsers() async {
+    try {
+      final response = await ApiService().getUsersCount();
+      setState(() {
+        activeUserCount = response['total_users'] ?? 0;
+      });
+    } catch (e) {
+      print('Error fetching active users: $e');
+      setState(() {
+        activeUserCount = 0;
+      });
+    }
+  }
+  Widget _buildActiveUsersIndicator() {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 3.h),
+      decoration: BoxDecoration(
+        color: _isDarkMode
+            ? Colors.grey[850]!.withOpacity(0.8)
+            : Colors.white.withOpacity(0.9),
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(
+          color: _isDarkMode
+              ? Colors.grey[700]!
+              : Colors.grey[200]!,
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: _isDarkMode
+                ? Colors.black.withOpacity(0.2)
+                : Colors.grey.withOpacity(0.1),
+            spreadRadius: 1,
+            blurRadius: 4,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8.w,
+            height: 8.h,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.greenAccent,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.greenAccent.withOpacity(0.3),
+                  spreadRadius: 1,
+                  blurRadius: 2,
+                  offset: Offset(0, 1),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(width: 6.w),
+          TweenAnimationBuilder<int>(
+            duration: Duration(seconds: 2),
+            tween: IntTween(
+              begin: 0,
+              end: activeUserCount,
+            ),
+            builder: (context, value, child) {
+              return RichText(
+                text: TextSpan(
+                  children: [
+                    TextSpan(
+                      text: value.toString(),
+                      style: GoogleFonts.poppins(
+                        fontSize: 13.sp,
+                        fontWeight: FontWeight.w600,
+                        color: _isDarkMode
+                            ? Colors.white
+                            : Colors.grey[800],
+                      ),
+                    ),
+                    TextSpan(
+                      text: ' Online',
+                      style: GoogleFonts.poppins(
+                        fontSize: 12.sp,
+                        fontWeight: FontWeight.w400,
+                        color: _isDarkMode
+                            ? Colors.grey[400]
+                            : Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _showVipBenefitsPanel() async {
@@ -1142,7 +1322,129 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
   }
-
+  Widget _buildVipButton({required bool isDarkMode}) {
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+      decoration: BoxDecoration(
+        border: Border.all(
+          color: isDarkMode ? Colors.grey[800]! : Colors.grey[200]!,
+          width: 1,
+        ),
+        borderRadius: BorderRadius.circular(12.r),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12.r),
+          splashColor: Colors.orange.withOpacity(0.1),
+          highlightColor: Colors.orange.withOpacity(0.05),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => MarketPage()),
+            );
+          },
+          child: Ink(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12.r),
+              boxShadow: [
+                BoxShadow(
+                  color: isDarkMode
+                      ? Colors.black.withOpacity(0.2)
+                      : Colors.orange.withOpacity(0.15),
+                  spreadRadius: 1,
+                  blurRadius: 4,
+                  offset: Offset(0, 2),
+                ),
+              ],
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: isDarkMode
+                    ? [
+                  Colors.grey[900]!,
+                  Colors.grey[850]!,
+                ]
+                    : [
+                  Colors.white,
+                  Color(0xFFFFFBF0),
+                ],
+              ),
+            ),
+            child: Container(
+              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        "Kelibu",
+                        style: GoogleFonts.poppins(
+                          color: isDarkMode ? Colors.white : Colors.black87,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15.sp,
+                        ),
+                      ),
+                      SizedBox(width: 4.w),
+                      Container(
+                        padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+                        decoration: BoxDecoration(
+                          color: Colors.orange,
+                          borderRadius: BorderRadius.circular(6.r),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.orange.withOpacity(0.3),
+                              spreadRadius: 0,
+                              blurRadius: 4,
+                              offset: Offset(0, 1),
+                            ),
+                          ],
+                        ),
+                        child: Text(
+                          "PRO",
+                          style: GoogleFonts.poppins(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 12.sp,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  Row(
+                    children: [
+                      FaIcon(
+                        FontAwesomeIcons.crown,
+                        color: Colors.orange[400],
+                        size: 14.sp,
+                      ),
+                      SizedBox(width: 2.w),
+                      Text(
+                        "Avantajlarım",
+                        style: GoogleFonts.poppins(
+                          color: isDarkMode ? Colors.grey[300] : Colors.grey[600],
+                          fontSize: 13.sp,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      SizedBox(width: 3.w),
+                      FaIcon(
+                        FontAwesomeIcons.chevronRight,
+                        color: isDarkMode ? Colors.grey[600] : Colors.grey[400],
+                        size: 12.sp,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
   Future<void> checkSubscriptionStatus() async {
     final provider = Provider.of<SubscriptionProvider>(context, listen: false);
     await provider.fetchSubscriptionStatus();
@@ -1252,31 +1554,37 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+
     return ScreenUtilInit(
       designSize: const Size(360, 690),
       minTextAdapt: true,
       splitScreenMode: true,
       builder: (context, child) {
-        return ConnectivityWrapper(
-          child: Consumer<UserProvider>(
-            builder: (context, userProvider, child) {
-              return Scaffold(
-                backgroundColor: _getBackgroundColor(),
-                body: Stack(
-                  children: [
-                    _buildMainContent(userProvider),
-                    if (isExpanded) _buildExpandedWordSets(),
-                    if (widget.message != null)
-                      KelibuProPanel()
-                  ],
-                ),
-              );
-            },
+        return Scaffold(
+          backgroundColor: _getBackgroundColor(),
+          body: Stack(
+            children: [
+              _buildMainContent(userProvider),
+              if (widget.message != null)
+                KelibuProPanel()
+            ],
           ),
         );
       },
     );
   }
+
+
+
+  void _navigateToWordSetsPage() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => WordSetsPage(),
+      ),
+    );
+  }
+
 
 // Mesaj panelini oluşturan yeni bir metod
   Widget _buildMessagePanel() {
@@ -1320,22 +1628,154 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
   Widget _buildMainContent(UserProvider userProvider) {
-    return ListView(
-      shrinkWrap: true,
-      children: [
+    return Consumer<SubscriptionProvider>(
+      builder: (context, subscriptionProvider, _) {
+        bool isVip = subscriptionProvider.isVip;
 
-        _buildUserInfoSection(userProvider),
-        _buildLearningPanel(),
+        return ListView(
+          shrinkWrap: true,
+          children: [
+            _buildUserInfoSection(userProvider),
 
-        _buildStreakWidget(userProvider),
-        _buildSocialMediaInfo(),
-        PhdAkademiInfo(isDarkMode: _isDarkMode),
+            // VIP değilse VIP butonunu göster, VIP ise boş container
+            !isVip ? _buildKelibuProButton(isDarkMode: _isDarkMode) : _buildVipButton(isDarkMode: _isDarkMode),
 
-        SizedBox(height: 20.h),
-      ],
+            _buildLearningPanel(),
+            _buildStreakWidget(userProvider),
+            _buildSocialMediaInfo(),
+            PhdAkademiInfo(isDarkMode: _isDarkMode),
+          ],
+        );
+      },
     );
   }
-
+  Widget _buildKelibuProButton({required bool isDarkMode}) {
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h), // Kenarları küçülttüm
+      decoration: BoxDecoration(
+        border: Border.all(
+          color: isDarkMode ? Colors.grey[800]! : Colors.grey[200]!,
+          width: 1,
+        ),
+        borderRadius: BorderRadius.circular(10.r), // Border radius'u küçülttüm
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(10.r),
+          splashColor: Colors.amber.withOpacity(0.1),
+          highlightColor: Colors.amber.withOpacity(0.05),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => MarketPage()),
+            );
+          },
+          child: Ink(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10.r),
+              boxShadow: [
+                BoxShadow(
+                  color: isDarkMode
+                      ? Colors.black.withOpacity(0.2)
+                      : Colors.amber.withOpacity(0.15),
+                  spreadRadius: 1,
+                  blurRadius: 3, // Gölgeyi azalttım
+                  offset: Offset(0, 1), // Gölge offset'ini küçülttüm
+                ),
+              ],
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: isDarkMode
+                    ? [
+                  Colors.grey[900]!,
+                  Colors.grey[850]!,
+                ]
+                    : [
+                  Colors.white,
+                  Color(0xFFFFFBF0), // Sarımsı arka plan
+                ],
+              ),
+            ),
+            child: Container(
+              padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h), // Padding'i küçülttüm
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            "Kelibu",
+                            style: GoogleFonts.poppins(
+                              color: isDarkMode ? Colors.white : Colors.black87,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14.sp, // Font boyutunu küçülttüm
+                            ),
+                          ),
+                          SizedBox(width: 4.w),
+                          Container(
+                            padding: EdgeInsets.symmetric(horizontal: 5.w, vertical: 1.h), // PRO badge padding'ini küçülttüm
+                            decoration: BoxDecoration(
+                              color: Colors.amber[600],
+                              borderRadius: BorderRadius.circular(5.r),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.amber.withOpacity(0.3),
+                                  spreadRadius: 0,
+                                  blurRadius: 3,
+                                  offset: Offset(0, 1),
+                                ),
+                              ],
+                            ),
+                            child: Text(
+                              "PRO",
+                              style: GoogleFonts.poppins(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 11.sp, // Font boyutunu küçülttüm
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      FaIcon(
+                        FontAwesomeIcons.crown,
+                        color: Colors.amber[400],
+                        size: 14.sp, // İkon boyutunu küçülttüm
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 6.h), // Boşluğu küçülttüm
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        "Hemen Kelibu PRO'lu ol",
+                        style: GoogleFonts.poppins(
+                          color: isDarkMode ? Colors.grey[300] : Colors.grey[600],
+                          fontSize: 12.sp, // Font boyutunu küçülttüm
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      FaIcon(
+                        FontAwesomeIcons.chevronRight,
+                        color: isDarkMode ? Colors.grey[600] : Colors.grey[400],
+                        size: 11.sp, // İkon boyutunu küçülttüm
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
   Widget _buildHeader() {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 8.h),
@@ -1350,7 +1790,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildUserInfoSection(UserProvider userProvider) {
     return Container(
-      margin: EdgeInsets.all(12.sp),
+      margin: EdgeInsets.all(8.sp),
       padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
       decoration: BoxDecoration(
         color: _getBackgroundColor(),
@@ -1370,17 +1810,22 @@ class _HomeScreenState extends State<HomeScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               _buildAvatarWithName(userProvider),
-              ScoreDisplay(userPointsNotifier: pointValueNotifier),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  ScoreDisplay(userPointsNotifier: pointValueNotifier),
+                  SizedBox(height: 4.h),
+                ],
+              ),
             ],
           ),
-          SizedBox(height: 3.h),
+          SizedBox(height: 1.h),
           _buildActionButtons(),
-          SizedBox(height: 3.h),
+          SizedBox(height: 1.h),
         ],
       ),
     );
   }
-
   Widget _buildAvatarWithName(UserProvider userProvider) {
     return Consumer<SubscriptionProvider>(
       builder: (context, subscriptionProvider, _) {
@@ -1458,7 +1903,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 if (isSubscribed)
                   _buildSubscriptionBadge()
                 else
-                  _buildVipButton(),
+                  _buildVIPanel(),
               ],
             ),
           ],
@@ -1514,31 +1959,16 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildVipButton() {
-    return ElevatedButton(
-      onPressed: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => MarketPage()),
-        );
-      },
-      child: Text('Kelibu Prolu ol!'),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.amber,
-        foregroundColor: Colors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20.r),
-        ),
-        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
-      ),
-    );
+
+  Widget _buildVIPanel() {
+    return Container();
   }
 
   Widget _buildActionButtons() {
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
         double totalWidth = constraints.maxWidth * 0.8;
-        double maxIconSize = 70;
+        double maxIconSize = 50;
         double minSpacing = 8;
         double iconSize = (totalWidth - (4 * minSpacing)) / 5;
         iconSize = iconSize > maxIconSize ? maxIconSize : iconSize;
@@ -1675,10 +2105,15 @@ Kelime öğrenmenin tadını Kelibu ile çıkarın! 🍭📗
   Widget _buildLearningPanel() {
     return LearningPanel(
       isDarkMode: _isDarkMode,
-      onWordSetsTap: _expandWordSets,
+      onWordSetsTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (context) => WordSetsPage()),
+        );
+      },
       onWordOfDayTap: _showWordOfDayDialog,
       onDictionaryTap: _openSearchDialog,
     );
+
   }
 
   Widget _buildSocialMediaInfo() {
@@ -2856,7 +3291,7 @@ class _WordSetsButtonState extends State<WordSetsButton>
     final screenHeight = MediaQuery.of(context).size.height;
 
     // Define relative sizes
-    final double paddingHorizontal = screenWidth * 0.05; // %5 of screen width
+    final double paddingHorizontal = screenWidth * 0.01; // %5 of screen width
     final double paddingVertical = screenHeight * 0.01; // %1 of screen height
     final double containerHeight = screenHeight * 0.1; // %10 of screen height
     final double iconSize = screenWidth * 0.07; // %7 of screen width

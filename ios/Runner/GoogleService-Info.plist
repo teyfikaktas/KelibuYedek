@@ -3,17 +3,17 @@
 <plist version="1.0">
 <dict>
 	<key>API_KEY</key>
-	<string>AIzaSyCAFhoZmCbDdAVwUZCC6sAcip-uxVf7VfY</string>
+	<string>AIzaSyBkH4y_9VabzuUr8k-C0kcnBugSeZF6aeY</string>
 	<key>GCM_SENDER_ID</key>
-	<string>637853306875</string>
+	<string>781993053260</string>
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
 	<string>com.phdakademi.kelibu</string>
 	<key>PROJECT_ID</key>
-	<string>kelibu-78d82</string>
+	<string>kelibu-phdakademi</string>
 	<key>STORAGE_BUCKET</key>
-	<string>kelibu-78d82.appspot.com</string>
+	<string>kelibu-phdakademi.firebasestorage.app</string>
 	<key>IS_ADS_ENABLED</key>
 	<false></false>
 	<key>IS_ANALYTICS_ENABLED</key>
@@ -25,6 +25,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:637853306875:ios:6e8a8e8ed6176fccccc55e</string>
+	<string>1:781993053260:ios:f0d52fe45b621b554338e9</string>
 </dict>
 </plist>

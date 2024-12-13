@@ -10,6 +10,8 @@ buildscript {
         mavenCentral()
     }
     dependencies {
+        // START: FlutterFire Configuration
+        // END: FlutterFire Configuration
         classpath "com.android.tools.build:gradle:$agp_version"
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
         // Bu sürümü 8.6 ile uyumlu olacak şekilde güncelleyin

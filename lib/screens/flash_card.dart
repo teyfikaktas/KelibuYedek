@@ -595,6 +595,9 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
   ValueNotifier<bool> isVisibilityOn = ValueNotifier(true);
   bool isShuffleOn = true;
   bool isLanguageOn = true;
+  bool _isVolumeOn = true; // Varsayılan değer
+  late VolumeProvider volumeProvider;
+
   bool isVolumeOn = true;
   int userID= 2;
   late int point;
@@ -606,6 +609,7 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
     _showExitConfirmationDialog();
     return true;
   }
+
   void _showExitConfirmationDialog() {
     showDialog<bool>(
       context: context,
@@ -634,6 +638,7 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     ApiService().logSetEntry('Flash Kart', 'Flash Kartlara ', '');
+    _loadVolumeState();
 
     _currentWordList = widget.words;
 
@@ -693,6 +698,50 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
     _animationController.dispose();
 
     super.dispose();
+  }
+  Future<void> _loadVolumeState() async {
+    final prefs = await SharedPreferences.getInstance();
+    bool savedVolumeState = prefs.getBool('isVolumeOn') ?? true;
+    setState(() {
+      _isVolumeOn = savedVolumeState;
+    });
+
+    // Volume provider'ı başlat ve durumu güncelle
+    Future.microtask(() {
+      volumeProvider = Provider.of<VolumeProvider>(context, listen: false);
+      if (savedVolumeState != volumeProvider.isVolumeOn) {
+        // Eğer kaydedilen durum ve provider durumu farklıysa, provider'ı kaydedilen duruma getir
+        if (!savedVolumeState) { // Özellikle kapalı durumda ise
+          volumeProvider.toggleVolume();
+        }
+      }
+    });
+  }
+  Widget _buildVolumeControl(Color color) {
+    return Consumer<VolumeProvider>(
+      builder: (context, volumeProvider, child) {
+        return IconButton(
+          icon: Icon(
+            volumeProvider.isVolumeOn ? Icons.volume_up : Icons.volume_off,
+            color: color, // colors parametresini kullan
+          ),
+          onPressed: () async {
+            volumeProvider.toggleVolume();
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setBool('isVolumeOn', volumeProvider.isVolumeOn);
+            setState(() {
+              _isVolumeOn = volumeProvider.isVolumeOn;
+            });
+
+            // Kullanıcıya geri bildirim göster
+            showCustomFlushbar(
+                context,
+                volumeProvider.isVolumeOn ? "Ses açıldı" : "Ses kapatıldı"
+            );
+          },
+        );
+      },
+    );
   }
   void _initializeStarredStatus() {
     for (var word in widget.words) {
@@ -1003,7 +1052,8 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
               );
             },
           ),
-          MyVolumeControl(),
+          _buildVolumeControl(colors["inputBackground"]!), // MyVolumeControl yerine bunu kullanın
+
           _buildControlButton(Icons.hearing, colors["inputBackground"]!, () {
             _speak(_currentWordList[currentWordIndex.value].word);
           }),

@@ -13,15 +13,17 @@ if (flutterRoot == null) {
 
 def flutterVersionCode = localProperties.getProperty('flutter.versionCode')
 if (flutterVersionCode == null) {
-    flutterVersionCode = '28'
+    flutterVersionCode = '39'
 }
 
 def flutterVersionName = localProperties.getProperty('flutter.versionName')
 if (flutterVersionName == null) {
-    flutterVersionName = '1.3.0'
+    flutterVersionName = '1.4.0'
 }
 
 apply plugin: 'com.android.application'
+// START: FlutterFire Configuration
+// END: FlutterFire Configuration
 apply plugin: 'kotlin-android'
 apply from: "$flutterRoot/packages/flutter_tools/gradle/flutter.gradle"
 
@@ -51,7 +53,7 @@ android {
 
     defaultConfig {
         applicationId "com.phdakademi.kelibu"
-        minSdkVersion 21
+        minSdkVersion 23
         targetSdkVersion 34
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName

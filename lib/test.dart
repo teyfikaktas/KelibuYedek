@@ -43,7 +43,6 @@ class _MyHomePageState extends State<MyHomePage> {
   bool _passwordVisible = false;
 
   void _logout() {
-    StarredWordsService().clearCache();
     setState(() {
       _isLoggedIn = false;
       _username = '';

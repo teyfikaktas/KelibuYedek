@@ -16,6 +16,7 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter/services.dart';
 import 'package:collection/collection.dart';
 import 'auth/device_info.dart';
+
 // api_service.dart içinde en üst kısma ekleyin
 class ApiException implements Exception {
   final String message;
@@ -33,17 +34,26 @@ class WordDataCache {
   static Future<void> loadAllData() async {
     if (_wordsData == null) {
       print('Veri yükleme başladı');
-      _wordsData = await _loadCsvData('assets/Model/words.csv');
-      _synonymsData = await _loadCsvData('assets/Model/synonyms.csv');
-      _collocationsData = await _loadCsvData('assets/Model/collacations.csv');
-      _derivationsData = await _loadCsvData('assets/Model/derivations.csv');
+
+      // 1. CSV dosyalarının içeriğini ana izolede okuyun
+      final wordsCsvContent = await rootBundle.loadString('assets/Model/words.csv');
+      final synonymsCsvContent = await rootBundle.loadString('assets/Model/synonyms.csv');
+      final collocationsCsvContent = await rootBundle.loadString('assets/Model/collacations.csv');
+      final derivationsCsvContent = await rootBundle.loadString('assets/Model/derivations.csv');
+
+      // 2. CSV içeriklerini ayrı izolelerde işleyin
+      _wordsData = await compute(parseCsvData, wordsCsvContent);
+      _synonymsData = await compute(parseCsvData, synonymsCsvContent);
+      _collocationsData = await compute(parseCsvData, collocationsCsvContent);
+      _derivationsData = await compute(parseCsvData, derivationsCsvContent);
+
       print('Veri yükleme tamamlandı');
     }
   }
 
-  static Future<List<List<dynamic>>> _loadCsvData(String path) async {
-    final csvFile = await rootBundle.loadString(path);
-    return const CsvToListConverter(eol: '\n').convert(csvFile);
+  // CSV verisini parse eden fonksiyon
+  static List<List<dynamic>> parseCsvData(String csvContent) {
+    return const CsvToListConverter(eol: '\n').convert(csvContent);
   }
 }
 
@@ -396,7 +406,9 @@ class ApiService {
       url,
       headers: headers,
     );
+    print('response');
 
+    print(response.body);
     return _handleResponse(response);
   }
 
@@ -427,7 +439,33 @@ class ApiService {
       };
     }
   }
+  Future<Map<String, dynamic>> getUsersCount() async {
+    final url = Uri.parse('$baseUrl/getUsersCount');
+    final headers = await _getHeaders();
 
+    try {
+      final response = await http.get(
+        url,
+        headers: headers,
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        return {
+          'success': false,
+          'message': 'Kullanıcı sayısı alınamadı',
+          'total_users': 0
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Bağlantı hatası: ${e.toString()}',
+        'total_users': 0
+      };
+    }
+  }
   Future<Map<String, dynamic>> leaveGroup(String id) async {
     final url = Uri.parse('$baseUrl/join-group');
     final headers = await _getHeaders();

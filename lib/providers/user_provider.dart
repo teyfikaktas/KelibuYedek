@@ -119,28 +119,36 @@ class UserProvider with ChangeNotifier {
   }
 
   Future<bool> loadUser() async {
-    var box = await Hive.openBox('userBox');
-    _username = box.get('username', defaultValue: '');
-    _userId = box.get('userId', defaultValue: 0);
-    _avatar = box.get('avatar', defaultValue: '');
-    _point = box.get('point', defaultValue: 0);
-    _email = box.get('email', defaultValue: '');
-    _phone = box.get('phone', defaultValue: '');
-    _phoneVerified = box.get('phoneVerified', defaultValue: false);
-    _createdAt = box.get('createdAt', defaultValue: '');
-    _city = box.get('city', defaultValue: '');
-    _birthYear = box.get('birthYear', defaultValue: 0);
-    _team = box.get('team');
-    _streakCount = box.get('streakCount', defaultValue: 0);
-    _dailyRank = box.get('dailyRank', defaultValue: 0);
-    _weeklyRank = box.get('weeklyRank', defaultValue: 0);
-    _monthlyRank = box.get('monthlyRank', defaultValue: 0);
-    _allTimeRank = box.get('allTimeRank', defaultValue: 0);
+    try {  // try-catch ekleyelim
+      var box = await Hive.openBox('userBox');
 
-    notifyListeners();
-    return _username.isNotEmpty;
+      // Özellikle bu alanları kontrol edelim
+      var phoneVerifiedValue = box.get('phoneVerified');
+      _phoneVerified = phoneVerifiedValue is bool ? phoneVerifiedValue : false;
+
+      _username = box.get('username')?.toString() ?? '';
+      _userId = box.get('userId') is int ? box.get('userId') : 0;
+      _avatar = box.get('avatar')?.toString() ?? '';
+      _point = box.get('point') is int ? box.get('point') : 0;
+      _email = box.get('email')?.toString() ?? '';
+      _phone = box.get('phone')?.toString() ?? '';
+      _createdAt = box.get('createdAt')?.toString() ?? '';
+      _city = box.get('city')?.toString() ?? '';
+      _birthYear = box.get('birthYear') is int ? box.get('birthYear') : 0;
+      _team = box.get('team')?.toString();
+      _streakCount = box.get('streakCount') is int ? box.get('streakCount') : 0;
+      _dailyRank = box.get('dailyRank') is int ? box.get('dailyRank') : 0;
+      _weeklyRank = box.get('weeklyRank') is int ? box.get('weeklyRank') : 0;
+      _monthlyRank = box.get('monthlyRank') is int ? box.get('monthlyRank') : 0;
+      _allTimeRank = box.get('allTimeRank') is int ? box.get('allTimeRank') : 0;
+
+      notifyListeners();
+      return _username.isNotEmpty;
+    } catch (e) {
+      print('Error in loadUser: $e');
+      return false;
+    }
   }
-
   Future<void> updateUserAvatarUrl(String newAvatarUrl) async {
     _avatar = newAvatarUrl;
     var box = await Hive.openBox('userBox');

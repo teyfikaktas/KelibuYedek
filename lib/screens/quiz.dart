@@ -377,6 +377,7 @@ class _QuizScreenState extends State<QuizScreen> {
   int currentQuestionIndex = 0;
   bool isWordSoundOn = true;
   bool isCorrectSoundOn = true;
+  late VolumeProvider volumeProvider;
   PageController _pageController = PageController();
   final ScrollController _navBarScrollController = ScrollController();
   ValueNotifier<bool> isRefreshOn = ValueNotifier(true);
@@ -585,7 +586,8 @@ class _QuizScreenState extends State<QuizScreen> {
     }
   }
   Future<void> playSoundCorrect(String path) async {
-    if (isCorrectSoundOn) {
+    final volumeProvider = Provider.of<VolumeProvider>(context, listen: false);
+    if (volumeProvider.isVolumeOn && isCorrectSoundOn) { // Ana ses ve doğru/yanlış sesi kontrolü
       AudioPlayer audioPlayer = AudioPlayer();
       await audioPlayer.setVolume(0.1);
 
@@ -631,59 +633,87 @@ class _QuizScreenState extends State<QuizScreen> {
       backgroundColor: Colors.transparent,
       builder: (BuildContext context) {
         return StatefulBuilder(
-          builder: (BuildContext context, StateSetter setModalState) {
-            return Container(
-              decoration: BoxDecoration(
-                color: colors['cardBackground'],
-                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  Container(
-                    height: 5,
-                    width: 40,
-                    margin: EdgeInsets.symmetric(vertical: 10),
-                    decoration: BoxDecoration(
-                      color: colors['unselectedText'],
-                      borderRadius: BorderRadius.circular(2.5),
-                    ),
+          builder: (context, setModalState) {
+            return Consumer<VolumeProvider>(
+              builder: (context, volumeProvider, child) {
+                return Container(
+                  decoration: BoxDecoration(
+                    color: colors['cardBackground'],
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
                   ),
-                  Text(
-                    'Ses Ayarları',
-                    style: GoogleFonts.poppins(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: colors['text'],
-                    ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        height: 5,
+                        width: 40,
+                        margin: EdgeInsets.symmetric(vertical: 10),
+                        decoration: BoxDecoration(
+                          color: colors['unselectedText'],
+                          borderRadius: BorderRadius.circular(2.5),
+                        ),
+                      ),
+                      Text(
+                        'Ses Ayarları',
+                        style: GoogleFonts.poppins(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: colors['text'],
+                        ),
+                      ),
+                      SizedBox(height: 20),
+                      // Ana ses ayarı
+                      _buildSoundToggle(
+                        icon: Icons.volume_up,
+                        title: 'Ana Ses',
+                        isOn: volumeProvider.isVolumeOn,
+                        onChanged: (value) {
+                          volumeProvider.toggleVolume();
+                          if (!volumeProvider.isVolumeOn) {
+                            // Ana ses kapatıldığında diğer sesleri de kapat
+                            setModalState(() {
+                              isWordSoundOn = false;
+                              isCorrectSoundOn = false;
+                            });
+                          }
+                        },
+                      ),
+                      // Kelime sesi ayarı
+                      _buildSoundToggle(
+                        icon: Icons.record_voice_over,
+                        title: 'Kelime Sesi',
+                        isOn: volumeProvider.isVolumeOn && isWordSoundOn,
+                        onChanged: (value) {
+                          if (!volumeProvider.isVolumeOn) {
+                            showCustomFlushbar(context, "Önce ana sesi açmanız gerekiyor");
+                            return;
+                          }
+                          setModalState(() => isWordSoundOn = value);
+                        },
+                      ),
+                      // Doğru/yanlış sesi ayarı
+                      _buildSoundToggle(
+                        icon: Icons.check_circle_outline,
+                        title: 'Doğru/Yanlış Sesi',
+                        isOn: volumeProvider.isVolumeOn && isCorrectSoundOn,
+                        onChanged: (value) {
+                          if (!volumeProvider.isVolumeOn) {
+                            showCustomFlushbar(context, "Önce ana sesi açmanız gerekiyor");
+                            return;
+                          }
+                          setModalState(() => isCorrectSoundOn = value);
+                        },
+                      ),
+                    ],
                   ),
-                  SizedBox(height: 20),
-                  _buildSoundToggle(
-                    icon: Icons.record_voice_over,
-                    title: 'Kelime Sesi',
-                    isOn: isWordSoundOn,
-                    onChanged: (value) {
-                      setModalState(() => isWordSoundOn = value);
-                    },
-                  ),
-                  _buildSoundToggle(
-                    icon: Icons.check_circle_outline,
-                    title: 'Doğru/Yanlış Sesi',
-                    isOn: isCorrectSoundOn,
-                    onChanged: (value) {
-                      setModalState(() => isCorrectSoundOn = value);
-                    },
-                  ),
-                  SizedBox(height: 20),
-                ],
-              ),
+                );
+              },
             );
           },
         );
       },
     );
   }
-
   Widget _buildSoundToggle({
     required IconData icon,
     required String title,
@@ -795,6 +825,7 @@ class _QuizScreenState extends State<QuizScreen> {
     await flutterTts.setPitch(1.0);
     await flutterTts.speak(word);
   }
+// _speak fonksiyonunu tamamen güncelleyin
   _speak() async {
     final volumeProvider = Provider.of<VolumeProvider>(context, listen: false);
 
@@ -973,27 +1004,24 @@ class _QuizScreenState extends State<QuizScreen> {
         pointValueNotifier.value = score;
       });
     });
-
+    Future.microtask(() {
+      volumeProvider = Provider.of<VolumeProvider>(context, listen: false);
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final userProvider = Provider.of<UserProvider>(context, listen: false);
       setState(() {
         userID = userProvider.userId;
       });
-      _pageController = PageController(initialPage: -1);
-
-      _pageController.addListener(() {
-        if (_pageController.page == currentQuestionIndex) {
-          _scrollToSelectedQuestion();
-        }
-      });
-      UserProvider userProviderPoint = Provider.of<UserProvider>(context, listen: false);
-      print(userProviderPoint.point);
-      score = (userProviderPoint.point);
+      _pageController = PageController(initialPage: 0);
       _pageController.addListener(() {
         if (_pageController.page?.round() == _pageController.page) {
           _speak();
         }
       });
+
+        UserProvider userProviderPoint = Provider.of<UserProvider>(context, listen: false);
+      print(userProviderPoint.point);
+      score = (userProviderPoint.point);
       _initializeQuiz();
       resetOptionColors();
       startTimer();
@@ -1064,12 +1092,16 @@ class _QuizScreenState extends State<QuizScreen> {
                     );
                   }
               ),
-              _buildControlButton(isShuffled ? Icons.sort : Icons.shuffle, colors["inputBackground"]!, () {
-                setState(() {
-                  isShuffled = !isShuffled;
-                  _shuffleOrSortWords();
-                });
-              }),
+              _buildControlButton(
+                  isShuffled ? Icons.sort : Icons.shuffle,
+                  colors["inputBackground"]!,
+                      () {
+                    setState(() {
+                      isShuffled = !isShuffled;
+                      _shuffleOrSortWords();
+                    });
+                  }
+              ),
               Consumer<LanguageProvider>(
                 builder: (context, languageProvider, child) {
                   return _buildControlButton(
@@ -1084,15 +1116,27 @@ class _QuizScreenState extends State<QuizScreen> {
                   );
                 },
               ),
-              _buildControlButton(Icons.volume_up, colors["inputBackground"]!, _showSoundSettingsPanel),
-              _buildControlButton(Icons.hearing, colors["inputBackground"]!, _speak),
+              // Ses kontrolü için Consumer ekliyoruz
+              Consumer<VolumeProvider>(
+                builder: (context, volumeProvider, child) {
+                  return _buildControlButton(
+                      volumeProvider.isVolumeOn ? Icons.volume_up : Icons.volume_off,
+                      colors["inputBackground"]!,
+                      _showSoundSettingsPanel
+                  );
+                },
+              ),
+              _buildControlButton(
+                  Icons.hearing,
+                  colors["inputBackground"]!,
+                  _speak
+              ),
             ],
           ),
         ),
       ),
     );
   }
-
   Widget _buildControlButton(IconData icon, Color color, VoidCallback onPressed) {
     return IconButton(
       icon: Icon(icon, color: color),
@@ -1210,6 +1254,7 @@ class _QuizScreenState extends State<QuizScreen> {
   @override
   void dispose() {
     _timer?.cancel();
+    audioPlayer.dispose(); // AudioPlayer'ı temizle
 
     _navBarScrollController.dispose();
     super.dispose();
@@ -1942,7 +1987,8 @@ class _QuizScreenState extends State<QuizScreen> {
           currentQuestionIndex = index;
         });
         startTimer(); // Yeni soru için timer'ı başlat
-        _speak();
+        _speak(); // Burada çağrılıyor
+
         if (currentQuestionIndex == questions.length - 1) {
          // _showCompletionDialog();
         }

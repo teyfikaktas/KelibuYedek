@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "637853306875",
-    "project_id": "kelibu-78d82",
-    "storage_bucket": "kelibu-78d82.appspot.com"
+    "project_number": "781993053260",
+    "project_id": "kelibu-phdakademi",
+    "storage_bucket": "kelibu-phdakademi.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:637853306875:android:5532ada41273e17eccc55e",
+        "mobilesdk_app_id": "1:781993053260:android:43fb0ef2c5a3c0034338e9",
         "android_client_info": {
           "package_name": "com.phdakademi.kelibu"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyBNeBeM7q96oLDGZh20-Qb-cs4iZPaQESc"
+          "current_key": "AIzaSyD8k_id_Wa7SciUy15JjRXgGbe0JRI_5cU"
         }
       ],
       "services": {

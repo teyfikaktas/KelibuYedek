@@ -1,8 +1,11 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // inputFormatters için eklenmeli
+import 'package:flutter/gestures.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kelibu/main.dart';
+import 'package:kelibu/screens/privary_policy.dart';
 import 'package:kelibu/screens/register.dart';
 import 'package:kelibu/screens/register_screen.dart';
 import 'package:kelibu/screens/reset_password_screen.dart';
@@ -16,6 +19,7 @@ import 'package:lottie/lottie.dart';
 import 'package:kelibu/api.dart'; // ApiService'in doğru yolunu kullanın
 import 'package:kelibu/globalDart/urls.dart';
 import 'package:kelibu/variables.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class LoginScreen extends StatefulWidget {
   final String username;
@@ -232,11 +236,9 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
         });
         String combinedMessage = errorMessages.join('\n');
         _showErrorDialog('Hatalar', combinedMessage);
-      }
-      else if(e.message.contains('Too Many Requests')){
+      } else if (e.message.contains('Too Many Requests')) {
         _showErrorDialog('Çok Fazla Deneme', 'Çok fazla giriş denemesi yaptınız. Lütfen biraz bekleyip tekrar deneyin. Bu sistem sizi korumak içindir.');
-      }
-      else {
+      } else {
         // Diğer API hatalarını işleme
         _showErrorDialog('Hata', e.message);
       }
@@ -246,8 +248,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
       } else {
         _showErrorDialog('Beklenmeyen Hata', 'Bir sorun oluştu. Lütfen daha sonra tekrar deneyin.');
       }
-    }
-    finally {
+    } finally {
       setState(() {
         _isLoading = false;
       });
@@ -905,7 +906,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
         ],
       ),
       child: Text(
-        '"Bir dil öğrenmek, dünyaya açılan bir pencere daha demektir.- Çin Atasözü',
+        '"Bir dil öğrenmek, dünyaya açılan bir pencere daha demektir." - Çin Atasözü',
         style: GoogleFonts.nunito(
           fontSize: screenSize.width * 0.035,
           fontStyle: FontStyle.italic,
@@ -919,14 +920,6 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
   Widget _buildPhdAcademyText(Map<String, Color?> colors) {
     return Container(
       padding: EdgeInsets.symmetric(vertical: 10),
-      decoration: BoxDecoration(
-        border: Border(
-          top: BorderSide(
-            color: colors["text"]!.withOpacity(0.2),
-            width: 1,
-          ),
-        ),
-      ),
       child: Text(
         'Kelibu, bir PhD Akademi ürünüdür.',
         style: GoogleFonts.nunito(
@@ -937,6 +930,128 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
         textAlign: TextAlign.center,
       ),
     );
+  }
+
+  Widget _buildTermsAndConditionsText(Map<String, Color?> colors, Size screenSize) {
+    return Container(
+      padding: EdgeInsets.symmetric(vertical: 10),
+      child: Column(
+        children: [
+          RichText(
+            textAlign: TextAlign.center,
+            text: TextSpan(
+              style: TextStyle(
+                fontSize: screenSize.width * 0.035,
+                fontStyle: FontStyle.italic,
+                color: colors["text"],
+              ),
+              children: [
+                TextSpan(text: 'By using the application, you accept the '),
+                TextSpan(
+                  text: 'Terms of Service (EULA)',
+                  style: TextStyle(
+                    decoration: TextDecoration.underline,
+                    color: Colors.blue,
+                  ),
+                  recognizer: TapGestureRecognizer()
+                    ..onTap = () {
+                      // Open the appropriate link in web view
+                      String url = '';
+                      if (Platform.isIOS) {
+                        url = 'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/';
+                      } else if (Platform.isAndroid) {
+                        url = 'https://policies.google.com/terms?hl=en-US';
+                      }
+                      if (url.isNotEmpty) {
+                        _launchURL(url);
+                      }
+                    },
+                ),
+                TextSpan(text: ' and '),
+                TextSpan(
+                  text: 'Privacy Policy.',
+                  style: TextStyle(
+                    decoration: TextDecoration.underline,
+                    color: Colors.blue,
+                  ),
+                  recognizer: TapGestureRecognizer()
+                    ..onTap = () {
+                      // Navigate to PrivacyPolicyPage
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => PrivacyPolicyPage()),
+                      );
+                    },
+                ),
+              ],
+            ),
+          ),
+          SizedBox(height: 5),
+          RichText(
+            textAlign: TextAlign.center,
+            text: TextSpan(
+              style: TextStyle(
+                fontSize: screenSize.width * 0.035,
+                fontStyle: FontStyle.italic,
+                color: colors["text"],
+              ),
+              children: [
+                TextSpan(text: 'Uygulamayı kullanarak '),
+                TextSpan(
+                  text: 'Hizmet Şartlarını (EULA)',
+                  style: TextStyle(
+                    decoration: TextDecoration.underline,
+                    color: Colors.blue,
+                  ),
+                  recognizer: TapGestureRecognizer()
+                    ..onTap = () {
+                      // Open the appropriate link in web view
+                      String url = '';
+                      if (Platform.isIOS) {
+                        url = 'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/';
+                      } else if (Platform.isAndroid) {
+                        url = 'https://policies.google.com/terms?hl=tr';
+                      }
+                      if (url.isNotEmpty) {
+                        _launchURL(url);
+                      }
+                    },
+                ),
+                TextSpan(text: ' ve '),
+                TextSpan(
+                  text: 'Gizlilik Politikasını',
+                  style: TextStyle(
+                    decoration: TextDecoration.underline,
+                    color: Colors.blue,
+                  ),
+                  recognizer: TapGestureRecognizer()
+                    ..onTap = () {
+                      // Navigate to PrivacyPolicyPage
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => PrivacyPolicyPage()),
+                      );
+                    },
+                ),
+                TextSpan(text: ' kabul etmiş sayılırsınız.'),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _launchURL(String url) async {
+    Uri uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(
+        uri,
+        mode: LaunchMode.inAppWebView,
+      );
+    } else {
+      throw 'Could not launch $url';
+    }
   }
 
   @override
@@ -958,6 +1073,8 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
+                    _buildPhdAcademyText(colors),
+
                     _buildHeader(colors),
                     SizedBox(height: screenSize.height * 0.02),
                     _buildLogo(screenSize),
@@ -978,9 +1095,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                     SizedBox(height: screenSize.height * 0.02),
                     _buildLoginButton(colors, screenSize),
                     SizedBox(height: screenSize.height * 0.01),
-                    _buildMotivationalText(colors, screenSize),
-                    SizedBox(height: screenSize.height * 0.01),
-                    _buildPhdAcademyText(colors),
+                    _buildTermsAndConditionsText(colors, screenSize),
                   ],
                 ),
               ),

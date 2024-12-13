@@ -98,8 +98,8 @@ class _ScoreDisplayState extends State<ScoreDisplay> with TickerProviderStateMix
             children: [
               SvgPicture.asset(
                 'assets/trophy.svg',
-                width: 40,
-                height: 40,
+                width: 30,
+                height: 30,
               ),
               const SizedBox(width: 8),
               ValueListenableBuilder<int>(

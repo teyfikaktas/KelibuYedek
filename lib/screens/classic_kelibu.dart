@@ -66,6 +66,7 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
     final b = 200 + rand.nextInt(12);
     return Color.fromRGBO(r, g, b, 1);
   }
+  ValueNotifier<int> starredWordCount = ValueNotifier(0);
 
   String aktifKelime = '';
   List<String> secenekler = [];
@@ -138,6 +139,7 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
   void initState() {
     super.initState();
     ApiService().logSetEntry('Klasik Kelibu', 'Klasik Kelibuya ', '');
+    _loadStarredStatusAsync();
 
     WidgetsBinding.instance.addObserver(this);
     flutterTts.setLanguage("en-US");
@@ -188,6 +190,7 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
     UserProvider userProviderPoint = Provider.of<UserProvider>(context, listen: false);
     print(userProviderPoint.point);
     score = userProviderPoint.point;
+    ValueNotifier<int> starredWordCount = ValueNotifier(0);
 
     centerCardColor = rastgeleAcikRenkUret();
     correctOptionColor = Colors.lightGreenAccent;
@@ -207,6 +210,20 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
     zamanlayiciyiBaslat();
     secenekleriYenile();
     totalWordsCount = widget.words.length;
+  }
+  Future<void> _loadStarredStatusAsync() async {
+    final service = StarredWordsService();
+    final starredWordIds = await service.loadStarredWords(widget.classroomId, widget.studySetId);
+
+    setState(() {
+      int count = 0;
+      for (var word in widget.words) {
+        if (starredWordIds.contains(word.id)) {
+          count++;
+        }
+      }
+      starredWordCount.value = count; // Yıldızlı kelime sayısını güncelle
+    });
   }
 
   void showScoreAnimation(String scoreText) {
@@ -683,19 +700,23 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
         children: [
           Icon(Icons.star, size: 20, color: Colors.amber),
           SizedBox(width: 8),
-          Text(
-            '$score',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: _isDarkMode ? Colors.white : Colors.teal,
-            ),
+          ValueListenableBuilder<int>(
+            valueListenable: starredWordCount,
+            builder: (context, value, child) {
+              return Text(
+                '$value', // score yerine value kullanıyoruz
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: _isDarkMode ? Colors.white : Colors.teal,
+                ),
+              );
+            },
           ),
         ],
       ),
     );
   }
-
   Widget _buildTimerDisplay() {
     return Container(
       padding: EdgeInsets.all(8),

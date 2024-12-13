@@ -14,7 +14,7 @@ class CompactDuolingoStyleSocialPanel extends StatelessWidget {
     final textColor = isDarkMode ? Colors.white : Color(0xFF4B4B4B);
 
     return Container(
-      padding: EdgeInsets.all(8.w),
+      padding: EdgeInsets.all(4.w),
       decoration: BoxDecoration(
         color: backgroundColor,
         borderRadius: BorderRadius.circular(12.r),
@@ -37,7 +37,7 @@ class CompactDuolingoStyleSocialPanel extends StatelessWidget {
               color: textColor,
             ),
           ),
-          SizedBox(height: 6.h),
+          SizedBox(height: 3.h),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
@@ -46,7 +46,7 @@ class CompactDuolingoStyleSocialPanel extends StatelessWidget {
               _buildSocialButton(FontAwesomeIcons.youtube, 'YouTube', Color(0xFFFF9600)),
             ],
           ),
-          SizedBox(height: 6.h),
+          SizedBox(height: 3.h),
           Text(
             '@kelibunet',
             style: TextStyle(
@@ -67,7 +67,7 @@ class CompactDuolingoStyleSocialPanel extends StatelessWidget {
         padding: EdgeInsets.all(6.w),
         decoration: BoxDecoration(
           color: color,
-          borderRadius: BorderRadius.circular(8.r),
+          borderRadius: BorderRadius.circular(4.r),
           boxShadow: [
             BoxShadow(
               color: color.withOpacity(0.3),
@@ -76,7 +76,7 @@ class CompactDuolingoStyleSocialPanel extends StatelessWidget {
             )
           ],
         ),
-        child: Icon(icon, color: Colors.white, size: 16.w),
+        child: Icon(icon, color: Colors.white, size: 12.w),
       ),
     );
   }

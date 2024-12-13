@@ -21,7 +21,7 @@ class PhdAkademiInfo extends StatelessWidget {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12.r), // Yuvarlaklığı koruduk
       ),
-      elevation: 4, // Elevation değeri korundu
+      elevation: 2, // Elevation değeri korundu
       margin: EdgeInsets.symmetric(vertical: 6.h, horizontal: 12.w), // Margin azaltıldı
       child: InkWell(
         onTap: _launchURL,
@@ -30,7 +30,7 @@ class PhdAkademiInfo extends StatelessWidget {
             ? Colors.indigo.shade700.withOpacity(0.2)
             : Colors.blue.shade300.withOpacity(0.2), // Splash efekti hafifletildi
         child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h), // Padding azaltıldı
+          padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 4.h), // Padding azaltıldı
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -38,8 +38,8 @@ class PhdAkademiInfo extends StatelessWidget {
               Row(
                 children: [
                   Container(
-                    width: 35.w, // Logo boyutu küçültüldü
-                    height: 35.h,
+                    width: 25.w, // Logo boyutu küçültüldü
+                    height: 25.h,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: Colors.white,
@@ -56,7 +56,7 @@ class PhdAkademiInfo extends StatelessWidget {
                       child: Image.asset('assets/phd.png'),
                     ),
                   ),
-                  SizedBox(width: 10.w), // Boşluk azaltıldı
+                  SizedBox(width: 4.w), // Boşluk azaltıldı
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -77,7 +77,7 @@ class PhdAkademiInfo extends StatelessWidget {
                           color: isDarkMode
                               ? Colors.white70
                               : Colors.blueGrey.shade800,
-                          fontSize: 12.sp, // Font boyutu küçültüldü
+                          fontSize: 7.sp, // Font boyutu küçültüldü
                           // İtalik stil kaldırıldı
                         ),
                       ),
@@ -93,9 +93,8 @@ class PhdAkademiInfo extends StatelessWidget {
                     color: isDarkMode
                         ? Colors.white70
                         : Colors.blueGrey.shade800,
-                    size: 16.sp, // İkon boyutu küçültüldü
+                    size: 12.sp, // İkon boyutu küçültüldü
                   ),
-                  SizedBox(width: 4.w), // Boşluk azaltıldı
                 ],
               ),
             ],
