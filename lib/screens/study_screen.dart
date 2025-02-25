@@ -22,6 +22,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../globalDart/urls.dart';
 import '../shared_preferences/shared_preferences.dart';
 import '../variables.dart';
+import '../widgets/gifplayer.dart';
 import 'loadingIndicator.dart';
 import 'package:collection/collection.dart';
 
@@ -152,7 +153,6 @@ class _StudyScreenState extends State<StudyScreen> with SingleTickerProviderStat
   bool _isMenuExpanded = false;
   late ScaffoldMessengerState _scaffoldMessenger;
   @override
-  Timer? _scrollDebounce;
   late UserProvider userProvider;
   ValueNotifier<int> pointValueNotifier = ValueNotifier(0);
   bool get wantKeepAlive => true;
@@ -363,7 +363,6 @@ class _StudyScreenState extends State<StudyScreen> with SingleTickerProviderStat
     for (var controller in _sentencePageControllers.values) {
       controller.dispose();
     }
-// Kontrolcüyü temizle
     super.dispose();
   }
   void speak(String text) async {
@@ -469,14 +468,18 @@ class _StudyScreenState extends State<StudyScreen> with SingleTickerProviderStat
       ),
     );
   }
-  Widget _buildRoundedIconButton(IconData icon, Color color, VoidCallback onPressed) {
-    return ElevatedButton(
-      onPressed: onPressed,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: color,
-        shape: CircleBorder(),
+  Widget _buildRoundedIconButton(
+      IconData icon, Color color, VoidCallback onPressed) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8.0),
+      child: InkWell(
+        onTap: onPressed,
+        child: Image.asset(
+          'assets/videoplayer.png',
+          width: 40.sp,
+          height: 40.sp,
+        ),
       ),
-      child: Icon(icon, color: Colors.white, size: 16.sp),
     );
   }
 
@@ -933,18 +936,38 @@ class _StudyScreenState extends State<StudyScreen> with SingleTickerProviderStat
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Kelime başlığı ve yıldız
+                // Kelime başlığı, gif ve yıldız
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Expanded(
-                      child: Text(
-                        word.word,
-                        style: GoogleFonts.poppins(
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.teal.shade700,
-                        ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                AutoSizeText(
+                                  word.word ?? '', // Null check for word
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 32,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.teal.shade700,
+                                  ),
+                                  minFontSize: 18, // Minimum font size
+                                  maxLines: 1, // Text appears in a single line
+                                  overflow: TextOverflow.ellipsis, // Shows ellipsis when text overflows
+                                ),
+                              ],
+                            ),
+                          ),
+                          // GIF animasyonu
+                          SizedBox(
+                            width: 70.w, // Responsive genişlik
+                            height: 70.h, // Responsive yükseklik
+                            child: GifPlayer(videoName: word.word),
+                          ),
+                        ],
                       ),
                     ),
                     ValueListenableBuilder<bool>(
@@ -952,7 +975,7 @@ class _StudyScreenState extends State<StudyScreen> with SingleTickerProviderStat
                       builder: (_, isStarred, __) => AnimatedContainer(
                         duration: Duration(milliseconds: 300),
                         child: widget.isStarred
-                            ? SizedBox.shrink()  // Eğer widget.isStarred true ise, boş bir widget döndür
+                            ? SizedBox.shrink()
                             : IconButton(
                           icon: Icon(
                             isStarred ? Icons.star : Icons.star_border,
@@ -964,6 +987,60 @@ class _StudyScreenState extends State<StudyScreen> with SingleTickerProviderStat
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  margin: const EdgeInsets.symmetric(vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.grey.shade200,
+                      width: 1.5,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.shade200,
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: InkWell(
+                    onTap: () {
+                      if (word.defination != null && word.defination != 'NULL' && word.defination!.isNotEmpty) {
+                        speak(word.defination!);
+                      }
+                    },
+                    child: Text(
+                      (word.defination == 'NULL' || word.defination == null)
+                          ? 'Tanım bulunamadı'
+                          : word.defination!,
+                      style: GoogleFonts.poppins(
+                        fontSize: 15,
+                        color: Colors.grey.shade700,
+                        fontWeight: FontWeight.w400,
+                        height: 1.6,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  height: 2,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Colors.teal.shade200,
+                        Colors.teal.shade50,
+                      ],
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                    ),
+                  ),
                 ),
                 SizedBox(height: 8),
                 FutureBuilder<String?>(
@@ -1085,6 +1162,7 @@ class _StudyScreenState extends State<StudyScreen> with SingleTickerProviderStat
                 SizedBox(height: 8),
                 buildSentencePageView(exampleSentences[word.id] ?? Future.value(["Cümle bulunamadı"]), _sentencePageControllers[word.id]!),
                 SizedBox(height: 24),
+                buildAudioNoteWidget(),
 
                 // Synonyms
                 if (word.synonyms.isNotEmpty) ...[
@@ -1157,13 +1235,12 @@ class _StudyScreenState extends State<StudyScreen> with SingleTickerProviderStat
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                 );
               },
-            )
+            ),
           ),
         ),
       ],
     );
   }
-
 
   void _scrollToBottom() {
     _scrollController.animateTo(
@@ -1521,80 +1598,147 @@ class _StudyScreenState extends State<StudyScreen> with SingleTickerProviderStat
   Widget buildSynonymsSection(List<Synonym> synonyms) {
     var uniqueSynonyms = {for (var s in synonyms) s.tanim: s}.values.toList();
 
-    return buildSectionWidget(
-      title: "Eş anlamlılar",
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Wrap(
-          spacing: 8.0,
-          runSpacing: 4.0,
-          children: uniqueSynonyms.map((synonym) => Semantics(
-            button: true,
-            label: 'Synonym: ${synonym.tanim}',
-            child: InkWell(
-              onTap: () => speak(synonym.tanim),
-              child: Chip(
-                label: Text(synonym.tanim),
-                backgroundColor: Theme.of(context).chipTheme.backgroundColor,
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              Icon(
+                Icons.sync_alt_rounded,
+                color: Colors.indigo,
+                size: 28,
               ),
+              SizedBox(width: 12),
+              Text(
+                "Eş anlamlılar",
+                style: GoogleFonts.poppins(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.indigo,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.indigo.withOpacity(0.1),
+                Colors.indigo.withOpacity(0.05)
+              ],
             ),
-          )).toList(),
+          ),
+          child: Wrap(
+            spacing: 8.0,
+            runSpacing: 8.0,
+            children: uniqueSynonyms.map((synonym) => GestureDetector(
+              onTap: () => speak(synonym.tanim),
+              child: Container(
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: Colors.indigo.withOpacity(0.3),
+                    width: 1,
+                  ),
+                ),
+                child: Text(
+                  synonym.tanim,
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    color: Colors.indigo.shade700,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            )).toList(),
+          ),
         ),
       ],
     );
   }
-
 // Collocations bölümü
   Widget buildCollocationsSection(List<Collocation> collocations) {
-    return buildSectionWidget(
-      title: "Collocations",
-      children: collocations.map((collocation) => Container(
-        margin: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.withOpacity(0.2),
-              spreadRadius: 1,
-              blurRadius: 4,
-              offset: Offset(0, 2),
-            ),
-          ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              Icon(
+                Icons.link_rounded,
+                color: Colors.indigo,
+                size: 28,
+              ),
+              SizedBox(width: 12),
+              Text(
+                "Collocations",
+                style: GoogleFonts.poppins(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.indigo,
+                ),
+              ),
+            ],
+          ),
         ),
-        child: ListTile(
-          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          leading: Container(
-            padding: EdgeInsets.all(8),
+        ...collocations.map((collocation) => GestureDetector(
+          onTap: () => collocation.definition != null
+              ? speak(collocation.definition!)
+              : null,
+          child: Container(
+            width: double.infinity,
+            margin: const EdgeInsets.only(bottom: 8, left: 16, right: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: Colors.teal.shade50,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.group_work,
-              color: Colors.teal,
-              size: 24,
-            ),
-          ),
-          title: Text(
-            collocation.definition ?? '',
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
-          subtitle: Padding(
-            padding: EdgeInsets.only(top: 4),
-            child: Text(
-              collocation.anlam ?? '',
-              style: TextStyle(
-                fontStyle: FontStyle.italic,
-                color: Colors.grey[600],
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.indigo.withOpacity(0.1),
+                  Colors.indigo.withOpacity(0.05)
+                ],
               ),
             ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  collocation.definition ?? '',
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                    height: 1.3,
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  collocation.anlam ?? '',
+                  style: GoogleFonts.roboto(
+                    fontSize: 14,
+                    color: Colors.black54,
+                    fontStyle: FontStyle.italic,
+                    height: 1.2,
+                  ),
+                ),
+              ],
+            ),
           ),
-          trailing: IconButton(
-            icon: Icon(Icons.volume_up, color: Colors.teal),
-            onPressed: () => collocation.definition != null ? speak(collocation.definition!) : null,
-          ),
-        ),
-      )).toList(),
+        )).toList(),
+      ],
     );
   }
   Future<void> saveReminderNote(int wordId, String note) async {
@@ -1610,9 +1754,30 @@ class _StudyScreenState extends State<StudyScreen> with SingleTickerProviderStat
   Widget buildDerivationsSection(List<Derivation> derivations) {
     var groupedDerivations = groupBy(derivations, (d) => d.type.toLowerCase());
 
-    return buildSectionWidget(
-      title: "Türemeler",
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              Icon(
+                Icons.account_tree_rounded,
+                color: Colors.indigo,
+                size: 28,
+              ),
+              SizedBox(width: 12),
+              Text(
+                "Türemeler",
+                style: GoogleFonts.poppins(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.indigo,
+                ),
+              ),
+            ],
+          ),
+        ),
         if (groupedDerivations.containsKey('verb'))
           buildDerivationList("Fiiller", groupedDerivations['verb']!, Icons.run_circle, Colors.lightBlueAccent),
         if (groupedDerivations.containsKey('noun'))
@@ -1857,8 +2022,38 @@ class _StudyScreenState extends State<StudyScreen> with SingleTickerProviderStat
       },
     );
   }
-
-  Widget ContentBox(BuildContext context) {
+  Widget buildAudioNoteWidget() {
+    return Container(
+      padding: EdgeInsets.all(8),
+      margin: EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Color(0xFFE0F4F4),  // Pastel turkuaz
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: Color(0xFF80CBC4),  // Biraz daha koyu turkuaz
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.lightbulb_outline,
+            color: Color(0xFF26A69A),
+          ),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Kelimelerin sesli okunuşunu dinlemek için üzerlerine tıklayabilirsiniz.',
+              style: TextStyle(
+                color: Color(0xFF26A69A),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }  Widget ContentBox(BuildContext context) {
     return Stack(
       children: <Widget>[
         Container(

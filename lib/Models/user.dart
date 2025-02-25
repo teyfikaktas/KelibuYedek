@@ -5,6 +5,7 @@ class User {
   final int id;
   final String? city; // Make city nullable
   final String? team; // Team is already nullable
+  int? currentStreak;
 
   User({
     required this.name,
@@ -13,6 +14,9 @@ class User {
     required this.id,
     this.city, // Adjusted for nullable city
     this.team,
+    this.currentStreak
+
+
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -23,6 +27,9 @@ class User {
       id: json['id'] as int,
       city: json['city'] as String?, // Adjust for nullable city
       team: json['team'] as String?, // Adjust for nullable team
+      currentStreak: json['current_streak'] as int?,
+
+
     );
   }
 }

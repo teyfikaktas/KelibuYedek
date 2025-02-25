@@ -1,0 +1,180 @@
+// lib/screens/waiting_room/waiting_room_controller.dart
+
+import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../core/services/RoomService.dart';
+import '../models/players.dart';
+
+class WaitingRoomController extends GetxController {
+  final RoomService roomService;
+  final isLoading = true.obs;
+  final roomId = 0.obs; // roomCode yerine roomId kullan, tamsayı olarak
+  final players = <Player>[].obs;
+  final gameStatus = 'waiting'.obs;
+  final isHost = false.obs;
+
+  late StreamSubscription _roomSubscription;
+  late StreamSubscription _playersSubscription;
+
+  WaitingRoomController({required this.roomService}) {
+    final route = Get.rawRoute;
+    if (route != null && route.settings.name != null) {
+      final path = route.settings.name!;
+      final idString = path.split('/').last; // "/waiting-room/41" -> "41"
+      roomId.value = (int.tryParse(idString) ?? 0 );
+      print('roomId: $roomId'); // Bu da çalışır çünkü .toString() otomatik çağrılır
+    }
+  }
+  @override
+  void onInit() {
+    super.onInit();
+
+    _initRoom();
+  }
+  bool get canStartGame {
+    // 1. Sadece oda sahibi başlatabilir
+    if (!isHost.value) return false;
+
+    // 2. En az 2 oyuncu olmalı
+    if (players.length < 2) return false;
+
+    // 3. Tüm oyuncular hazır olmalı
+    return players.every((player) => player.isReady);
+  }
+  Future<void> toggleReady() async {
+    try {
+      final userId = roomService.getCurrentUserId();
+      if (userId == null) return;
+
+      // Mevcut oyuncuyu bul
+      final currentPlayer = players.firstWhere(
+            (player) => player.userId == userId,
+        orElse: () => throw Exception('Oyuncu bulunamadı'),
+      );
+
+      // Hazır durumunu tersine çevir
+      await roomService.updatePlayerStatus(
+          roomId.value,
+          !currentPlayer.isReady
+      );
+
+    } catch (e) {
+      print('Hazır durumu güncellenirken hata: $e');
+      Get.snackbar(
+        'Hata',
+        'Durum güncellenirken bir hata oluştu',
+        backgroundColor: Colors.red.withOpacity(0.1),
+        colorText: Colors.red,
+      );
+    }
+  }
+  Future<void> _initRoom() async {
+    try {
+      final userId = roomService.getCurrentUserId();
+      if (userId == null) {
+        throw Exception('Kullanıcı ID\'si alınamadı');
+      }
+
+      isHost.value = await roomService.isRoomHostById(roomId.value, userId);
+
+      _subscribeToRoom();
+      _subscribeToPlayers();
+    } catch (e) {
+      print('Oda başlatma hatası: $e');
+      Get.snackbar(
+        'Hata',
+        'Oda bilgileri alınamadı: $e',
+        backgroundColor: Colors.red.withOpacity(0.1),
+        colorText: Colors.red,
+      );
+    } finally {
+      isLoading.value = false;
+    }
+  }
+  void _subscribeToRoom() {
+    _roomSubscription = roomService.subscribeToRoomById(roomId.value).listen(
+          (room) {
+        print('Room update: id=${room.id}, gameStatus=${room.gameStatus}');
+        gameStatus.value = room.gameStatus;
+        // started_at doluysa veya game_status in_progress ise yönlendir
+        if (room.gameStatus == 'in_progress') {
+          print('Game started! Redirecting to /race/${room.id}');
+          Get.offNamed('/race/${room.id}');
+        }
+      },
+      onError: (error) {
+        print('Oda stream hatası: $error');
+        Get.snackbar('Hata', 'Oda bilgileri alınamadı: $error');
+      },
+    );
+  }
+  void _subscribeToPlayers() {
+    print('Subscribing to players for roomId: ${roomId.value}');
+    _playersSubscription = roomService.subscribeToPlayersById(roomId.value).listen(
+          (updatedPlayers) {
+        print('Received updated players for roomId ${roomId.value}: $updatedPlayers');
+        players.value = updatedPlayers;  // RxList’i güncelle
+        print('Player count updated to: ${players.length}');
+      },
+      onError: (error) {
+        print('Players subscription error for roomId ${roomId.value}: $error');
+        Get.snackbar(
+          'Hata',
+          'Oyuncu bilgileri alınamadı: $error',
+          backgroundColor: Colors.red.withOpacity(0.1),
+          colorText: Colors.red,
+        );
+      },
+    );
+  }
+
+  Future<void> startGame() async {
+    try {
+      print('Oyun başlatılıyor, roomId: ${roomId.value}');
+
+      final updateData = {
+        'game_status': 'in_progress',
+        'started_at': DateTime.now().toIso8601String(),
+      };
+
+      // Önce güncellemeyi yap
+      await Supabase.instance.client
+          .from('rooms')
+          .update(updateData)
+          .eq('id', roomId.value);
+
+      // Sonra güncellenmiş veriyi kontrol et
+      final updatedRoom = await Supabase.instance.client
+          .from('rooms')
+          .select()
+          .eq('id', roomId.value)
+          .single();
+
+      print('Güncellenmiş oda durumu: $updatedRoom');
+
+      if (updatedRoom['game_status'] != 'in_progress') {
+        throw Exception('Oda durumu güncellenemedi');
+      }
+
+      print('Oyun başlatıldı, race ekranına yönlendiriliyor');
+      await Get.offAllNamed('/race/${roomId.value}');
+
+    } catch (e) {
+      print('Oyun başlatma hatası: $e');
+      Get.snackbar(
+        'Hata',
+        'Oyun başlatılırken hata: $e',
+        backgroundColor: Colors.red.withOpacity(0.1),
+        colorText: Colors.red,
+      );
+    }
+  }  @override
+  void onClose() {
+    _roomSubscription.cancel();
+    _playersSubscription.cancel();
+    super.onClose();
+  }
+}

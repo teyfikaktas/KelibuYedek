@@ -160,33 +160,87 @@ class _StudySetListScreenState extends State<StudySetListScreen> {
     );
   }
   Widget _buildRoundedIconButton(IconData icon, Color color, VoidCallback onPressed) {
-    return ElevatedButton(
-      onPressed: onPressed,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: color,
-        shape: CircleBorder(),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8.0),
+      child: InkWell(
+        onTap: onPressed,
+        child: Image.asset(
+          'assets/videoplayer.png',
+          width: 40.sp,
+          height: 40.sp,
+        ),
       ),
-      child: Icon(icon, color: Colors.white, size: 16.sp),
     );
   }
 
   Widget buildBody(Color textColor) {
+    if (studySetsFuture == null) {
+      return Center(child: LogoLoadingIndicator());
+    }
+
     return FutureBuilder<List<StudySet>>(
       future: studySetsFuture,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        // Eğer veri yükleniyorsa ve önceden veri yoksa loading göster
+        if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
           return Center(child: LogoLoadingIndicator());
-        } else if (snapshot.hasError) {
-          return Center(child: Text("Hata: ${snapshot.error}", style: TextStyle(color: textColor)));
-        } else if (snapshot.hasData) {
-          return buildStudySetList(snapshot.data!, textColor);
-        } else {
-          return Center(child: Text("Study set listesi yok", style: TextStyle(color: textColor)));
         }
+
+        if (snapshot.hasError) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  "Bir hata oluştu",
+                  style: GoogleFonts.poppins(
+                    color: textColor,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(height: 8),
+                ElevatedButton(
+                  onPressed: () {
+                    setState(() {
+                      _initializeData(); // Yeniden yükleme denemesi
+                    });
+                  },
+                  child: Text("Tekrar Dene"),
+                ),
+              ],
+            ),
+          );
+        } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  "Henüz kelime seti bulunmuyor",
+                  style: GoogleFonts.poppins(
+                    color: textColor,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(height: 8),
+                ElevatedButton(
+                  onPressed: () {
+                    setState(() {
+                      _initializeData(); // Yeniden yükleme denemesi
+                    });
+                  },
+                  child: Text("Yenile"),
+                ),
+              ],
+            ),
+          );
+        }
+        return buildStudySetList(snapshot.data!, textColor);
       },
     );
   }
-
   Future<void> _loadDarkModePreference() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
@@ -195,21 +249,41 @@ class _StudySetListScreenState extends State<StudySetListScreen> {
   }
 
   Future<void> _initializeData() async {
-    await _loadDarkModePreference();
-    await loadStarredWordsCounts();
+    if (!mounted) return;
 
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
-    int userID = userProvider.userId;
-    studySetsFuture = ApiService().fetchStudySets(widget.classroomId, widget.wordid, userID.toString());
-    studySetsFuture!.then((sets) {
+    try {
+      await _loadDarkModePreference();
+
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      int userID = userProvider.userId;
+
       setState(() {
-        studySets = sets;
+        // Future'ı hemen oluştur
+        studySetsFuture = ApiService().fetchStudySets(widget.classroomId, widget.wordid, userID.toString());
       });
-      studySets?.forEach((studySet) {
-        studySetIds.add(studySet.id);
-      });
-    });
+
+      // Paralel olarak starred words'ü yükle
+      loadStarredWordsCounts();
+
+      // Future'ı bekle
+      final sets = await studySetsFuture;
+      if (mounted) {
+        setState(() {
+          studySets = sets;
+          studySetIds = sets!.map((set) => set.id).toList();
+        });
+      }
+    } catch (e) {
+      print('Veri yükleme hatası: $e');
+      // Hata durumunda state'i güncelle
+      if (mounted) {
+        setState(() {
+          studySetsFuture = Future.error(e);
+        });
+      }
+    }
   }
+
 
   Future<void> navigateToGameModeStarScreen() async {
     showDialog(

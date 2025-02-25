@@ -500,14 +500,18 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> with Single
       ),
     );
   }
-  Widget _buildRoundedIconButton(IconData icon, Color color, VoidCallback onPressed) {
-    return ElevatedButton(
-      onPressed: onPressed,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: color,
-        shape: CircleBorder(),
+  Widget _buildRoundedIconButton(
+      IconData icon, Color color, VoidCallback onPressed) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8.0),
+      child: InkWell(
+        onTap: onPressed,
+        child: Image.asset(
+          'assets/videoplayer.png',
+          width: 40.sp,
+          height: 40.sp,
+        ),
       ),
-      child: Icon(icon, color: Colors.white, size: 16.sp),
     );
   }
 

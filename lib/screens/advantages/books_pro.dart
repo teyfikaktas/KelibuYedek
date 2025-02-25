@@ -104,6 +104,20 @@ class _KelibuProListWidgetState extends State<KelibuProListWidget> {
             _buildListItem('Level 1', 'Temel kelimeleri öğren', Icons.emoji_objects, Colors.blue, context, 'assets/pdf/level1.pdf'),
             _buildListItem('Level 2', 'Cümle yapılarını geliştir', Icons.psychology, Colors.green, context, 'assets/pdf/level2.pdf'),
             _buildListItem('Level 3', 'Akıcı konuşmayı hedefle', Icons.workspace_premium, Colors.orange, context, 'assets/pdf/level3.pdf'),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              child: Text(
+                'Sağlık İngilizcesi',
+                style: TextStyle(
+                  fontSize: 18,
+                  color: _isDarkMode ? Colors.grey[300] : Colors.black87,
+                  fontWeight: FontWeight.w500,
+                  fontFamily: 'Roboto',
+                ),
+              ),
+            ),
+            _buildListItem('Sağlık 0', 'Sağlık sınavları için temel', Icons.medical_services_rounded, Colors.teal.shade400, context, 'assets/pdf/saglik0.pdf'),
+            _buildListItem('Sağlık 1', 'İleri düzey ', Icons.medical_services_rounded, Colors.teal.shade600, context, 'assets/pdf/saglik1.pdf'),
           ],
         ),
       ),

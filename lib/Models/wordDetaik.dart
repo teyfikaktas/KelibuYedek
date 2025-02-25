@@ -6,6 +6,7 @@ class WordDetail {
   final int id;
   final String word;
   final String meaning;
+  final String? defination;
   final String? type;
   final String? image; // Eğer bir 'image' alanınız varsa bu şekilde ekleyin
   late final List<Collocation> collocations;
@@ -16,6 +17,7 @@ class WordDetail {
     required this.id,
     required this.word,
     required this.meaning,
+    required this.defination,
     required this.type,
     this.image, // Opsiyonel olarak bu alan eklenebilir
     required this.collocations,
@@ -33,6 +35,7 @@ class WordDetail {
       meaning: json['tanim'],
       type: json['type'] as String?,
       image: json['image'] as String?, // null kontrolü
+      defination: json['defination'] as String?,
       collocations: collocationsList.map((c) => Collocation.fromJson(c)).toList(),
       derivations: derivationsList.map((d) => Derivation.fromJson(d)).toList(),
       synonyms: synonymsList.map((s) => Synonym.fromJson(s)).toList(), // Synonyms listesi eklendi
@@ -53,12 +56,13 @@ class WordDetail {
         meaning: csvRow[2],
         image: csvRow[3],
         type: csvRow[4],
+        defination: csvRow[5],
         collocations: [],
         derivations: [],
         synonyms: [],
       );
     }).toList();
-
+    print(words);
     // İlişkili verilerin eklenmesi için fonksiyonlar.
     try {
       await fetchAndAttachSynonymsToWordDetail('assets/Model/collacations.csv', words);
@@ -79,7 +83,6 @@ class WordDetail {
       // Diğer gerekli yapılandırmalar burada belirtilebilir
     );
     List<List<dynamic>> csvList = converter.convert(csvFile);
-    print(csvList);
     csvList.sublist(1).forEach((csvRow) {
       var wordId = int.parse(csvRow[3]);
       var synonym = Synonym(

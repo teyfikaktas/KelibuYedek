@@ -2,12 +2,16 @@ import 'dart:io';
 import 'dart:ui';
 import 'package:animated_text_kit/animated_text_kit.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_html/flutter_html.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' as riverpod;
 import 'package:flutter_svg/svg.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:get/get.dart';
 import 'package:hive/hive.dart';
 import 'package:kelibu/screens/home_screen_widgets/phdakademiinfo.dart';
 import 'package:kelibu/screens/market_store.dart';
@@ -20,9 +24,11 @@ import 'package:provider/provider.dart';
 import 'package:kelibu/variables.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../Models/announcement.dart';
 import '../../Models/category.dart';
 import '../../Models/wordDetaik.dart';
 import '../../globalDart/urls.dart';
+import '../../global_user_id_provider.dart';
 import '../../providers/sub_provider.dart';
 import '../../providers/user_provider.dart';
 import 'package:kelibu/api.dart';
@@ -36,7 +42,6 @@ import 'package:shimmer/shimmer.dart';
 import '../../shared_preferences/shared_preferences.dart';
 import '../WordsSetList.dart';
 import '../leader_screen.dart';
-import 'package:getwidget/getwidget.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:csv/csv.dart';
@@ -45,6 +50,7 @@ import '../../providers/darkmodeprovider.dart';
 import '../RaceScreen.dart';
 import '../connectivywrapper.dart';
 import '../privary_policy.dart';
+import 'SimpleAnnouncementButton.dart';
 import 'soscial_media.dart';
 import '../library_star.dart';
 import '../loadingIndicator.dart';
@@ -60,6 +66,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+
 class RaceModeButton extends StatelessWidget {
   final bool isVip;
   final VoidCallback onPressed;
@@ -120,6 +127,7 @@ class RaceModeButton extends StatelessWidget {
     );
   }
 }
+
 class RaceScreen extends StatefulWidget {
   final bool isVip;
 
@@ -128,21 +136,24 @@ class RaceScreen extends StatefulWidget {
   @override
   _RaceScreenState createState() => _RaceScreenState();
 }
+
 class VIPAdvantagesPanelProvider extends ChangeNotifier {
   bool _shouldShowPanel = false;
 
   bool get shouldShowPanel => _shouldShowPanel;
 
   Future<void> checkAndShowPanel(BuildContext context) async {
-    final subscriptionProvider = Provider.of<SubscriptionProvider>(context, listen: false);
+    final subscriptionProvider =
+        Provider.of<SubscriptionProvider>(context, listen: false);
     SharedPreferences prefs = await SharedPreferences.getInstance();
     bool hasShownVIPAdvantagesPanel = prefs.getBool('VIP') ?? false;
 
-    print("Subscription Status: isVip=${subscriptionProvider.isVip}, hasShownVIPAdvantagesPanel=$hasShownVIPAdvantagesPanel");
+    print(
+        "Subscription Status: isVip=${subscriptionProvider.isVip}, hasShownVIPAdvantagesPanel=$hasShownVIPAdvantagesPanel");
 
     if (subscriptionProvider.isVip && hasShownVIPAdvantagesPanel) {
       print("Setting _shouldShowPanel = true");
-      await prefs.setBool('VIP',false);
+      await prefs.setBool('VIP', false);
 
       _shouldShowPanel = true;
       notifyListeners();
@@ -158,7 +169,9 @@ class VIPAdvantagesPanelProvider extends ChangeNotifier {
     notifyListeners();
   }
 }
-class _RaceScreenState extends State<RaceScreen> with SingleTickerProviderStateMixin {
+
+class _RaceScreenState extends State<RaceScreen>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _animation;
 
@@ -186,7 +199,8 @@ class _RaceScreenState extends State<RaceScreen> with SingleTickerProviderStateM
       context: context,
       barrierDismissible: false,
       builder: (ctx) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
         child: Container(
           padding: EdgeInsets.all(20.w),
           decoration: BoxDecoration(
@@ -234,7 +248,8 @@ class _RaceScreenState extends State<RaceScreen> with SingleTickerProviderStateM
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(30.r),
                   ),
-                  padding: EdgeInsets.symmetric(horizontal: 30.w, vertical: 12.h),
+                  padding:
+                      EdgeInsets.symmetric(horizontal: 30.w, vertical: 12.h),
                 ),
                 child: Text(
                   'Anladım',
@@ -257,11 +272,11 @@ class _RaceScreenState extends State<RaceScreen> with SingleTickerProviderStateM
       designSize: const Size(360, 690),
       minTextAdapt: true,
       splitScreenMode: true,
-
       builder: (context, child) {
         return Scaffold(
           body: Container(
-            height: 200.h, // Sabit bir yükseklik verin veya ekran yüksekliğine göre ayarlayın
+            height: 200
+                .h, // Sabit bir yükseklik verin veya ekran yüksekliğine göre ayarlayın
             width: double.infinity,
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -323,35 +338,13 @@ class _RaceScreenState extends State<RaceScreen> with SingleTickerProviderStateM
                     Container(
                       width: 200.w,
                       height: 60.h,
-                      child: ElevatedButton(
-                        onPressed: widget.isVip
-                            ? () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(builder: (context) => RaceScreenBuild()),
-                          );
-                        }
-                            : _showVipDialog,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: widget.isVip ? Colors.amber : Colors.grey,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(30.r),
-                          ),
-                        ),
-                        child: Text(
-                          'Yarış Modu',
-                          style: GoogleFonts.poppins(
-                            fontSize: 18.sp,
-                            fontWeight: FontWeight.bold,
-                            color: widget.isVip ? Colors.black : Colors.white54,
-                          ),
-                        ),
-                      ),
                     ),
                     if (widget.isVip)
                       Positioned(
                         right: 0,
                         child: Container(
-                          padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 8.w, vertical: 4.h),
                           decoration: BoxDecoration(
                             color: Colors.red,
                             borderRadius: BorderRadius.circular(10.r),
@@ -376,10 +369,12 @@ class _RaceScreenState extends State<RaceScreen> with SingleTickerProviderStateM
     );
   }
 }
+
 class KelibuProPanel extends StatefulWidget {
   @override
   _KelibuProPanelState createState() => _KelibuProPanelState();
 }
+
 class _KelibuProPanelState extends State<KelibuProPanel> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
@@ -409,7 +404,8 @@ class _KelibuProPanelState extends State<KelibuProPanel> {
             Expanded(
               child: PageView.builder(
                 controller: _pageController,
-                itemCount: ProFeaturesList.proFeatures.length + 1, // +1 for welcome page
+                itemCount: ProFeaturesList.proFeatures.length +
+                    1, // +1 for welcome page
                 onPageChanged: (index) {
                   setState(() {
                     _currentPage = index;
@@ -442,7 +438,9 @@ class _KelibuProPanelState extends State<KelibuProPanel> {
                     height: 8,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(4),
-                      color: _currentPage == i ? Colors.orange : Colors.grey.shade300,
+                      color: _currentPage == i
+                          ? Colors.orange
+                          : Colors.grey.shade300,
                     ),
                   ),
               ],
@@ -460,7 +458,8 @@ class _KelibuProPanelState extends State<KelibuProPanel> {
                 }
               },
               style: ElevatedButton.styleFrom(
-                foregroundColor: Colors.white, backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+                backgroundColor: Colors.orange,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(30),
                 ),
@@ -468,19 +467,20 @@ class _KelibuProPanelState extends State<KelibuProPanel> {
                 elevation: 0,
               ),
               child: Text(
-                _currentPage < ProFeaturesList.proFeatures.length ? 'Devam Et' : 'Harika!',
+                _currentPage < ProFeaturesList.proFeatures.length
+                    ? 'Devam Et'
+                    : 'Harika!',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
                 ),
               ),
-            ).animate().fadeIn(delay: 300.milliseconds).scale(),
+            ).animate().fadeIn(delay: GetNumUtils(300).milliseconds).scale(),
           ],
         ),
       ),
     );
   }
-
 
   Widget _buildWelcomePage() {
     return Center(
@@ -527,7 +527,8 @@ class _KelibuProPanelState extends State<KelibuProPanel> {
           ),
           SizedBox(height: 24.h),
           Padding(
-            padding: EdgeInsets.symmetric(horizontal: 40.w), // .w kullanarak genişliği ayarlayın
+            padding: EdgeInsets.symmetric(
+                horizontal: 40.w), // .w kullanarak genişliği ayarlayın
             child: Text(
               "Dil öğrenme yolculuğunuzda size özel ayrıcalıklar ve fırsatlar sizi bekliyor.",
               textAlign: TextAlign.center,
@@ -542,6 +543,7 @@ class _KelibuProPanelState extends State<KelibuProPanel> {
     );
   }
 }
+
 class ProFeatureSlide extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -598,6 +600,7 @@ class ProFeatureSlide extends StatelessWidget {
     ).animate().fadeIn().slideY(begin: 0.2, end: 0);
   }
 }
+
 class KelibuProDialog extends StatelessWidget {
   static const String _shownKey = 'kelibu_pro_shown';
 
@@ -620,6 +623,7 @@ class KelibuProDialog extends StatelessWidget {
     return KelibuProPanel();
   }
 }
+
 class ProFeaturesList {
   static const List<Map<String, dynamic>> proFeatures = [
     {
@@ -627,55 +631,56 @@ class ProFeaturesList {
       'title': 'Sınırsız Setler',
       'description': "Kelibu'nun tüm setlerine sınırsız erişim",
       'color': Colors.blue,
-      'details': 'A1, A2 (temel), B1, B2 (orta) ve C1, C2 (ileri) seviye İngilizce setleri dahil, tüm dil seviyelerine uygun onlarca sete erişim. YÖKDİL, YDT gibi ÖSYM sınavları ile TOEFL, IELTS gibi uluslararası sınavlara özel hazırlık setleri de mevcut!',    },
+      'details':
+          'A1, A2 (temel), B1, B2 (orta) ve C1, C2 (ileri) seviye İngilizce setleri dahil, tüm dil seviyelerine uygun onlarca sete erişim. YÖKDİL, YDT gibi ÖSYM sınavları ile TOEFL, IELTS gibi uluslararası sınavlara özel hazırlık setleri de mevcut!',
+    },
     {
       'icon': Icons.rocket_launch,
       'title': 'Erken Erişim',
       'description': 'Tüm yeni özelliklere öncelikli erişim',
       'color': Colors.orange,
-      'details': 'Yeni çıkacak özellikleri, setleri ve güncellemeleri herkesten önce deneyimleyin. Kelibu\'nun geleceğini şekillendirmede söz sahibi olun!',
-    },
-    {
-      'icon': Icons.school,
-      'title': 'PhD Akademi İndirimi',
-      'description': 'Dil kurslarında %10 özel indirim',
-      'color': Colors.green,
-      'details': 'PhD Akademi\'nin sunduğu tüm online ve yüz yüze dil kurslarında %10 indirim hakkı kazanın. Bu fırsat ders paketleri için geçerlidir.',
+      'details':
+          'Yeni çıkacak özellikleri, setleri ve güncellemeleri herkesten önce deneyimleyin. Kelibu\'nun geleceğini şekillendirmede söz sahibi olun!',
     },
     {
       'icon': Icons.menu_book,
       'title': 'Ücretsiz E-Kitaplar',
       'description': 'PhD Akademi Level 1-2-3 kitaplarına ücretsiz erişim',
       'color': Colors.purple,
-      'details': 'PhD Akademi\'nin popüler Level 1, 2 ve 3 e-kitaplarına tamamen ücretsiz erişim sağlayın. Bu kitaplar, dil öğrenme yolculuğunuzda size rehberlik edecek.',
+      'details':
+          'PhD Akademi\'nin popüler Level 1, 2 ve 3 e-kitaplarına tamamen ücretsiz erişim sağlayın. Bu kitaplar, dil öğrenme yolculuğunuzda size rehberlik edecek.',
     },
     {
       'icon': Icons.phone_android,
       'title': 'SelfEnglish Beta',
       'description': 'SelfEnglish uygulamasına özel beta erişimi',
       'color': Colors.teal,
-      'details': 'Yakında çıkacak SelfEnglish uygulamamızın beta sürümüne erken erişim kazanın. Yapay zeka destekli bu yeni uygulamamızı ilk siz deneyin ve geri bildirimlerinizle şekillenmesine katkıda bulunun.',
+      'details':
+          'Yakında çıkacak SelfEnglish uygulamamızın beta sürümüne erken erişim kazanın. Yapay zeka destekli bu yeni uygulamamızı ilk siz deneyin ve geri bildirimlerinizle şekillenmesine katkıda bulunun.',
     },
     {
       'icon': Icons.analytics,
       'title': 'Gelişmiş Takip',
       'description': 'Özelleştirilmiş ilerleme takibi ve analizler',
       'color': Colors.red,
-      'details': 'Detaylı ilerleme grafikleri, kişiselleştirilmiş öğrenme önerileri ve haftalık performans raporları ile dil öğrenme yolculuğunuzu optimize edin. Güçlü ve zayıf yönlerinizi keşfedin.',
+      'details':
+          'Detaylı ilerleme grafikleri, kişiselleştirilmiş öğrenme önerileri ve haftalık performans raporları ile dil öğrenme yolculuğunuzu optimize edin. Güçlü ve zayıf yönlerinizi keşfedin.',
     },
     {
       'icon': Icons.edit_document,
       'title': 'Kelibu Doodle',
       'description': 'PDF düzenleme ve not alma özelliği',
       'color': Colors.indigo,
-      'details': 'Kelibu Doodle ile PDF belgeleriniz üzerinde not alın, işaretlemeler yapın ve düzenlemeler gerçekleştirin. Level 1, 2 ve 3 kitapları üzerinde çalışırken interaktif bir deneyim yaşayın.',
+      'details':
+          'Kelibu Doodle ile PDF belgeleriniz üzerinde not alın, işaretlemeler yapın ve düzenlemeler gerçekleştirin. Level 1, 2 ve 3 kitapları üzerinde çalışırken interaktif bir deneyim yaşayın.',
     },
   ];
 }
 
 class KelibuProAdvantagesPanel extends StatefulWidget {
   @override
-  _KelibuProAdvantagesPanelState createState() => _KelibuProAdvantagesPanelState();
+  _KelibuProAdvantagesPanelState createState() =>
+      _KelibuProAdvantagesPanelState();
 }
 
 class _KelibuProAdvantagesPanelState extends State<KelibuProAdvantagesPanel> {
@@ -750,7 +755,7 @@ class _KelibuProAdvantagesPanelState extends State<KelibuProAdvantagesPanel> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(
                 AdvantagesList.advantages.length,
-                    (index) => Container(
+                (index) => Container(
                   width: 8,
                   height: 8,
                   margin: EdgeInsets.symmetric(horizontal: 4),
@@ -758,8 +763,9 @@ class _KelibuProAdvantagesPanelState extends State<KelibuProAdvantagesPanel> {
                     shape: BoxShape.circle,
                     color: Theme.of(context).primaryColor.withOpacity(
                         _pageController.hasClients &&
-                            _pageController.page?.round() == index ? 1 : 0.3
-                    ),
+                                _pageController.page?.round() == index
+                            ? 1
+                            : 0.3),
                   ),
                 ),
               ),
@@ -794,6 +800,7 @@ class _KelibuProAdvantagesPanelState extends State<KelibuProAdvantagesPanel> {
     );
   }
 }
+
 class AdvantageSlide extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -850,6 +857,7 @@ class AdvantageSlide extends StatelessWidget {
     );
   }
 }
+
 class KelibuProAdvantagesDialog extends StatelessWidget {
   static const String _shownKey = 'kelibu_pro_advantages_shown';
 
@@ -902,7 +910,8 @@ class KelibuProAdvantagesDialog extends StatelessWidget {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(30.r),
                   ),
-                  padding: EdgeInsets.symmetric(horizontal: 40.w, vertical: 16.h),
+                  padding:
+                      EdgeInsets.symmetric(horizontal: 40.w, vertical: 16.h),
                   elevation: 0,
                 ),
                 child: Text(
@@ -961,6 +970,7 @@ class KelibuProAdvantagesDialog extends StatelessWidget {
     ).animate().fadeIn().slideY(begin: -0.2, end: 0);
   }
 }
+
 class AdvantagesList extends StatelessWidget {
   static const List<Map<String, dynamic>> advantages = [
     const {
@@ -974,12 +984,6 @@ class AdvantagesList extends StatelessWidget {
       'title': 'Erken Erişim',
       'description': 'Tüm yeni özelliklere öncelikli erişim',
       'color': Colors.orange,
-    },
-    const {
-      'icon': FontAwesomeIcons.graduationCap,
-      'title': 'PhD Akademi İndirimi',
-      'description': 'Dil kurslarında %10 özel indirim',
-      'color': Colors.green,
     },
     const {
       'icon': FontAwesomeIcons.book,
@@ -1075,7 +1079,8 @@ class AdvantageItem extends StatelessWidget {
                 SizedBox(height: 4.h),
                 Text(
                   description,
-                  style: GoogleFonts.poppins(fontSize: 14.sp, color: Colors.black54),
+                  style: GoogleFonts.poppins(
+                      fontSize: 14.sp, color: Colors.black54),
                 ),
               ],
             ),
@@ -1085,6 +1090,7 @@ class AdvantageItem extends StatelessWidget {
     ).animate().fadeIn(delay: delay).slideX(begin: 0.2, end: 0);
   }
 }
+
 class WordOfTheDayService {
   static const String _lastFetchDateKey = 'last_fetch_date';
   static const String _lastWordKey = 'last_word';
@@ -1108,11 +1114,13 @@ class WordOfTheDayService {
   Future<void> _saveWordOfTheDay(WordOfTheDay word, String date) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_lastFetchDateKey, date);
-    await prefs.setString(_lastWordKey, json.encode({
-      'term': word.term,
-      'definition': word.definition,
-      'type': word.type,
-    }));
+    await prefs.setString(
+        _lastWordKey,
+        json.encode({
+          'term': word.term,
+          'definition': word.definition,
+          'type': word.type,
+        }));
   }
 
   WordOfTheDay _getSavedWordOfTheDay(SharedPreferences prefs) {
@@ -1124,6 +1132,7 @@ class WordOfTheDayService {
     throw Exception('No saved word of the day found');
   }
 }
+
 class WordOfTheDay {
   final String term;
   final String definition;
@@ -1139,6 +1148,7 @@ class WordOfTheDay {
     );
   }
 }
+
 Future<WordOfTheDay> fetchWordOfTheDay() async {
   final uri = Uri.parse('https://kelibu.net/api/daily-word');
   final response = await http.get(uri, headers: {
@@ -1151,6 +1161,7 @@ Future<WordOfTheDay> fetchWordOfTheDay() async {
     throw Exception('Failed to load word of the day');
   }
 }
+
 class HomeScreen extends StatefulWidget {
   final String? message;
 
@@ -1169,41 +1180,70 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isDarkMode = false;
   OverlayEntry? _overlayEntry;
   int activeUserCount = 0;
+  bool _isLoading = true;
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _fetchData(); // Bu metod kullanıcı puanını da güncelliyor
+  }
   @override
   void initState() {
     super.initState();
+    // Dark mode değerini hemen yükle
+    SharedPreferences.getInstance().then((prefs) {
+      setState(() {
+        _isDarkMode = prefs.getBool("darkMode") ?? false;
+      });
+    });
     _initializeData();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkAndShowVipPanel();
     });
   }
+
   Future<void> _initializeData() async {
-  //  _showLoadingOverlay();
-    var userProvider = Provider.of<UserProvider>(context, listen: false);
-
+    setState(() => _isLoading = true);
+    var userProvider = Provider.of<UserProvider>(context, listen: true);
     pointValueNotifier.value = userProvider.point;
+    final String? fcmToken = await FirebaseMessaging.instance.getToken();
+    print('fcmtoken');
 
+    print('fcmtoken' + fcmToken!);
     try {
+      // Kritik veriler önce
       await Future.wait([
         _fetchData(),
         checkSubscriptionStatus(),
-        _loadWordOfTheDay(),
-        _loadPromotionMessage(),
-        _loadDarkModePreference(),
-        _fetchActiveUsers(), // Yeni eklenen
-
       ]);
-    } finally {
-    //  _hideLoadingOverlay();
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _showVipBenefitsPanel();
-      });
-    }
-    print('widget.message');
 
-    print(widget.message);
+      // Ekran hazır
+      setState(() => _isLoading = false);
+
+      // Arka planda yüklenen veriler
+      await Future.wait([
+        _loadWordOfTheDay(),
+        _loadDarkModePreference(),
+      ]);
+
+      // En son yüklenen veriler
+      _loadPromotionMessage();
+      _fetchActiveUsers();
+      final container = riverpod.ProviderScope.containerOf(context);
+
+      container.read(globalUserIdProvider.notifier).state = userProvider.userId.toInt();
+      container.read(globalUsernameProvider.notifier).state = userProvider.username;
+
+    } catch (e) {
+      print(e);
+      setState(() => _isLoading = false);
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _showVipBenefitsPanel();
+    });
   }
+
   Future<void> _fetchActiveUsers() async {
     try {
       final response = await ApiService().getUsersCount();
@@ -1217,6 +1257,7 @@ class _HomeScreenState extends State<HomeScreen> {
       });
     }
   }
+
   Widget _buildActiveUsersIndicator() {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 3.h),
@@ -1226,9 +1267,7 @@ class _HomeScreenState extends State<HomeScreen> {
             : Colors.white.withOpacity(0.9),
         borderRadius: BorderRadius.circular(12.r),
         border: Border.all(
-          color: _isDarkMode
-              ? Colors.grey[700]!
-              : Colors.grey[200]!,
+          color: _isDarkMode ? Colors.grey[700]! : Colors.grey[200]!,
           width: 1,
         ),
         boxShadow: [
@@ -1277,9 +1316,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       style: GoogleFonts.poppins(
                         fontSize: 13.sp,
                         fontWeight: FontWeight.w600,
-                        color: _isDarkMode
-                            ? Colors.white
-                            : Colors.grey[800],
+                        color: _isDarkMode ? Colors.white : Colors.grey[800],
                       ),
                     ),
                     TextSpan(
@@ -1287,9 +1324,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       style: GoogleFonts.poppins(
                         fontSize: 12.sp,
                         fontWeight: FontWeight.w400,
-                        color: _isDarkMode
-                            ? Colors.grey[400]
-                            : Colors.grey[600],
+                        color:
+                            _isDarkMode ? Colors.grey[400] : Colors.grey[600],
                       ),
                     ),
                   ],
@@ -1304,7 +1340,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _showVipBenefitsPanel() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    bool isVip = Provider.of<SubscriptionProvider>(context, listen: false).isVip;
+    bool isVip =
+        Provider.of<SubscriptionProvider>(context, listen: false).isVip;
     bool hasShownVipPanel = prefs.getBool('hasShownVipPanel') ?? false;
 
     if ((!isVip) && (!hasShownVipPanel)) {
@@ -1312,7 +1349,8 @@ class _HomeScreenState extends State<HomeScreen> {
         context: context,
         barrierDismissible: false,
         builder: (ctx) => Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
           child: EnhancedProBenefitsCard(
             onSubscribe: () {
               prefs.setBool('hasShownVipPanel', true);
@@ -1322,6 +1360,7 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
   }
+
   Widget _buildVipButton({required bool isDarkMode}) {
     return Container(
       margin: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
@@ -1362,13 +1401,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 end: Alignment.bottomRight,
                 colors: isDarkMode
                     ? [
-                  Colors.grey[900]!,
-                  Colors.grey[850]!,
-                ]
+                        Colors.grey[900]!,
+                        Colors.grey[850]!,
+                      ]
                     : [
-                  Colors.white,
-                  Color(0xFFFFFBF0),
-                ],
+                        Colors.white,
+                        Color(0xFFFFFBF0),
+                      ],
               ),
             ),
             child: Container(
@@ -1388,7 +1427,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       SizedBox(width: 4.w),
                       Container(
-                        padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+                        padding: EdgeInsets.symmetric(
+                            horizontal: 6.w, vertical: 2.h),
                         decoration: BoxDecoration(
                           color: Colors.orange,
                           borderRadius: BorderRadius.circular(6.r),
@@ -1424,7 +1464,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       Text(
                         "Avantajlarım",
                         style: GoogleFonts.poppins(
-                          color: isDarkMode ? Colors.grey[300] : Colors.grey[600],
+                          color:
+                              isDarkMode ? Colors.grey[300] : Colors.grey[600],
                           fontSize: 13.sp,
                           fontWeight: FontWeight.w500,
                         ),
@@ -1445,6 +1486,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+
   Future<void> checkSubscriptionStatus() async {
     final provider = Provider.of<SubscriptionProvider>(context, listen: false);
     await provider.fetchSubscriptionStatus();
@@ -1505,12 +1547,15 @@ class _HomeScreenState extends State<HomeScreen> {
     ApiService().fetchStarWordsAllSystem(currentUserId);
 
     try {
-      Map<String, dynamic> userData = await ApiService().fetchUserPoint(currentUserId);
+      Map<String, dynamic> userData =
+          await ApiService().fetchUserPoint(currentUserId);
       userProvider.addPoint(userData['point']);
       userProvider.updateUserAvatarUrl(userData['avatar']);
       userProvider.updateRankings(
-        streakCount: userData['streakCount'] is int ? userData['streakCount'] as int : 0,
-        dailyRank: userData['dailyRank'] is int ? userData['dailyRank'] as int : 0,
+        streakCount:
+            userData['streakCount'] is int ? userData['streakCount'] as int : 0,
+        dailyRank:
+            userData['dailyRank'] is int ? userData['dailyRank'] as int : 0,
         weeklyRank: userData['weeklyRank'],
         monthlyRank: userData['monthlyRank'],
         allTimeRank: userData['allTimeRank'],
@@ -1536,9 +1581,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> savePackagesToPrefs(List<Package> packages) async {
     final prefs = await SharedPreferences.getInstance();
-    String encodedData = json.encode(packages.map((package) => package.toJson()).toList());
+    String encodedData =
+        json.encode(packages.map((package) => package.toJson()).toList());
     await prefs.setString('packages', encodedData);
   }
+
   Future<bool> checkIfBuyed() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool('isbuyed') ?? false;
@@ -1566,16 +1613,13 @@ class _HomeScreenState extends State<HomeScreen> {
           body: Stack(
             children: [
               _buildMainContent(userProvider),
-              if (widget.message != null)
-                KelibuProPanel()
+              if (widget.message != null) KelibuProPanel()
             ],
           ),
         );
       },
     );
   }
-
-
 
   void _navigateToWordSetsPage() {
     Navigator.of(context).push(
@@ -1584,7 +1628,6 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-
 
 // Mesaj panelini oluşturan yeni bir metod
   Widget _buildMessagePanel() {
@@ -1612,8 +1655,10 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+
   Future<void> _checkAndShowVipPanel() async {
-    final vipProvider = Provider.of<VIPAdvantagesPanelProvider>(context, listen: false);
+    final vipProvider =
+        Provider.of<VIPAdvantagesPanelProvider>(context, listen: false);
     await vipProvider.checkAndShowPanel(context);
     if (vipProvider.shouldShowPanel) {
       // VIP panelini göster
@@ -1627,6 +1672,7 @@ class _HomeScreenState extends State<HomeScreen> {
       });
     }
   }
+
   Widget _buildMainContent(UserProvider userProvider) {
     return Consumer<SubscriptionProvider>(
       builder: (context, subscriptionProvider, _) {
@@ -1638,7 +1684,9 @@ class _HomeScreenState extends State<HomeScreen> {
             _buildUserInfoSection(userProvider),
 
             // VIP değilse VIP butonunu göster, VIP ise boş container
-            !isVip ? _buildKelibuProButton(isDarkMode: _isDarkMode) : _buildVipButton(isDarkMode: _isDarkMode),
+            !isVip
+                ? _buildKelibuProButton(isDarkMode: _isDarkMode)
+                : _buildVipButton(isDarkMode: _isDarkMode),
 
             _buildLearningPanel(),
             _buildStreakWidget(userProvider),
@@ -1649,9 +1697,11 @@ class _HomeScreenState extends State<HomeScreen> {
       },
     );
   }
+
   Widget _buildKelibuProButton({required bool isDarkMode}) {
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h), // Kenarları küçülttüm
+      margin: EdgeInsets.symmetric(
+          horizontal: 10.w, vertical: 4.h), // Kenarları küçülttüm
       decoration: BoxDecoration(
         border: Border.all(
           color: isDarkMode ? Colors.grey[800]! : Colors.grey[200]!,
@@ -1689,17 +1739,18 @@ class _HomeScreenState extends State<HomeScreen> {
                 end: Alignment.bottomRight,
                 colors: isDarkMode
                     ? [
-                  Colors.grey[900]!,
-                  Colors.grey[850]!,
-                ]
+                        Colors.grey[900]!,
+                        Colors.grey[850]!,
+                      ]
                     : [
-                  Colors.white,
-                  Color(0xFFFFFBF0), // Sarımsı arka plan
-                ],
+                        Colors.white,
+                        Color(0xFFFFFBF0), // Sarımsı arka plan
+                      ],
               ),
             ),
             child: Container(
-              padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h), // Padding'i küçülttüm
+              padding: EdgeInsets.symmetric(
+                  horizontal: 14.w, vertical: 10.h), // Padding'i küçülttüm
               child: Column(
                 children: [
                   Row(
@@ -1717,7 +1768,10 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                           SizedBox(width: 4.w),
                           Container(
-                            padding: EdgeInsets.symmetric(horizontal: 5.w, vertical: 1.h), // PRO badge padding'ini küçülttüm
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 5.w,
+                                vertical:
+                                    1.h), // PRO badge padding'ini küçülttüm
                             decoration: BoxDecoration(
                               color: Colors.amber[600],
                               borderRadius: BorderRadius.circular(5.r),
@@ -1756,7 +1810,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       Text(
                         "Hemen Kelibu PRO'lu ol",
                         style: GoogleFonts.poppins(
-                          color: isDarkMode ? Colors.grey[300] : Colors.grey[600],
+                          color:
+                              isDarkMode ? Colors.grey[300] : Colors.grey[600],
                           fontSize: 12.sp, // Font boyutunu küçülttüm
                           fontWeight: FontWeight.w500,
                         ),
@@ -1776,6 +1831,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+
   Widget _buildHeader() {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 8.h),
@@ -1819,13 +1875,12 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ],
           ),
-          SizedBox(height: 1.h),
           _buildActionButtons(),
-          SizedBox(height: 1.h),
         ],
       ),
     );
   }
+
   Widget _buildAvatarWithName(UserProvider userProvider) {
     return Consumer<SubscriptionProvider>(
       builder: (context, subscriptionProvider, _) {
@@ -1851,8 +1906,12 @@ class _HomeScreenState extends State<HomeScreen> {
                             shape: BoxShape.circle,
                             border: Border.all(
                               color: isSubscribed
-                                  ? (_isDarkMode ? Colors.amberAccent : Colors.amber)
-                                  : (_isDarkMode ? Colors.greenAccent : Colors.green),
+                                  ? (_isDarkMode
+                                      ? Colors.amberAccent
+                                      : Colors.amber)
+                                  : (_isDarkMode
+                                      ? Colors.greenAccent
+                                      : Colors.green),
                               width: isSubscribed ? 3.0 : 2.0,
                             ),
                             boxShadow: [
@@ -1870,7 +1929,12 @@ class _HomeScreenState extends State<HomeScreen> {
                             child: CachedNetworkImage(
                               imageUrl: 'https://kelibu.net/storage/${userProvider.avatar}',
                               fit: BoxFit.cover,
-                              placeholder: (context, url) => LogoLoadingIndicator(),
+                              maxHeightDiskCache: 200,
+                              memCacheWidth: 200,
+                              filterQuality: FilterQuality.low,
+                              placeholderFadeInDuration: Duration(milliseconds: 200),
+                              fadeInDuration: Duration(milliseconds: 300),
+                              placeholder: (context, url) => ShimmerLoading(),
                               errorWidget: (context, url, error) => FaIcon(
                                 FontAwesomeIcons.userCircle,
                                 size: 27.sp,
@@ -1959,85 +2023,510 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-
   Widget _buildVIPanel() {
     return Container();
   }
 
   Widget _buildActionButtons() {
-    return LayoutBuilder(
-      builder: (BuildContext context, BoxConstraints constraints) {
-        double totalWidth = constraints.maxWidth * 0.8;
-        double maxIconSize = 50;
-        double minSpacing = 8;
-        double iconSize = (totalWidth - (4 * minSpacing)) / 5;
-        iconSize = iconSize > maxIconSize ? maxIconSize : iconSize;
-
-        return Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            _buildCompactIconButton(
-                icon: FontAwesomeIcons.cog,
-                color: Colors.blue,
-                onPressed: _openSettings,
-                size: iconSize),
-            _buildCompactIconButton(
-                icon: _isDarkMode ? FontAwesomeIcons.solidSun : FontAwesomeIcons.moon,
-                color: _isDarkMode ? Colors.orange : Colors.indigo,
-                onPressed: _toggleDarkMode,
-                size: iconSize),
-            _buildCompactIconButton(
-                icon: FontAwesomeIcons.playCircle,
-                color: Colors.green,
-                onPressed: _openVideoPlayer,
-                size: iconSize),
-            _buildCompactIconButton(
-                icon: FontAwesomeIcons.shareAlt,
-                color: Colors.purple,
-                onPressed: _shareApp,
-                size: iconSize),
-            _buildCompactIconButton(
-                icon: FontAwesomeIcons.search,
-                color: Colors.teal,
-                onPressed: _openSearchDialog,
-                size: iconSize),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildCompactIconButton(
-      {required IconData icon, required Color color, required VoidCallback onPressed, required double size}) {
     return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: color.withOpacity(0.1),
-        boxShadow: [
-          BoxShadow(
-            color: color.withOpacity(0.2),
-            blurRadius: 6,
-            offset: Offset(0, 3),
+      padding: EdgeInsets.symmetric(horizontal: 2.w, vertical: 1.h),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          _buildActionButton(
+            icon: Icons.settings_outlined,
+            label: 'Ayarlar',
+            color: Colors.blue[600]!,
+            onPressed: _openSettings,
+          ),
+          _buildActionButton(
+            icon: _isDarkMode ? Icons.light_mode : Icons.dark_mode,
+            label: _isDarkMode ? 'Aydınlık' : 'Karanlık',
+            color: _isDarkMode ? Colors.orange[600]! : Colors.indigo[600]!,
+            onPressed: _toggleDarkMode,
+          ),
+          _buildActionButton(
+            icon: Icons.campaign_outlined,
+            label: 'Duyurular',
+            color: Colors.amber[700]!,
+            hasNotification: true, // Yeni duyuru varsa true olacak
+            onPressed: _showAnnouncements,
+          ),
+          _buildActionButton(
+            icon: Icons.play_circle_outline,
+            label: 'Video',
+            color: Colors.green[600]!,
+            onPressed: _openVideoPlayer,
+          ),
+          _buildActionButton(
+            icon: Icons.share_outlined,
+            label: 'Paylaş',
+            color: Colors.purple[600]!,
+            onPressed: _shareApp,
+          ),
+          _buildActionButton(
+            icon: Icons.search_outlined,
+            label: 'Ara',
+            color: Colors.teal[600]!,
+            onPressed: _openSearchDialog,
           ),
         ],
       ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          customBorder: CircleBorder(),
-          onTap: onPressed,
-          child: Center(
-            child: FaIcon(icon, size: size * 0.5, color: color),
+    );
+  }
+
+  List<Announcement> announcements = [];
+
+  // Tarih formatlama metodu
+  String _formatDate(DateTime date) {
+    return '${date.day}.${date.month}.${date.year}';
+  }
+
+// HomeScreen içinde _buildActionButton metodunu güncelle:
+  Widget _buildActionButton({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onPressed,
+    bool hasNotification = false,
+  }) {
+    // Eğer duyuru butonu ise özel widget'ı kullan
+    if (icon == Icons.campaign_outlined) {
+      return SimpleAnnouncementButton(
+        onTap: _showAnnouncements,
+        isDarkMode: _isDarkMode,
+      );
+    }
+
+    // Diğer butonlar için mevcut implementasyon
+    return Container(
+      child: GestureDetector(
+        onTap: onPressed,
+        child: Container(
+          padding: EdgeInsets.all(3.w),
+          child: Container(
+            padding: EdgeInsets.all(10.w),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12.r),
+              border: Border.all(
+                color: color.withOpacity(0.2),
+                width: 1,
+              ),
+            ),
+            child: Icon(
+              icon,
+              color: color,
+              size: 24.sp,
+            ),
           ),
         ),
       ),
     );
   }
 
+
+// HTML temizleme yardımcı fonksiyonu
+
+
+  void _showAnnouncements() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.75,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        builder: (context, scrollController) => Container(
+          decoration: BoxDecoration(
+            color: _isDarkMode ? Colors.grey[900] : Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
+          ),
+          child: Column(
+            children: [
+              // Sürükle çubuğu
+              Container(
+                margin: EdgeInsets.symmetric(vertical: 8.h),
+                width: 40.w,
+                height: 4.h,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2.r),
+                ),
+              ),
+              // Başlık
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 16.h),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: EdgeInsets.all(10.w),
+                      decoration: BoxDecoration(
+                        color: Colors.amber[700]!.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12.r),
+                      ),
+                      child: Icon(
+                        Icons.campaign_outlined,
+                        size: 24.sp,
+                        color: Colors.amber[700],
+                      ),
+                    ),
+                    SizedBox(width: 12.w),
+                    Text(
+                      'Duyurular',
+                      style: GoogleFonts.poppins(
+                        fontSize: 20.sp,
+                        fontWeight: FontWeight.w600,
+                        color: _isDarkMode ? Colors.white : Colors.black87,
+                      ),
+                    ),
+                    Spacer(),
+                    GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: Container(
+                        padding: EdgeInsets.all(8.w),
+                        decoration: BoxDecoration(
+                          color: _isDarkMode ? Colors.grey[800] : Colors.grey[100],
+                          borderRadius: BorderRadius.circular(10.r),
+                        ),
+                        child: Icon(
+                          Icons.close,
+                          size: 20.sp,
+                          color: _isDarkMode ? Colors.white70 : Colors.black54,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Divider(color: _isDarkMode ? Colors.grey[800] : Colors.grey[200]),
+              // Duyuru Listesi
+              Expanded(
+                child: FutureBuilder<List<Announcement>>(
+                  future: ApiService().getAnnouncements(),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return Center(child: CircularProgressIndicator());
+                    }
+
+                    if (snapshot.hasError) {
+                      return Center(
+                        child: Text(
+                          'Duyurular yüklenirken bir hata oluştu',
+                          style: GoogleFonts.poppins(
+                            color: Colors.grey,
+                            fontSize: 14.sp,
+                          ),
+                        ),
+                      );
+                    }
+
+                    final announcements = snapshot.data ?? [];
+
+                    if (announcements.isEmpty) {
+                      return Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            padding: EdgeInsets.all(20.w),
+                            decoration: BoxDecoration(
+                              color: Colors.amber[700]!.withOpacity(0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.notifications_off_outlined,
+                              size: 40.sp,
+                              color: Colors.amber[700],
+                            ),
+                          ),
+                          SizedBox(height: 16.h),
+                          Text(
+                            'Henüz duyuru bulunmuyor',
+                            style: GoogleFonts.poppins(
+                              fontSize: 16.sp,
+                              fontWeight: FontWeight.w600,
+                              color: _isDarkMode ? Colors.white70 : Colors.black87,
+                            ),
+                          ),
+                          SizedBox(height: 8.h),
+                          Text(
+                            'Yeni duyurular eklendiğinde burada görünecek',
+                            style: GoogleFonts.poppins(
+                              fontSize: 14.sp,
+                              color: Colors.grey,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      );
+                    }
+
+                    return ListView.builder(
+                      controller: scrollController,
+                      padding: EdgeInsets.symmetric(horizontal: 16.w),
+                      itemCount: announcements.length,
+                      itemBuilder: (context, index) {
+                        final announcement = announcements[index];
+                        return GestureDetector(
+                          onTap: () => _showAnnouncementDetail(announcement),
+                          child: Container(
+                            margin: EdgeInsets.only(bottom: 12.h),
+                            decoration: BoxDecoration(
+                              color: _isDarkMode ? Colors.grey[850] : Colors.white,
+                              borderRadius: BorderRadius.circular(12.r),
+                              border: Border.all(
+                                color: Color(
+                                  int.parse(
+                                    announcement.category.color.replaceAll('#', '0xFF'),
+                                  ),
+                                ).withOpacity(0.3),
+                                width: 1,
+                              ),
+                            ),
+                            child: Padding(
+                              padding: EdgeInsets.all(16.w),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Container(
+                                        padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                                        decoration: BoxDecoration(
+                                          color: Color(
+                                            int.parse(
+                                              announcement.category.color.replaceAll('#', '0xFF'),
+                                            ),
+                                          ).withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(6.r),
+                                        ),
+                                        child: Text(
+                                          announcement.category.name,
+                                          style: GoogleFonts.poppins(
+                                            color: Color(
+                                              int.parse(
+                                                announcement.category.color.replaceAll('#', '0xFF'),
+                                              ),
+                                            ),
+                                            fontSize: 12.sp,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                      if (announcement.isImportant) ...[
+                                        SizedBox(width: 8.w),
+                                        Container(
+                                          padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                                          decoration: BoxDecoration(
+                                            color: Colors.red[50],
+                                            borderRadius: BorderRadius.circular(6.r),
+                                          ),
+                                          child: Text(
+                                            'Önemli',
+                                            style: GoogleFonts.poppins(
+                                              color: Colors.red,
+                                              fontSize: 12.sp,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                      Spacer(),
+                                      Text(
+                                        formatDate(announcement.publishDate),
+                                        style: GoogleFonts.poppins(
+                                          color: Colors.grey,
+                                          fontSize: 12.sp,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  SizedBox(height: 12.h),
+                                  Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              announcement.title,
+                                              style: GoogleFonts.poppins(
+                                                fontSize: 16.sp,
+                                                fontWeight: FontWeight.w600,
+                                                color: _isDarkMode ? Colors.white : Colors.black87,
+                                              ),
+                                            ),
+                                            SizedBox(height: 8.h),
+                                            Container(
+                                              constraints: BoxConstraints(maxHeight: 80.h),
+                                              child: Html(
+                                                data: announcement.content,
+                                                style: {
+                                                  "body": Style(
+                                                    fontSize: FontSize(14.sp),
+                                                    color: Colors.grey,
+                                                    fontFamily: GoogleFonts.poppins().fontFamily,
+                                                  ),
+                                                },
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      SizedBox(width: 12.w),
+                                      Icon(
+                                        Icons.arrow_forward_ios,
+                                        size: 16.sp,
+                                        color: _isDarkMode ? Colors.white54 : Colors.black45,
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+  void _showAnnouncementDetail(Announcement announcement) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.9,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        builder: (context, scrollController) => Container(
+          decoration: BoxDecoration(
+            color: _isDarkMode ? Colors.grey[900] : Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
+          ),
+          child: Column(
+            children: [
+              Container(
+                margin: EdgeInsets.symmetric(vertical: 8.h),
+                width: 40.w,
+                height: 4.h,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2.r),
+                ),
+              ),
+              Padding(
+                padding: EdgeInsets.all(16.w),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                      decoration: BoxDecoration(
+                        color: Color(
+                          int.parse(announcement.category.color.replaceAll('#', '0xFF')),
+                        ).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(6.r),
+                      ),
+                      child: Text(
+                        announcement.category.name,
+                        style: GoogleFonts.poppins(
+                          color: Color(
+                            int.parse(announcement.category.color.replaceAll('#', '0xFF')),
+                          ),
+                          fontSize: 12.sp,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    Spacer(),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: Icon(Icons.close),
+                      color: _isDarkMode ? Colors.white70 : Colors.black54,
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  controller: scrollController,
+                  padding: EdgeInsets.all(16.w),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (announcement.isImportant)
+                        Container(
+                          padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                          margin: EdgeInsets.only(bottom: 8.h),
+                          decoration: BoxDecoration(
+                            color: Colors.red[50],
+                            borderRadius: BorderRadius.circular(6.r),
+                          ),
+                          child: Text(
+                            'Önemli',
+                            style: GoogleFonts.poppins(
+                              color: Colors.red,
+                              fontSize: 12.sp,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      Text(
+                        announcement.title,
+                        style: GoogleFonts.poppins(
+                          fontSize: 20.sp,
+                          fontWeight: FontWeight.w600,
+                          color: _isDarkMode ? Colors.white : Colors.black87,
+                        ),
+                      ),
+                      SizedBox(height: 8.h),
+                      Text(
+                        formatDate(announcement.publishDate),
+                        style: GoogleFonts.poppins(
+                          color: Colors.grey,
+                          fontSize: 12.sp,
+                        ),
+                      ),
+                      SizedBox(height: 16.h),
+                      // HTML içeriğini render eden widget:
+                      Html(
+                        data: announcement.content,
+                        style: {
+                          "body": Style(
+                            fontSize: FontSize(14.sp),
+                            color: _isDarkMode ? Colors.white70 : Colors.black87,
+                            fontFamily: GoogleFonts.poppins().fontFamily,
+                          ),
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+  String formatDate(DateTime date) {
+    String day = date.day.toString().padLeft(2, '0');
+    String month = date.month.toString().padLeft(2, '0');
+    String year = date.year.toString();
+    return '$day.$month.$year';
+  }
   void _openSettings() {
-    Navigator.of(context).push(MaterialPageRoute(builder: (context) => SettingsPage()));
+    Navigator.of(context)
+        .push(MaterialPageRoute(builder: (context) => SettingsPage()));
   }
 
   void _toggleDarkMode() async {
@@ -2051,7 +2540,9 @@ class _HomeScreenState extends State<HomeScreen> {
   void _openVideoPlayer() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => VideoPlayerScreen(videoUrl: AppUrls.homescreen)),
+      MaterialPageRoute(
+          builder: (context) =>
+              VideoPlayerScreen(videoUrl: AppUrls.homescreen)),
     );
   }
 
@@ -2079,7 +2570,8 @@ Hadi, birlikte öğrenelim ve büyüyelim! 🌟🎉
 Kelime öğrenmenin tadını Kelibu ile çıkarın! 🍭📗
     """;
 
-    Share.share(message, subject: 'Kelibu - Eğlenceli Kelime Öğrenme Macerası!');
+    Share.share(message,
+        subject: 'Kelibu - Eğlenceli Kelime Öğrenme Macerası!');
   }
 
   void _openSearchDialog() {
@@ -2113,7 +2605,6 @@ Kelime öğrenmenin tadını Kelibu ile çıkarın! 🍭📗
       onWordOfDayTap: _showWordOfDayDialog,
       onDictionaryTap: _openSearchDialog,
     );
-
   }
 
   Widget _buildSocialMediaInfo() {
@@ -2131,7 +2622,7 @@ Kelime öğrenmenin tadını Kelibu ile çıkarın! 🍭📗
           ),
         ],
       ),
-      child: CompactDuolingoStyleSocialPanel(isDarkMode: _isDarkMode),
+      child: SocialPanel(isDarkMode: _isDarkMode),
     );
   }
 
@@ -2348,7 +2839,8 @@ Kelime öğrenmenin tadını Kelibu ile çıkarın! 🍭📗
         );
       },
       child: GestureDetector(
-        onTap: () => _onListItemTap(package.classroom?.id ?? 0, package.classroom?.title ?? 'Varsayılan Başlık'),
+        onTap: () => _onListItemTap(package.classroom?.id ?? 0,
+            package.classroom?.title ?? 'Varsayılan Başlık'),
         child: Container(
           margin: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
           decoration: BoxDecoration(
@@ -2501,7 +2993,8 @@ Kelime öğrenmenin tadını Kelibu ile çıkarın! 🍭📗
 class PackageListWidget extends StatelessWidget {
   final Future<List<Package>> packagesFuture;
 
-  const PackageListWidget({Key? key, required this.packagesFuture}) : super(key: key);
+  const PackageListWidget({Key? key, required this.packagesFuture})
+      : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -2525,6 +3018,7 @@ class PackageListWidget extends StatelessWidget {
       },
     );
   }
+
   Widget _buildPackageItem(BuildContext context, Package package) {
     return Container(
       margin: EdgeInsets.symmetric(vertical: 8.h, horizontal: 16.w),
@@ -2555,12 +3049,14 @@ class PackageListWidget extends StatelessWidget {
           ),
         ),
         trailing: Icon(Icons.arrow_forward_ios, color: Colors.white),
-        onTap: () => _onListItemTap(context, package.classroom?.id ?? 0, package.classroom?.title ?? 'Varsayılan Başlık'),
+        onTap: () => _onListItemTap(context, package.classroom?.id ?? 0,
+            package.classroom?.title ?? 'Varsayılan Başlık'),
       ),
     );
   }
 
-  void _onListItemTap(BuildContext context, int categoryId, String categoryName) {
+  void _onListItemTap(
+      BuildContext context, int categoryId, String categoryName) {
     Navigator.of(context).push(MaterialPageRoute(
       builder: (context) => WordListScreen(
         categoryId: categoryId,
@@ -2569,6 +3065,7 @@ class PackageListWidget extends StatelessWidget {
     ));
   }
 }
+
 class WordCard {
   final int id;
   final String? type;
@@ -2591,6 +3088,7 @@ class WordCard {
     );
   }
 }
+
 class SearchPanel extends StatelessWidget {
   final bool isDarkMode;
 
@@ -2623,7 +3121,9 @@ class SearchPanel extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.search, color: isDarkMode ? Colors.grey[300] : Colors.white, size: 24.sp),
+            Icon(Icons.search,
+                color: isDarkMode ? Colors.grey[300] : Colors.white,
+                size: 24.sp),
             SizedBox(width: 8.w),
             Text(
               "Sözlük",
@@ -2639,6 +3139,7 @@ class SearchPanel extends StatelessWidget {
     );
   }
 }
+
 class SearchDialog extends StatefulWidget {
   final bool isDarkMode;
 
@@ -2647,6 +3148,7 @@ class SearchDialog extends StatefulWidget {
   @override
   _SearchDialogState createState() => _SearchDialogState();
 }
+
 class _SearchDialogState extends State<SearchDialog> {
   TextEditingController _searchController = TextEditingController();
   bool _isSearching = false;
@@ -2676,7 +3178,8 @@ class _SearchDialogState extends State<SearchDialog> {
     return Stack(
       children: <Widget>[
         Container(
-          padding: EdgeInsets.only(left: 20.w, top: 65.h, right: 20.w, bottom: 20.h),
+          padding:
+              EdgeInsets.only(left: 20.w, top: 65.h, right: 20.w, bottom: 20.h),
           margin: EdgeInsets.only(top: 45.h),
           decoration: BoxDecoration(
             shape: BoxShape.rectangle,
@@ -2701,17 +3204,22 @@ class _SearchDialogState extends State<SearchDialog> {
                     style: GoogleFonts.nunito(
                       fontSize: 24.sp,
                       fontWeight: FontWeight.w700,
-                      color: widget.isDarkMode ? Colors.white : Color(0xFF4B4B4B),
+                      color:
+                          widget.isDarkMode ? Colors.white : Color(0xFF4B4B4B),
                     ),
                   ),
                   IconButton(
-                    icon: Icon(Icons.close, color: widget.isDarkMode ? Colors.white : Colors.black),
+                    icon: Icon(Icons.close,
+                        color: widget.isDarkMode ? Colors.white : Colors.black),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],
               ),
               SizedBox(height: 20.h),
-              if (_showSearchPanel) _buildSearchPanel() else _buildResultPanel(),
+              if (_showSearchPanel)
+                _buildSearchPanel()
+              else
+                _buildResultPanel(),
             ],
           ),
         ),
@@ -2736,14 +3244,17 @@ class _SearchDialogState extends State<SearchDialog> {
               fontSize: 18.sp,
             ),
             filled: true,
-            fillColor: widget.isDarkMode ? Color(0xFF2C2C2E) : Color(0xFFF0F0F0),
+            fillColor:
+                widget.isDarkMode ? Color(0xFF2C2C2E) : Color(0xFFF0F0F0),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(30),
               borderSide: BorderSide.none,
             ),
-            prefixIcon: Icon(Icons.search, color: Color(0xFF58CC02), size: 24.sp),
+            prefixIcon:
+                Icon(Icons.search, color: Color(0xFF58CC02), size: 24.sp),
             suffixIcon: IconButton(
-              icon: Icon(Icons.clear, color: widget.isDarkMode ? Colors.white70 : Colors.grey[600]),
+              icon: Icon(Icons.clear,
+                  color: widget.isDarkMode ? Colors.white70 : Colors.grey[600]),
               onPressed: () {
                 _searchController.clear();
               },
@@ -2762,20 +3273,20 @@ class _SearchDialogState extends State<SearchDialog> {
         ElevatedButton(
           child: _isSearching
               ? SizedBox(
-            width: 20.w,
-            height: 20.h,
-            child: CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-            ),
-          )
+                  width: 20.w,
+                  height: 20.h,
+                  child: CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                )
               : Text(
-            "Ara",
-            style: GoogleFonts.nunito(
-              fontSize: 20.sp,
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
-            ),
-          ),
+                  "Ara",
+                  style: GoogleFonts.nunito(
+                    fontSize: 20.sp,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
           style: ElevatedButton.styleFrom(
             backgroundColor: Color(0xFF58CC02),
             shape: RoundedRectangleBorder(
@@ -2784,7 +3295,8 @@ class _SearchDialogState extends State<SearchDialog> {
             padding: EdgeInsets.symmetric(horizontal: 40.w, vertical: 12.h),
             elevation: 0,
           ),
-          onPressed: _isSearching ? null : () => performSearch(_searchController.text),
+          onPressed:
+              _isSearching ? null : () => performSearch(_searchController.text),
         ),
       ],
     );
@@ -2813,7 +3325,9 @@ class _SearchDialogState extends State<SearchDialog> {
                 ),
               ),
               IconButton(
-                icon: Icon(Icons.close, color: widget.isDarkMode ? Colors.white70 : Colors.grey[600]),
+                icon: Icon(Icons.close,
+                    color:
+                        widget.isDarkMode ? Colors.white70 : Colors.grey[600]),
                 onPressed: () {
                   setState(() {
                     _showSearchPanel = true;
@@ -2904,7 +3418,8 @@ class _SearchDialogState extends State<SearchDialog> {
 
     try {
       List<int> wordIds = [word.id];
-      List<WordDetail> detailedWords = await apiService.fetchWordsDetail(wordIds);
+      List<WordDetail> detailedWords =
+          await apiService.fetchWordsDetail(wordIds);
 
       if (detailedWords.isNotEmpty) {
         WordDetail detailedWord = detailedWords.first;
@@ -2924,11 +3439,13 @@ class _SearchDialogState extends State<SearchDialog> {
     } catch (e) {
       Navigator.of(context).pop(); // Loading dialog'u kapat
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Kelime detayları yüklenirken bir hata oluştu.')),
+        SnackBar(
+            content: Text('Kelime detayları yüklenirken bir hata oluştu.')),
       );
     }
   }
 }
+
 class WordOfTheDayCache {
   static const String _keyWord = 'word_of_the_day';
   static const String _keyDefinition = 'definition_of_the_day';
@@ -2972,6 +3489,7 @@ class WordOfTheDayCache {
     return prefs.getString(_keyImage);
   }
 }
+
 class WordOfTheDayDialog extends StatelessWidget {
   final bool isDarkMode;
   final Function(String) onSpeak;
@@ -2994,6 +3512,7 @@ class WordOfTheDayDialog extends StatelessWidget {
     );
   }
 }
+
 class ContentBox extends StatelessWidget {
   final bool isDarkMode;
   final Function(String) onSpeak;
@@ -3010,7 +3529,8 @@ class ContentBox extends StatelessWidget {
       clipBehavior: Clip.none,
       children: <Widget>[
         Container(
-          padding: EdgeInsets.only(left: 20.w, top: 65.h + 20.h, right: 20.w, bottom: 20.h),
+          padding: EdgeInsets.only(
+              left: 20.w, top: 65.h + 20.h, right: 20.w, bottom: 20.h),
           margin: EdgeInsets.only(top: 45.h),
           decoration: BoxDecoration(
             shape: BoxShape.rectangle,
@@ -3066,7 +3586,8 @@ class ContentBox extends StatelessWidget {
                           ),
                         ),
                         ElevatedButton(
-                          onPressed: () => _navigateToWordDetail(context, snapshot.data!),
+                          onPressed: () =>
+                              _navigateToWordDetail(context, snapshot.data!),
                           child: Text(
                             "Detaylı Keşfet!",
                             style: GoogleFonts.nunito(
@@ -3080,7 +3601,8 @@ class ContentBox extends StatelessWidget {
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(16),
                             ),
-                            padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 10.h),
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 20.w, vertical: 10.h),
                           ),
                         ),
                       ],
@@ -3134,6 +3656,7 @@ class ContentBox extends StatelessWidget {
       word: word.term,
       meaning: word.definition,
       type: word.type,
+      defination: word.definition,
       image: null, // Eğer varsa, günün kelimesinin resmini ekleyebilirsiniz
       collocations: [],
       derivations: [],
@@ -3150,6 +3673,7 @@ class ContentBox extends StatelessWidget {
     ));
   }
 }
+
 class LearningPanel extends StatelessWidget {
   final bool isDarkMode;
   final VoidCallback onWordOfDayTap;
@@ -3219,205 +3743,207 @@ class LearningPanel extends StatelessWidget {
     );
   }
 }
-
 class WordSetsButton extends StatefulWidget {
   final VoidCallback onTap;
   final bool isDarkMode;
 
-  WordSetsButton({required this.onTap, required this.isDarkMode});
+  const WordSetsButton({
+    required this.onTap,
+    required this.isDarkMode,
+  });
 
   @override
-  _WordSetsButtonState createState() => _WordSetsButtonState();
+  State<WordSetsButton> createState() => _WordSetsButtonState();
 }
 
-class _WordSetsButtonState extends State<WordSetsButton>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
-  late Animation<double> _shadowAnimation;
-  late Animation<double> _fadeAnimation;
-  late Animation<Offset> _slideAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    // Animation Controller
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 300),
-      vsync: this,
-    );
-
-    // Tap Animations
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
-    _shadowAnimation = Tween<double>(begin: 8.0, end: 2.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
-
-    // Entrance Animations
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeIn),
-    );
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.1),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
-    );
-
-    // Start entrance animation
-    _controller.forward();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _onTapDown(TapDownDetails details) {
-    _controller.reverse(); // Scale down on tap down
-  }
-
-  void _onTapUp(TapUpDetails details) {
-    _controller.forward(); // Scale up on tap up
-  }
+class _WordSetsButtonState extends State<WordSetsButton> {
+  final GetXTransitionController _controller = Get.put(GetXTransitionController());
 
   @override
   Widget build(BuildContext context) {
-    // Responsive sizing using MediaQuery
-    final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
-
-    // Define relative sizes
-    final double paddingHorizontal = screenWidth * 0.01; // %5 of screen width
-    final double paddingVertical = screenHeight * 0.01; // %1 of screen height
-    final double containerHeight = screenHeight * 0.1; // %10 of screen height
-    final double iconSize = screenWidth * 0.07; // %7 of screen width
-    final double titleFontSize = screenWidth * 0.045; // %4.5 of screen width
-    final double subtitleFontSize = screenWidth * 0.035; // %3.5 of screen width
-    final double arrowIconSize = screenWidth * 0.06; // %6 of screen width
-
-    return FadeTransition(
-      opacity: _fadeAnimation,
-      child: SlideTransition(
-        position: _slideAnimation,
+    return Obx(() => AnimatedOpacity(
+      duration: const Duration(milliseconds: 200),
+      opacity: _controller.opacity.value,
+      child: Transform.translate(
+        offset: Offset(0, _controller.slideOffset.value),
         child: Padding(
-          padding: EdgeInsets.symmetric(
-              horizontal: paddingHorizontal, vertical: paddingVertical),
-          child: MouseRegion(
-            cursor: SystemMouseCursors.click,
-            child: GestureDetector(
-              onTap: widget.onTap,
-              onTapDown: _onTapDown,
-              onTapUp: _onTapUp,
-              onTapCancel: () => _controller.forward(),
-              child: AnimatedBuilder(
-                animation: _controller,
-                builder: (context, child) {
-                  return Transform.scale(
-                    scale: _scaleAnimation.value,
-                    child: Container(
-                      height: containerHeight,
-                      decoration: BoxDecoration(
-                        color: widget.isDarkMode
-                            ? Color(0xFF1CB0F6)
-                            : Color(0xFF58CC02),
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: widget.isDarkMode
-                                ? Colors.black.withOpacity(0.3)
-                                : Color(0xFF45A800),
-                            blurRadius: _shadowAnimation.value,
-                            offset:
-                            Offset(0, _shadowAnimation.value / 2),
+          padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 6.h),
+          child: GestureDetector(
+            onTap: widget.onTap,
+            onTapDown: (_) => _controller.onTapDown(),
+            onTapUp: (_) => _controller.onTapUp(),
+            onTapCancel: () => _controller.onTapCancel(),
+            child: AnimatedScale(
+              duration: const Duration(milliseconds: 150),
+              scale: _controller.scale.value,
+              child: Container(
+                height: 65.h,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: widget.isDarkMode
+                        ? [Color(0xFF1CB0F6), Color(0xFF1BA0E1)]
+                        : [Color(0xFF58CC02), Color(0xFF4FB802)],
+                  ),
+                  borderRadius: BorderRadius.circular(12.r),
+                  boxShadow: [
+                    BoxShadow(
+                      color: widget.isDarkMode
+                          ? Colors.black.withOpacity(0.25)
+                          : Color(0xFF45A800).withOpacity(0.3),
+                      blurRadius: _controller.shadowBlur.value,
+                      offset: Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Stack(
+                  children: [
+                    // Subtle pattern overlay
+                    Positioned.fill(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12.r),
+                        child: CustomPaint(
+                          painter: DottedPatternPainter(
+                            color: Colors.white.withOpacity(0.05),
                           ),
-                        ],
-                        border: Border.all(
-                          color: widget.isDarkMode
-                              ? Colors.lightBlueAccent.withOpacity(0.5)
-                              : Color(0xFF45A800),
-                          width: 2,
                         ),
                       ),
+                    ),
+                    // Content
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16.w),
                       child: Row(
                         children: [
+                          Container(
+                            padding: EdgeInsets.all(8.r),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(8.r),
+                            ),
+                            child: Icon(
+                              Icons.auto_awesome,
+                              color: Colors.white,
+                              size: 20.sp,
+                            ),
+                          ),
+                          SizedBox(width: 12.w),
                           Expanded(
-                            child: Row(
+                            child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Icon(
-                                  Icons.auto_awesome,
-                                  color: Colors.white,
-                                  size: iconSize,
+                                Text(
+                                  "Kelime Setleri",
+                                  style: GoogleFonts.nunito(
+                                    color: Colors.white,
+                                    fontSize: 16.sp,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 0.3,
+                                  ),
                                 ),
-                                SizedBox(width: screenWidth * 0.04),
-                                Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  crossAxisAlignment:
-                                  CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      "Kelime Setleri",
-                                      style: GoogleFonts.nunito(
-                                        color: Colors.white,
-                                        fontSize: titleFontSize,
-                                        fontWeight: FontWeight.bold,
-                                        shadows: [
-                                          Shadow(
-                                            blurRadius: 2,
-                                            color: Colors.black
-                                                .withOpacity(0.3),
-                                            offset: Offset(0, 1),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    SizedBox(height: screenHeight * 0.005),
-                                    Text(
-                                      "Keşfet ve Öğren!",
-                                      style: GoogleFonts.nunito(
-                                        color: Colors.white.withOpacity(0.9),
-                                        fontSize: subtitleFontSize,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ],
+                                SizedBox(height: 2.h),
+                                Text(
+                                  "Keşfet ve Öğren!",
+                                  style: GoogleFonts.nunito(
+                                    color: Colors.white.withOpacity(0.9),
+                                    fontSize: 12.sp,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                               ],
                             ),
                           ),
-                          Padding(
-                            padding:
-                            EdgeInsets.only(right: screenWidth * 0.05),
+                          Container(
+                            padding: EdgeInsets.all(8.r),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(8.r),
+                            ),
                             child: Icon(
                               Icons.arrow_forward_ios,
                               color: Colors.white,
-                              size: arrowIconSize,
+                              size: 16.sp,
                             ),
                           ),
                         ],
                       ),
                     ),
-                  );
-                },
+                  ],
+                ),
               ),
             ),
           ),
         ),
       ),
-    );
+    ));
   }
 }
+
+// Dotted pattern painter for subtle background texture
+class DottedPatternPainter extends CustomPainter {
+  final Color color;
+
+  DottedPatternPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1;
+
+    const spacing = 15.0;
+
+    for (double i = 0; i < size.width; i += spacing) {
+      for (double j = 0; j < size.height; j += spacing) {
+        canvas.drawCircle(Offset(i, j), 1.0, paint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(CustomPainter oldDelegate) => false;
+}
+class GetXTransitionController extends GetxController {
+  final opacity = 0.0.obs;
+  final slideOffset = 0.1.obs;
+  final scale = 1.0.obs;
+  final shadowBlur = 8.0.obs;
+
+  @override
+  void onInit() {
+    super.onInit();
+    entrance();
+  }
+
+  void entrance() async {
+    await 0.1.delay();
+    opacity.value = 1.0;
+    slideOffset.value = 0.0;
+  }
+
+  void onTapDown() {
+    scale.value = 0.95;
+    shadowBlur.value = 2.0;
+  }
+
+  void onTapUp() {
+    scale.value = 1.0;
+    shadowBlur.value = 8.0;
+  }
+
+  void onTapCancel() => onTapUp();
+}
+
 class ActionButton {
   final IconData icon;
   final Color color;
   final VoidCallback onPressed;
 
-  ActionButton({required this.icon, required this.color, required this.onPressed});
+  ActionButton(
+      {required this.icon, required this.color, required this.onPressed});
 }
+
 class ActionButtons extends StatelessWidget {
   final bool isDarkMode;
   final VoidCallback toggleDarkMode;
@@ -3431,38 +3957,42 @@ class ActionButtons extends StatelessWidget {
   }) : super(key: key);
 
   List<ActionButton> _getButtons(BuildContext context) => [
-    ActionButton(
-      icon: FontAwesomeIcons.gear,
-      color: Colors.blue,
-      onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (context) => SettingsPage())),
-    ),
-    ActionButton(
-      icon: isDarkMode ? FontAwesomeIcons.moon : FontAwesomeIcons.sun,
-      color: isDarkMode ? Colors.indigo : Colors.orange,
-      onPressed: toggleDarkMode,
-    ),
-    ActionButton(
-      icon: FontAwesomeIcons.playCircle,
-      color: Colors.green,
-      onPressed: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => VideoPlayerScreen(videoUrl: AppUrls.homescreen)),
-      ),
-    ),
-    ActionButton(
-      icon: FontAwesomeIcons.shareNodes,
-      color: Colors.purple,
-      onPressed: shareApp,
-    ),
-    ActionButton(
-      icon: FontAwesomeIcons.magnifyingGlass,
-      color: Colors.teal,
-      onPressed: () => showDialog(
-        context: context,
-        builder: (BuildContext context) => SearchDialog(isDarkMode: isDarkMode),
-      ),
-    ),
-  ];
+        ActionButton(
+          icon: FontAwesomeIcons.gear,
+          color: Colors.blue,
+          onPressed: () => Navigator.of(context)
+              .push(MaterialPageRoute(builder: (context) => SettingsPage())),
+        ),
+        ActionButton(
+          icon: isDarkMode ? FontAwesomeIcons.moon : FontAwesomeIcons.sun,
+          color: isDarkMode ? Colors.indigo : Colors.orange,
+          onPressed: toggleDarkMode,
+        ),
+        ActionButton(
+          icon: FontAwesomeIcons.playCircle,
+          color: Colors.green,
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (context) =>
+                    VideoPlayerScreen(videoUrl: AppUrls.homescreen)),
+          ),
+        ),
+        ActionButton(
+          icon: FontAwesomeIcons.shareNodes,
+          color: Colors.purple,
+          onPressed: shareApp,
+        ),
+        ActionButton(
+          icon: FontAwesomeIcons.magnifyingGlass,
+          color: Colors.teal,
+          onPressed: () => showDialog(
+            context: context,
+            builder: (BuildContext context) =>
+                SearchDialog(isDarkMode: isDarkMode),
+          ),
+        ),
+      ];
 
   @override
   Widget build(BuildContext context) {
@@ -3474,12 +4004,15 @@ class ActionButtons extends StatelessWidget {
         final double maxIconSize = 70.w;
         final double minSpacing = 8.w;
 
-        double iconSize = (totalWidth - (buttons.length - 1) * minSpacing) / buttons.length;
+        double iconSize =
+            (totalWidth - (buttons.length - 1) * minSpacing) / buttons.length;
         iconSize = iconSize.clamp(0, maxIconSize);
 
         return Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: buttons.map((button) => _buildAnimatedButton(button, iconSize)).toList(),
+          children: buttons
+              .map((button) => _buildAnimatedButton(button, iconSize))
+              .toList(),
         );
       },
     );
@@ -3526,13 +4059,13 @@ class ActionButtons extends StatelessWidget {
   }
 }
 
-
 class EnhancedLoadingIndicator extends StatelessWidget {
   final String message;
 
   const EnhancedLoadingIndicator({
     Key? key,
-    this.message = "Sistemde gerekli ayarlar yapılıyor... Uygulamızı sizin için en iyi hale getiriyoruz. Merak etmeyin, uzun sürmeyecek.",
+    this.message =
+        "Sistemde gerekli ayarlar yapılıyor... Uygulamızı sizin için en iyi hale getiriyoruz. Merak etmeyin, uzun sürmeyecek.",
   }) : super(key: key);
 
   @override
@@ -3561,7 +4094,8 @@ class EnhancedLoadingIndicator extends StatelessWidget {
             ),
             SizedBox(height: 16.0),
             LinearProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).primaryColor),
+              valueColor:
+                  AlwaysStoppedAnimation<Color>(Theme.of(context).primaryColor),
               backgroundColor: Colors.grey[200],
             ),
           ],
@@ -3583,6 +4117,7 @@ void showLoadingIndicator(BuildContext context) {
     },
   );
 }
+
 class MarqueeWidget extends StatefulWidget {
   final Widget child;
   final Axis direction;
@@ -3647,7 +4182,6 @@ class _MarqueeWidgetState extends State<MarqueeWidget> {
   }
 }
 
-
 Widget buildCompactIconButton({
   required IconData icon,
   required Color color,
@@ -3694,4 +4228,17 @@ Widget buildCompactIconButton({
         ),
     ],
   );
+}
+
+class ShimmerLoading extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Shimmer.fromColors(
+      baseColor: Colors.grey[300]!,
+      highlightColor: Colors.grey[100]!,
+      child: Container(
+        color: Colors.white,
+      ),
+    );
+  }
 }

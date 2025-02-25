@@ -548,12 +548,12 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
             Navigator.of(context).pop(true);
             return false;
           },
-            child: Scaffold(
-              backgroundColor: _isDarkMode ? Colors.grey[900] : Colors.white,
-              appBar: _buildAppBar(),
-              body: _buildBody(constraints),
-              bottomNavigationBar: _buildBottomBar(),
-            ),
+          child: Scaffold(
+            backgroundColor: _isDarkMode ? Colors.grey[900] : Colors.white,
+            appBar: _buildAppBar(),
+            body: _buildBody(constraints),
+            bottomNavigationBar: _buildBottomBar(),
+          ),
         );
       },
     );
@@ -617,18 +617,20 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
       ),
     );
   }
-  Widget _buildRoundedIconButton(IconData icon, Color color, VoidCallback onPressed) {
-    return ElevatedButton(
-      onPressed: onPressed,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: color,
-        shape: CircleBorder(),
-        padding: EdgeInsets.all(12.sp),
+  Widget _buildRoundedIconButton(
+      IconData icon, Color color, VoidCallback onPressed) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8.0),
+      child: InkWell(
+        onTap: onPressed,
+        child: Image.asset(
+          'assets/videoplayer.png',
+          width: 40.sp,
+          height: 40.sp,
+        ),
       ),
-      child: Icon(icon, color: Colors.white, size: 24.sp),
     );
   }
-
   Widget _buildBody(BoxConstraints constraints) {
     return Column(
       children: [

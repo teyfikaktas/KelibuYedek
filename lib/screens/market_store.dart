@@ -1,10 +1,13 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:math';
+import 'dart:math' as mathx;
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:get/get.dart';
+import 'package:get/get_core/src/get_main.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -12,12 +15,17 @@ import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:kelibu/api.dart';
 import 'package:kelibu/screens/home_screen_widgets/home_screen.dart';
 import 'package:kelibu/screens/privary_policy.dart';
+import 'package:kelibu/screens/race/screens/listrooms.dart';
+import 'package:kelibu/screens/vipanel/vipmain.dart';
 import 'package:kelibu/variables.dart';
 import 'package:lottie/lottie.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
+import 'package:purchases_flutter/models/offerings_wrapper.dart';
+import 'package:purchases_flutter/models/package_wrapper.dart';
+import 'package:purchases_flutter/purchases_flutter.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -27,12 +35,13 @@ import '../providers/sub_provider.dart';
 import 'advantages/books_pro.dart';
 import 'package:flutter/services.dart';
 
-
 const Color lightBackground = Color(0xFFF5F5F5);
 const Color primaryColor = Color(0xFF2196F3);
 const Color secondaryColor = Color(0xFF64B5F6);
 const Color accentColor = Color(0xFFBBDEFB);
 const Color textColor = Color(0xFF0D47A1);
+
+
 class MarketPage extends StatefulWidget {
   const MarketPage({Key? key}) : super(key: key);
 
@@ -45,10 +54,15 @@ class _MarketPageState extends State<MarketPage> {
   bool _isLoading = true;
   bool _hasSeenWelcomeBanner = false;
 
+  // RevenueCat Offerings
+  Offerings? _offerings;
+  bool _offeringsLoading = false;
+
   @override
   void initState() {
     super.initState();
     _initializeData();
+    _fetchRevenueCatOfferings();
   }
 
   Future<void> _initializeData() async {
@@ -56,68 +70,134 @@ class _MarketPageState extends State<MarketPage> {
 
     bool isSubscribed = context.read<SubscriptionProvider>().isVip;
     if (!isSubscribed) {
-      await checkMIUIOptimizations(context);
+      await checkMIUIOptimizations();
     }
 
     await fetchData();
   }
 
-  Future<void> checkMIUIOptimizations(BuildContext context) async {
+  Future<void> _fetchRevenueCatOfferings() async {
+    setState(() => _offeringsLoading = true);
+    try {
+      Offerings offerings = await Purchases.getOfferings();
+      setState(() {
+        _offerings = offerings;
+      });
+    } catch (e) {
+      debugPrint('RevenueCat offerings hata: $e');
+    } finally {
+      setState(() => _offeringsLoading = false);
+    }
+  }
 
-      if (context.mounted) {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (ctx) => AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(15),
-            ),
-            icon: const Icon(
-              Icons.warning_amber_rounded,
-              size: 48,
-              color: Colors.amber,
-            ),
-            title: Text(
-              'Önemli Bilgi',
-              style: GoogleFonts.poppins(
-                fontWeight: FontWeight.bold,
-                fontSize: 20,
+  void showKelibuProPaywall(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => KelibuProPaywall(
+        offerings: _offerings,
+        isOfferingsLoading: _offeringsLoading,
+      ),
+    );
+  }
+
+  Future<void> checkMIUIOptimizations() async {
+    Get.dialog(
+      Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.amber.shade50,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.warning_amber_rounded,
+                  size: 40,
+                  color: Colors.amber.shade600,
+                ),
               ),
-              textAlign: TextAlign.center,
-            ),
-            content: Text(
-              'Satın alma işlemlerinin sağlıklı çalışması için lütfen pil tasarufu modlarınızı kapatın:\n\nAyarlar > Pil ve Performans, Pil Tasarruf modu ağ isteklerini sınırlayacağı için, satın alma işlemlerinde sorun çıkarabilir.',
-              style: GoogleFonts.poppins(
-                fontSize: 15,
-                height: 1.5,
+              const SizedBox(height: 24),
+              Text(
+                'Önemli Bilgi',
+                style: GoogleFonts.poppins(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.blue,
-                    borderRadius: BorderRadius.circular(8),
+              const SizedBox(height: 16),
+              Text(
+                'Satın alma işlemlerinin sağlıklı çalışması için lütfen pil tasarufu modlarınızı kapatın:',
+                style: GoogleFonts.poppins(
+                  fontSize: 15,
+                  color: Colors.black87,
+                  height: 1.5,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: Text(
+                  'Ayarlar > Pil ve Performans\n\nPil Tasarruf modu ağ isteklerini sınırlayacağı için, satın alma işlemlerinde sorun çıkarabilir.',
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    color: Colors.grey.shade700,
+                    height: 1.5,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              const SizedBox(height: 32),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: TextButton(
+                  onPressed: () => Get.back(),
+                  style: TextButton.styleFrom(
+                    backgroundColor: Colors.amber.shade600,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
                   ),
                   child: Text(
                     'Anladım',
                     style: GoogleFonts.poppins(
                       color: Colors.white,
+                      fontSize: 16,
                       fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5,
                     ),
                   ),
                 ),
               ),
             ],
-            actionsAlignment: MainAxisAlignment.center,
           ),
-        );
-      }
-    }
-
+        ),
+      ),
+      barrierDismissible: false,
+    );
+  }
   Future<void> _loadWelcomeBannerPreference() async {
     final prefs = await SharedPreferences.getInstance();
     _hasSeenWelcomeBanner = prefs.getBool('hasSeenWelcomeBanner') ?? false;
@@ -128,11 +208,10 @@ class _MarketPageState extends State<MarketPage> {
     await prefs.setBool('hasSeenWelcomeBanner', true);
   }
 
-  /// Ekran açılır açılmaz gösterilecek banner
   void _showWelcomeBanner() {
     showDialog(
       context: context,
-      barrierDismissible: false, // Kullanıcı banner'ı kapatmak zorunda
+      barrierDismissible: false,
       builder: (ctx) => Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
         child: Container(
@@ -148,24 +227,11 @@ class _MarketPageState extends State<MarketPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Kelibu Logosu
               Image.asset(
                 'assets/logo.png',
                 height: 80.h,
               ),
               SizedBox(height: 20.h),
-              // İndirim Mesajı
-              Text(
-                '3 Ay Boyunca %50 İndirim!',
-                style: GoogleFonts.poppins(
-                  fontSize: 24.sp,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              SizedBox(height: 10.h),
-              // Açıklama
               Text(
                 'Kelibu PRO üyeliğinizi şimdi alın, avantajları kaçırmayın.',
                 style: GoogleFonts.poppins(
@@ -175,7 +241,6 @@ class _MarketPageState extends State<MarketPage> {
                 textAlign: TextAlign.center,
               ),
               SizedBox(height: 20.h),
-              // Tamam Butonu
               ElevatedButton(
                 onPressed: () {
                   Navigator.of(ctx).pop();
@@ -187,8 +252,7 @@ class _MarketPageState extends State<MarketPage> {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(30.r),
                   ),
-                  padding:
-                  EdgeInsets.symmetric(horizontal: 30.w, vertical: 12.h),
+                  padding: EdgeInsets.symmetric(horizontal: 30.w, vertical: 12.h),
                 ),
                 child: Text(
                   'Tamam',
@@ -199,7 +263,6 @@ class _MarketPageState extends State<MarketPage> {
                 ),
               ),
               SizedBox(height: 20.h),
-              // Alt Metin
               Text(
                 'Kelibu bir PhD Akademi ürünüdür.',
                 style: GoogleFonts.poppins(
@@ -215,7 +278,6 @@ class _MarketPageState extends State<MarketPage> {
     );
   }
 
-  /// API'den Veri Çekme
   Future<void> fetchData() async {
     try {
       final response = await http.get(
@@ -249,7 +311,6 @@ class _MarketPageState extends State<MarketPage> {
     }
   }
 
-  /// Hata Dialogu
   void _showErrorDialog(String message) {
     showDialog(
       context: context,
@@ -268,13 +329,6 @@ class _MarketPageState extends State<MarketPage> {
     );
   }
 
-  void _showSubscriptionDialog(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (context) => KelibuAdvantagesPage()),
-    );
-  }
-
-  /// Başarı Dialogu
   void _showSuccessDialog(String message) {
     showDialog(
       context: context,
@@ -291,13 +345,11 @@ class _MarketPageState extends State<MarketPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Logo
               Image.asset(
                 'assets/logo.png',
                 height: 80.h,
               ),
               SizedBox(height: 20.h),
-              // Başlık
               Text(
                 'Başarılı',
                 style: GoogleFonts.poppins(
@@ -307,7 +359,6 @@ class _MarketPageState extends State<MarketPage> {
                 ),
               ),
               SizedBox(height: 10.h),
-              // Mesaj
               Text(
                 message,
                 style: GoogleFonts.poppins(
@@ -317,7 +368,6 @@ class _MarketPageState extends State<MarketPage> {
                 textAlign: TextAlign.center,
               ),
               SizedBox(height: 20.h),
-              // Tamam Butonu
               ElevatedButton(
                 onPressed: () {
                   Navigator.of(ctx).pop();
@@ -327,8 +377,7 @@ class _MarketPageState extends State<MarketPage> {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(30),
                   ),
-                  padding:
-                  EdgeInsets.symmetric(horizontal: 30.w, vertical: 12.h),
+                  padding: EdgeInsets.symmetric(horizontal: 30.w, vertical: 12.h),
                 ),
                 child: Text(
                   'Tamam',
@@ -346,7 +395,6 @@ class _MarketPageState extends State<MarketPage> {
     );
   }
 
-  /// Ürünü Kütüphaneye Ekleme
   Future<void> addToLibrary(String productId) async {
     final prefs = await SharedPreferences.getInstance();
     List<String> library = prefs.getStringList('library') ?? [];
@@ -359,7 +407,6 @@ class _MarketPageState extends State<MarketPage> {
     }
   }
 
-  /// URL Açma
   void _launchURL(String urlString) async {
     final Uri url = Uri.parse(urlString);
     if (await canLaunchUrl(url)) {
@@ -371,334 +418,69 @@ class _MarketPageState extends State<MarketPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: RedesignedKelibuAppBar(
-        logoPath: 'assets/logo.png',
-      ),
-      backgroundColor: lightBackground,
-      body: _isLoading
-          ? Center(child: CircularProgressIndicator())
-          : Consumer<SubscriptionProvider>(
-        builder: (context, subscriptionProvider, _) {
-          bool isSubscribed = subscriptionProvider.isVip;
+    /// Burada LayoutBuilder ile ekrana göre “isWideScreen” kontrolü yapacağız:
+    return LayoutBuilder(
+      builder: (ctx, constraints) {
+        final isWideScreen = constraints.maxWidth >= 600;
 
-          return AnimationLimiter(
-            child: isSubscribed
-                ? VipPage(products)
-                : PromotionPage(products),
-          );
-        },
-      ),
+        return Scaffold(
+          appBar: RedesignedKelibuAppBar(
+            logoPath: 'assets/logo.png',
+          ),
+          backgroundColor: lightBackground,
+          body: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : Consumer<SubscriptionProvider>(
+            builder: (context, subscriptionProvider, _) {
+              bool isSubscribed = subscriptionProvider.isVip;
+              return AnimationLimiter(
+                child: isSubscribed
+                    ? VipPage(
+                  allSets: products,  // Burayı düzelttik
+                  isWideScreen: isWideScreen,
+                )
+                    : PromotionPage(products, isWideScreen: isWideScreen),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 
-  /// "PromotionPage" widget'ı
-  Widget PromotionPage(List<Map<String, dynamic>> allSets) {
+  /// Geniş/dar ekran ayrımını PromotionPage tarafına parametre olarak geçiriyoruz.
+  Widget PromotionPage(List<Map<String, dynamic>> allSets, {required bool isWideScreen}) {
     return ListView(
-      padding: EdgeInsets.only(top: 20),
+      padding: const EdgeInsets.only(top: 20),
       children: AnimationConfiguration.toStaggeredList(
         duration: const Duration(milliseconds: 375),
         childAnimationBuilder: (widget) => SlideAnimation(
           horizontalOffset: 50.0,
-          child: FadeInAnimation(
-            child: widget,
-          ),
+          child: FadeInAnimation(child: widget),
         ),
         children: [
           buildTermsAndConditionsText(),
           _buildLottieHeader(),
-          SizedBox(height: 20),
-          _buildKelibuProBanner(),
-          SizedBox(height: 20),
+          const SizedBox(height: 20),
+          _buildKelibuProBanner(isWideScreen),
+          const SizedBox(height: 20),
           EnhancedProBenefitsCard(
             isButtonHide: true,
             onSubscribe: () {
+              // Örnek bir işlem
               _showSuccessDialog('PRO üyelik satın alma işlemi başlatıldı.');
             },
           ),
-          SizedBox(height: 20),
-          _buildUserFeedback(),
-          SizedBox(height: 20),
-          _buildMySets(allSets),
-          SizedBox(height: 20),
-          _buildDiscountCampaign(),
-          SizedBox(height: 20),
+          const SizedBox(height: 20),
+
         ],
       ),
     );
   }
 
-  /// "VipPage" widget'ı
-  Widget VipPage(List<Map<String, dynamic>> allSets) {
-    return ListView(
-      padding: EdgeInsets.only(top: 20),
-      children: AnimationConfiguration.toStaggeredList(
-        duration: const Duration(milliseconds: 375),
-        childAnimationBuilder: (widget) => SlideAnimation(
-          horizontalOffset: 50.0,
-          child: FadeInAnimation(
-            child: widget,
-          ),
-        ),
-        children: [
-          KelibuDoodlePromo(
-            color: Colors.lightBlueAccent,
-          ),
-          ClickableAdvantagesList(),
-          SizedBox(height: 20),
-          _buildMySets(allSets),
-          SizedBox(height: 20),
-        ],
-      ),
-    );
-  }
+  /// VIP sayfasını da parametre ekleyerek “gerekirse” farklı görünümler sağlayabilirsiniz.
 
-  /// "My Sets" Bölümü
-  Widget _buildMySets(List<Map<String, dynamic>> sets, {Color? headerColor}) {
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Başlık
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-            child: Text(
-              'Kelibu Setleri',
-              style: GoogleFonts.poppins(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: headerColor ?? Colors.black87,
-              ),
-            ),
-          ),
-          // Set Kartları
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: ListView.builder(
-              shrinkWrap: true,
-              physics: NeverScrollableScrollPhysics(),
-              itemCount: sets.length,
-              itemBuilder: (context, index) {
-                final set = sets[index];
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: _buildSetCard(
-                    context,
-                    set,
-                    cardColor: Colors.white,
-                    shadowColor: Colors.black26,
-                    titleColor: Colors.black87,
-                    countColor: Colors.cyan,
-                    iconColor: Colors.blue,
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
-  /// "Set" Kartı
-  Widget _buildSetCard(
-      BuildContext context,
-      Map<String, dynamic> set, {
-        Color cardColor = Colors.white,
-        Color shadowColor = Colors.black26,
-        Color titleColor = Colors.black87,
-        Color countColor = Colors.grey,
-        Color iconColor = Colors.blue,
-      }) {
-    return LayoutBuilder(
-      builder: (BuildContext context, BoxConstraints constraints) {
-        final double maxWidth = constraints.maxWidth;
-        final double cardHeight = maxWidth * 0.6;
-        final double imageHeight = cardHeight * 0.6;
-        final double contentPadding = maxWidth * 0.04;
-
-        return GestureDetector(
-          onTap: () {
-            _showSetDetails(context, set);
-          },
-          child: Card(
-            color: cardColor,
-            shape: RoundedRectangleBorder(
-              borderRadius:
-              BorderRadius.circular(maxWidth * 0.05),
-            ),
-            elevation: 6,
-            shadowColor: shadowColor,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.vertical(
-                      top: Radius.circular(maxWidth * 0.05)),
-                  child: CachedNetworkImage(
-                    imageUrl: 'https://kelibu.net/storage/${set["image"]}',
-                    height: imageHeight,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    placeholder: (context, url) => Container(
-                      height: imageHeight,
-                      color: Colors.grey[300],
-                      child: Center(child: CircularProgressIndicator()),
-                    ),
-                    errorWidget: (context, url, error) => Container(
-                      height: imageHeight,
-                      color: Colors.grey[300],
-                      child: Icon(
-                        Icons.broken_image,
-                        color: Colors.grey[700],
-                        size: maxWidth * 0.1,
-                      ),
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: EdgeInsets.all(contentPadding),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        crossAxisAlignment:
-                        CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              set["title"],
-                              style: GoogleFonts.poppins(
-                                fontSize: maxWidth * 0.045,
-                                fontWeight: FontWeight.w600,
-                                color: titleColor,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          SizedBox(width: contentPadding * 0.5),
-                          Icon(
-                            Icons.arrow_forward_ios,
-                            size: maxWidth * 0.05,
-                            color: iconColor,
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  /// Set Detaylarını Gösterme (Modal Bottom Sheet)
-  void _showSetDetails(BuildContext context, Map<String, dynamic> set) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) {
-        return Container(
-          constraints: BoxConstraints(
-              maxHeight:
-              MediaQuery.of(context).size.height * 0.85),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius:
-            BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(height: 12),
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: EdgeInsets.all(24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        set["title"],
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blue[700],
-                        ),
-                      ),
-                      SizedBox(height: 16),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: CachedNetworkImage(
-                          imageUrl:
-                          'https://kelibu.net/storage/${set["image"]}',
-                          height: 200,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                          placeholder: (context, url) =>
-                              Container(
-                                height: 200,
-                                color: Colors.grey[200],
-                                child:
-                                Center(child: CircularProgressIndicator()),
-                              ),
-                          errorWidget: (context, url, error) =>
-                              Container(
-                                height: 200,
-                                color: Colors.grey[200],
-                                child: Icon(Icons.error, color: Colors.red),
-                              ),
-                        ),
-                      ),
-                      SizedBox(height: 16),
-                      Text(
-                        set["description"],
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.black87,
-                          height: 1.5,
-                        ),
-                      ),
-                      SizedBox(height: 24),
-                    ],
-                  ),
-                ),
-              ),
-              Padding(
-                padding: EdgeInsets.all(24),
-                child: ElevatedButton(
-                  onPressed: () => Navigator.of(ctx).pop(),
-                  child: Text('Kapat'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                    foregroundColor: Colors.white,
-                    minimumSize: Size(double.infinity, 50),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  /// Lottie Header
   Widget _buildLottieHeader() {
     return Container(
       height: 200,
@@ -715,25 +497,67 @@ class _MarketPageState extends State<MarketPage> {
       ),
     );
   }
-// Lottie Header
 
-  /// Kelibu PRO Banner
-  Widget _buildKelibuProBanner() {
+  /// “Kelibu Pro” banner’ını da isWideScreen’e göre ayarlayalım
+  Widget _buildKelibuProBanner(bool isWideScreen) {
+    // Eğer halen _offerings yükleniyorsa veya hata olduysa:
+    if (_offeringsLoading) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(16.0),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    final offering = _offerings?.current;
+    if (offering == null || offering.availablePackages.isEmpty) {
+      // Hiç paket gelmemişse fallback
+      return Container(
+        padding: const EdgeInsets.all(16),
+        child: Text(
+          'Şu anda mevcut bir abonelik paketi bulunamadı.',
+          style: GoogleFonts.poppins(color: Colors.red),
+        ),
+      );
+    }
+
+    final Package? monthlyPackage = offering.availablePackages
+        .where((p) => p.packageType == PackageType.monthly)
+        .isNotEmpty
+        ? offering.availablePackages
+        .firstWhere((p) => p.packageType == PackageType.monthly)
+        : null;
+
+    final Package? annualPackage = offering.availablePackages
+        .where((p) => p.packageType == PackageType.annual)
+        .isNotEmpty
+        ? offering.availablePackages
+        .firstWhere((p) => p.packageType == PackageType.annual)
+        : null;
+
+    final String monthlyPriceString = monthlyPackage?.storeProduct.priceString ?? '-';
+    final String annualPriceString = annualPackage?.storeProduct.priceString ?? '-';
+
+    // Geniş/dar ekranda font boyutlarını ufakça farklı yapabilirsiniz
+    double bannerTitleSize = isWideScreen ? 30.sp : 28.sp;
+    double priceFontSize   = isWideScreen ? 22.sp : 20.sp;
+
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
+      margin: EdgeInsets.symmetric(horizontal: 16.w),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(20.r),
         border: Border.all(color: primaryColor, width: 3),
       ),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(16.w),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [primaryColor, secondaryColor],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(16.r),
           boxShadow: [
             BoxShadow(
               color: primaryColor.withOpacity(0.3),
@@ -745,52 +569,40 @@ class _MarketPageState extends State<MarketPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Üst Bölüm
+            /// Üst Bölüm
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Row(
                   children: [
-                    // Asset logo.png kullanımı
-                    Image.asset('assets/logo.png', height: 40),
-                    const SizedBox(width: 12),
-                    Text(
-                      'Kelibu PRO',
-                      style: GoogleFonts.poppins(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
+                    Image.asset('assets/logo.png', height: isWideScreen ? 50.h : 40.h),
                   ],
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
                   decoration: BoxDecoration(
                     color: accentColor,
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(20.r),
                   ),
                   child: InkWell(
                     onTap: () {
                       Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (context) => AdvantagesPage(),
-                        ),
+                        MaterialPageRoute(builder: (context) => AdvantagesPage()),
                       );
                     },
                     child: Container(
-                      margin: const EdgeInsets.only(right: 2),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      margin: EdgeInsets.only(right: 2.w),
+                      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
                       decoration: BoxDecoration(
                         color: accentColor,
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(20.r),
                       ),
                       child: Text(
-                        'Avantajları Gör',
+                        'Avantajlar',
                         style: GoogleFonts.poppins(
                           color: textColor,
                           fontWeight: FontWeight.bold,
-                          fontSize: 4,
+                          fontSize: isWideScreen ? 12.sp : 12.sp,
                         ),
                       ),
                     ),
@@ -798,44 +610,62 @@ class _MarketPageState extends State<MarketPage> {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            // Alt Bölüm
+            SizedBox(height: 12.h),
+
+            /// Alt Bölüm
             Text(
               'Tüm özelliklere sınırsız erişim!',
               style: GoogleFonts.poppins(
-                  fontSize: 18, color: Colors.white.withOpacity(0.8)),
+                fontSize: isWideScreen ? 20.sp : 18.sp,
+                color: Colors.white.withOpacity(0.8),
+              ),
             ),
-            const SizedBox(height: 20),
-            // Fiyatlandırma Seçenekleri
+            SizedBox(height: 20.h),
+
+            /// Fiyatlandırma Seçenekleri
             Column(
               children: [
-                _buildPricingOption('Aylık', '₺399', '179₺'),
-                const SizedBox(height: 8),
-                _buildPricingOption('Yıllık', '₺1799', '1,199₺'),
+                if (monthlyPackage != null) ...[
+                  _buildPricingOption(
+                    label: 'Aylık',
+                    priceString: monthlyPriceString,
+                    package: monthlyPackage,
+                    fontSize: priceFontSize,
+                  ),
+                  SizedBox(height: 8.h),
+                ],
+                if (annualPackage != null)
+                  _buildPricingOption(
+                    label: 'Yıllık',
+                    priceString: annualPriceString,
+                    package: annualPackage,
+                    fontSize: priceFontSize,
+                  ),
               ],
             ),
-            const SizedBox(height: 16),
-            // Abone Ol Butonu
+            SizedBox(height: 16.h),
+
+            /// Abone Ol Butonu
             SizedBox(
-              width: double.infinity, // Butonu tam genişlik yapar
+              width: double.infinity,
               child: ElevatedButton(
                 onPressed: () {
-                  // Satın alma işlemi
-                  _showSubscriptionDialog(context);
+                  showKelibuProPaywall(context);
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.white,
                   foregroundColor: textColor,
-                  padding:
-                  const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                  padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 16.h),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(30),
+                    borderRadius: BorderRadius.circular(30.r),
                   ),
                 ),
                 child: Text(
                   'Hemen abone ol!',
                   style: GoogleFonts.poppins(
-                      fontWeight: FontWeight.bold, fontSize: 18),
+                    fontWeight: FontWeight.bold,
+                    fontSize: isWideScreen ? 20.sp : 18.sp,
+                  ),
                 ),
               ),
             ),
@@ -844,6 +674,37 @@ class _MarketPageState extends State<MarketPage> {
       ),
     );
   }
+
+  /// Fiyat satırı (Aylık/Yıllık)
+  Widget _buildPricingOption({
+    required String label,
+    required String priceString,
+    required Package package,
+    required double fontSize,
+  }) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontSize: fontSize - 2,
+            color: Colors.white.withOpacity(0.8),
+          ),
+        ),
+        Text(
+          priceString,
+          style: GoogleFonts.poppins(
+            fontSize: fontSize,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+      ],
+    );
+  }
+
+
   Widget buildTermsAndConditionsText() {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -939,301 +800,375 @@ class _MarketPageState extends State<MarketPage> {
   void _handlePrivacyClick() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) =>  PrivacyPolicyPage()),
+      MaterialPageRoute(builder: (context) => PrivacyPolicyPage()),
     );
   }
-  /// Fiyatlandırma Seçeneği
-  Widget _buildPricingOption(
-      String period, String originalPrice, String discountedPrice) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          period,
-          style:
-          GoogleFonts.poppins(fontSize: 16, color: Colors.white.withOpacity(0.8)),
-        ),
-        Row(
-          children: [
-            Text(
-              originalPrice,
-              style: GoogleFonts.poppins(
-                fontSize: 16,
-                color: Colors.white.withOpacity(0.6),
-                decoration: TextDecoration.lineThrough,
-              ),
+}
+
+
+
+
+class KelibuProPaywall extends StatefulWidget {
+  final Offerings? offerings;
+  final bool isOfferingsLoading;
+
+  const KelibuProPaywall({
+    Key? key,
+    required this.offerings,
+    required this.isOfferingsLoading,
+  }) : super(key: key);
+
+  @override
+  State<KelibuProPaywall> createState() => _KelibuProPaywallState();
+}
+
+class _KelibuProPaywallState extends State<KelibuProPaywall> {
+  bool _isPurchasing = false;
+  Package? _monthlyPackage;
+  Package? _annualPackage;
+  int _selectedPackageIndex = 1; // 0: Monthly, 1: Annual
+
+  // Renk paletini logonuzdaki ana renklere göre güncelledim
+  static const primaryBlue = Color(0xFF1E3C87);   // Logo mavi
+  static const secondaryBlue = Color(0xFF2850B8); // Logo koyu mavi
+  static const accentYellow = Color(0xFFFFB800);  // Logo sarı ton
+
+  @override
+  void initState() {
+    super.initState();
+    _parsePackages();
+  }
+
+  void _parsePackages() {
+    if (widget.offerings?.current != null) {
+      final offering = widget.offerings!.current!;
+      try {
+        _monthlyPackage = offering.availablePackages.firstWhere(
+              (p) => p.packageType == PackageType.monthly,
+        );
+      } catch (_) {}
+      try {
+        _annualPackage = offering.availablePackages.firstWhere(
+              (p) => p.packageType == PackageType.annual,
+        );
+      } catch (_) {}
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
+      child: LayoutBuilder(
+        builder: (BuildContext context, BoxConstraints constraints) {
+          // 600 piksel üzerini "geniş" ekran (örneğin tablet) varsayıyoruz
+          final isWideScreen = constraints.maxWidth >= 600;
+
+          final dialogWidth =
+          mathx.min(constraints.maxWidth * 0.95, isWideScreen ? 700 : 600).toDouble();
+          final dialogHeight =
+          mathx.min(constraints.maxHeight * 0.9, isWideScreen ? 800 : 900).toDouble();
+
+          return Container(
+            width: dialogWidth,
+            height: dialogHeight,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
             ),
-            const SizedBox(width: 8),
-            Text(
-              discountedPrice,
-              style: GoogleFonts.poppins(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
+            child: Column(
+              children: [
+                // Üstteki renkli header bölümü
+                _buildColoredHeader(context),
+
+                // İçerik
+                if (widget.isOfferingsLoading)
+                  const Expanded(
+                    child: Center(
+                      child: CircularProgressIndicator(),
+                    ),
+                  )
+                else
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(
+                          // Geniş ekranda daha geniş padding
+                          horizontal: isWideScreen ? 40 : 20,
+                        ),
+                        child: Column(
+                          children: [
+                            const SizedBox(height: 20),
+                            _buildHeaderSection(isWideScreen),
+                            const SizedBox(height: 32),
+                            // Paket seçimleri
+                            // Geniş ekranda paketin yan yana gösterilmesi istenirse
+                            // horizontal layout yapabilirsiniz.
+                            _buildPackageSelection(isWideScreen),
+                            const SizedBox(height: 24),
+                            _buildSubscribeButton(isWideScreen),
+                            const SizedBox(height: 32),
+                            _buildFeaturesList(isWideScreen),
+                            const SizedBox(height: 16),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+
+                // Alt bölüm (gizlilik politikası, vb.)
+                _buildBottomSection(isWideScreen),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildColoredHeader(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: primaryBlue,
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(24),
+          topRight: Radius.circular(24),
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: SafeArea(
+        bottom: false,
+        child: Row(
+          children: [
+            IconButton(
+              onPressed: () => Navigator.of(context).pop(),
+              icon: const Icon(Icons.close, color: Colors.white),
+            ),
+            const Spacer(),
+            TextButton(
+              onPressed: _restorePurchases,
+              child: Text(
+                'Geri Yükle',
+                style: GoogleFonts.poppins(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ],
         ),
-      ],
-    );
-  }
-
-  /// Özellik Karşılaştırması
-  Widget _buildFeatureComparison() {
-    final features = [
-      {
-        'feature': 'Kelime Setleri',
-        'free': 'Sınırlı',
-        'pro': 'Sınırsız',
-      },
-      {
-        'feature': 'Canlı Yarış',
-        'free': 'Yok',
-        'pro': 'Var',
-      },
-      {
-        'feature': 'Özel İndirimler',
-        'free': 'Yok',
-        'pro': 'Var',
-      },
-      {
-        'feature': 'Reklamlar',
-        'free': 'Var',
-        'pro': 'Yok',
-      },
-    ];
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Card(
-        color: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        elevation: 5,
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            children: [
-              Text(
-                'Ücretsiz vs PRO Sürüm',
-                style: GoogleFonts.poppins(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: textColor,
-                ),
-              ),
-              const SizedBox(height: 16),
-              // Başlık Satırı
-              Row(
-                children: [
-                  Expanded(
-                    flex: 2,
-                    child: Text(
-                      'Özellikler',
-                      style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: textColor,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Text(
-                      'Ücretsiz',
-                      style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: textColor,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                  Expanded(
-                    child: Text(
-                      'PRO',
-                      style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: textColor,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                ],
-              ),
-              const Divider(thickness: 1.5),
-              // Özellik Satırları
-              ...features.map((feature) => _buildFeatureRow(feature)).toList(),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// Özellik Satırı
-  Widget _buildFeatureRow(Map<String, String> feature) {
-    bool isPro = feature['pro']!.toLowerCase() == 'var' || feature['pro']!.toLowerCase() == 'sınırsız';
-    bool isFree = feature['free']!.toLowerCase() == 'var' || feature['free']!.toLowerCase() == 'sınırlı';
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 2,
-            child: Text(
-              feature['feature']!,
-              style: GoogleFonts.poppins(fontSize: 16, color: textColor),
-            ),
-          ),
-          Expanded(
-            child: Center(
-              child: isFree
-                  ? Icon(Icons.check, color: primaryColor)
-                  : Icon(Icons.close, color: Colors.red),
-            ),
-          ),
-          Expanded(
-            child: Center(
-              child: isPro
-                  ? Icon(Icons.check, color: primaryColor)
-                  : Icon(Icons.close, color: Colors.red),
-            ),
-          ),
-        ],
       ),
     );
   }
 
 
-  Widget _buildUserFeedback() {
-    final feedbacks = [
-      {
-        'user': 'Ahmet Y.',
-        'comment': 'Kelibu PRO sayesinde dil öğrenimim hızlandı!',
-        'rating': 5
-      },
-      {
-        'user': 'Ayşe K.',
-        'comment': 'Uygulama çok kullanışlı ve pratik.',
-        'rating': 4
-      },
-      {
-        'user': 'Mehmet D.',
-        'comment': 'Kelibu PRO avantajları gerçekten harika.',
-        'rating': 5
-      },
-      {
-        'user': 'Elif S.',
-        'comment': 'Tavsiye ederim, çok memnunum.',
-        'rating': 5
-      },
-      {
-        'user': 'Caner B.',
-        'comment': 'Öğrenme sürecimi kolaylaştırdı.',
-        'rating': 4
-      },
-    ];
-
+  Widget _buildHeaderSection(bool isWideScreen) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Kullanıcı Yorumları',
-                style: GoogleFonts.poppins(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-              ),
-              TextButton(
-                onPressed: () {
-                  // Tüm yorumları görüntüleme işlevi
-                },
-                child: Text(
-                  'Tümünü Gör',
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.blue,
-                  ),
-                ),
-              ),
-            ],
-          ),
+        // Burada ister gerçek logonuzu networkten çekin veya asset içinde tutun
+        Image.asset(
+          'assets/logo.png',
+          height: isWideScreen ? 80 : 60,
         ),
-        SizedBox(
-          height: 220,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            padding: EdgeInsets.symmetric(horizontal: 16),
-            itemCount: feedbacks.length,
-            itemBuilder: (context, index) {
-              final feedback = feedbacks[index];
-              return _buildFeedbackCard(feedback);
-            },
+        const SizedBox(height: 16),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              'Kelibu ',
+              style: GoogleFonts.poppins(
+                fontSize: isWideScreen ? 36 : 32,
+                fontWeight: FontWeight.bold,
+                color: primaryBlue,
+                letterSpacing: 1.2,
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: accentYellow,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                'Pro',
+                style: GoogleFonts.poppins(
+                  fontSize: isWideScreen ? 36 : 32,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Tüm özelliklere erişin, kelimeleri kilitsiz görün!',
+          style: GoogleFonts.poppins(
+            fontSize: isWideScreen ? 18 : 16,
+            color: Colors.black54,
+            height: 1.4,
           ),
+          textAlign: TextAlign.center,
         ),
       ],
     );
   }
+  Widget _buildPackageSelection(bool isWideScreen) {
+    if (_monthlyPackage == null && _annualPackage == null) {
+      return Padding(
+        padding: const EdgeInsets.all(16),
+        child: Text(
+          'Bir abonelik paketi bulunamadı. Lütfen daha sonra tekrar deneyin.',
+          style: GoogleFonts.poppins(color: Colors.red),
+          textAlign: TextAlign.center,
+        ),
+      );
+    }
 
-  Widget _buildFeedbackCard(Map<String, dynamic> feedback) {
-    return Container(
-      width: 280,
-      margin: EdgeInsets.only(right: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: Offset(0, 4),
-          ),
+    final packageCards = <Widget>[];
+    if (_annualPackage != null) {
+      packageCards.add(
+        _buildPackageCard(
+          _annualPackage!,
+          isSelected: _selectedPackageIndex == 1,
+          onTap: () => setState(() => _selectedPackageIndex = 1),
+          bestValue: true,
+          isWideScreen: isWideScreen,
+        ),
+      );
+    }
+    if (_monthlyPackage != null) {
+      packageCards.add(
+        _buildPackageCard(
+          _monthlyPackage!,
+          isSelected: _selectedPackageIndex == 0,
+          onTap: () => setState(() => _selectedPackageIndex = 0),
+          isWideScreen: isWideScreen,
+        ),
+      );
+    }
+
+    // Tablet boyutunda yatay layout, telefon boyutunda dikey layout
+    if (isWideScreen && packageCards.length > 1) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(child: packageCards[0]),
+          const SizedBox(width: 16),
+          if (packageCards.length > 1) Expanded(child: packageCards[1]),
         ],
-      ),
-      child: Padding(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      );
+    } else {
+      // Dar ekran: alt alta
+      return Column(
+        children: [
+          for (int i = 0; i < packageCards.length; i++) ...[
+            packageCards[i],
+            if (i < packageCards.length - 1) const SizedBox(height: 16),
+          ]
+        ],
+      );
+    }
+  }
+
+  Widget _buildPackageCard(
+      Package package, {
+        required bool isSelected,
+        required VoidCallback onTap,
+        bool bestValue = false,
+        required bool isWideScreen,
+      }) {
+    final packageType =
+    package.packageType == PackageType.annual ? 'Yıllık' : 'Aylık';
+    final priceString = package.storeProduct.priceString;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? primaryBlue : Colors.grey.shade300,
+            width: 2,
+          ),
+          color: isSelected ? primaryBlue.withOpacity(0.05) : Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.all(16),
+        child: Stack(
           children: [
+            if (bestValue)
+              Positioned(
+                top: -8,
+                right: -8,
+                child: Container(
+                  padding:
+                  const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: accentYellow,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    'Önerilen',
+                    style: GoogleFonts.poppins(
+                      color: Colors.white,
+                      fontSize: isWideScreen ? 14 : 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
             Row(
               children: [
-                CircleAvatar(
-                  backgroundColor: Colors.blue.shade100,
-                  child: Text(
-                    feedback['user'][0],
-                    style: TextStyle(color: Colors.blue.shade800),
+                // Seçili olan paket için check ikonu
+                Container(
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: isSelected ? primaryBlue : Colors.grey.shade400,
+                      width: 2,
+                    ),
                   ),
+                  child: isSelected
+                      ? Center(
+                    child: Icon(
+                      Icons.check_circle,
+                      size: 20,
+                      color: primaryBlue,
+                    ),
+                  )
+                      : null,
                 ),
-                SizedBox(width: 12),
+                const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        feedback['user'],
+                        packageType,
                         style: GoogleFonts.poppins(
-                          fontSize: 16,
+                          fontSize: isWideScreen ? 20 : 18,
                           fontWeight: FontWeight.w600,
-                          color: Colors.black87,
+                          color: primaryBlue,
                         ),
                       ),
-                      SizedBox(height: 4),
-                      Row(
-                        children: List.generate(
-                          5,
-                              (index) => Icon(
-                            index < feedback['rating'] ? Icons.star : Icons.star_border,
-                            color: Colors.amber,
-                            size: 18,
-                          ),
+                      const SizedBox(height: 4),
+                      Text(
+                        priceString,
+                        style: GoogleFonts.poppins(
+                          fontSize: isWideScreen ? 24 : 22,
+                          fontWeight: FontWeight.bold,
+                          color: secondaryBlue,
                         ),
                       ),
                     ],
@@ -1241,87 +1176,332 @@ class _MarketPageState extends State<MarketPage> {
                 ),
               ],
             ),
-            SizedBox(height: 12),
-            Text(
-              feedback['comment'],
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Özellik listesi: Sarı (accent) check ikonu yerine, logodaki sarının biraz koyusunu kullandık.
+  /// Metin boyutunu isWideScreen'e göre arttırabilirsiniz.
+  Widget _buildFeaturesList(bool isWideScreen) {
+    final features = [
+      'Pro ile tüm kelime setlerine sınırsız erişim',
+      'Canlı yarışmalara katılım ve özel modlara erişim',
+      'Kelibu Doodle ile kişiselleştirilmiş çalışma deneyimi',
+      'SelfEnglish uygulamasına ücretsiz VIP erişim',
+      'Reklamsız premium deneyim ve öncelikli destek'
+    ];
+
+    return Column(
+      children: features.map((feature) => _buildFeatureItem(feature, isWideScreen)).toList(),
+    );
+  }
+
+  Widget _buildFeatureItem(String text, bool isWideScreen) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(2),
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: accentYellow,
+            ),
+            child: const Icon(
+              Icons.check,
+              color: Colors.white,
+              size: 16,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              text,
               style: GoogleFonts.poppins(
-                fontSize: 14,
-                color: Colors.black54,
-                height: 1.5,
+                fontSize: isWideScreen ? 16 : 15,
+                color: Colors.black87,
               ),
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSubscribeButton(bool isWideScreen) {
+    final selectedPackage =
+    _selectedPackageIndex == 1 ? _annualPackage : _monthlyPackage;
+    if (selectedPackage == null) return const SizedBox.shrink();
+
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: _isPurchasing ? null : () => _purchasePackage(selectedPackage),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: primaryBlue,
+          padding: EdgeInsets.symmetric(vertical: isWideScreen ? 20 : 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          elevation: 0,
+        ),
+        child: Text(
+          _isPurchasing ? 'İşlem yapılıyor...' : 'Hemen Başla',
+          style: GoogleFonts.poppins(
+            fontSize: isWideScreen ? 18 : 16,
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomSection(bool isWideScreen) {
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'İstediğin zaman iptal edebilirsin',
+              style: GoogleFonts.poppins(
+                color: Colors.black54,
+                fontSize: isWideScreen ? 14 : 13,
+              ),
+            ),
+            const SizedBox(height: 8),
+            GestureDetector(
+              onTap: _launchEULA,
+              child: Text(
+                'Hizmet Şartları ve Gizlilik Politikası',
+                style: GoogleFonts.poppins(
+                  color: primaryBlue,
+                  decoration: TextDecoration.underline,
+                  fontSize: isWideScreen ? 14 : 13,
+                ),
+              ),
             ),
           ],
         ),
       ),
     );
   }
-  /// Geri Bildirim Kartı
 
-  /// "My Sets" Bölümü
+  // --- Satın alma & restore mantığı aşağıdaki gibi aynen korunabilir ---
+  Future<void> _purchasePackage(Package package) async {
+    setState(() => _isPurchasing = true);
+    _showLoadingDialog();
 
-  /// Set Kartı
+    try {
+      final customerInfo = await Purchases.purchasePackage(package);
+      if (customerInfo.entitlements.active.isNotEmpty) {
+        _hideLoadingDialog();
+        _showSuccessDialog('Teşekkürler, abonelik başarılı!');
+      } else {
+        _hideLoadingDialog();
+        _showErrorDialog(
+            'Satın alma tamamlanamadı. Lütfen daha sonra tekrar deneyin.');
+      }
+    } on PurchasesErrorCode catch (e) {
+      _hideLoadingDialog();
+      _showErrorDialog(
+          'Satın alma işlemi iptal edildi veya hata oluştu.\nHata Kodu: ${e.toString()}');
+    } catch (e) {
+      _hideLoadingDialog();
+      _showErrorDialog(
+          'Satın alma sırasında beklenmeyen bir hata oldu: ${e.toString()}');
+    } finally {
+      setState(() => _isPurchasing = false);
+    }
+  }
 
-  /// Set Detaylarını Gösterme (Modal Bottom Sheet)
+  Future<void> _restorePurchases() async {
+    _showLoadingDialog();
+    try {
+      final restored = await Purchases.restorePurchases();
+      if (restored.entitlements.active.isNotEmpty) {
+        _hideLoadingDialog();
+        _showSuccessDialog('Satın almalarınız geri yüklendi!');
+      } else {
+        _hideLoadingDialog();
+        _showErrorDialog('Aktif bir aboneliğiniz bulunamadı.');
+      }
+    } catch (e) {
+      _hideLoadingDialog();
+      _showErrorDialog('Geri yükleme hatası: $e');
+    }
+  }
 
-  /// Özel Kampanya Bölümü
-  Widget _buildDiscountCampaign() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [secondaryColor, accentColor],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: primaryColor.withOpacity(0.3),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Özel Kampanya!',
-            style: GoogleFonts.poppins(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '3 ay boyunca %50 indirim',
-            style:
-            GoogleFonts.poppins(fontSize: 18, color: Colors.white.withOpacity(0.8)),
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: () {
-              // Kampanya detayları
-              _launchURL('https://kelibu.com/kampanya-detaylari');
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.white,
-              foregroundColor: textColor,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(30),
+  void _showLoadingDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => Center(
+        child: Container(
+          width: 80,
+          height: 80,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 12,
               ),
-            ),
-            child: Text('FIRSATI YAKALA',
-                style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
+            ],
           ),
-        ],
+          child: const CircularProgressIndicator(),
+        ),
       ),
     );
+  }
+
+  void _hideLoadingDialog() {
+    if (Navigator.canPop(context)) {
+      Navigator.pop(context);
+    }
+  }
+
+  void _showSuccessDialog(String message) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        /// Dialog açılır açılmaz 3 saniyelik gecikme başlatıyoruz:
+        Future.delayed(const Duration(seconds: 3), () {
+          // Dialog halen açıksa kapat
+          if (Navigator.canPop(ctx)) {
+            Navigator.pop(ctx);
+          }
+          // Sonra main.dart'a yönlendir (örnek olarak MyHomePage):
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (context) =>  MainScreen()),
+                (route) => false,
+          );
+        });
+
+        return Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          elevation: 16,
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Image.asset('assets/logo.png', height: 80),
+                const SizedBox(height: 20),
+                Text(
+                  'Başarılı',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  message,
+                  style: const TextStyle(fontSize: 16, color: Colors.black87),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 20),
+                // İsterseniz bir "Tamam" butonu da bırakabilirsiniz,
+                // ancak 3 saniye sonra otomatik kapanacağı için şart değil.
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(ctx); // Kullanıcı erken kapatmak isterse
+                    Navigator.pushAndRemoveUntil(
+                      context,
+                        MaterialPageRoute(builder: (context) =>  MainScreen()),
+                          (route) => false,
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                  child: const Text('Tamam', style: TextStyle(color: Colors.white)),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Hata!',
+                style: GoogleFonts.poppins(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.red,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                message,
+                style: GoogleFonts.poppins(
+                  fontSize: 15,
+                  color: Colors.black87,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text(
+                    'Tamam',
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _launchEULA() async {
+    final url = Uri.parse(
+      'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/',
+    );
+    // URL launcher mantığınızı burada uygulayabilirsiniz
   }
 }
 
@@ -1455,12 +1635,8 @@ class EnhancedProBenefitsCard extends StatelessWidget {
         'text': 'Tüm yeni özelliklere erken erişim'
       },
       {
-        'icon': FontAwesomeIcons.graduationCap,
-        'text': 'PhD Akademi dil kursu üyeliği %10 indirim'
-      },
-      {
         'icon': FontAwesomeIcons.book,
-        'text': 'PhD Akademi Level 1-2-3 kitaplarına ücretsiz erişim'
+        'text': 'PhD Akademi Level 1-2-3 ve sağlık 0-1 kitaplarına ücretsiz erişim'
       },
       {
         'icon': FontAwesomeIcons.mobileScreen,
@@ -1742,19 +1918,6 @@ class KelibuAdvantagesPage extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   SubscriptionOptions(),
-                  SizedBox(height: 24),
-                  CustomSectionTitle(
-                    mainTitle: 'Kelibu',
-                    highlightedText: 'Pro',
-                    subTitle: 'ile Neler Kazanıyorsunuz?',
-                  ),
-                  SizedBox(height: 16),
-                  AdvantagesList(),
-                  SizedBox(height: 24),
-                  AdditionalFeatures(),
-                  SizedBox(height: 24),
-                  FAQSection(),
-                  SizedBox(height: 24),
                 ],
               ),
             ),
@@ -1764,108 +1927,6 @@ class KelibuAdvantagesPage extends StatelessWidget {
     );
   }
 }
-
-class CustomSectionTitle extends StatelessWidget {
-  final String mainTitle;
-  final String highlightedText;
-  final String subTitle;
-
-  const CustomSectionTitle({
-    Key? key,
-    required this.mainTitle,
-    required this.highlightedText,
-    required this.subTitle,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    // Ekran genişliğini alıyoruz
-    final screenWidth = MediaQuery.of(context).size.width;
-
-    // Ekran genişliğine bağlı olarak dinamik font boyutları
-    double mainFontSize = screenWidth > 600 ? 24 : 18;
-    double subFontSize = screenWidth > 600 ? 24 : 18;
-    double proFontSize = screenWidth > 600 ? 16 : 12;
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // Genişlik kontrolü yaparak responsive düzen oluşturuyoruz
-        bool isSmallScreen = constraints.maxWidth < 400;
-
-        return Wrap(
-          crossAxisAlignment: WrapCrossAlignment.center,
-          alignment: WrapAlignment.start,
-          children: [
-            Text(
-              mainTitle,
-              style: GoogleFonts.poppins(
-                fontWeight: FontWeight.bold,
-                fontSize: mainFontSize,
-                color: Colors.black,
-              ),
-            ),
-            const SizedBox(width: 4, height: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: Colors.orange, // "Pro" yazısı arka plan rengi
-                borderRadius: BorderRadius.circular(4),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black26,
-                    offset: Offset(0, 2),
-                    blurRadius: 4,
-                  ),
-                ],
-              ),
-              child: Text(
-                highlightedText,
-                style: GoogleFonts.poppins(
-                  fontWeight: FontWeight.bold,
-                  fontSize: proFontSize,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-            const SizedBox(width: 4, height: 8),
-            Text(
-              subTitle,
-              style: GoogleFonts.poppins(
-                fontWeight: FontWeight.bold,
-                fontSize: subFontSize,
-                color: Colors.black,
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
-// SliverAppBar Widget'ı
-class KelibuSliverAppBar extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return SliverAppBar(
-      expandedHeight: 50.0,
-      floating: false,
-      pinned: true,
-      backgroundColor: Colors.blue[700], // AppBar arka plan rengi
-      flexibleSpace: FlexibleSpaceBar(
-        centerTitle: true,
-        title: Text(
-          '',
-          style: GoogleFonts.poppins(
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-        ),
-      ),
-    );
-  }
-
-}
-
 // Abonelik Seçenekleri Widget'ı
 class SubscriptionOptions extends StatefulWidget {
   @override
@@ -1873,31 +1934,44 @@ class SubscriptionOptions extends StatefulWidget {
 }
 
 class _SubscriptionOptionsState extends State<SubscriptionOptions> {
-  final Set<String> _kProductIds = Platform.isAndroid
-      ? {'com.kelibu.pro'}
-      : {'kelibu_pro_month', 'kelibu_pro_year'};
+  List<Package> _packages = [];  // RevenueCat packages
+
   List<ProductDetails> _products = [];
   StreamSubscription<List<PurchaseDetails>>? _subscription;
   bool _isAvailable = false;
   bool _loading = true;
+  Future<void> _initializeRevenueCat() async {
+    setState(() => _loading = true);
 
+    try {
+      // Mevcut paketleri al
+      Offerings offerings = await Purchases.getOfferings();
+
+      if (offerings.current != null) {
+        setState(() {
+          _packages = offerings.current!.availablePackages;
+          _loading = false;
+        });
+
+        // Debug için paket bilgilerini yazdır
+        for (var package in _packages) {
+          print('Paket: ${package.identifier}, Fiyat: ${package.storeProduct.priceString}');
+        }
+      } else {
+        throw Exception('No offerings available');
+      }
+    } catch (e) {
+      setState(() => _loading = false);
+      _showErrorDialog('Ürünler yüklenirken bir hata oluştu', e.toString());
+    }
+  }
 
   @override
   void initState() {
     super.initState();
-    InAppPurchase.instance.purchaseStream.take(1).listen(
-          (purchases) async {
-        for (var purchase in purchases) {
-          if (purchase.pendingCompletePurchase) {
-            await InAppPurchase.instance.completePurchase(purchase);
-          }
-        }
-      },
-    );
-
-    _initializeInAppPurchase();
-
+    _initializeRevenueCat();
   }
+
 
   @override
   void dispose() {
@@ -1905,50 +1979,6 @@ class _SubscriptionOptionsState extends State<SubscriptionOptions> {
     super.dispose();
   }
 
-  void _initializeInAppPurchase() async {
-    setState(() {
-      _loading = true;
-    });
-
-    try {
-      _isAvailable = await InAppPurchase.instance.isAvailable();
-      if (!_isAvailable) {
-        throw Exception('In-app purchases are not available on this device.');
-      }
-
-      final ProductDetailsResponse response =
-      await InAppPurchase.instance.queryProductDetails(_kProductIds);
-
-      if (response.error != null) {
-        throw Exception('Error querying product details: ${response.error}');
-      }
-
-      if (response.productDetails.isEmpty) {
-        throw Exception('No products found. Are the IDs correct?');
-      }
-
-      setState(() {
-        _products = response.productDetails;
-        print(_products);
-        _loading = false;
-      });
-// Ürünlerin özelliklerini tek tek yazdırmak için:
-      for (var product in _products) {
-        print('Ürün adı: ${product.currencyCode}, Ürün adı: ${product.rawPrice}, Ürün adı: ${product.currencySymbol}, Fiyatı: ${product.price}');
-      }
-
-      _subscription = InAppPurchase.instance.purchaseStream.listen(
-        _listenToPurchaseUpdated,
-        onDone: () => _subscription?.cancel(),
-        onError: (error) => throw Exception('Purchase stream error: $error'),
-      );
-    } catch (e) {
-      setState(() {
-        _loading = false;
-      });
-      _showErrorDialog('Ürünler yüklenirken bir hata oluştu', e.toString());
-    }
-  }
   Future<bool> _checkHealth() async {
     bool isDialogShowing = true;
 
@@ -2173,58 +2203,6 @@ class _SubscriptionOptionsState extends State<SubscriptionOptions> {
     Navigator.of(context).pop();
   }
 
-  void _listenToPurchaseUpdated(List<PurchaseDetails> purchaseDetailsList) async {
-    _showLoadingDialog(context);
-    try {
-      for (var purchaseDetails in purchaseDetailsList) {
-
-        switch (purchaseDetails.status) {
-          case PurchaseStatus.purchased:
-            bool valid = await _verifyPurchase(purchaseDetails);
-            _hideLoadingDialog(context);
-            if (valid) {
-              _showSuccessDialog(context, purchaseDetails.productID);
-            } else {
-              _showErrorDialog(
-                  'Doğrulama Hatası',
-                  'Satın alma işlemi doğrulanamadı. Lütfen daha sonra tekrar deneyin.'
-              );
-            }
-            break;
-
-          case PurchaseStatus.pending:
-            _hideLoadingDialog(context);
-            _showErrorDialog(
-                'İşlem Beklemede',
-                'Ödeme işleminiz beklemede. Onaylandığında aboneliğiniz aktif olacaktır.'
-            );
-            break;
-
-          case PurchaseStatus.error:
-            _hideLoadingDialog(context);
-            _handlePurchaseError(purchaseDetails.error);
-            break;
-
-          default:
-            _hideLoadingDialog(context);
-            _showErrorDialog(
-                'Beklenmeyen Durum',
-                'Beklenmeyen bir durum oluştu. Lütfen daha sonra tekrar deneyin.'
-            );
-        }
-
-        if (purchaseDetails.pendingCompletePurchase) {
-          await InAppPurchase.instance.completePurchase(purchaseDetails);
-        }
-      }
-    } catch (e) {
-      _hideLoadingDialog(context);
-      _showErrorDialog(
-          'Sistem Hatası',
-          'İşlem sırasında bir hata oluştu: ${e.toString()}'
-      );
-    }
-  }
   Future<bool> isBatterySaverEnabled() async {
     if (Platform.isAndroid) {
       final deviceInfo = DeviceInfoPlugin();
@@ -2342,49 +2320,7 @@ class _SubscriptionOptionsState extends State<SubscriptionOptions> {
     _showErrorDialog(title, message);
   }
 
-  Future<bool> _verifyPurchase(PurchaseDetails purchaseDetails) async {
-    String receipt = purchaseDetails.verificationData.serverVerificationData;
-    String productId = purchaseDetails.productID;
-    String platform = Platform.isAndroid ? 'android' : 'ios';
 
-    // Abonelik tipini belirlemek için productId kontrolü
-    try {
-      SubscriptionProvider provider = Provider.of<SubscriptionProvider>(context, listen: false);
-
-      // provider.subscribe metodunu güncelleyerek subscriptionType ve isPriceStartingWith1199 parametrelerini ekleyin
-      Map<String, dynamic> result = await provider.subscribe(
-        platform,
-        receipt,
-        productId
-      );
-
-      print('Abonelik sonucu: $result');
-
-      return result['success'] == true;
-    } catch (e) {
-      print('Satın alma doğrulanırken hata oluştu: $e');
-      return false;
-    }
-  }
-
-  void _handleError(String message) {
-    print('Error: $message');
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Hata'),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(ctx).pop();
-            },
-            child: Text('Tamam'),
-          ),
-        ],
-      ),
-    );
-  }
 
   Future<void> _showSuccessDialog(BuildContext context, String productId) async {
     String message;
@@ -2473,51 +2409,40 @@ class _SubscriptionOptionsState extends State<SubscriptionOptions> {
     );
   }
 
-  Future<void> _purchaseSubscription(ProductDetails productDetails) async {
-    // Önce diğer bağlantı kontrolleri:
-    if (!await _checkConnectivity()) {
-      return;
-    }
+  Future<void> _purchasePackage(Package package) async {
 
-    // Burada biraz sistem sağlığı kontrol ediliyor
-    _showHealthCheckDialog(context);
-
-    // Health-check kontrolü
-    bool healthOk = await _checkHealth();
-
-    // Sağlık kontrolü sonucuna göre dialog'u kapat
-
-    if (!healthOk) {
-      return;
-    }
 
     try {
-      // Satın alma akışı
-      _subscription = InAppPurchase.instance.purchaseStream.listen((purchases) async {
-        for (var purchase in purchases) {
-          if (purchase.status == PurchaseStatus.purchased) {
-            if (purchase.pendingCompletePurchase) {
-              await InAppPurchase.instance.completePurchase(purchase);
-            }
-          }
-        }
-      });
+      // Satın alma işlemi
+      CustomerInfo purchaserInfo = await Purchases.purchasePackage(package);
 
-      final purchaseParam = PurchaseParam(productDetails: productDetails);
-      await InAppPurchase.instance.buyNonConsumable(purchaseParam: purchaseParam);
-    } catch (e) {
-      _showErrorDialog(
-          'Satın Alma Hatası',
-          'Satın alma işlemi başlatılırken bir hata oluştu. Lütfen daha sonra tekrar deneyin.'
-      );
-      print('Purchase error: $e');
+      // Başarılı satın alma kontrolü
+      if (purchaserInfo.entitlements.active.isNotEmpty) {
+        // VIP durumunu kaydet
+        SharedPreferences prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('VIP', true);
+
+        // Success dialog göster
+        _showSuccessDialog(context, package.identifier);
+      }
+    } on PurchasesErrorCode catch (e) {
+      _handlePurchaseError(e as IAPError?);
     }
   }
-
   @override
   Widget build(BuildContext context) {
     if (_loading) {
       return Center(child: CircularProgressIndicator());
+    }
+
+    if (_packages.isEmpty) {
+      return Container(
+        padding: EdgeInsets.all(16),
+        child: Text(
+          'Şu anda satışa sunulan bir abonelik planı bulunamadı.',
+          style: TextStyle(color: Colors.white),
+        ),
+      );
     }
 
     return Container(
@@ -2536,49 +2461,31 @@ class _SubscriptionOptionsState extends State<SubscriptionOptions> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Kullanım şartları vb.
           buildTermsAndConditionsText(),
+
+          // "Kelibu Pro" başlık
           buildKelibuProHeader(),
+
           SizedBox(height: 8),
-          if (Platform.isIOS)
-            Row(
-              children: _products.map((product) {
-                bool isPrimary = product.title.contains('Yıllık');
-                return Expanded(
-                  child: Column(
-                    children: [
-                      SubscriptionButton(
-                        title: product.title,
-                        price: product.price,
-                        savings: isPrimary ? 'En çok tercih edilen!' : null,
-                        onPressed: () => _purchaseSubscription(product),
-                        isPrimary: isPrimary,
-                      ),
-                      const SizedBox(height: 8),
-                    ],
-                  ),
-                );
-              }).toList(),
-            )
-          else
-            Row(
-              children: _products.map((product) {
-                bool isPrimary = product.price.contains('199') || product.price.contains('34')  || product.price.contains('38') ;
-                return Expanded(
-                  child: Column(
-                    children: [
-                      SubscriptionButton(
-                        title: product.title,
-                        price: product.price,
-                        savings: isPrimary ? 'En çok tercih edilen!' : null,
-                        onPressed: () => _purchaseSubscription(product),
-                        isPrimary: isPrimary,
-                      ),
-                      const SizedBox(height: 8),
-                    ],
-                  ),
-                );
-              }).toList(),
-            )
+
+          // Tüm paketleri döngüyle listele
+          Column(
+            children: _packages.map((package) {
+              // Mesela package.packageType == PackageType.annual ise "primary" kabul edebilirsiniz
+              bool isPrimary = package.packageType == PackageType.annual;
+
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                child: SubscriptionButton(
+                  package: package,
+                  onPressed: () => _purchasePackage(package),
+                  isPrimary: isPrimary,
+                  // isPrimary true ise buton tasarımı özel olabilir
+                ),
+              );
+            }).toList(),
+          ),
         ],
       ),
     ).animate().fadeIn(duration: 800.ms).scale(delay: 300.ms);
@@ -2740,35 +2647,361 @@ class _SubscriptionOptionsState extends State<SubscriptionOptions> {
 }
 
 
+class PaywallScreen extends StatefulWidget {
+  const PaywallScreen({Key? key}) : super(key: key);
+
+  @override
+  State<PaywallScreen> createState() => _PaywallScreenState();
+}
+
+class _PaywallScreenState extends State<PaywallScreen> {
+  bool _loading = true;
+  List<Package> _packages = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeRevenueCat();
+  }
+
+  Future<void> _initializeRevenueCat() async {
+    setState(() => _loading = true);
+    try {
+      Offerings offerings = await Purchases.getOfferings();
+      if (offerings.current != null) {
+        setState(() {
+          _packages = offerings.current!.availablePackages;
+          _loading = false;
+        });
+      } else {
+        throw Exception('No offerings available');
+      }
+    } catch (e) {
+      setState(() => _loading = false);
+      _showErrorDialog('Ürünler yüklenirken bir hata oluştu', e.toString());
+    }
+  }
+
+  /// -----------------------------------------------------------
+  /// Aşağıda paywall ile ilgili temel UI bileşenleri
+  /// -----------------------------------------------------------
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      // Eğer gerçekten paywall’dan çıkılmasını istemiyorsanız, “geri” tuşunu devre dışı bırakabilirsiniz:
+      //   - Bunu WillPopScope ile engelleyerek veya “AppBar”ı tamamen kaldırarak yapabilirsiniz.
+      appBar: AppBar(
+        title: const Text('Kelibu Pro Paywall'),
+        centerTitle: true,
+        automaticallyImplyLeading: true,
+        // Eğer geri tuşu istemiyorsanız bunu false yapın ve ek bir kapatma ikonu vs koymayın
+      ),
+      body: SafeArea(
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : _buildPaywallContent(context),
+      ),
+    );
+  }
+
+  Widget _buildPaywallContent(BuildContext context) {
+    // Eğer _packages boş ise kullanıcıya uygun bir uyarı gösterebilirsiniz
+    if (_packages.isEmpty) {
+      return Center(
+        child: Text(
+          'Şu anda abonelik paketleri bulunamadı.',
+          style: GoogleFonts.poppins(fontSize: 16),
+        ),
+      );
+    }
+
+    // Burada tipik bir paywall tasarımı yapıyoruz:
+    // 1) Üst kısımda görsel, başlık, açıklama
+    // 2) Ortada avantajlar/bültenler
+    // 3) Altta paketler
+    // 4) En altta “Kullanım Şartları” linkleri
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          // Üst görsel veya Logo
+          const SizedBox(height: 20),
+          _buildHeaderImage(),
+          const SizedBox(height: 20),
+
+          // Başlık
+          _buildTitleSection(),
+
+          const SizedBox(height: 16),
+
+          // Avantajlar
+          _buildBenefitsSection(),
+
+          const SizedBox(height: 20),
+
+          // Paketlerin listesi
+          _buildPackagesSection(),
+
+          const SizedBox(height: 24),
+
+          // Alt kısım (Kullanım şartları, Gizlilik politikası)
+          _buildTermsAndConditions(),
+
+          const SizedBox(height: 32),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeaderImage() {
+    return Image.asset(
+      'assets/logo.png',
+      width: 100,
+      height: 100,
+    );
+  }
+
+  Widget _buildTitleSection() {
+    return Column(
+      children: [
+        Text(
+          'Kelibu Pro’ya Geçin!',
+          style: GoogleFonts.poppins(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Sizin için en uygun paketi seçerek,\nKelibu’nun tüm özelliklerine erişin!',
+          textAlign: TextAlign.center,
+          style: GoogleFonts.poppins(
+            fontSize: 16,
+            color: Colors.grey[700],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBenefitsSection() {
+    // Tipik olarak paywall ekranında abonelik avantajlarını maddeler halinde gösterebilirsiniz.
+    final benefits = [
+      'Reklamsız Deneyim',
+      'Tüm Premium Özellikler',
+      'Öncelikli Destek',
+      'Sık Güncellemeler ve Yeni Özellikler'
+    ];
+    return Column(
+      children: benefits.map((benefit) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
+          child: Row(
+            children: [
+              const Icon(Icons.check_circle, color: Colors.green),
+              const SizedBox(width: 8),
+              Text(
+                benefit,
+                style: GoogleFonts.poppins(fontSize: 14),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildPackagesSection() {
+    // RevenueCat’ten gelen paketleri listeleyip, kullanıcıyı satın almaya yönlendiriyoruz
+    return Column(
+      children: _packages.map((pkg) {
+        // Dilerseniz priceString kullanarak “12.99 ₺/ay” gibi gösterimler yapabilirsiniz
+        String packageTitle = '';
+        if (pkg.packageType == PackageType.monthly) {
+          packageTitle = 'Aylık';
+        } else if (pkg.packageType == PackageType.annual) {
+          packageTitle = 'Yıllık';
+        } else {
+          packageTitle = pkg.packageType.toString();
+        }
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+          child: SubscriptionButton(
+            package: pkg,
+            onPressed: () => _purchasePackage(pkg),
+            // Paywall’da “özel stil” vermek isterseniz isPrimary gibi bir flag ekleyip
+            // butonun rengini vs ayarlayabilirsiniz.
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildTermsAndConditions() {
+    // Kullanım şartları ve Gizlilik Politikası linkleri
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Column(
+        children: [
+          Text(
+            'Uygulamayı kullanarak Hizmet Şartlarımızı (EULA) ve Gizlilik Politikamızı kabul etmiş sayılırsınız.',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              color: Colors.grey[600],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              TextButton(
+                onPressed: _handleEulaClick,
+                child: const Text('EULA'),
+              ),
+              const Text('|'),
+              TextButton(
+                onPressed: _handlePrivacyClick,
+                child: const Text('Gizlilik Politikası'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// -----------------------------------------------------------
+  /// Aşağıda satın alma, hata dialogları vs. metodlar
+  /// (Sizin kodunuza uyacak şekilde kısaltılmış)
+  /// -----------------------------------------------------------
+
+  Future<void> _purchasePackage(Package package) async {
+
+    try {
+      CustomerInfo purchaserInfo = await Purchases.purchasePackage(package);
+
+      if (purchaserInfo.entitlements.active.isNotEmpty) {
+        // VIP durumunu kaydet
+        SharedPreferences prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('VIP', true);
+
+        // Başarı diyaloğu göster veya direkt anasayfaya yönlendir
+        _showSuccessDialog(context, package.identifier);
+      }
+    } catch (e) {
+      // Hata durumunda bir dialog gösterebilirsiniz
+      _showErrorDialog('Satın Alma Hatası', e.toString());
+    }
+  }
+
+  void _showSuccessDialog(BuildContext context, String productId) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Başarılı!'),
+        content: const Text('Abonelik satın alındı. Teşekkürler!'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              // Anasayfaya yönlendirme
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (_) => MainScreen()),
+              );
+            },
+            child: const Text('Tamam'),
+          )
+        ],
+      ),
+    );
+  }
+
+  void _showErrorDialog(String title, String message) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Kapat'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _handleEulaClick() async {
+    String url = 'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/';
+    // iOS linki, Android ise isterseniz Google Terms verebilirsiniz
+    // vs...
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.inAppWebView);
+    }
+  }
+
+  void _handlePrivacyClick() async {
+    String url = 'https://example.com/privacy-policy'; // Kendi linkiniz
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.inAppWebView);
+    }
+  }
+}
 
 class SubscriptionButton extends StatelessWidget {
-  final String title;
-  final String price;
-  final String? savings;
+  final Package package;
   final VoidCallback onPressed;
   final bool isPrimary;
-  final List<String> features;
-  final String? originalPrice;
 
   const SubscriptionButton({
     Key? key,
-    required this.title,
-    required this.price,
-    this.originalPrice,
-    this.savings,
+    required this.package,
     required this.onPressed,
     this.isPrimary = false,
-    this.features = const [],
   }) : super(key: key);
+
+  String _getSubscriptionPeriod() {
+    final identifier = package.identifier.toLowerCase();
+    return identifier.contains('year') ? 'Yıllık Üyelik' : 'Aylık Üyelik';
+  }
+
+  String _getSubscriptionSuffix() {
+    final identifier = package.identifier.toLowerCase();
+    return identifier.contains('year') ? '/yıl' : '/ay';
+  }
+
+  List<String> _getFeatures() {
+    final identifier = package.identifier.toLowerCase();
+    if (identifier.contains('year')) {
+      return [
+        'Tüm kelime setlerine sınırsız erişim',
+        'Reklamsız deneyim',
+        'Özel kelime listeleri',
+        'İleri seviye istatistikler',
+        'Yıllık planla daha fazla tasarruf'
+      ];
+    } else {
+      return [
+        'Tüm kelime setlerine sınırsız erişim',
+        'Reklamsız deneyim',
+        'Özel kelime listeleri'
+      ];
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final storeProduct = package.storeProduct;
 
-    // Sarımsı tonlar için renk tanımlamaları
     final Color primaryColor = isPrimary ? Colors.amber.shade700 : Colors.white;
     final Color textColor = isPrimary ? Colors.white : Colors.amber.shade700;
-    final Color accentColor = Colors.orangeAccent;
     final Color borderColor = isPrimary ? Colors.amber.shade700 : Colors.grey.shade300;
 
     return Container(
@@ -2803,11 +3036,11 @@ class SubscriptionButton extends StatelessWidget {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                backgroundColor: accentColor,
+                backgroundColor: Colors.orangeAccent,
               ),
             ),
           Text(
-            title,
+            storeProduct.title,
             style: theme.textTheme.titleLarge?.copyWith(
               color: textColor,
               fontWeight: FontWeight.bold,
@@ -2815,7 +3048,7 @@ class SubscriptionButton extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            isPrimary ? 'Yıllık Üyelik' : 'Aylık Üyelik',
+            _getSubscriptionPeriod(),
             style: theme.textTheme.bodyMedium?.copyWith(
               color: textColor.withOpacity(0.7),
             ),
@@ -2825,7 +3058,7 @@ class SubscriptionButton extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                '$price',
+                storeProduct.priceString,
                 style: theme.textTheme.headlineMedium?.copyWith(
                   color: textColor,
                   fontWeight: FontWeight.bold,
@@ -2833,15 +3066,26 @@ class SubscriptionButton extends StatelessWidget {
               ),
               const SizedBox(width: 4),
               Text(
-                isPrimary ? '/yıl' : '/ay',
+                _getSubscriptionSuffix(),
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: textColor.withOpacity(0.7),
                 ),
               ),
             ],
           ),
+          if (package.storeProduct.introductoryPrice != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8.0),
+              child: Text(
+                '${package.storeProduct.introductoryPrice?.priceString} için deneme',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: textColor.withOpacity(0.9),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
           const SizedBox(height: 16),
-          ...features.map(
+          ..._getFeatures().map(
                 (feature) => Padding(
               padding: const EdgeInsets.symmetric(vertical: 4.0),
               child: Row(
@@ -2849,6 +3093,7 @@ class SubscriptionButton extends StatelessWidget {
                   Icon(
                     Icons.check_circle,
                     color: textColor,
+                    size: 20,
                   ),
                   const SizedBox(width: 8),
                   Expanded(
@@ -2889,8 +3134,7 @@ class SubscriptionButton extends StatelessWidget {
       ),
     );
   }
-}
-// Diğer gerekli paketleri eklemeyi unutmayın, örneğin animate_do veya lottie.
+}// Diğer gerekli paketleri eklemeyi unutmayın, örneğin animate_do veya lottie.
 
 class SuccessDialogContent extends StatefulWidget {
   final String subscriptionType;
@@ -3224,207 +3468,6 @@ void showCongratulationsDialog(BuildContext context, String message) {
   );
 }
 // Bölüm Başlığı Widget'ı
-class SectionTitle extends StatelessWidget {
-  final String title;
-
-  const SectionTitle({Key? key, required this.title}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      title,
-      style: GoogleFonts.poppins(
-        fontSize: 22,
-        fontWeight: FontWeight.bold,
-        color: Colors.blue[800],
-      ),
-    ).animate().fadeIn(duration: 500.ms).slideX();
-  }
-}
-
-class ClickableAdvantagesList extends StatelessWidget {
-  static const List<Map<String, dynamic>> advantages = [
-    {
-      'icon': FontAwesomeIcons.book,
-      'title': 'Setler',
-      'description': "Kelibu'nun tüm setlerine erişim",
-      'color': Colors.yellow,
-      'route': '/home',
-      'linkText': 'Sizin için hazırlanmış tüm setlere ücretsiz erişin!',
-    },
-    {
-      'icon': FontAwesomeIcons.rocket,
-      'title': 'Erken Erişim',
-      'description': 'Tüm yeni özelliklere öncelikli erişim için Beta programına katılın!',
-      'color': Colors.orange,
-      'route': '/beta-apply',
-      'linkText': 'Beta özellikler için tıklayınız',
-    },
-    {
-      'icon': FontAwesomeIcons.graduationCap,
-      'title': 'PhD Akademi İndirimi',
-      'description': 'Dil kurslarında %10 özel indirim',
-      'color': Colors.green,
-      'route': '/phd-academy-info',
-      'linkText': 'PhD Akademi ön bilgi için tıklayınız',
-    },
-    {
-      'icon': FontAwesomeIcons.mobileScreen,
-      'title': 'SelfEnglish Beta',
-      'description': 'SelfEnglish uygulamasına özel beta erişimi',
-      'color': Colors.blue,
-      'route': '/self-english',
-      'linkText': 'Self English için tıklayınız',
-    },
-    {
-      'icon': FontAwesomeIcons.flag,
-      'title': 'Yarış Modu',
-      'description': 'Yarış modunu denemek için tıklayın!',
-      'color': Colors.red,
-      'route': '/race',
-      'linkText': '',
-    },
-  ];
-
-  const ClickableAdvantagesList({Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView.separated(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: advantages.length,
-      separatorBuilder: (context, index) => SizedBox(height: 16.h),
-      itemBuilder: (context, index) {
-        final advantage = advantages[index];
-        return ClickableAdvantageItem(
-          icon: advantage['icon'] as IconData,
-          title: advantage['title'] as String,
-          description: advantage['description'] as String,
-          delay: (index * 200).ms,
-          route: advantage['route'] as String,
-          linkText: advantage['linkText'] as String,
-        );
-      },
-    );
-  }
-}
-
-class ClickableAdvantageItem extends StatefulWidget {
-  final IconData icon;
-  final String title;
-  final String description;
-  final Duration delay;
-  final String linkText;
-  final String route;
-
-  const ClickableAdvantageItem({
-    Key? key,
-    required this.icon,
-    required this.title,
-    required this.description,
-    required this.delay,
-    required this.linkText,
-    required this.route,
-  }) : super(key: key);
-
-  @override
-  _ClickableAdvantageItemState createState() => _ClickableAdvantageItemState();
-}
-
-class _ClickableAdvantageItemState extends State<ClickableAdvantageItem> {
-  bool _isDarkMode = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadDarkModePreference();
-  }
-
-  Future<void> _loadDarkModePreference() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _isDarkMode = prefs.getBool("darkMode") ?? false;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final Color primaryColor = _isDarkMode ? Colors.tealAccent : Colors.teal;
-    final Color backgroundColor = _isDarkMode ? Colors.grey[800]! : Colors.white;
-    final Color textColor = _isDarkMode ? Colors.white : Colors.black87;
-    final Color descriptionColor = _isDarkMode ? Colors.white70 : Colors.black54;
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final maxWidth = constraints.maxWidth;
-        return GestureDetector(
-          onTap: () => Navigator.pushNamed(context, widget.route),
-          child: Container(
-            padding: EdgeInsets.all(maxWidth * 0.04),
-            decoration: BoxDecoration(
-              color: backgroundColor,
-              borderRadius: BorderRadius.circular(maxWidth * 0.04),
-              boxShadow: [
-                BoxShadow(
-                  color: _isDarkMode ? Colors.black26 : Colors.black12,
-                  blurRadius: 10,
-                  offset: Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: EdgeInsets.all(maxWidth * 0.03),
-                  decoration: BoxDecoration(
-                    color: primaryColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(maxWidth * 0.02),
-                  ),
-                  child: Icon(widget.icon, color: primaryColor, size: maxWidth * 0.06),
-                ),
-                SizedBox(width: maxWidth * 0.04),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        widget.title,
-                        style: TextStyle(
-                          fontSize: maxWidth * 0.045,
-                          fontWeight: FontWeight.bold,
-                          color: textColor,
-                        ),
-                      ),
-                      SizedBox(height: maxWidth * 0.01),
-                      Text(
-                        widget.description,
-                        style: TextStyle(
-                          fontSize: maxWidth * 0.035,
-                          color: descriptionColor,
-                        ),
-                      ),
-                      SizedBox(height: maxWidth * 0.02),
-                      Text(
-                        widget.linkText,
-                        style: TextStyle(
-                          fontSize: maxWidth * 0.035,
-                          color: primaryColor,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Icon(Icons.arrow_forward_ios, color: primaryColor, size: maxWidth * 0.05),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
 
 class TestimonialCard extends StatelessWidget {
   final Map<String, dynamic> testimonial;
@@ -3504,76 +3547,6 @@ class TestimonialHeader extends StatelessWidget {
 }
 
 // Ek Özellikler Listesi Widget'ı
-class AdditionalFeatures extends StatelessWidget {
-  final List<Map<String, String>> features = [
-    {
-      'icon': 'FontAwesomeIcons.trophy',
-      'title': 'Sınırsız Canlı Yarışma',
-      'description': 'Diğer kullanıcılarla yarışarak öğrenmenizi pekiştirin.',
-    },
-    {
-      'icon': 'FontAwesomeIcons.comments',
-      'title': 'Özel Destek',
-      'description': 'PRO üyelere özel 7/24 canlı destek hizmeti.',
-    },
-    {
-      'icon': 'FontAwesomeIcons.clockRotateLeft',
-      'title': 'İlerleme Geçmişi',
-      'description': 'Detaylı ilerleme raporları ve geçmiş performans analizi.',
-    },
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // Ekran genişliğine göre kolon sayısını belirleme
-        int columns = constraints.maxWidth < 800 ? 1 : 2;
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SectionTitle(title: 'Ek Özellikler'),
-            SizedBox(height: 16),
-            GridView.builder(
-              physics: NeverScrollableScrollPhysics(),
-              shrinkWrap: true,
-              itemCount: features.length,
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: columns,
-                mainAxisSpacing: 16,
-                crossAxisSpacing: 16,
-                childAspectRatio: constraints.maxWidth < 800 ? 3 : 5, // Yüksekliği ayarlamak için
-              ),
-              itemBuilder: (context, index) {
-                final feature = features[index];
-                return FeatureItem(
-                  icon: _getIconData(feature['icon']!),
-                  title: feature['title']!,
-                  description: feature['description']!,
-                );
-              },
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  IconData _getIconData(String iconName) {
-    // FontAwesomeIcons'dan doğrudan IconData almak daha güvenlidir
-    switch (iconName) {
-      case 'FontAwesomeIcons.trophy':
-        return FontAwesomeIcons.trophy;
-      case 'FontAwesomeIcons.comments':
-        return FontAwesomeIcons.comments;
-      case 'FontAwesomeIcons.clockRotateLeft':
-        return FontAwesomeIcons.clockRotateLeft;
-      default:
-        return Icons.help_outline;
-    }
-  }
-}
 
 // Her bir Ek Özellik Ögesi Widget'ı
 class FeatureItem extends StatelessWidget {
@@ -3627,364 +3600,4 @@ class FeatureItem extends StatelessWidget {
   }
 }
 
-// Sıkça Sorulan Sorular (FAQ) Bölümü Widget'ı
-class FAQSection extends StatelessWidget {
-  final List<Map<String, String>> faqItems = [
-    {
-      'question': 'Kelibu PRO\'yu nasıl iptal edebilirim?',
-      'answer': 'Aboneliğinizi istediğiniz zaman hesap ayarlarınızdan veya müşteri hizmetlerimizle iletişime geçerek iptal edebilirsiniz.'
-    },
-    {
-      'question': 'Ödeme yöntemleri nelerdir?',
-      'answer': 'Kredi kartı, banka kartı ve çeşitli online ödeme yöntemlerini kabul ediyoruz.'
-    },
-    {
-      'question': 'İade politikanız nedir?',
-      'answer': 'İlk 14 gün içinde herhangi bir sebep belirtmeden tam iade garantisi sunuyoruz.'
-    },
-    {
-      'question': 'Kelibu PRO\'nun avantajları hemen aktif olur mu?',
-      'answer': 'Evet, ödemeniz onaylandıktan hemen sonra tüm PRO avantajlarına erişim sağlayabilirsiniz.'
-    },
-    {
-      'question': 'Öğrenci indirimi var mı?',
-      'answer': 'Evet, geçerli bir öğrenci kimliği ile %20 indirim sağlıyoruz. Detaylar için müşteri hizmetlerimizle iletişime geçin.'
-    },
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SectionTitle(title: 'Sıkça Sorulan Sorular'),
-        SizedBox(height: 16),
-        ...faqItems.map((item) => FAQItem(
-          question: item['question']!,
-          answer: item['answer']!,
-        )),
-      ],
-    );
-  }
-}
-
-// Her bir FAQ Ögesi Widget'ı
-class FAQItem extends StatelessWidget {
-  final String question;
-  final String answer;
-
-  const FAQItem({Key? key, required this.question, required this.answer}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return ExpansionTile(
-      title: Text(
-        question,
-        style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: Colors.blue[700]),
-      ),
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Text(
-            answer,
-            style: GoogleFonts.poppins(color: Colors.grey[600]),
-          ),
-        ),
-      ],
-    ).animate().fadeIn(duration: 300.ms).slideX();
-  }
-}
-
-// KelibuDoodlePromo.dart
-
-class KelibuDoodlePromo extends StatefulWidget {
-  final Color color;
-
-  const KelibuDoodlePromo({
-    Key? key,
-    required this.color,
-  }) : super(key: key);
-
-  @override
-  State<KelibuDoodlePromo> createState() => _KelibuDoodlePromoState();
-}
-
-class _KelibuDoodlePromoState extends State<KelibuDoodlePromo> {
-  bool _isDarkMode = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadDarkModePreference();
-  }
-
-  Future<void> _loadDarkModePreference() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _isDarkMode = prefs.getBool("darkMode") ?? false;
-    });
-  }
-
-  List<Shape> _generateShapes(Size size) {
-    final random = Random();
-    final List<Shape> shapes = [];
-
-    // Oval şekiller
-    for (int i = 0; i < 30; i++) {
-      final opacity = 0.05 + random.nextDouble() * 0.1;
-      final paintColor = (_isDarkMode ? Colors.black : Colors.white).withOpacity(opacity);
-      double x = random.nextDouble() * size.width;
-      double y = random.nextDouble() * size.height;
-      double width = random.nextDouble() * 50 + 10;
-      double height = random.nextDouble() * 50 + 10;
-      shapes.add(OvalShape(
-        rect: Rect.fromLTWH(x, y, width, height),
-        color: paintColor,
-      ));
-    }
-
-    // Çizgiler
-    for (int i = 0; i < 20; i++) {
-      final opacity = 0.05 + random.nextDouble() * 0.1;
-      final paintColor = (_isDarkMode ? Colors.black : Colors.white).withOpacity(opacity);
-      double startX = random.nextDouble() * size.width;
-      double startY = random.nextDouble() * size.height;
-      double endX = startX + random.nextDouble() * 30 - 15;
-      double endY = startY + random.nextDouble() * 30 - 15;
-      double strokeWidth = random.nextDouble() * 2 + 1;
-      shapes.add(LineShape(
-        start: Offset(startX, startY),
-        end: Offset(endX, endY),
-        strokeWidth: strokeWidth,
-        color: paintColor,
-      ));
-    }
-
-    return shapes;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final size = Size(constraints.maxWidth, constraints.maxHeight);
-        final shapes = _generateShapes(size);
-
-        return Container(
-          margin: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: _isDarkMode ? Colors.grey[900] : widget.color,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: Color.fromARGB(_isDarkMode ? 50 : 25, 0, 0, 0),
-                blurRadius: 10,
-                offset: Offset(0, 5),
-              ),
-            ],
-          ),
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: RepaintBoundary(
-                  child: CustomPaint(
-                    painter: DoodleBackgroundPainter(shapes: shapes),
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text.rich(
-                          TextSpan(
-                            children: [
-                              TextSpan(
-                                text: 'Kelibu ',
-                                style: TextStyle(
-                                  fontSize: 32,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                  fontFamily: 'Roboto',
-                                ),
-                              ),
-                              TextSpan(
-                                text: 'Doo',
-                                style: TextStyle(
-                                  fontSize: 32,
-                                  color: Colors.purpleAccent,
-                                  fontFamily: 'Indie Flower',
-                                ),
-                              ),
-                              TextSpan(
-                                text: 'dle',
-                                style: TextStyle(
-                                  fontSize: 32,
-                                  color: Colors.tealAccent,
-                                  fontFamily: 'Indie Flower',
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    Text(
-                      'Kelibu\'nun yeni PDF uygulaması KelibuDoodle\'ı PhD Akademi Kitapları ile deneyin!',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 18,
-                        color: _isDarkMode ? Colors.grey[300] : Colors.white,
-                        fontFamily: 'Roboto',
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    ElevatedButton(
-                      onPressed: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => KelibuProListWidget(),
-                          ),
-                        );
-                      },
-                      child: Text(
-                        'Hemen Dene',
-                        style: TextStyle(
-                          fontFamily: 'Roboto',
-                          color: _isDarkMode ? Colors.grey[900] : widget.color,
-                        ),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _isDarkMode ? Colors.grey[300] : Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 30,
-                          vertical: 15,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-abstract class Shape {
-  final Color color;
-
-  Shape({required this.color});
-}
-
-class OvalShape extends Shape {
-  final Rect rect;
-
-  OvalShape({required this.rect, required Color color}) : super(color: color);
-}
-
-class LineShape extends Shape {
-  final Offset start;
-  final Offset end;
-  final double strokeWidth;
-
-  LineShape({
-    required this.start,
-    required this.end,
-    required this.strokeWidth,
-    required Color color,
-  }) : super(color: color);
-}
-
-class DoodleBackgroundPainter extends CustomPainter {
-  final List<Shape> shapes;
-
-  DoodleBackgroundPainter({required this.shapes});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint();
-
-    for (var shape in shapes) {
-      paint.color = shape.color;
-      if (shape is OvalShape) {
-        paint.style = PaintingStyle.fill;
-        canvas.drawOval(shape.rect, paint);
-      } else if (shape is LineShape) {
-        paint.style = PaintingStyle.stroke;
-        paint.strokeWidth = shape.strokeWidth;
-        canvas.drawLine(shape.start, shape.end, paint);
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-// DuolingoStyleBackgroundPainter.dart
-
-class DuolingoStyleBackgroundPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.white.withOpacity(0.1)
-      ..style = PaintingStyle.fill;
-
-    // Duolingo tarzı dalgalı arka plan
-    final path = Path();
-    path.moveTo(0, size.height * 0.75);
-
-    for (int i = 0; i < 5; i++) {
-      path.quadraticBezierTo(
-        size.width * (0.2 + 0.2 * i),
-        size.height * (0.7 + (i % 2 == 0 ? 0.1 : -0.1)),
-        size.width * (0.4 + 0.2 * i),
-        size.height * 0.75,
-      );
-    }
-
-    path.lineTo(size.width, size.height);
-    path.lineTo(0, size.height);
-    path.close();
-
-    canvas.drawPath(path, paint);
-
-    // Doodle ikonları
-    drawDoodleIcon(canvas, size, Icons.brush, 0.1, 0.1);
-    drawDoodleIcon(canvas, size, Icons.edit, 0.9, 0.2);
-    drawDoodleIcon(canvas, size, Icons.color_lens, 0.2, 0.8);
-    drawDoodleIcon(canvas, size, Icons.format_paint, 0.8, 0.7);
-  }
-
-  void drawDoodleIcon(
-      Canvas canvas, Size size, IconData icon, double dx, double dy) {
-    final textPainter = TextPainter(
-      text: TextSpan(
-        text: String.fromCharCode(icon.codePoint),
-        style: TextStyle(
-          fontSize: 24,
-          fontFamily: icon.fontFamily,
-          color: Colors.white.withOpacity(0.2),
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    );
-    textPainter.layout();
-    textPainter.paint(canvas, Offset(size.width * dx, size.height * dy));
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
 

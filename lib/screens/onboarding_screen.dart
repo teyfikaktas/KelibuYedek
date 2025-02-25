@@ -2,6 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'login_screen.dart';
 
+class SlideData {
+  final IconData icon;
+  final String title;
+  final String description;
+
+  SlideData({
+    required this.icon,
+    required this.title,
+    required this.description,
+  });
+}
+
 class OnboardingScreen extends StatefulWidget {
   @override
   _OnboardingScreenState createState() => _OnboardingScreenState();
@@ -10,102 +22,151 @@ class OnboardingScreen extends StatefulWidget {
 class _OnboardingScreenState extends State<OnboardingScreen> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
-  List<Map<String, String>> slides = [
-    {
-      "image": "assets/gamemod.png",
-      "title": "Oyun Modları",
-      "description": "5 Farklı oyun modu ile öğrenmenize güç katın! Bilmediğiniz Kelimeleri yıldızlayın ve sadece o kelimelere çalışarak zamandan tasarruf edin!"
-    },
-    {
-      "image": "assets/flash.png",
-      "title": "Flash Kart Modu",
-      "description": "Flash kartlarla kelime haznenizi genişletin!"
-    },
-    {
-      "image": "assets/klasik.png",
-      "title": "Klasik Kelibu",
-      "description": "Öğrenme garantili meşhur klasik kelibu modu ile tanışın"
-    },
-    {
-      "image": "assets/dinle.png",
-      "title": "Dinle Modu",
-      "description": "Kelimelerin telaffuzunu dinleyerek öğrenin!"
-    },
-    {
-      "image": "assets/ogren.png",
-      "title": "Öğren Modu",
-      "description": "Geleneksel quiz modu ile öğrenmenizi çeşitlendirin!"
-    },
-    {
-      "image": "assets/calis.png",
-      "title": "Çalış Modu",
-      "description": "Kelimelerin eş anlamlıları, örnek cümleleri, collacations ve türemeleri ile kelimeyi derinlemesine öğrenin!"
-    },
+
+  /// Güncellenmiş slide listesi (son maddeye "Demo Seti" ekledik)
+  final List<SlideData> slides = [
+    SlideData(
+      icon: Icons.videogame_asset_outlined,
+      title: "Oyun Modları",
+      description:
+      "5 farklı oyun modu ile öğrenmenize güç katın! Bilmediğiniz kelimeleri işaretleyerek, sadece onlara çalışarak zaman kazanın.",
+    ),
+    SlideData(
+      icon: Icons.flash_on_outlined,
+      title: "Flash Kart Modu",
+      description:
+      "Flash kartlarla kelime bilginizi sistemli bir şekilde artırın!",
+    ),
+    SlideData(
+      icon: Icons.class_outlined,
+      title: "Klasik Kelibu",
+      description: "Öğrenme garantili, meşhur klasik Kelibu modu ile tanışın.",
+    ),
+    SlideData(
+      icon: Icons.headphones_outlined,
+      title: "Dinle Modu",
+      description:
+      "Kelimenin telaffuzunu dinleyerek kalıcı bir öğrenme deneyimi edinin.",
+    ),
+    SlideData(
+      icon: Icons.quiz_outlined,
+      title: "Öğren Modu",
+      description: "Geleneksel quiz formatını kullanarak bilgilerinizi test edin.",
+    ),
+    SlideData(
+      icon: Icons.menu_book_outlined,
+      title: "Çalış Modu",
+      description:
+      "Eş anlamlar, örnek cümleler ve türemelerle kelimeleri derinlemesine inceleyin.",
+    ),
+    // 7) Bilinmeyen kelimeleri işaretleme
+    SlideData(
+      icon: Icons.star_border_purple500_outlined,
+      title: "Bilinmeyen Kelimeleri İşaretle",
+      description:
+      "Her sette karşılaştığınız ve zorlandığınız kelimeleri ‘yıldız’ işareti ile etiketleyerek, daha sonra tekrar gözden geçirmeye yönelik kişiselleştirilmiş bir öğrenme deneyimi oluşturun.",
+    ),
+    // 8) Yıldızlı kelimelere odaklanma
+    SlideData(
+      icon: Icons.star_rate_rounded,
+      title: "Yıldızlı Kelimelere Odaklanın",
+      description:
+      "Yıldızladığınız kelimelere özel ayrı bir çalışma programı oluşturarak, öğrenme sürecinizi ihtiyaçlarınıza göre yönlendirin ve unutma riskini minimuma indirin.",
+    ),
+    // 9) Demo Seti
+    SlideData(
+      icon: Icons.card_giftcard,
+      title: "Ücretsiz Demo Seti",
+      description:
+      "Üyelik oluşturduğunuz anda hesabınıza otomatik olarak bir demo seti tanımlanır. Böylece uygulamayı tamamen ücretsiz biçimde hemen deneyimlemeye başlayabilirsiniz.",
+    ),
   ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
-        children: [
-          PageView.builder(
-            controller: _pageController,
-            itemCount: slides.length,
-            onPageChanged: (int page) {
-              setState(() {
-                _currentPage = page;
-              });
-            },
-            itemBuilder: (context, index) {
-              return buildSlide(slides[index]);
-            },
-          ),
-          Positioned(
-            bottom: 20.0,
-            left: 20,
-            right: 20,
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(
-                    slides.length,
-                        (index) => buildDot(index),
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Stack(
+          children: [
+            PageView.builder(
+              controller: _pageController,
+              itemCount: slides.length,
+              onPageChanged: (int page) {
+                setState(() {
+                  _currentPage = page;
+                });
+              },
+              itemBuilder: (context, index) {
+                return buildSlide(slides[index]);
+              },
+            ),
+
+            /// Sağ üst köşede "Geç" (Skip) butonu
+            Positioned(
+              top: 20,
+              right: 20,
+              child: TextButton(
+                onPressed: _onBoardingComplete,
+                child: Text(
+                  "Geç",
+                  style: TextStyle(
+                    color: Color(0xFF58CC02),
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-                SizedBox(height: 20),
-                buildButton(),
-              ],
+              ),
             ),
-          ),
-        ],
+
+            /// Alttaki noktalar (indicator) ve buton
+            Positioned(
+              bottom: 20.0,
+              left: 20,
+              right: 20,
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(
+                      slides.length,
+                          (index) => buildDot(index),
+                    ),
+                  ),
+                  SizedBox(height: 20),
+                  buildButton(),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget buildSlide(Map<String, String> slideData) {
+  Widget buildSlide(SlideData slideData) {
     return Padding(
-      padding: const EdgeInsets.all(20.0),
+      padding: const EdgeInsets.all(24.0),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Image.asset(
-            slideData["image"]!,
-            height: MediaQuery.of(context).size.height * 0.4,
-            fit: BoxFit.contain,
+          Icon(
+            slideData.icon,
+            size: 120,
+            color: Color(0xFF58CC02),
           ),
           SizedBox(height: 40),
           Text(
-            slideData["title"]!,
+            slideData.title,
             style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF58CC02), // Duolingo yeşili
+              color: Color(0xFF58CC02),
             ),
           ),
           SizedBox(height: 10),
           Text(
-            slideData["description"]!,
+            slideData.description,
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 16,
@@ -120,7 +181,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Widget buildDot(int index) {
     return AnimatedContainer(
       duration: Duration(milliseconds: 200),
-      margin: EdgeInsets.only(right: 5),
+      margin: EdgeInsets.only(right: 6),
       height: 8,
       width: _currentPage == index ? 24 : 8,
       decoration: BoxDecoration(
@@ -131,9 +192,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Widget buildButton() {
+    final isLastPage = _currentPage == slides.length - 1;
+
     return GestureDetector(
       onTap: () {
-        if (_currentPage == slides.length - 1) {
+        if (isLastPage) {
           _onBoardingComplete();
         } else {
           _pageController.nextPage(
@@ -145,7 +208,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       child: Container(
         padding: EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
-          color: Color(0xFF58CC02), // Duolingo yeşili
+          color: Color(0xFF58CC02),
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
@@ -158,7 +221,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         ),
         child: Center(
           child: Text(
-            _currentPage == slides.length - 1 ? 'Maceraya Başla!' : 'Devam Et',
+            isLastPage ? 'Maceraya Başla!' : 'Devam Et',
             style: TextStyle(
               color: Colors.white,
               fontSize: 18,
@@ -173,6 +236,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   void _onBoardingComplete() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.setBool('onboarding_complete', true);
+
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (_) => LoginScreen()),
     );

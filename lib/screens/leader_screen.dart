@@ -32,6 +32,7 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
   List<User>? _users;
   TextEditingController _searchController = TextEditingController();
   List<User>? _filteredUsers;
+  bool _showScrollToTop = false;
 
   // Renk tanımlamaları
   final Map<String, Color> lightModeColors = {
@@ -59,6 +60,13 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
     super.initState();
     _initPreferences();
     _loadDarkModePreference();
+
+    // Scroll controller listener'ı ekliyoruz
+    _scrollController.addListener(() {
+      setState(() {
+        _showScrollToTop = _scrollController.offset >= 200;
+      });
+    });
   }
 
   Future<void> _loadLastSelectedMode() async {
@@ -97,7 +105,6 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
         _institutionName = response['institution_name'];
         _users = (response['users'] as List).map((u) => User.fromJson(u)).toList();
 
-        // Kullanıcıları puanlarına göre azalan şekilde sıralama
         _users!.sort((a, b) => b.point.compareTo(a.point));
 
         if (_hasInstitution && _isInstitutionMode) {
@@ -128,7 +135,11 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
       });
     }
   }
-
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
   void _onModeChanged(String mode) async {
     final prefs = await SharedPreferences.getInstance();
     if (mode == 'Kurumsal') {
@@ -145,9 +156,8 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
     _loadData(_getTimePeriodForIndex(_selectedTabIndex));
   }
 
-  /// Arama fonksiyonu (sadece kurumsal modda aktif)
   void _filterUsers(String query) {
-    if (!_isInstitutionMode) return; // Arama sadece kurumsal modda aktif
+    if (!_isInstitutionMode) return;
 
     if (query.isEmpty) {
       setState(() {
@@ -171,235 +181,324 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
       backgroundColor: colors["background"],
       appBar: AppBar(
         backgroundColor: _isInstitutionMode
-            ? Colors.amber[600] // Kurumsal mod için sarımsı renk
-            : (_isDarkMode ? darkModeColors["background"] : colors["background"]),
+            ? const Color(0xFFFFA726)
+            : Colors.transparent,
         elevation: 0,
-        centerTitle: true,
-        title: FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Text(
-            _isInstitutionMode ? 'Kurumsal Liderlik' : 'Liderlik Tablosu',
-            style: GoogleFonts.poppins(
-              color: _isInstitutionMode ? Colors.white : colors["text"],
-              fontWeight: FontWeight.bold,
-              fontSize: 20.sp,
-            ),
+        centerTitle: false,
+        leading: Padding(
+          padding: EdgeInsets.only(left: 16.w),
+          child: Icon(
+            _isInstitutionMode ? Icons.business : Icons.emoji_events,
+            color: _isInstitutionMode ? Colors.white : colors["text"],
+            size: 24.sp,
           ),
         ),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 100.w,
+              child: Text(
+                _isInstitutionMode ? 'Kurumsal\nLiderlik' : 'Liderlik',
+                style: GoogleFonts.poppins(
+                  color: _isInstitutionMode ? Colors.white : colors["text"],
+                  fontWeight: FontWeight.w600,
+                  fontSize: _isInstitutionMode ? 14.sp : 16.sp,
+                  height: _isInstitutionMode ? 1.1 : null,
+                ),
+                overflow: TextOverflow.visible,
+                softWrap: true,
+              ),
+            ),
+          ],
+        ),
         actions: [
-          // 'Genel' ve 'Kurumsal' modları için iki ayrı buton
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
+            padding: EdgeInsets.symmetric(vertical: 8.h, horizontal: 4.w),
             child: Row(
               children: [
-                ElevatedButton(
-                  onPressed: () => _onModeChanged('Genel'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: !_isInstitutionMode ? Colors.green : Colors.grey,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12.r),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Text(
-                        'Genel',
-                        style: GoogleFonts.poppins(
-                          color: Colors.white,
-                          fontSize: 14.sp,
-                        ),
-                      ),
-                    ],
-                  ),
+                _buildModeButton(
+                  title: 'Genel',
+                  isSelected: !_isInstitutionMode,
+                  color: Colors.green,
                 ),
                 SizedBox(width: 8.w),
-                ElevatedButton(
-                  onPressed: () => _onModeChanged('Kurumsal'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _isInstitutionMode ? Colors.amber : Colors.grey,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12.r),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Text(
-                        'Kurumsal',
-                        style: GoogleFonts.poppins(
-                          color: Colors.white,
-                          fontSize: 14.sp,
-                        ),
-                      ),
-                    ],
-                  ),
+                _buildModeButton(
+                  title: 'Kurumsal',
+                  isSelected: _isInstitutionMode,
+                  color: Color(0xFFFFA726),
                 ),
               ],
             ),
           ),
-          IconButton(
-            icon: Icon(Icons.play_circle_fill, color: colors["text"]),
-            tooltip: 'Video İzle',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) =>
-                      VideoPlayerScreen(videoUrl: AppUrls.leaderscreen),
-                ),
-              );
-            },
-          ),
+          _buildRoundedIconButton(Icons.slow_motion_video_sharp, Colors.green, () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => VideoPlayerScreen(videoUrl: AppUrls.leaderscreen)),
+            );
+          }),
         ],
-        bottom: _isInstitutionMode
-            ? PreferredSize(
+        bottom: _isInstitutionMode ? PreferredSize(
           preferredSize: Size.fromHeight(60.h),
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+          child: Container(
+            margin: EdgeInsets.fromLTRB(16.w, 0, 16.w, 16.h),
+            decoration: BoxDecoration(
+              color: _isDarkMode ? Colors.grey[800] : Colors.white,
+              borderRadius: BorderRadius.circular(15.r),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 5),
+                ),
+              ],
+            ),
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                hintText: "Öğrenci adını girin",
-                prefixIcon: Icon(Icons.search, color: Colors.amber),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12.r),
-                  borderSide: BorderSide.none,
-                ),
-                filled: true,
-                fillColor: _isDarkMode ? Colors.grey[800] : Colors.grey[200],
-                contentPadding:
-                EdgeInsets.symmetric(horizontal: 16.w, vertical: 0.h),
+                hintText: "Öğrenci ara...",
+                hintStyle: TextStyle(color: Colors.grey[400]),
+                prefixIcon: Icon(Icons.search, color: Color(0xFFFFA726), size: 22.sp),
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
               ),
               style: GoogleFonts.poppins(
                 fontSize: 14.sp,
-                color: _isDarkMode ? Colors.white : Colors.black,
+                color: _isDarkMode ? Colors.white : Colors.black87,
               ),
               onChanged: _filterUsers,
             ),
           ),
-        )
-            : null,
+        ) : null,
       ),
-      body: Column(
+      body: Stack(
         children: [
-          if (_isInstitutionMode && _institutionName != null)
-            Container(
-              padding: EdgeInsets.all(8),
-              color: Colors.amber[600], // Kurumsal mod için sarımsı renk
-              child: Center(
-                child: AutoSizeText(
-                  'Kurum: $_institutionName',
-                  style: GoogleFonts.poppins(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16.sp,
+          Column(
+            children: [
+              if (_isInstitutionMode && _institutionName != null)
+                Container(
+                  padding: EdgeInsets.symmetric(vertical: 10.h, horizontal: 16.w),
+                  color: const Color(0xFFFFA726),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.business, color: Colors.white, size: 20.sp),
+                      SizedBox(width: 8.w),
+                      Flexible(
+                        child: AutoSizeText(
+                          'Kurum: $_institutionName',
+                          style: GoogleFonts.poppins(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 15.sp,
+                          ),
+                          maxLines: 1,
+                          minFontSize: 12,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
                   ),
-                  maxLines: 1,
-                  minFontSize: 14,
-                  maxFontSize: 18,
+                ),
+              _buildCustomTabs(),
+              Expanded(
+                child: Padding(
+                  padding: EdgeInsets.only(bottom: 80.h),
+                  child: _hasInstitution || !_isInstitutionMode
+                      ? LeaderboardList(
+                    users: _filteredUsers ?? _users,
+                    scrollController: _scrollController,
+                    isDarkMode: _isDarkMode,
+                  )
+                      : NoInstitutionWidget(
+                    onContactInstitution: () {
+                      launch('mailto:destek@kelibu.com?subject=Kurumsal Kayıt Talebi&body=Merhaba, Kurumumuzun Liderlik Tablosuna eklenmesini talep ediyoruz.');
+                    },
+                  ),
                 ),
               ),
-            ),
-          _buildCustomTabs(),
-          Expanded(
-            child: Padding(
-              // Alt sağ kısmın yukarı çıkmasını önlemek için padding'i artırdık
-              padding: EdgeInsets.only(bottom: 80.h),
-              child: _hasInstitution || !_isInstitutionMode
-                  ? LeaderboardList(
-                users: _filteredUsers ?? _users,
-                scrollController: _scrollController,
-                isDarkMode: _isDarkMode,
-              )
-                  : NoInstitutionWidget(
-                onContactInstitution: () {
-                  // Kurumla iletişime geçmek için bir e-posta uygulaması açabilirsiniz
-                  launch(
-                      'mailto:destek@kelibu.com?subject=Kurumsal Kayıt Talebi&body=Merhaba, Kurumumuzun Liderlik Tablosuna eklenmesini talep ediyoruz.');
-                },
+            ],
+          ),
+          // Yukarı çıkma butonu
+          Positioned(
+            right: 16.w,
+            bottom: 100.h,
+            child: AnimatedOpacity(
+              opacity: _showScrollToTop ? 1.0 : 0.0,
+              duration: const Duration(milliseconds: 200),
+              child: Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 8,
+                      offset: Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () {
+                      _scrollController.animateTo(
+                        0,
+                        duration: Duration(milliseconds: 500),
+                        curve: Curves.easeOutCubic,
+                      );
+                    },
+                    customBorder: CircleBorder(),
+                    child: Container(
+                      padding: EdgeInsets.all(12.w),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: _isInstitutionMode
+                            ? Color(0xFFFFA726)
+                            : Colors.green[400],
+                      ),
+                      child: Icon(
+                        Icons.keyboard_arrow_up_rounded,
+                        color: Colors.white,
+                        size: 28.sp,
+                      ),
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
         ],
       ),
-      // Sağ alt köşede "En Üste Git" butonu
-      floatingActionButton: FloatingActionButton(
-        backgroundColor:
-        _isInstitutionMode ? Colors.amber[600] : Colors.green[400],
-        onPressed: () {
-          _scrollController.animateTo(
-            0.0,
-            duration: Duration(milliseconds: 500),
-            curve: Curves.easeInOut,
-          );
-        },
-        child: Icon(Icons.arrow_upward, color: Colors.white, size: 20.sp),
-        tooltip: 'En Üste Git',
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      // Alt kısımda kullanıcı sıralamasını gösteren panel
       bottomSheet: _buildUserRankBottomSheet(colors),
     );
-  }
-
-  // _buildCustomTabs ve _buildTabItem metodlarını sınıf seviyesinde tanımlıyoruz.
-  Widget _buildCustomTabs() {
+  }Widget _buildCustomTabs() {
     return Padding(
       padding: EdgeInsets.symmetric(vertical: 10.h, horizontal: 16.w),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           _buildTabItem('Tümü', 0),
-          _buildTabItem('Günlük', 1),
-          _buildTabItem('Haftalık', 2),
-          _buildTabItem('Aylık', 3),
+          _buildTabItem('Gün', 1),
+          _buildTabItem('Hafta', 2),
+          _buildTabItem('Ay', 3),
         ],
       ),
     );
   }
-
+  Widget _buildModeButton({
+    required String title,
+    required bool isSelected,
+    required Color color,
+  }) {
+    return ElevatedButton(
+      onPressed: () => _onModeChanged(title),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: isSelected ? color : Colors.grey[300],
+        elevation: 0,
+        padding: EdgeInsets.symmetric(horizontal: 12.w),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8.r),
+        ),
+      ),
+      child: Text(
+        title,
+        style: GoogleFonts.poppins(
+          color: isSelected ? Colors.white : Colors.grey[700],
+          fontSize: 13.sp,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
+  }
+  Widget _buildRoundedIconButton(IconData icon, Color color, VoidCallback onPressed) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8.0),
+      child: InkWell(
+        onTap: onPressed,
+        child: Image.asset(
+          'assets/videoplayer.png',
+          width: 32.sp,
+          height: 32.sp,
+        ),
+      ),
+    );
+  }
   Widget _buildTabItem(String title, int index) {
     final colors = _isDarkMode ? darkModeColors : lightModeColors;
     bool isSelected = _selectedTabIndex == index;
 
     return Expanded(
-      child: GestureDetector(
-        onTap: () {
-          setState(() {
-            _selectedTabIndex = index;
-            _filteredUsers = null; // Sekme değiştiğinde aramayı sıfırla
-            _searchController.clear();
-          });
-          _loadData(_getTimePeriodForIndex(index));
-        },
-        child: Container(
-          margin: EdgeInsets.symmetric(horizontal: 4.w),
-          padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 6.h),
-          decoration: BoxDecoration(
-            color: isSelected ? colors['selectedTab'] : Colors.transparent,
-            borderRadius: BorderRadius.circular(20.r),
-            border: Border.all(
-              color: isSelected
-                  ? colors['selectedTab']!
-                  : colors['unselectedTab']!,
-              width: 1,
-            ),
-          ),
-          child: Center(
-            child: Text(
-              title,
-              style: GoogleFonts.poppins(
-                color: isSelected ? colors['textSelected'] : colors['textUnselected'],
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                fontSize: 14.sp,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        margin: EdgeInsets.symmetric(horizontal: 4.w),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () {
+              setState(() {
+                _selectedTabIndex = index;
+                _filteredUsers = null;
+                _searchController.clear();
+              });
+              _loadData(_getTimePeriodForIndex(index));
+            },
+            borderRadius: BorderRadius.circular(16.r),
+            child: Container(
+              padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? colors['selectedTab']?.withOpacity(0.95)
+                    : colors['unselectedTab']?.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(16.r),
+                border: isSelected ? null : Border.all(
+                  color: colors['unselectedTab']!.withOpacity(0.3),
+                  width: 1,
+                ),
+                boxShadow: isSelected ? [
+                  BoxShadow(
+                    color: colors['selectedTab']!.withOpacity(0.2),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  )
+                ] : null,
               ),
-              overflow: TextOverflow.ellipsis,
+              child: Center(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (isSelected) ...[
+                      Container(
+                        width: 6.w,
+                        height: 6.w,
+                        decoration: BoxDecoration(
+                          color: colors['textSelected'],
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      SizedBox(width: 6.w),
+                    ],
+                    Text(
+                      title,
+                      style: GoogleFonts.poppins(
+                        color: isSelected
+                            ? colors['textSelected']
+                            : colors['textUnselected']?.withOpacity(0.75),
+                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                        fontSize: 13.sp,
+                        letterSpacing: 0.2,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ),
       ),
     );
   }
-
   String _getTimePeriodForIndex(int index) {
     switch (index) {
       case 0:
@@ -416,50 +515,116 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
   }
 
   Widget _buildUserRankBottomSheet(Map<String, Color> colors) {
+    final bool hasRank = userRank != null && userRank! > 0 && _isUserRankComputed;
+    final Color sheetColor = _isInstitutionMode ? Color(0xFFFFA726) : Colors.green[400]!;
+
     return Container(
-      color: _isInstitutionMode ? Colors.amber[600] : Colors.green[400],
-      height: 40.h,
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Icon(
-                (userRank != null && userRank! > 0)
-                    ? Icons.emoji_events
-                    : Icons.run_circle_outlined,
-                color: Colors.white,
-                size: 32.sp,
-              ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: AutoSizeText(
-                    (userRank != null && userRank! > 0 && _isUserRankComputed)
-                        ? 'Tebrikler! ${_isInstitutionMode ? "Kurumsal" : "Genel"} Sıralamanız: #$userRank'
-                        : 'Henüz sıralamada değilsiniz! Çalışmalarınıza devam edin!',
-                    style: GoogleFonts.poppins(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14.sp, // Küçültülmüş font boyutu
-                      color: Colors.white,
-                    ),
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    minFontSize: 10,
+      height: 60.h,
+      decoration: BoxDecoration(
+        color: sheetColor,
+        boxShadow: [
+          BoxShadow(
+            color: sheetColor.withOpacity(0.3),
+            blurRadius: 10,
+            offset: Offset(0, -2),
+          ),
+        ],
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(20.r),
+          topRight: Radius.circular(20.r),
+        ),
+      ),
+      child: Stack(
+        children: [
+          // Arkaplan deseni (opsiyonel)
+          if (hasRank) Positioned(
+            right: -20,
+            top: -20,
+            child: Icon(
+              Icons.emoji_events,
+              size: 80.sp,
+              color: Colors.white.withOpacity(0.1),
+            ),
+          ),
+          // Ana içerik
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16.w),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  padding: EdgeInsets.all(8.w),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    hasRank ? Icons.emoji_events : Icons.run_circle_outlined,
+                    color: Colors.white,
+                    size: 24.sp,
                   ),
                 ),
-              ),
-              Icon(
-                (userRank != null && userRank! > 0)
-                    ? Icons.military_tech
-                    : Icons.lightbulb_outline,
-                color: Colors.white,
-                size: 32.sp,
-              ),
-            ],
+                Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 12.w),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        AutoSizeText(
+                          hasRank
+                              ? 'Tebrikler!'
+                              : 'Henüz sıralamada değilsiniz!',
+                          style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14.sp,
+                            color: Colors.white,
+                          ),
+                          maxLines: 1,
+                          minFontSize: 10,
+                        ),
+                        if (hasRank) ...[
+                          SizedBox(height: 2.h),
+                          AutoSizeText(
+                            '${_isInstitutionMode ? "Kurumsal" : "Genel"} Sıralamanız: #$userRank',
+                            style: GoogleFonts.poppins(
+                              fontWeight: FontWeight.w500,
+                              fontSize: 12.sp,
+                              color: Colors.white.withOpacity(0.9),
+                            ),
+                            maxLines: 1,
+                            minFontSize: 10,
+                          ),
+                        ] else
+                          AutoSizeText(
+                            'Çalışmalarınıza devam edin!',
+                            style: GoogleFonts.poppins(
+                              fontWeight: FontWeight.w500,
+                              fontSize: 12.sp,
+                              color: Colors.white.withOpacity(0.9),
+                            ),
+                            maxLines: 1,
+                            minFontSize: 10,
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: EdgeInsets.all(8.w),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    hasRank ? Icons.military_tech : Icons.lightbulb_outline,
+                    color: Colors.white,
+                    size: 24.sp,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -477,6 +642,43 @@ class LeaderboardList extends StatelessWidget {
     required this.isDarkMode,
   }) : super(key: key);
 
+  void _showProfileImage(BuildContext context, String imageUrl) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Stack(
+                alignment: Alignment.topRight,
+                children: [
+                  Container(
+                    constraints: BoxConstraints(
+                      maxHeight: MediaQuery.of(context).size.height * 0.7,
+                      maxWidth: MediaQuery.of(context).size.width * 0.9,
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12.r),
+                      child: Image.network(
+                        'https://kelibu.net/storage/$imageUrl',
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.close, color: Colors.white),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -484,13 +686,40 @@ class LeaderboardList extends StatelessWidget {
     if (users == null) {
       return Center(child: const LogoLoadingIndicator());
     } else if (users!.isEmpty) {
+      // Burayı daha güzel bir boş durum göstergesiyle değiştirelim
       return Center(
-        child: AutoSizeText(
-          'Veri bulunamadı',
-          style: GoogleFonts.poppins(
-              color: colors["text"], fontSize: 18.sp),
-          maxLines: 1,
-          minFontSize: 14,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.assignment,
+              size: 64.sp,
+              color: colors["text"],
+            ),
+            SizedBox(height: 16.h),
+            AutoSizeText(
+              'Sıralama güncelleniyor...',
+              style: GoogleFonts.poppins(
+                color: colors["text"],
+                fontSize: 18.sp,
+                fontWeight: FontWeight.bold,
+              ),
+              maxLines: 1,
+              minFontSize: 14,
+            ),
+            SizedBox(height: 8.h),
+            AutoSizeText(
+              'Bu işlem birkaç saniye sürebilir',
+              style: GoogleFonts.poppins(
+                color: colors["text"]?.withOpacity(0.7),
+                fontSize: 14.sp,
+              ),
+              maxLines: 1,
+              minFontSize: 12,
+            ),
+            SizedBox(height: 24.h),
+            const LogoLoadingIndicator(),
+          ],
         ),
       );
     } else {
@@ -504,33 +733,36 @@ class LeaderboardList extends StatelessWidget {
     }
   }
 
-  Widget _buildUserTile(
-      BuildContext context, User user, int rank, Map<String, Color> colors, bool isDarkMode) {
+  Widget _buildUserTile(BuildContext context, User user, int rank, Map<String, Color> colors, bool isDarkMode) {
     final isTopThree = rank <= 3;
-    final backgroundColor = isTopThree
-        ? _getBackgroundColorForRank(rank, isDarkMode)
-        : isDarkMode
-        ? Colors.grey[900]
-        : colors["cardBackground"];
-    final textColor = isTopThree && !isDarkMode ? Colors.white : colors["text"]!;
+    final backgroundColor = _getBackgroundColorForRank(rank, isDarkMode);
+    final textColor = isTopThree ? Colors.white : colors["text"]!;
 
     return Container(
       margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
       decoration: BoxDecoration(
         color: backgroundColor,
         borderRadius: BorderRadius.circular(12.r),
+        border: isTopThree ? Border.all(
+          color: isDarkMode ? Colors.white24 : Colors.blue.withOpacity(0.3),
+          width: 1.5,
+        ) : null,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 4,
+            color: isTopThree
+                ? (isDarkMode ? Colors.black26 : Colors.blue.withOpacity(0.2))
+                : Colors.black.withOpacity(0.05),
+            blurRadius: isTopThree ? 8 : 4,
             offset: Offset(0, 2),
           ),
         ],
       ),
       child: ListTile(
-        contentPadding:
-        EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-        leading: _buildLeadingWidget(context, rank, user),
+        contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+        leading: GestureDetector(
+          onTap: () => _showProfileImage(context, user.avatar),
+          child: _buildLeadingWidget(context, rank, user),
+        ),
         title: AutoSizeText(
           user.name,
           style: GoogleFonts.poppins(
@@ -552,39 +784,123 @@ class LeaderboardList extends StatelessWidget {
           minFontSize: 10,
           maxFontSize: 12,
         ),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            AutoSizeText(
-              '${user.point}',
-              style: GoogleFonts.poppins(
-                fontWeight: FontWeight.bold,
-                color: textColor,
-                fontSize: 18.sp,
-              ),
-              maxLines: 1,
-              minFontSize: 14,
-              maxFontSize: 18,
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                AutoSizeText(
+                  '${user.point}',
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.bold,
+                    color: textColor,
+                    fontSize: 16.sp,
+                  ),
+                  maxLines: 1,
+                ),
+                AutoSizeText(
+                  '#$rank',
+                  style: GoogleFonts.poppins(
+                    color: textColor.withOpacity(0.7),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12.sp,
+                  ),
+                  maxLines: 1,
+                ),
+              ],
             ),
-            SizedBox(height: 4.h),
-            AutoSizeText(
-              '#$rank',
-              style: GoogleFonts.poppins(
-                color: textColor.withOpacity(0.7),
-                fontWeight: FontWeight.bold,
-                fontSize: 12.sp,
+            if (user.currentStreak != null && user.currentStreak! > 0) ...[
+              SizedBox(width: 8.w),
+              TweenAnimationBuilder(
+                duration: Duration(milliseconds: 300),
+                tween: Tween<double>(begin: 0.8, end: 1.0),
+                builder: (context, double value, child) {
+                  return Transform.scale(
+                    scale: value,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.local_fire_department,
+                          color: isTopThree ? Colors.amber : _getStreakColor(user.currentStreak!),
+                          size: _getStreakSize(user.currentStreak!).sp,
+                        ),
+                        SizedBox(width: 2.w),
+                        Text(
+                          '${user.currentStreak}',
+                          style: GoogleFonts.poppins(
+                            color: isTopThree ? Colors.amber : _getStreakColor(user.currentStreak!),
+                            fontWeight: FontWeight.bold,
+                            fontSize: (_getStreakSize(user.currentStreak!) - 4).sp,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
               ),
-              maxLines: 1,
-              minFontSize: 10,
-              maxFontSize: 12,
-            ),
+            ],
           ],
         ),
       ),
     );
+  }  Color _getStreakColor(int streak) {
+    if (streak >= 30) return Colors.redAccent;     // Efsanevi
+    if (streak >= 20) return Colors.deepOrangeAccent;  // Çok İyi
+    if (streak >= 10) return Colors.orangeAccent;   // İyi
+    if (streak >= 5)  return Colors.orange;      // Başlangıç
+    return Colors.grey.shade400;                 // Normal
   }
 
+// Daha küçük boyutlar kullanalım
+  double _getStreakSize(int streak) {
+    if (streak >= 30) return 18;     // Efsanevi
+    if (streak >= 20) return 17;     // Çok İyi
+    if (streak >= 10) return 16;     // İyi
+    if (streak >= 5)  return 15;     // Başlangıç
+    return 14;                       // Normal
+  }
+
+  Widget _buildStreakWidget(int streak, bool isTopThree) {
+    return TweenAnimationBuilder(
+      duration: Duration(milliseconds: 300),
+      tween: Tween<double>(begin: 0.8, end: 1.0),
+      builder: (context, double value, child) {
+        return Transform.scale(
+          scale: value,
+          child: Container(
+            padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 2.h),
+            decoration: BoxDecoration(
+              color: streak >= 20 ? _getStreakColor(streak).withOpacity(0.1) : null,
+              borderRadius: BorderRadius.circular(8.r),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.local_fire_department,
+                  color: isTopThree ? Colors.white : _getStreakColor(streak),
+                  size: _getStreakSize(streak).sp,
+                ),
+                SizedBox(width: 2.w),
+                Text(
+                  '$streak',
+                  style: GoogleFonts.poppins(
+                    color: isTopThree ? Colors.white : _getStreakColor(streak),
+                    fontWeight: FontWeight.bold,
+                    fontSize: (_getStreakSize(streak) - 2).sp,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
   Widget _buildLeadingWidget(BuildContext context, int rank, User user) {
     IconData icon;
     Color iconColor;
@@ -612,8 +928,7 @@ class LeaderboardList extends StatelessWidget {
       children: [
         CircleAvatar(
           radius: 24.r,
-          backgroundImage:
-          NetworkImage('https://kelibu.net/storage/${user.avatar}'),
+          backgroundImage: NetworkImage('https://kelibu.net/storage/${user.avatar}'),
         ),
         if (rank <= 3)
           Positioned(
@@ -640,22 +955,22 @@ class LeaderboardList extends StatelessWidget {
     if (isDarkMode) {
       switch (rank) {
         case 1:
-          return Colors.amber.shade900;
+          return Color(0xFF2C3E50);  // Koyu lacivert
         case 2:
-          return Colors.amber.shade700;
+          return Color(0xFF34495E);  // Biraz daha açık lacivert
         case 3:
-          return Colors.amber.shade500;
+          return Color(0xFF445D6E);  // En açık lacivert
         default:
           return Colors.grey.shade900;
       }
     } else {
       switch (rank) {
         case 1:
-          return Colors.amber.shade500;
+          return Color(0xFF1E88E5); // Mavi
         case 2:
-          return Colors.amber.shade400;
+          return Color(0xFF42A5F5); // Daha açık mavi
         case 3:
-          return Colors.amber.shade300;
+          return Color(0xFF64B5F6); // En açık mavi
         default:
           return Colors.white;
       }
@@ -671,7 +986,7 @@ class NoInstitutionWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color primaryColor = Colors.amber[600]!; // Kurumsal mod rengi
+    final Color primaryColor = Color(0xFFFFA726);
     final Color backgroundColor = Colors.white;
     final Color textColor = Colors.black87;
 
@@ -704,126 +1019,6 @@ class NoInstitutionWidget extends StatelessWidget {
             ),
             textAlign: TextAlign.center,
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class GroupSettingsPanel extends StatefulWidget {
-  final String? currentCode;
-  final Function(String) onJoinGroup;
-  final Function() onLeaveGroup;
-  final bool hasGroup;
-
-  const GroupSettingsPanel({
-    Key? key,
-    this.currentCode,
-    required this.onJoinGroup,
-    required this.onLeaveGroup,
-    required this.hasGroup,
-  }) : super(key: key);
-
-  @override
-  _GroupSettingsPanelState createState() => _GroupSettingsPanelState();
-}
-
-class _GroupSettingsPanelState extends State<GroupSettingsPanel> {
-  final TextEditingController _groupCodeController = TextEditingController();
-
-  @override
-  void initState() {
-    super.initState();
-    _groupCodeController.text = widget.currentCode ?? '';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-
-    return Container(
-      padding: EdgeInsets.all(24.w),
-      decoration: BoxDecoration(
-        color: colors.background,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(30.r)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            'Kurum Ayarları',
-            style: GoogleFonts.poppins(
-              fontSize: 24.sp,
-              fontWeight: FontWeight.bold,
-              color: Colors.amber[600],
-            ),
-            textAlign: TextAlign.center,
-          ),
-          SizedBox(height: 24.h),
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.grey[100],
-              borderRadius: BorderRadius.circular(16.r),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black12,
-                  blurRadius: 4,
-                  offset: Offset(0, 2),
-                ),
-              ],
-            ),
-            child: TextField(
-              controller: _groupCodeController,
-              decoration: InputDecoration(
-                hintText: 'Kurum Kodu Girin',
-                border: InputBorder.none,
-                prefixIcon: Icon(Icons.business, color: Colors.amber[600]),
-                contentPadding:
-                EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
-              ),
-              style: GoogleFonts.poppins(fontSize: 18.sp),
-            ),
-          ),
-          SizedBox(height: 24.h),
-          ElevatedButton(
-            child: Text(
-              widget.hasGroup ? 'Kurumu Güncelle' : 'Kuruma Katıl',
-              style: GoogleFonts.poppins(fontSize: 18.sp),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.amber[600],
-              padding: EdgeInsets.symmetric(vertical: 12.h),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16.r),
-              ),
-            ),
-            onPressed: () {
-              if (_groupCodeController.text.isNotEmpty) {
-                widget.onJoinGroup(_groupCodeController.text);
-                Navigator.pop(context);
-              }
-            },
-          ),
-          if (widget.hasGroup) ...[
-            SizedBox(height: 16.h),
-            TextButton(
-              child: Text(
-                'Kurumdan Ayrıl',
-                style: GoogleFonts.poppins(
-                  fontSize: 18.sp,
-                  color: Colors.redAccent,
-                ),
-              ),
-              style: TextButton.styleFrom(
-                padding: EdgeInsets.symmetric(vertical: 12.h),
-              ),
-              onPressed: () {
-                widget.onLeaveGroup();
-                Navigator.pop(context);
-              },
-            ),
-          ],
         ],
       ),
     );

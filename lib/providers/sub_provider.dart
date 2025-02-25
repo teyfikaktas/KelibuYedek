@@ -23,6 +23,7 @@ class SubscriptionProvider with ChangeNotifier {
   }
 
   Future<void> _loadSubscriptionStatus() async {
+
     String? storedStatus = await _storage.read(key: 'subscription_status');
     if (storedStatus != null) {
       Map<String, dynamic> statusData = Map<String, dynamic>.from(
@@ -37,7 +38,7 @@ class SubscriptionProvider with ChangeNotifier {
   Future<void> fetchSubscriptionStatus() async {
     try {
       ApiService apiService = ApiService();
-      Map<String, dynamic> statusData = await apiService.getSubscriptionStatus();
+      Map<String, dynamic> statusData = await apiService.getCombinedSubscriptionStatus();
       _updateSubscriptionData(statusData);
       print(JsonEncoder().convert(statusData));
 

@@ -1,12 +1,15 @@
 import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:kelibu/screens/study_screen.dart';
 import 'package:kelibu/screens/video_player.dart';
 import 'package:kelibu/shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../Models/wordDetaik.dart';
 import '../globalDart/urls.dart';
+import '../providers/sub_provider.dart';
 import '../providers/user_provider.dart';
 import 'package:kelibu/api.dart';
 import 'package:kelibu/screens/study_screen_star.dart';
@@ -36,12 +39,14 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
   String starredWordsString = "";
   final FlutterTts flutterTts = FlutterTts();
   bool _isDarkMode = false;
-
+  bool isVIP = false;
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _loadDarkModePreference();
+    isVIP =
+        Provider.of<SubscriptionProvider>(context, listen: false).isVip;
   }
 
   Future<void> _loadDarkModePreference() async {
@@ -121,6 +126,7 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
     colors.putIfAbsent("unselectedText", () => Colors.grey);
     colors.putIfAbsent("inputBackground", () => Colors.white);
 
+
     return Scaffold(
       backgroundColor: colors["background"]!,
       appBar: AppBar(
@@ -157,33 +163,97 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
           color: colors["text"]!,
         ),
       ),
-      body: FutureBuilder<List<WordDetail>>(
-        future: fetchWords(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return _buildLoadingIndicator(colors);
-          } else if (snapshot.hasError) {
-            return _buildErrorState(colors, snapshot.error.toString());
-          } else if (snapshot.hasData) {
-            words = snapshot.data!;
-            filteredWords = words;
+      body: Stack(
+        children: [
+          FutureBuilder<List<WordDetail>>(
+            future: fetchWords(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return _buildLoadingIndicator(colors);
+              } else if (snapshot.hasError) {
+                return _buildErrorState(colors, snapshot.error.toString());
+              } else if (snapshot.hasData) {
+                words = snapshot.data!;
+                filteredWords = words;
 
-            return Column(
-              children: [
-                _buildStudyButton(colors),
-                isPageView ? buildSearchBar(colors) : SizedBox.shrink(),
-                isPageView ? buildSearchInfo(colors) : SizedBox.shrink(),
-                Expanded(
-                  child: words.isEmpty
-                      ? _buildEmptyState(colors)
-                      : isPageView ? buildListView(colors) : buildPageView(colors),
+                return Column(
+                  children: [
+                    _buildStudyButton(colors),
+                    isPageView ? buildSearchBar(colors) : SizedBox.shrink(),
+                    isPageView ? buildSearchInfo(colors) : SizedBox.shrink(),
+                    Expanded(
+                      child: words.isEmpty
+                          ? _buildEmptyState(colors)
+                          : isPageView ? buildListView(colors) : buildPageView(colors),
+                    ),
+                  ],
+                );
+              } else {
+                return _buildEmptyState(colors);
+              }
+            },
+          ),
+          if (!isVIP)
+            Positioned.fill(
+              child: ClipRect(
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                  child: Container(
+                    color: Colors.black.withOpacity(0.2),
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: Colors.orange,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'PRO',
+                                  style: GoogleFonts.poppins(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 24,
+                                  ),
+                                ),
+                                SizedBox(width: 8),
+                                Icon(
+                                  Icons.lock_outline,
+                                  color: Colors.white,
+                                  size: 24,
+                                ),
+                              ],
+                            ),
+                          ),
+                          SizedBox(height: 16),
+                          Text(
+                            'Bu özelliğe erişmek için',
+                            style: GoogleFonts.poppins(
+                              color: Colors.white,
+                              fontSize: 16,
+                            ),
+                          ),
+                          Text(
+                            'KELIBU PRO\'ya geçin',
+                            style: GoogleFonts.poppins(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
-              ],
-            );
-          } else {
-            return _buildEmptyState(colors);
-          }
-        },
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -258,14 +328,13 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
   Widget _buildRoundedIconButton(IconData icon, Color color, VoidCallback onPressed) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8.0),
-      child: ElevatedButton(
-        onPressed: onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: color,
-          shape: CircleBorder(),
-          padding: EdgeInsets.all(12.sp),
+      child: InkWell(
+        onTap: onPressed,
+        child: Image.asset(
+          'assets/videoplayer.png',
+          width: 32.sp,
+          height: 32.sp,
         ),
-        child: Icon(icon, color: Colors.white, size: 24.sp),
       ),
     );
   }
@@ -284,24 +353,52 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
           ));
         },
         style: ElevatedButton.styleFrom(
-          foregroundColor: Colors.white, backgroundColor: Color(0xFF58CC02),
-          padding: EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+          foregroundColor: Colors.white,
+          backgroundColor: Color(0xFF58CC02),
+          padding: EdgeInsets.symmetric(vertical: 16, horizontal: 24),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(20),
           ),
-          elevation: 2,
+          elevation: 3,
+          shadowColor: Color(0xFF58CC02).withOpacity(0.5),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.play_circle_filled, size: 28),
-            SizedBox(width: 12),
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                Icon(
+                  Icons.play_circle_filled,
+                  size: 32,
+                  color: Colors.white.withOpacity(0.95),
+                ),
+                Positioned(
+                  top: 0,
+                  right: -4,
+                  child: Icon(
+                    Icons.star,
+                    size: 16,
+                    color: Colors.amber.shade300,
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(width: 14),
             Text(
               'ÇALIŞMAYA BAŞLA',
               style: GoogleFonts.poppins(
                 fontSize: 18,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.5,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.8,
+                height: 1.2,
+                shadows: [
+                  Shadow(
+                    offset: Offset(0, 1),
+                    blurRadius: 2,
+                    color: Colors.black.withOpacity(0.2),
+                  ),
+                ],
               ),
             ),
           ],
@@ -309,7 +406,6 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
       ),
     );
   }
-
   Widget buildSearchInfo(Map<String, Color> colors) {
     if (searchController.text.isEmpty) return SizedBox.shrink();
 
@@ -556,10 +652,11 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
         onTap: () {
           Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (context) => StudyScreenStar(
+              builder: (context) => StudyScreen(
                 words: [word],
                 classroomId: 0,
                 studySetId: word.id,
+                isStarred: true,
               ),
             ),
           ).then((value) {

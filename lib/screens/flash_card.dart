@@ -691,6 +691,7 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
   }
   @override
   void dispose() {
+    flutterTts.stop();  // TTS'i durdur
     _autoPlayTimer?.cancel();  // Timer'ı iptal et
     _isAutoPlaying = false;  // Doğrudan değeri güncelle, setState kullanma
 
@@ -815,10 +816,26 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
   bool _showStarredOnly = false;
 
   Future<void> _speak(String text) async {
-    final volumeProvider = Provider.of<VolumeProvider>(context, listen: false);
-    if (volumeProvider.isVolumeOn) {
-      await flutterTts.setLanguage(text == _currentWordList[currentWordIndex.value].word ? "en-US" : "tr-TR");
-      await flutterTts.speak(text);
+    // Önce widget'ın hala mount edilmiş olup olmadığını kontrol et
+    if (!mounted) return;
+
+    try {
+      final volumeProvider = Provider.of<VolumeProvider>(context, listen: false);
+      if (volumeProvider.isVolumeOn) {
+        // TTS işlemlerine geçmeden önce tekrar mounted kontrolü yap
+        if (!mounted) return;
+
+        await flutterTts.setLanguage(
+            text == _currentWordList[currentWordIndex.value].word ? "en-US" : "tr-TR"
+        );
+
+        // Konuşmadan önce son bir mounted kontrolü
+        if (!mounted) return;
+        await flutterTts.speak(text);
+      }
+    } catch (e) {
+      // TTS sırasında oluşabilecek hataları yakala
+      print('_speak metodu hatası: $e');
     }
   }
   void _toggleStar(int wordId, ValueNotifier<bool> isStarredNotifier) async {
@@ -946,7 +963,7 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
                 ),
                 ScoreDisplay(userPointsNotifier: pointValueNotife),
                 const SizedBox(width: 16),
-                _buildRoundedIconButton(Icons.slow_motion_video_sharp, Colors.green, () {
+                _buildRoundedIconButton(Icons.slow_motion_video_sharp, Colors.green, ()   {
                   Navigator.push(
                     context,
                     MaterialPageRoute(builder: (context) => VideoPlayerScreen(videoUrl: AppUrls.flashcard)),
@@ -1617,14 +1634,18 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
       leftBarIndicatorColor: Colors.green,
     ).show(context);
   }
-  Widget _buildRoundedIconButton(IconData icon, Color color, VoidCallback onPressed) {
-    return ElevatedButton(
-      onPressed: onPressed,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: color,
-        shape: CircleBorder(),
+  Widget _buildRoundedIconButton(
+      IconData icon, Color color, VoidCallback onPressed) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8.0),
+      child: InkWell(
+        onTap: onPressed,
+        child: Image.asset(
+          'assets/videoplayer.png',
+          width: 40.sp,
+          height: 40.sp,
+        ),
       ),
-      child: Icon(icon, color: Colors.white, size: 16.sp),
     );
   }
 

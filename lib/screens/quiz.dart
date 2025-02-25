@@ -1252,14 +1252,18 @@ class _QuizScreenState extends State<QuizScreen> {
   }
 
   @override
-  void dispose() {
+  void dispose() async {
     _timer?.cancel();
     audioPlayer.dispose(); // AudioPlayer'ı temizle
+
+    // FlutterTts'i durdur
+    if (isSpeaking) {
+      await flutterTts.stop();
+    }
 
     _navBarScrollController.dispose();
     super.dispose();
   }
-
   void resetOptionColors() {
     optionColors = {for (var item in List.generate(4, (index) => index)) item: Colors.white};
   }
@@ -1865,19 +1869,27 @@ class _QuizScreenState extends State<QuizScreen> {
           icon: Icon(Icons.format_quote, color: colors["text"]),
           onPressed: () => _showExampleSentence(),
         ),
-        IconButton(
-          icon: Icon(Icons.slow_motion_video_sharp, color: Colors.green),
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => VideoPlayerScreen(videoUrl: AppUrls.learn)),
-            );
-          },
-        ),
-      ],
+        _buildRoundedIconButton(Icons.slow_motion_video_sharp, Colors.green, () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => VideoPlayerScreen(videoUrl: AppUrls.learn)),
+          );
+        }),      ],
     );
   }
-
+  Widget _buildRoundedIconButton(IconData icon, Color color, VoidCallback onPressed) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8.0),
+      child: InkWell(
+        onTap: onPressed,
+        child: Image.asset(
+          'assets/videoplayer.png',
+          width: 40.sp,
+          height: 40.sp,
+        ),
+      ),
+    );
+  }
   Widget _buildInfoBar(Map<String, Color> colors) {
     return Container(
       padding: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
@@ -1919,17 +1931,6 @@ class _QuizScreenState extends State<QuizScreen> {
   }
 
 
-  Widget _buildRoundedIconButton(IconData icon, Color color, VoidCallback onPressed) {
-    return ElevatedButton(
-      onPressed: onPressed,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: color,
-        shape: CircleBorder(),
-        padding: EdgeInsets.all(12.sp),
-      ),
-      child: Icon(icon, color: Colors.white, size: 24.sp),
-    );
-  }
   bool hasEnoughWords() {
     return questions.length >= 5;
   }

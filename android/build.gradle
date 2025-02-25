@@ -11,6 +11,9 @@ buildscript {
     }
     dependencies {
         // START: FlutterFire Configuration
+        classpath 'com.google.gms:google-services:4.3.15'
+        // END: FlutterFire Configuration
+        // START: FlutterFire Configuration
         // END: FlutterFire Configuration
         classpath "com.android.tools.build:gradle:$agp_version"
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
@@ -55,3 +58,48 @@ tasks.register('updateBuildGradleFiles') {
         }
     }
 }
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
+buildscript {
+    ext {
+        agp_version = '8.4.1'
+        kotlin_version = '1.9.20'
+    }
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        // START: FlutterFire Configuration
+        // END: FlutterFire Configuration
+        classpath "com.android.tools.build:gradle:$agp_version"
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+        // Bu sürümü 8.6 ile uyumlu olacak şekilde güncelleyin
+    }
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+subprojects { subproject ->
+    subproject.afterEvaluate {
+        if (subproject.hasProperty('android')) {
+            subproject.android {
+                compileOptions {
+                    sourceCompatibility JavaVersion.VERSION_17
+                    targetCompatibility JavaVersion.VERSION_17
+                }
+            }
+            subproject.tasks.withType(KotlinCompile).configureEach {
+                kotlinOptions {
+                    jvmTarget = "17"
+                }
+            }
+        }
+    }
+}
+

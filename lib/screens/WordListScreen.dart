@@ -1,3 +1,4 @@
+import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -90,14 +91,18 @@ class _WordListScreenState extends State<WordListScreen> {
     }
   }
 
-  Widget _buildRoundedIconButton(IconData icon, Color color, VoidCallback onPressed) {
-    return ElevatedButton(
-      onPressed: onPressed,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: color,
-        shape: CircleBorder(),
+  Widget _buildRoundedIconButton(
+      IconData icon, Color color, VoidCallback onPressed) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8.0),
+      child: InkWell(
+        onTap: onPressed,
+        child: Image.asset(
+          'assets/videoplayer.png',
+          width: 40.sp,
+          height: 40.sp,
+        ),
       ),
-      child: Icon(icon, color: Colors.white, size: 16.sp),
     );
   }
 
@@ -112,13 +117,26 @@ class _WordListScreenState extends State<WordListScreen> {
       appBar: AppBar(
         elevation: 0,
         backgroundColor: colors["background"],
-        title: Text(
-          widget.categoryName,
-          style: GoogleFonts.poppins(
-            color: colors["text"],
-            fontWeight: FontWeight.bold,
-            fontSize: 24,
-          ),
+        title: Row(
+          children: [
+            Icon(
+              Icons.category_outlined,
+              color: colors["text"],
+              size: 24,
+            ),
+            SizedBox(width: 8),
+            AutoSizeText(
+              widget.categoryName,
+              style: GoogleFonts.poppins(
+                color: colors["text"],
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+              ),
+              minFontSize: 8,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
         ),
         iconTheme: IconThemeData(
           color: colors["text"],
