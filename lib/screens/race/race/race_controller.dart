@@ -50,17 +50,78 @@ class RaceController extends GetxController {
       throw Exception('RaceController başlatılamadı: $e');
     }
   }
-
   @override
   void onInit() {
     super.onInit();
     print('RaceController onInit çağrıldı');
-    print('RaceController onInit çağrıldı');
-    _initializeGame().then((_) {
-      _subscribeToGameState();  // _initializeGame tamamlandıktan sonra çağır
+
+    // Kullanıcının bu yarışa erişimi olup olmadığını kontrol et
+    _checkRaceAccess().then((_) {
+      if (Get.isRegistered<RaceController>()) {
+        _initializeGame().then((_) {
+          _subscribeToGameState();
+        });
+      }
     });
   }
 
+  Future<void> _checkRaceAccess() async {
+    try {
+      print('Yarış erişimi kontrol ediliyor, roomId: ${roomId.value}');
+
+      final userId = roomService.getCurrentUserId();
+      if (userId == null) {
+        throw Exception('Kullanıcı ID\'si alınamadı');
+      }
+
+      // Kullanıcının odada önceden var olup olmadığını kontrol et
+      final wasInRoom = await roomService.wasPlayerInRoom(roomId.value, userId);
+
+      if (!wasInRoom) {
+        // Kullanıcı daha önce odada değildi, erişimi reddet
+        Get.snackbar(
+          'Erişim Reddedildi',
+          'Bu yarışa katılma yetkiniz yok.',
+          backgroundColor: Colors.red.withOpacity(0.1),
+          colorText: Colors.red,
+        );
+
+        // Ana sayfaya yönlendir
+        Get.offNamed('/home');
+        return;
+      }
+
+      // Kullanıcı odada, yeniden bağlan
+      await roomService.reconnectToRoom(roomId.value, userId);
+
+      // Kullanıcının mevcut oyun durumunu kontrol et
+      final scores = await _supabase
+          .from('race_scores')
+          .select()
+          .eq('room_id', roomId.value)
+          .eq('player_id', userId)
+          .maybeSingle();
+
+      if (scores != null) {
+        // Kullanıcının mevcut soru indeksi ve skorunu ayarla
+        currentQuestionIndex.value = scores['current_question_index'] as int;
+
+        print('Kullanıcı kaldığı yerden devam ediyor: Soru ${currentQuestionIndex.value + 1}');
+      }
+
+    } catch (e) {
+      print('Yarış erişimi kontrol hatası: $e');
+      Get.snackbar(
+        'Hata',
+        'Yarış bilgileri kontrol edilirken bir hata oluştu: $e',
+        backgroundColor: Colors.red.withOpacity(0.1),
+        colorText: Colors.red,
+      );
+
+      // Hata durumunda ana sayfaya yönlendir
+      Get.offNamed('/home');
+    }
+  }
   Future<void> _initializeGame() async {
     try {
       print('_initializeGame başlatılıyor, roomId: ${roomId.value}');
@@ -86,28 +147,31 @@ class RaceController extends GetxController {
         throw Exception('Oyuncu bulunamadı');
       }
 
-      try {
-        // İşlem bütünlüğü için önce tüm mevcut kayıtları sil (temizle)
-        try {
-          await _supabase
-              .from('race_scores')
-              .delete()
-              .eq('room_id', roomId.value);
+      // 3. Mevcut race_scores kayıtlarını al
+      final existingScores = await _supabase
+          .from('race_scores')
+          .select()
+          .eq('room_id', roomId.value);
 
-          // Silme işleminin tamamlanması için kısa bir bekleme
-          await Future.delayed(const Duration(milliseconds: 300));
-        } catch (deleteError) {
-          print('Mevcut kayıtları silme hatası (önemsiz): $deleteError');
-          // Bu hata önemli değil, devam edebiliriz
-        }
+      // Mevcut skorları bir Map'e dönüştür
+      final Map<int, Map<String, dynamic>> scoresByPlayerId = {};
+      for (final score in existingScores) {
+        scoresByPlayerId[score['player_id'] as int] = score;
+      }
 
-        // Senkronizasyon için biraz bekle
-        await Future.delayed(const Duration(milliseconds: 300));
+      // 4. Her oyuncu için skorları güncelle veya oluştur
+      for (final player in players) {
+        final playerId = player['user_id'];
 
-        // Şimdi tüm oyuncular için yeni kayıtlar ekle
-        for (final player in players) {
-          final playerId = player['user_id'];
-
+        if (scoresByPlayerId.containsKey(playerId)) {
+          // Oyuncunun skoru zaten var, yalnızca playerScores state'ini güncelle
+          final existingScore = scoresByPlayerId[playerId]!;
+          playerScores[playerId] = PlayerScore(
+            currentQuestionIndex: existingScore['current_question_index'],
+            score: existingScore['score'],
+          );
+        } else {
+          // Oyuncu için yeni skor kaydı oluştur
           try {
             await _supabase
                 .from('race_scores')
@@ -125,38 +189,15 @@ class RaceController extends GetxController {
             );
           } catch (insertError) {
             print('Oyuncu $playerId için insert hatası: $insertError');
-
-            // Eğer kayıt zaten varsa, güncelle
-            try {
-              await _supabase
-                  .from('race_scores')
-                  .update({
-                'score': 0,
-                'current_question_index': 0,
-              })
-                  .eq('room_id', roomId.value)
-                  .eq('player_id', playerId);
-
-              // Yerel state güncelleme
-              playerScores[playerId] = PlayerScore(
-                currentQuestionIndex: 0,
-                score: 0,
-              );
-            } catch (updateError) {
-              print('Oyuncu $playerId için update hatası: $updateError');
-              throw Exception('Skor güncellenemedi');
-            }
+            // Burada hata yönetimi ekleyebilirsiniz
           }
         }
-
-        // UI'ı güncellemek için
-        playerScores.refresh();
-        print('Oyun başarıyla başlatıldı - Oda: ${roomId.value}');
-
-      } catch (dbError) {
-        print('Veritabanı işlem hatası: $dbError');
-        throw Exception('Skor kayıtları oluşturulamadı: $dbError');
       }
+
+      // UI'ı güncellemek için
+      playerScores.refresh();
+      print('Oyun başarıyla başlatıldı - Oda: ${roomId.value}');
+
     } catch (e) {
       print('_initializeGame hatası: $e');
       print('Stack trace: ${StackTrace.current}');
@@ -169,7 +210,8 @@ class RaceController extends GetxController {
       );
       Future.delayed(const Duration(seconds: 1), () => Get.back());
     }
-  }  void _subscribeToGameState() {
+  }
+  void _subscribeToGameState() {
     try {
       print('Game state subscription başlatılıyor...');
       _gameStateSubscription = _supabase
@@ -333,15 +375,15 @@ class RaceController extends GetxController {
       // Stream subscription'ı iptal et
       _gameStateSubscription?.cancel();
 
-      // Race scores kaydını sil
+      // Oyuncuyu odadan çıkarma, sadece bağlantı durumunu güncelle
       await _supabase
-          .from('race_scores')
-          .delete()
+          .from('room_players')
+          .update({
+        'is_connected': false,
+        'updated_at': DateTime.now().toIso8601String()
+      })
           .eq('room_id', roomId.value)
-          .eq('player_id', userId);
-
-      // Room players kaydını sil
-      await roomService.leaveRoom(roomId.value);
+          .eq('user_id', userId);
 
       Get.offAllNamed('/home'); // Ana sayfaya yönlendir
     } catch (e) {
@@ -354,7 +396,6 @@ class RaceController extends GetxController {
       );
     }
   }
-
   @override
   void onClose() {
     _gameStateSubscription?.cancel();

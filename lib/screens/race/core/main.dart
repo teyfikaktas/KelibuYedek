@@ -106,6 +106,170 @@ class MainRaceController extends GetxController {
       isLoading.value = false;
     }
   }
+  @override
+  void onInit() {
+    super.onInit();
+    // Uygulama açıldığında aktif yarışları kontrol et
+    checkForActiveRaces();
+  }
+  Future<List<Room>> getActiveRaces() async {
+    try {
+      // Oyuncunun ID'sini al
+      final userId = roomService.getCurrentUserId();
+      if (userId == null) {
+        return [];
+      }
+
+      // Kullanıcının aktif olduğu ve oyunun devam ettiği odaları bul
+      final result = await Supabase.instance.client
+          .from('rooms')
+          .select('*, room_players!inner(*)')
+          .eq('room_players.user_id', userId)
+          .eq('game_status', 'in_progress')
+          .eq('status', 'active');
+
+      if (result.isEmpty) {
+        return [];
+      }
+
+      // Oda nesnelerine dönüştür
+      return result.map((room) => Room.fromJson(room)).toList();
+    } catch (e) {
+      print('getActiveRaces hatası: $e');
+      return [];
+    }
+  }
+
+// Yarışlara yeniden bağlanmayı kontrol et
+  Future<void> checkForActiveRaces() async {
+    final activeRaces = await getActiveRaces();
+
+    if (activeRaces.isNotEmpty) {
+      // Aktif yarış varsa, kullanıcıya sormak için dialog göster
+      Get.dialog(
+        Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            width: Get.width * 0.9,
+            decoration: BoxDecoration(
+              color: const Color(0xFF242424),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: Colors.grey[850]!,
+                width: 1,
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[900],
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                  ),
+                  child: Row(
+                    children: [
+                      const FaIcon(
+                        FontAwesomeIcons.exclamationCircle,
+                        color: Colors.amber,
+                        size: 24,
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Devam Eden Yarış',
+                        style: TextStyle(
+                          color: Colors.grey[100],
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    children: [
+                      Text(
+                        'Devam eden bir yarışınız var. Yarışa geri dönmek ister misiniz?',
+                        style: TextStyle(
+                          color: Colors.grey[300],
+                          fontSize: 16,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 20),
+                      Text(
+                        'Oda ID: ${activeRaces[0].id}',
+                        style: TextStyle(
+                          color: Colors.grey[400],
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[900],
+                    borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextButton(
+                          onPressed: () => Get.back(),
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: const Text(
+                            'Hayır',
+                            style: TextStyle(
+                              color: Colors.grey,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextButton(
+                          onPressed: () {
+                            Get.back();
+                            Get.toNamed('/race/${activeRaces[0].id}');
+                          },
+                          style: TextButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: const Text(
+                            'Evet, Devam Et',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        barrierDismissible: false,
+      );
+    }
+  }
   Future<void> joinRoom() async {
     if (joinRoomCode.value.isEmpty) {
       Get.snackbar(

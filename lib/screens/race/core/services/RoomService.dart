@@ -106,7 +106,81 @@ class RoomService {
       throw Exception('Odalar listelenirken hata: $e');
     }
   }
+  Future<bool> wasPlayerInRoom(int roomId, int userId) async {
+    try {
+      // room_players tablosunda bu oda ve kullanıcı için kayıt var mı diye kontrol et
+      final result = await _supabaseClient
+          .from('room_players')
+          .select()
+          .eq('room_id', roomId)
+          .eq('user_id', userId)
+          .maybeSingle();
 
+      // Sonuç null değilse, oyuncu daha önce odadaydı
+      return result != null;
+    } catch (e) {
+      print('wasPlayerInRoom hatası: $e');
+      return false; // Hata durumunda false dön
+    }
+  }
+
+// Odanın oyun durumunu kontrol eder
+  Future<String> getRoomGameStatus(int roomId) async {
+    try {
+      final result = await _supabaseClient
+          .from('rooms')
+          .select('game_status')
+          .eq('id', roomId)
+          .single();
+
+      return result['game_status'] as String;
+    } catch (e) {
+      print('getRoomGameStatus hatası: $e');
+      throw Exception('Oda durumu alınamadı: $e');
+    }
+  }
+
+// Oyuncunun oturumunu yeniden açar
+  Future<void> reconnectToRoom(int roomId, int userId) async {
+    try {
+      // Oyuncu durumunu aktif olarak işaretle
+      await _supabaseClient
+          .from('room_players')
+          .update({
+        'is_connected': true,
+        'updated_at': DateTime.now().toIso8601String()
+      })
+          .eq('room_id', roomId)
+          .eq('user_id', userId);
+
+      print('Oyuncu $userId odaya $roomId yeniden bağlandı');
+    } catch (e) {
+      print('reconnectToRoom hatası: $e');
+      throw Exception('Odaya yeniden bağlanılamadı: $e');
+    }
+  }
+
+// Oyuncu bağlantı durumunu takip etmek için metot
+  void trackPlayerConnection(int roomId, int userId) {
+    // Uygulama kapatıldığında veya sayfa değiştirildiğinde çağrılacak
+    onClose() async {
+      try {
+        // Oyuncu durumunu güncelle, ancak silme
+        await _supabaseClient
+            .from('room_players')
+            .update({
+          'is_connected': false,
+          'updated_at': DateTime.now().toIso8601String()
+        })
+            .eq('room_id', roomId)
+            .eq('user_id', userId);
+
+        print('Oyuncu $userId bağlantısı kesildi');
+      } catch (e) {
+        print('trackPlayerConnection onClose hatası: $e');
+      }
+    }
+  }
   Future<void> updateRoomStatus(int roomId, String status) async {
     try {
       await _supabaseClient

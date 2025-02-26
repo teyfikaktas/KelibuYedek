@@ -32,7 +32,77 @@ class WaitingRoomController extends GetxController {
   void onInit() {
     super.onInit();
 
-    _initRoom();
+    // Kullanıcının bu odaya erişimi olup olmadığını kontrol et
+    _checkAccess().then((_) {
+      if (Get.isRegistered<WaitingRoomController>()) {
+        _initRoom();
+      }
+    });
+  }
+
+  Future<void> _checkAccess() async {
+    try {
+      isLoading.value = true;
+
+      final userId = roomService.getCurrentUserId();
+      if (userId == null) {
+        throw Exception('Kullanıcı ID\'si alınamadı');
+      }
+
+      // Oda durumunu kontrol et
+      final gameStatus = await roomService.getRoomGameStatus(roomId.value);
+
+      if (gameStatus == 'in_progress' || gameStatus == 'completed') {
+        // Oyun başlamış, kullanıcı daha önce odada mıydı kontrol et
+        final wasInRoom = await roomService.wasPlayerInRoom(roomId.value, userId);
+
+        if (wasInRoom) {
+          // Kullanıcı önceden odadaydı, yeniden bağlan
+          await roomService.reconnectToRoom(roomId.value, userId);
+
+          // Oyun devam ediyorsa yarış ekranına yönlendir
+          if (gameStatus == 'in_progress') {
+            Get.offNamed('/race/${roomId.value}');
+            return;
+          }
+        } else {
+          // Kullanıcı daha önce odada değildi, erişimi reddet
+          Get.snackbar(
+            'Erişim Reddedildi',
+            'Bu oyun zaten başlamış ve siz bu odanın bir üyesi değilsiniz.',
+            backgroundColor: Colors.red.withOpacity(0.1),
+            colorText: Colors.red,
+          );
+
+          // Ana sayfaya yönlendir
+          Get.offNamed('/home');
+          return;
+        }
+      } else {
+        // Oyun henüz başlamamış, kullanıcı daha önce odada mıydı kontrol et
+        final wasInRoom = await roomService.wasPlayerInRoom(roomId.value, userId);
+
+        if (wasInRoom) {
+          // Kullanıcı daha önce odadaydı, yeniden bağlan
+          await roomService.reconnectToRoom(roomId.value, userId);
+        } else {
+          // Kullanıcı yeni. Odaya normal katılma işlemine devam edilecek
+        }
+      }
+    } catch (e) {
+      print('Erişim kontrolü hatası: $e');
+      Get.snackbar(
+        'Hata',
+        'Oda bilgileri kontrol edilirken bir hata oluştu: $e',
+        backgroundColor: Colors.red.withOpacity(0.1),
+        colorText: Colors.red,
+      );
+
+      // Hata durumunda ana sayfaya yönlendir
+      Get.offNamed('/home');
+    } finally {
+      isLoading.value = false;
+    }
   }
   bool get canStartGame {
     // 1. Sadece oda sahibi başlatabilir
@@ -172,7 +242,14 @@ class WaitingRoomController extends GetxController {
       );
     }
   }  @override
+  @override
   void onClose() {
+    final userId = roomService.getCurrentUserId();
+    if (userId != null) {
+      // Bağlantıyı takip et ama oyuncuyu odadan çıkarma
+      roomService.trackPlayerConnection(roomId.value, userId);
+    }
+
     _roomSubscription.cancel();
     _playersSubscription.cancel();
     super.onClose();
