@@ -147,7 +147,12 @@ class VIPAdvantagesPanelProvider extends ChangeNotifier {
         Provider.of<SubscriptionProvider>(context, listen: false);
     SharedPreferences prefs = await SharedPreferences.getInstance();
     bool hasShownVIPAdvantagesPanel = prefs.getBool('VIP') ?? false;
-
+    final container = riverpod.ProviderScope.containerOf(context);
+    var userProvider = Provider.of<UserProvider>(context, listen: false);
+    container.read(globalUserIdProvider.notifier).state = userProvider.userId.toInt();
+    container.read(globalUsernameProvider.notifier).state = userProvider.username;
+    print('userProvider.userId.toInt()');
+    print(userProvider.userId.toInt());
     print(
         "Subscription Status: isVip=${subscriptionProvider.isVip}, hasShownVIPAdvantagesPanel=$hasShownVIPAdvantagesPanel");
 
@@ -1229,10 +1234,7 @@ class _HomeScreenState extends State<HomeScreen> {
       // En son yüklenen veriler
       _loadPromotionMessage();
       _fetchActiveUsers();
-      final container = riverpod.ProviderScope.containerOf(context);
 
-      container.read(globalUserIdProvider.notifier).state = userProvider.userId.toInt();
-      container.read(globalUsernameProvider.notifier).state = userProvider.username;
 
     } catch (e) {
       print(e);
@@ -1245,6 +1247,13 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _fetchActiveUsers() async {
+    final container = riverpod.ProviderScope.containerOf(context);
+    var userProvider = Provider.of<UserProvider>(context, listen: true);
+    print(_fetchActiveUsers());
+    container.read(globalUserIdProvider.notifier).state = userProvider.userId.toInt();
+    container.read(globalUsernameProvider.notifier).state = userProvider.username;
+    print('userProvider.userId.toInt()');
+    print(userProvider.userId.toInt());
     try {
       final response = await ApiService().getUsersCount();
       setState(() {

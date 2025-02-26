@@ -55,8 +55,10 @@ class RaceController extends GetxController {
   void onInit() {
     super.onInit();
     print('RaceController onInit çağrıldı');
-    _initializeGame();
-    _subscribeToGameState();
+    print('RaceController onInit çağrıldı');
+    _initializeGame().then((_) {
+      _subscribeToGameState();  // _initializeGame tamamlandıktan sonra çağır
+    });
   }
 
   Future<void> _initializeGame() async {
@@ -85,41 +87,76 @@ class RaceController extends GetxController {
       }
 
       try {
-        // 3. Mevcut kayıtları sil
-        await _supabase
-            .from('race_scores')
-            .delete()
-            .eq('room_id', roomId.value);
+        // İşlem bütünlüğü için önce tüm mevcut kayıtları sil (temizle)
+        try {
+          await _supabase
+              .from('race_scores')
+              .delete()
+              .eq('room_id', roomId.value);
 
-        // Kısa bir bekleme ekleyelim
-        await Future.delayed(const Duration(milliseconds: 500));
+          // Silme işleminin tamamlanması için kısa bir bekleme
+          await Future.delayed(const Duration(milliseconds: 300));
+        } catch (deleteError) {
+          print('Mevcut kayıtları silme hatası (önemsiz): $deleteError');
+          // Bu hata önemli değil, devam edebiliriz
+        }
 
-        // 4. Yeni kayıtları ekle
+        // Senkronizasyon için biraz bekle
+        await Future.delayed(const Duration(milliseconds: 300));
+
+        // Şimdi tüm oyuncular için yeni kayıtlar ekle
         for (final player in players) {
           final playerId = player['user_id'];
 
-          await _supabase
-              .from('race_scores')
-              .insert({
-            'room_id': roomId.value,
-            'player_id': playerId,
-            'score': 0,
-            'current_question_index': 0,
-          });
+          try {
+            await _supabase
+                .from('race_scores')
+                .insert({
+              'room_id': roomId.value,
+              'player_id': playerId,
+              'score': 0,
+              'current_question_index': 0,
+            });
 
-          // Yerel state güncelleme
-          playerScores[playerId] = PlayerScore(
-            currentQuestionIndex: 0,
-            score: 0,
-          );
+            // Yerel state güncelleme
+            playerScores[playerId] = PlayerScore(
+              currentQuestionIndex: 0,
+              score: 0,
+            );
+          } catch (insertError) {
+            print('Oyuncu $playerId için insert hatası: $insertError');
+
+            // Eğer kayıt zaten varsa, güncelle
+            try {
+              await _supabase
+                  .from('race_scores')
+                  .update({
+                'score': 0,
+                'current_question_index': 0,
+              })
+                  .eq('room_id', roomId.value)
+                  .eq('player_id', playerId);
+
+              // Yerel state güncelleme
+              playerScores[playerId] = PlayerScore(
+                currentQuestionIndex: 0,
+                score: 0,
+              );
+            } catch (updateError) {
+              print('Oyuncu $playerId için update hatası: $updateError');
+              throw Exception('Skor güncellenemedi');
+            }
+          }
         }
+
+        // UI'ı güncellemek için
+        playerScores.refresh();
+        print('Oyun başarıyla başlatıldı - Oda: ${roomId.value}');
+
       } catch (dbError) {
         print('Veritabanı işlem hatası: $dbError');
         throw Exception('Skor kayıtları oluşturulamadı: $dbError');
       }
-
-      print('Oyun başarıyla başlatıldı - Oda: ${roomId.value}');
-
     } catch (e) {
       print('_initializeGame hatası: $e');
       print('Stack trace: ${StackTrace.current}');
@@ -132,8 +169,7 @@ class RaceController extends GetxController {
       );
       Future.delayed(const Duration(seconds: 1), () => Get.back());
     }
-  }
-  void _subscribeToGameState() {
+  }  void _subscribeToGameState() {
     try {
       print('Game state subscription başlatılıyor...');
       _gameStateSubscription = _supabase
