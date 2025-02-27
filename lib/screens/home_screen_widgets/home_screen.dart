@@ -1497,6 +1497,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> checkSubscriptionStatus() async {
+    print('check');
     final provider = Provider.of<SubscriptionProvider>(context, listen: false);
     await provider.fetchSubscriptionStatus();
   }

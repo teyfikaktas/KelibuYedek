@@ -8,6 +8,7 @@ class RaceScreen extends StatelessWidget {
   const RaceScreen({Key? key}) : super(key: key);
 
   @override
+  @override
   Widget build(BuildContext context) {
     print('RaceScreen building...');
 
@@ -26,69 +27,248 @@ class RaceScreen extends StatelessWidget {
     }
 
     // Controller artık null olmayacak şekilde kullanılabilir
-    return Scaffold(
-      backgroundColor: const Color(0xFF1A1A1A),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: () {
-            Get.dialog(
-              AlertDialog(
-                backgroundColor: const Color(0xFF242424),
-                title: const Text(
-                  'Oyundan Çık',
-                  style: TextStyle(color: Colors.white),
-                ),
-                content: const Text(
-                  'Oyundan çıkmak istediğinize emin misiniz?',
-                  style: TextStyle(color: Colors.grey),
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Get.back(),
-                    child: const Text(
-                      'İptal',
-                      style: TextStyle(color: Colors.grey),
+    return WillPopScope(
+      onWillPop: () async {
+        // Geri tuşuna basıldığında çıkış diyaloğunu göster
+        _showExitDialog(context, controller);
+        return false; // Sistemin geri tuşunu engelle
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFF1A1A1A),
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(
+              Icons.arrow_back_ios_rounded,
+              color: Colors.white,
+            ),
+            onPressed: () => _showExitDialog(context, controller),
+          ),
+          // Oyun durumunu gösteren etiket
+          title: Obx(() => controller.isLastPlayerTimerActive.value
+              ? Text(
+            'Tek Oyuncu: ${controller.lastPlayerTimeLeft.value}s',
+            style: const TextStyle(
+              color: Colors.amber,
+              fontSize: 16,
+            ),
+          )
+              : const SizedBox.shrink()),
+        ),
+        body: SafeArea(
+          child: Obx(() {
+            return Column(
+              children: [
+                _buildScoreBoard(controller),
+
+                // Tek oyuncu kaldığında zamanlayıcı göster
+                if (controller.isLastPlayerTimerActive.value)
+                  Container(
+                    margin: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.amber.withOpacity(0.5)),
+                    ),
+                    child: Column(
+                      children: [
+                        Text(
+                          'Odada tek kaldınız!',
+                          style: TextStyle(
+                            color: Colors.amber[300],
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '${controller.lastPlayerTimeLeft.value} saniye içinde başka oyuncu katılmazsa kazanan olarak ilan edileceksiniz.',
+                          style: TextStyle(
+                            color: Colors.amber[200],
+                            fontSize: 14,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
                     ),
                   ),
-                  TextButton(
-                    onPressed: () async {
-                      Get.back(); // Dialog'u kapat
-                      await controller.leaveGame(); // Oyundan çık
-                    },
-                    child: const Text(
-                      'Çık',
-                      style: TextStyle(color: Colors.red),
-                    ),
-                  ),
-                ],
+
+                const Spacer(),
+                _buildQuestion(controller),
+                const SizedBox(height: 20),
+                _buildOptions(controller),
+                const Spacer(),
+              ],
+            );
+          }),
+        ),
+      ),
+    );
+  }
+  void _showExitDialog(BuildContext context, RaceController controller) {
+    Get.dialog(
+      AlertDialog(
+        backgroundColor: const Color(0xFF242424),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Row(
+          children: [
+            Icon(Icons.exit_to_app, color: Colors.amber, size: 24),
+            const SizedBox(width: 8),
+            const Text(
+              'Oyundan Çık',
+              style: TextStyle(color: Colors.white),
+            ),
+          ],
+        ),
+        content: const Text(
+          'Oyundan çıkmak istediğinize emin misiniz?\nİlerlemeniz kaydedilecektir.',
+          style: TextStyle(color: Colors.grey),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.grey,
+            ),
+            child: const Text('İptal'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Get.back(); // Dialog'u kapat
+              await controller.leaveGame(); // Oyundan çık ve controller içinde ana sayfaya yönlendir
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.withOpacity(0.8),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text('Çık'),
+          ),
+        ],
+        actionsPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      ),
+    );
+  }
+  Widget _buildLastPlayerTimer(RaceController controller) {
+    return Obx(() {
+      if (!controller.isLastPlayerTimerActive.value) {
+        return const SizedBox.shrink(); // Aktif değilse görünmez
+      }
+
+      return Container(
+        margin: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.amber.withOpacity(0.2),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.amber),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.timer, color: Colors.amber),
+            const SizedBox(width: 8),
+            Text(
+              'Diğer oyuncu bekleniyor: ${controller.lastPlayerTimeLeft.value}s',
+              style: const TextStyle(
+                color: Colors.amber,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      );
+    });
+  }
+  void _showVictoryMessage(RaceController controller) {
+    if (controller.showVictoryMessage.value) {
+      // Bu metod doğrudan kullanılmayacak, çünkü dialog controller içinden gösteriliyor
+      // Sadece referans için burada
+      Get.dialog(
+        AlertDialog(
+          backgroundColor: const Color(0xFF242424),
+          title: const Text(
+            'Tebrikler!',
+            style: TextStyle(color: Colors.white),
+          ),
+          content: const Text(
+            'Diğer oyuncular ayrıldı. Kazanan olarak ilan edildiniz!',
+            style: TextStyle(color: Colors.grey),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Get.back();
+                Get.offNamed('/race-results/${controller.roomId.value}');
+              },
+              child: const Text(
+                'Tamam',
+                style: TextStyle(color: Colors.green),
+              ),
+            ),
+          ],
+        ),
+        barrierDismissible: false,
+      );
+    }
+  }
+  Widget _buildPlayerConnectionStatus(RaceController controller, int playerId) {
+    return FutureBuilder<bool>(
+      future: controller.isPlayerConnected(playerId),
+      builder: (context, snapshot) {
+        final isConnected = snapshot.data ?? true;
+        return Container(
+          width: 10,
+          height: 10,
+          margin: const EdgeInsets.only(left: 4),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: isConnected ? Colors.green : Colors.red,
+          ),
+        );
+      },
+    );
+  }
+
+// Skor tablosunda oyuncu isminin yanına bağlantı durumu eklemek için
+// _buildScoreBoard metodunda isim kısmını şöyle değiştirebilirsiniz:
+  Widget _buildPlayerName(RaceController controller, int playerId) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        FutureBuilder<String>(
+          future: controller.getPlayerName(playerId),
+          builder: (context, snapshot) {
+            return Text(
+              snapshot.data ?? 'Oyuncu',
+              style: TextStyle(
+                color: Colors.grey[400],
+                fontSize: 14,
               ),
             );
           },
         ),
-      ),
-      body: SafeArea(
-        child: Obx(() {
-          // Oyuncular bekleniyor
-
-          // Oyun başladı
-          return Column(
-            children: [
-              _buildScoreBoard(controller),
-              const Spacer(),
-              _buildQuestion(controller),
-              const SizedBox(height: 20),
-              _buildOptions(controller),
-              const Spacer(),
-            ],
+        Obx(() {
+          final isConnected = controller.playerConnectionStatus[playerId] ?? true;
+          return Container(
+            width: 8,
+            height: 8,
+            margin: const EdgeInsets.only(left: 4),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: isConnected ? Colors.green : Colors.red,
+            ),
           );
         }),
-      ),
+      ],
     );
   }
-
   Widget _buildWaitingScreen(RaceController controller) {
     return Center(
       child: Column(

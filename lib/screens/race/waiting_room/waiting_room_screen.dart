@@ -248,14 +248,27 @@ class WaitingRoomScreen extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: const Text(
-                  'Oyunu Başlat',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Icon(
+                      Icons.play_circle_filled_rounded,
+                      size: 20,
+                      color: Colors.white,
+                    ),
+                    SizedBox(width: 8),
+                    Text(
+                      'Oyunu Başlat',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
+                            ),
             ),
           ),
         ],

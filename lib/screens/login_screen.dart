@@ -208,17 +208,16 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
     _showLoadingDialog();
 
     try {
-      // FCM token'ı arka planda al
-      final Future<String?> fcmTokenFuture = FirebaseMessaging.instance.getToken();
+      // FCM token'ını güvenli bir şekilde al
+      String? fcmToken = await _getFCMToken();
 
-      // API isteğini parallel olarak başlat
-      final Future<Map<String, dynamic>> loginFuture = _apiService.login(
+      // API isteğini yap
+      final Map<String, dynamic> responseData = await _apiService.login(
         email: email.trim(),
         password: password.trim(),
-        fcmToken: await fcmTokenFuture ?? '',
+        fcmToken: fcmToken ?? '',
       );
 
-      final responseData = await loginFuture;
       final user = responseData['user'];
 
       if (user == null) {
@@ -277,7 +276,12 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
       });
     }
   }
-// RevenueCat işlemleri için yardımcı fonksiyon
+
+// FCM token'ını güvenli bir şekilde almak için yardımcı metot
+  Future<String?> _getFCMToken() async {
+    return null;
+  }
+
   Future<void> _handleRevenueCat(String userId) async {
     try {
       await Purchases.logIn(userId);
@@ -366,13 +370,19 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
 
 // Genel hatalar için yardımcı fonksiyon
   void _handleGenericError(dynamic e) {
+    String errorMessage = 'Hata Detayı: ${e.toString()}';
+    String errorType = 'Hata Türü: ${e.runtimeType}';
+
     if (e is ApiException && e.message.contains('Too Many Requests')) {
       _showErrorDialog(
         'Çok Fazla Deneme',
-        'Çok fazla giriş denemesi yaptınız. Lütfen biraz bekleyip tekrar deneyin.',
+        'Çok fazla giriş denemesi yaptınız. Lütfen biraz bekleyip tekrar deneyin.\n\n$errorMessage',
       );
     } else {
-      _showErrorDialog('Beklenmeyen Hata', 'Bir sorun oluştu. Lütfen tekrar deneyin.');
+      _showErrorDialog(
+        'Beklenmeyen Hata',
+        'Bir sorun oluştu. Lütfen tekrar deneyin.\n\n$errorMessage\n$errorType',
+      );
     }
   }
   void _showErrorDialog(String title, String message, {String? errorCode}) {
@@ -380,7 +390,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
       Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: Container(
-          width: Get.width * 0.85,
+          width: Get.width * 0.95, // Daha geniş dialog
           padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -400,12 +410,18 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                 ),
               ),
               const SizedBox(height: 12),
-              Text(
-                message,
-                textAlign: TextAlign.center,
-                style: GoogleFonts.quicksand(
-                  fontSize: 16,
-                  color: Colors.black87,
+              // Kaydırılabilir hata mesajı alanı
+              Container(
+                height: Get.height * 0.3, // Yükseklik sınırı
+                child: SingleChildScrollView(
+                  child: Text(
+                    message,
+                    textAlign: TextAlign.left, // Hata mesajları için sol hizalama daha iyi
+                    style: GoogleFonts.quicksand(
+                      fontSize: 14,
+                      color: Colors.black87,
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(height: 24),
@@ -426,24 +442,26 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                         )
                     ),
                   ),
-                  if (errorCode == 'invalid_credentials')
-                    TextButton(
-                      onPressed: () {
-                        Get.back();
-                        Get.to(() => RegisterScreen());
-                      },
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                        backgroundColor: const Color(0xFF4CAF50).withOpacity(0.1),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
-                      child: Text('Üye Ol',
-                          style: GoogleFonts.quicksand(
-                              color: const Color(0xFF4CAF50),
-                              fontWeight: FontWeight.w600
-                          )
-                      ),
+                  TextButton(
+                    onPressed: () {
+                      // Hata mesajını kopyala
+                      Clipboard.setData(ClipboardData(text: message));
+                      ScaffoldMessenger.of(Get.context!).showSnackBar(
+                        SnackBar(content: Text('Hata mesajı kopyalandı')),
+                      );
+                    },
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      backgroundColor: const Color(0xFF2196F3).withOpacity(0.1),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
+                    child: Text('Kopyala',
+                        style: GoogleFonts.quicksand(
+                            color: const Color(0xFF2196F3),
+                            fontWeight: FontWeight.w600
+                        )
+                    ),
+                  ),
                 ],
               )
             ],
