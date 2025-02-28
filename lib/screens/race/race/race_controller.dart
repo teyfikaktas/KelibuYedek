@@ -68,12 +68,14 @@ class RaceController extends GetxController {
         });
       }
     });
+
+    // Uygulama durumu değiştiğinde race_scores tablosundaki bağlantı durumunu güncelle
     SystemChannels.lifecycle.setMessageHandler((msg) {
       print('Lifecycle message: $msg');
       if (msg == AppLifecycleState.paused.toString()) {
-        _updateConnectionStatus(false);
+        updateRaceScoreConnectionStatus(false);
       } else if (msg == AppLifecycleState.resumed.toString()) {
-        _updateConnectionStatus(true);
+        updateRaceScoreConnectionStatus(true);
       }
       return Future.value(msg);
     });
@@ -171,67 +173,11 @@ class RaceController extends GetxController {
       _gameStateSubscription?.cancel();
       _connectionSubscription?.cancel();
 
+      // Race scores bağlantı durumunu false yap
+      await updateRaceScoreConnectionStatus(false);
+
       // İstenilen yola yönlendir: /race
       Get.offNamed('/race');
-
-      // Oyuncuyu odadan çıkarma, bağlantı durumunu güncelle
-      await _supabase
-          .from('room_players')
-          .update({
-        'is_connected': false,
-        'updated_at': DateTime.now().toIso8601String()
-      })
-          .eq('room_id', roomId.value)
-          .eq('user_id', userId);
-
-      // Odadaki aktif oyuncu sayısı kontrolü
-      final activePlayers = await _supabase
-          .from('room_players')
-          .select('user_id, is_host')
-          .eq('room_id', roomId.value)
-          .eq('is_connected', true);
-
-      // Çıkan kişi host mu kontrol et
-      final isUserHost = await _supabase
-          .from('room_players')
-          .select('is_host')
-          .eq('room_id', roomId.value)
-          .eq('user_id', userId)
-          .single();
-
-      final bool isHost = isUserHost['is_host'] ?? false;
-
-      // Eğer çıkan kişi host ise veya hiç aktif oyuncu kalmadıysa odayı kapat
-      if (isHost || activePlayers.isEmpty) {
-        print('Host ayrıldı veya odada yeterli aktif oyuncu kalmadı, oda kapatılıyor...');
-
-        // Rooms tablosunda status ve game_status alanlarını güncelle
-        await _supabase
-            .from('rooms')
-            .update({
-          'status': 'closed',
-          'game_status': 'finished',
-          'updated_at': DateTime.now().toIso8601String()
-        })
-            .eq('id', roomId.value);
-
-        print('Oda başarıyla kapatıldı: ${roomId.value}');
-      }
-      // Eğer ayrılan kişi host ise ve odada başka oyuncular varsa, host'u devret
-      else if (isHost && activePlayers.isNotEmpty) {
-        final newHostId = activePlayers[0]['user_id'];
-
-        await _supabase
-            .from('room_players')
-            .update({
-          'is_host': true,
-          'updated_at': DateTime.now().toIso8601String()
-        })
-            .eq('room_id', roomId.value)
-            .eq('user_id', newHostId);
-
-        print('Host rolü $newHostId ID\'li kullanıcıya devredildi');
-      }
 
       // İsteğe bağlı olarak başarılı çıkış mesajı gösterebilirsiniz
       Get.snackbar(
@@ -256,7 +202,8 @@ class RaceController extends GetxController {
       }
       Get.offNamed('/race');
     }
-  }  Future<void> loadAllPlayerConnectionStatuses() async {
+  }
+  Future<void> loadAllPlayerConnectionStatuses() async {
     try {
       final players = await _supabase
           .from('room_players')
@@ -291,11 +238,30 @@ class RaceController extends GetxController {
       return false;
     }
   }
+  Future<void> updateRaceScoreConnectionStatus(bool isConnected) async {
+    try {
+      final userId = roomService.getCurrentUserId();
+      if (userId == null) return;
 
-    Future<void> _initializeGame() async {
+      // Sadece race_scores tablosunu güncelle, room_players'a dokunma
+      await _supabase
+          .from('race_scores')
+          .update({
+        'is_connected': isConnected,
+        'updated_at': DateTime.now().toIso8601String()
+      })
+          .eq('room_id', roomId.value)
+          .eq('player_id', userId);
+
+      print('Oyuncu $userId race_scores bağlantı durumu güncellendi: $isConnected');
+    } catch (e) {
+      print('Race score bağlantı durumu güncelleme hatası: $e');
+    }
+  }
+
+  Future<void> _initializeGame() async {
     try {
       print('_initializeGame başlatılıyor, roomId: ${roomId.value}');
-      await loadAllPlayerConnectionStatuses();
 
       // 1. Soruları yükle
       final questionsData = await _supabase
@@ -308,7 +274,7 @@ class RaceController extends GetxController {
       }
       questions.value = questionsData.map((q) => Question.fromJson(q)).toList();
 
-      // 2. Odadaki oyuncuları al
+      // 2. Odadaki oyuncuları al (race_scores tablosunda kaydı olmayanları bulmak için)
       final players = await _supabase
           .from('room_players')
           .select('user_id')
@@ -335,12 +301,25 @@ class RaceController extends GetxController {
         final playerId = player['user_id'];
 
         if (scoresByPlayerId.containsKey(playerId)) {
-          // Oyuncunun skoru zaten var, yalnızca playerScores state'ini güncelle
+          // Oyuncunun skoru zaten var, is_connected değerini true yap
+          await _supabase
+              .from('race_scores')
+              .update({
+            'is_connected': true,
+            'updated_at': DateTime.now().toIso8601String()
+          })
+              .eq('room_id', roomId.value)
+              .eq('player_id', playerId);
+
+          // Yerel state'i güncelle
           final existingScore = scoresByPlayerId[playerId]!;
           playerScores[playerId] = PlayerScore(
             currentQuestionIndex: existingScore['current_question_index'],
             score: existingScore['score'],
           );
+
+          // Bağlantı durumunu güncelle
+          playerConnectionStatus[playerId] = true;
         } else {
           // Oyuncu için yeni skor kaydı oluştur
           try {
@@ -351,6 +330,7 @@ class RaceController extends GetxController {
               'player_id': playerId,
               'score': 0,
               'current_question_index': 0,
+              'is_connected': true, // Başlangıçta bağlı
             });
 
             // Yerel state güncelleme
@@ -358,6 +338,9 @@ class RaceController extends GetxController {
               currentQuestionIndex: 0,
               score: 0,
             );
+
+            // Bağlantı durumunu güncelle
+            playerConnectionStatus[playerId] = true;
           } catch (insertError) {
             print('Oyuncu $playerId için insert hatası: $insertError');
             // Burada hata yönetimi ekleyebilirsiniz
@@ -367,6 +350,14 @@ class RaceController extends GetxController {
 
       // UI'ı güncellemek için
       playerScores.refresh();
+      playerConnectionStatus.refresh();
+
+      // Mevcut kullanıcının bağlantı durumunu true yap
+      final currentUserId = roomService.getCurrentUserId();
+      if (currentUserId != null) {
+        await updateRaceScoreConnectionStatus(true);
+      }
+
       print('Oyun başarıyla başlatıldı - Oda: ${roomId.value}');
 
     } catch (e) {
@@ -384,37 +375,88 @@ class RaceController extends GetxController {
   }
   void _subscribeToGameState() {
     try {
-      print('Game state subscription başlatılıyor...');
+      print('Game state subscription başlatılıyor (sadece race_scores üzerinden)...');
 
-      // Race scores tablosunu dinle (mevcut kod)
+      // Race scores tablosunu dinle
       _gameStateSubscription = _supabase
           .from('race_scores')
           .stream(primaryKey: ['id'])
           .eq('room_id', roomId.value)
           .listen(
             (List<Map<String, dynamic>> event) {
-          print('Game state event alındı: $event');
-          if (event.isNotEmpty) {
-            // Bağlı oyuncuları güncelle
-            connectedPlayers.value = event.map((e) => e['player_id'] as int).toList();
+          print('Race scores event alındı: $event');
+          if (event.isEmpty) return;
 
-            // Her oyuncunun skorunu güncelle
-            for (var scoreData in event) {
-              final playerId = scoreData['player_id'] as int;
-              final score = scoreData['score'] as int;
-              final questionIndex = scoreData['current_question_index'] as int;
+          // Aktif oyuncuları filtrele (is_connected = true olanlar)
+          final activeScores = event.where((s) => s['is_connected'] == true).toList();
+          final currentUserId = roomService.getCurrentUserId();
+          if (currentUserId == null) return;
 
-              // Yerel state'i güncelle
-              playerScores[playerId] = PlayerScore(
-                  currentQuestionIndex: questionIndex,
-                  score: score
-              );
+          // Bağlı oyuncuları güncelle
+          connectedPlayers.value = activeScores.map((e) => e['player_id'] as int).toList();
+
+          // Her oyuncunun skorunu güncelle
+          for (var scoreData in event) {
+            final playerId = scoreData['player_id'] as int;
+            final score = scoreData['score'] as int;
+            final questionIndex = scoreData['current_question_index'] as int;
+            final isConnected = scoreData['is_connected'] as bool? ?? true; // Varsayılan olarak true
+
+            // Bağlantı durumunu güncelle
+            playerConnectionStatus[playerId] = isConnected;
+
+            // Oyuncu ayrıldı mı kontrol et
+            if (!isConnected && !_disconnectedPlayerIds.contains(playerId)) {
+              _disconnectedPlayerIds.add(playerId);
+
+              // Oyuncu ismini al ve bildirim göster
+              getPlayerName(playerId).then((playerName) {
+                Get.snackbar(
+                  'Oyuncu Ayrıldı',
+                  '$playerName oyundan ayrıldı.',
+                  backgroundColor: Colors.orange.withOpacity(0.1),
+                  colorText: Colors.orange,
+                  duration: const Duration(seconds: 3),
+                );
+              });
+            } else if (isConnected && _disconnectedPlayerIds.contains(playerId)) {
+              // Oyuncu geri döndü, listeden çıkar
+              _disconnectedPlayerIds.remove(playerId);
+
+              // Oyuncu geri döndü bildirimi
+              getPlayerName(playerId).then((playerName) {
+                Get.snackbar(
+                  'Oyuncu Döndü',
+                  '$playerName oyuna geri döndü.',
+                  backgroundColor: Colors.green.withOpacity(0.1),
+                  colorText: Colors.green,
+                  duration: const Duration(seconds: 3),
+                );
+              });
             }
 
-            // UI'ı yenile
-            playerScores.refresh();
+            // Yerel state'i güncelle
+            playerScores[playerId] = PlayerScore(
+                currentQuestionIndex: questionIndex,
+                score: score
+            );
+          }
 
-            // Eğer bir oyuncu son soruya ulaştıysa
+          // UI'ı yenile
+          playerScores.refresh();
+          playerConnectionStatus.refresh();
+
+          // Tek aktif oyuncu kaldı mı kontrol et
+          if (activeScores.length == 1 && activeScores[0]['player_id'] == currentUserId) {
+            // Tek oyuncu kaldı, zamanlayıcıyı başlat
+            _handleLastPlayerStanding();
+          } else if (activeScores.length > 1) {
+            // Birden fazla oyuncu var, zamanlayıcıyı iptal et
+            _cancelLastPlayerTimer();
+          }
+
+          // Eğer bir oyuncu son soruya ulaştıysa
+          if (event.isNotEmpty) {
             final maxQuestionIndex = event
                 .map((e) => e['current_question_index'] as int)
                 .reduce(max);
@@ -434,55 +476,6 @@ class RaceController extends GetxController {
             backgroundColor: Colors.red.withOpacity(0.1),
             colorText: Colors.red,
           );
-        },
-      );
-
-      // Yeni: Bağlantı durumlarını izle
-      _connectionSubscription = _supabase
-          .from('room_players')
-          .stream(primaryKey: ['id'])
-          .eq('room_id', roomId.value)
-          .listen(
-            (List<Map<String, dynamic>> players) {
-          print('Connection state event alındı: $players');
-
-          if (players.isEmpty) return;
-
-          // Bağlı oyuncuları filtrele
-          final activePlayers = players.where((p) => p['is_connected'] == true).toList();
-          final currentUserId = roomService.getCurrentUserId();
-
-          // Ayrılan oyuncuları tespit et
-          for (var player in players) {
-            if (player['is_connected'] == false &&
-                !_disconnectedPlayerIds.contains(player['user_id'])) {
-
-              _disconnectedPlayerIds.add(player['user_id']);
-
-              // Oyuncu ismini al ve bildirim göster
-              getPlayerName(player['user_id']).then((playerName) {
-                Get.snackbar(
-                  'Oyuncu Ayrıldı',
-                  '$playerName odadan ayrıldı.',
-                  backgroundColor: Colors.orange.withOpacity(0.1),
-                  colorText: Colors.orange,
-                  duration: const Duration(seconds: 3),
-                );
-              });
-            }
-          }
-
-          // Aktif oyuncu sayısını kontrol et
-          if (activePlayers.length == 1 && activePlayers[0]['user_id'] == currentUserId) {
-            // Tek oyuncu kaldı, zamanlayıcıyı başlat
-            _handleLastPlayerStanding();
-          } else {
-            // Birden fazla oyuncu var, zamanlayıcıyı iptal et
-            _cancelLastPlayerTimer();
-          }
-        },
-        onError: (error) {
-          print('Connection subscription hatası: $error');
         },
       );
     } catch (e) {
