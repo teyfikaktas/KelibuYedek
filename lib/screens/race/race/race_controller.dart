@@ -712,7 +712,67 @@ class RaceController extends GetxController {
 
       // Oyun bitti mi kontrolü
       if (currentQuestionIndex.value >= questions.length) {
-        print('Oyun tamamlandı, sonuç ekranına yönlendiriliyor');
+        print('Oyun tamamlandı, winner_id güncelleniyor');
+
+        // En yüksek skoru bul ve kazananı belirle
+        int winnerId = -1; // Default değer
+        int maxScore = -1;
+
+        playerScores.forEach((playerId, scoreData) {
+          if (scoreData.score > maxScore) {
+            maxScore = scoreData.score;
+            winnerId = playerId;
+          }
+        });
+
+        if (winnerId != -1) {
+          try {
+            // Rooms tablosunu güncelle - winner_id ekle
+            await _supabase
+                .from('rooms')
+                .update({
+              'game_status': 'finished',
+              'status': 'closed',
+              'winner_id': winnerId,
+              'updated_at': DateTime.now().toIso8601String()
+            })
+                .eq('id', roomId.value);
+
+            print('Rooms tablosu güncellendi, kazanan: $winnerId');
+
+            // Race_scores tablosunda kazananı işaretle
+            await _supabase
+                .from('race_scores')
+                .update({
+              'is_winner': true,
+              'updated_at': DateTime.now().toIso8601String()
+            })
+                .eq('room_id', roomId.value)
+                .eq('player_id', winnerId);
+
+            // Kazanan bilgisini göster
+            getPlayerName(winnerId).then((name) {
+              Get.snackbar(
+                'Oyun Bitti',
+                'Kazanan: $name',
+                backgroundColor: Colors.green.withOpacity(0.1),
+                colorText: Colors.green,
+                duration: const Duration(seconds: 5),
+              );
+            });
+
+          } catch (e) {
+            print('Winner güncelleme hatası: $e');
+            Get.snackbar(
+              'Hata',
+              'Kazanan bilgisi güncellenirken bir hata oluştu',
+              backgroundColor: Colors.red.withOpacity(0.1),
+              colorText: Colors.red,
+            );
+          }
+        }
+
+        print('Sonuç ekranına yönlendiriliyor');
         Get.offNamed('/race-results/${roomId.value}');
         return;
       }
