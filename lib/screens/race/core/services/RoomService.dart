@@ -1,5 +1,6 @@
 // lib/screens/race/core/services/RoomService.dart
 
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:get/get.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -505,6 +506,19 @@ class RoomService {
     try {
       final room = await getRoomById(roomId);
       if (room == null) throw Exception('Oda bulunamadı');
+
+      // Oda durumu kontrolü ekle
+      if (room.gameStatus == 'finished') {
+        print('Oda $roomId tamamlanmış durumda (gameStatus: finished), katılım engellenecek');
+        Get.snackbar(
+          'Yarış Tamamlandı',
+          'Bu yarış sona ermiş durumda, katılamazsınız.',
+          backgroundColor: Colors.amber.withOpacity(0.1),
+          colorText: Colors.amber,
+          duration: const Duration(seconds: 3),
+        );
+        throw Exception('Bu yarış tamamlanmış durumda');
+      }
 
       // Kullanıcının daha önce odada olup olmadığını kontrol et
       final existingRecord = await _supabaseClient

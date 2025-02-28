@@ -394,7 +394,9 @@ class RaceController extends GetxController {
 
           // Bağlı oyuncuları güncelle
           connectedPlayers.value = activeScores.map((e) => e['player_id'] as int).toList();
-
+          if (activeScores.isEmpty) {
+            _closeRoomWhenEmpty();
+          }
           // Her oyuncunun skorunu güncelle
           for (var scoreData in event) {
             final playerId = scoreData['player_id'] as int;
@@ -480,6 +482,26 @@ class RaceController extends GetxController {
       );
     } catch (e) {
       print('_subscribeToGameState hatası: $e');
+    }
+  }
+  Future<void> _closeRoomWhenEmpty() async {
+    try {
+      print('Odada aktif oyuncu kalmadı, oda kapatılıyor: ${roomId.value}');
+
+      // Odayı kapat - game_status finished olarak güncelle
+      await _supabase
+          .from('rooms')
+          .update({
+        'game_status': 'finished',
+        'status': 'closed',
+        'updated_at': DateTime.now().toIso8601String()
+      })
+          .eq('id', roomId.value);
+
+      print('Oda başarıyla kapatıldı: ${roomId.value}');
+
+    } catch (e) {
+      print('Odayı kapatma hatası: $e');
     }
   }
   final _disconnectedPlayerIds = <int>{};
