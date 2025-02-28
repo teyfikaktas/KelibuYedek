@@ -75,14 +75,20 @@ class WaitingRoomScreen extends StatelessWidget {
     );
   }
 
+// WaitingRoomScreen içindeki _buildPlayersList metodunu güncelleyin
+
   Widget _buildPlayersList(WaitingRoomController controller) {
     print('Current players for roomId ${controller.roomId.value}: ${controller.players}');
+
+    // Sadece is_connected=true olan oyuncuları filtrele
+    final connectedPlayers = controller.players.where((player) => player.isConnected).toList();
+
     return Expanded(
       child: ListView.builder(
         padding: const EdgeInsets.all(16),
-        itemCount: controller.players.length,
+        itemCount: connectedPlayers.length,
         itemBuilder: (context, index) {
-          final player = controller.players[index];
+          final player = connectedPlayers[index];
           final isCurrentUser = player.userId == controller.roomService.getCurrentUserId();
 
           return Container(
@@ -215,7 +221,6 @@ class WaitingRoomScreen extends StatelessWidget {
       ),
     );
   }
-
   Widget _buildStartButton(WaitingRoomController controller) {
     String? tooltipMessage;
     if (!controller.isHost.value) {

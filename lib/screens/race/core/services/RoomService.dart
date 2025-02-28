@@ -256,10 +256,12 @@ class RoomService {
       throw Exception('Bağlantı durumu güncellenirken hata oluştu: $e');
     }
   }
+// RoomService sınıfındaki subscribeToPlayersById metodunu is_connected değerini doğru şekilde geçirecek şekilde güncelle
+
   Stream<List<Player>> subscribeToPlayersById(int roomId) {
     final channel = _supabaseClient.channel('room_players_room_$roomId');
 
-    // Ana stream için düzeltilmiş sorgu - join kullanarak
+    // Ana stream için düzeltilmiş sorgu
     final mainStream = _supabaseClient
         .from('room_players')
         .stream(primaryKey: ['id'])
@@ -286,6 +288,7 @@ class RoomService {
             score: playerData['score'] ?? 0,
             isReady: playerData['is_ready'] ?? false,
             isHost: playerData['is_host'] ?? false,
+            isConnected: playerData['is_connected'] ?? true, // is_connected değerini geçir
             username: username,
             avatar: avatar,
           ));
@@ -300,6 +303,7 @@ class RoomService {
             score: playerData['score'] ?? 0,
             isReady: playerData['is_ready'] ?? false,
             isHost: playerData['is_host'] ?? false,
+            isConnected: false, // Hata durumunda bağlantısız olarak işaretle
             username: 'Bilinmeyen Kullanıcı',
             avatar: null,
           ));
@@ -341,6 +345,7 @@ class RoomService {
                 score: data['score'] ?? 0,
                 isReady: data['is_ready'] ?? false,
                 isHost: data['is_host'] ?? false,
+                isConnected: data['is_connected'] ?? true, // is_connected değerini geçir
                 username: username,
                 avatar: avatar,
               );
