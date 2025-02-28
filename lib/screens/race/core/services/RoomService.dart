@@ -236,7 +236,26 @@ class RoomService {
       throw Exception('Oyuncu listesi alınamadı: $e');
     }
   }
+  Future<void> updatePlayerConnectionStatus(int roomId, bool isConnected) async {
+    final userId = getCurrentUserId();
+    if (userId == null) throw Exception('Kullanıcı ID\'si alınamadı');
 
+    try {
+      await _supabaseClient
+          .from('room_players')
+          .update({
+        'is_connected': isConnected,
+        'updated_at': DateTime.now().toIso8601String()
+      })
+          .eq('room_id', roomId)
+          .eq('user_id', userId);
+
+      print('Oyuncu $userId bağlantı durumu: ${isConnected ? "bağlı" : "bağlantı kesildi"}');
+    } catch (e) {
+      print('updatePlayerConnectionStatus hatası: $e');
+      throw Exception('Bağlantı durumu güncellenirken hata oluştu: $e');
+    }
+  }
   Stream<List<Player>> subscribeToPlayersById(int roomId) {
     final channel = _supabaseClient.channel('room_players_room_$roomId');
 
@@ -428,6 +447,29 @@ class RoomService {
       final room = await getRoomByCode(roomCode);
       if (room == null) throw Exception('Oda bulunamadı');
 
+      // Kullanıcının daha önce odada olup olmadığını kontrol et
+      final existingRecord = await _supabaseClient
+          .from('room_players')
+          .select()
+          .eq('room_id', room.id)
+          .eq('user_id', userId)
+          .maybeSingle();
+
+      if (existingRecord != null) {
+        // Kullanıcı zaten odadaysa, sadece bağlantı durumunu güncelle
+        print('Kullanıcı $userId zaten odada, bağlantı durumu güncelleniyor');
+        await _supabaseClient
+            .from('room_players')
+            .update({
+          'is_connected': true,
+          'updated_at': DateTime.now().toIso8601String()
+        })
+            .eq('room_id', room.id)
+            .eq('user_id', userId);
+        return;
+      }
+
+      // Kullanıcı odada değilse, odada yer olup olmadığını kontrol et
       final currentPlayers = await _supabaseClient
           .from('room_players')
           .select('id')
@@ -437,17 +479,20 @@ class RoomService {
         throw Exception('Oda dolu');
       }
 
+      // Yeni oyuncuyu ekle
       await _supabaseClient.from('room_players').insert({
         'room_id': room.id,
         'user_id': userId,
         'is_host': false,
         'joined_at': DateTime.now().toIso8601String(),
+        'is_connected': true,
+        'updated_at': DateTime.now().toIso8601String()
       });
     } catch (e) {
+      print('Odaya katılırken hata: $e');
       throw Exception('Odaya katılırken hata: $e');
     }
   }
-
   Future<void> joinRoomById(int roomId) async {
     final userId = getCurrentUserId();
     if (userId == null) throw Exception('Kullanıcı ID\'si alınamadı');
@@ -456,6 +501,29 @@ class RoomService {
       final room = await getRoomById(roomId);
       if (room == null) throw Exception('Oda bulunamadı');
 
+      // Kullanıcının daha önce odada olup olmadığını kontrol et
+      final existingRecord = await _supabaseClient
+          .from('room_players')
+          .select()
+          .eq('room_id', room.id)
+          .eq('user_id', userId)
+          .maybeSingle();
+
+      if (existingRecord != null) {
+        // Kullanıcı zaten odadaysa, sadece bağlantı durumunu güncelle
+        print('Kullanıcı $userId zaten odada, bağlantı durumu güncelleniyor');
+        await _supabaseClient
+            .from('room_players')
+            .update({
+          'is_connected': true,
+          'updated_at': DateTime.now().toIso8601String()
+        })
+            .eq('room_id', room.id)
+            .eq('user_id', userId);
+        return;
+      }
+
+      // Kullanıcı odada değilse, odada yer olup olmadığını kontrol et
       final currentPlayers = await _supabaseClient
           .from('room_players')
           .select('id')
@@ -466,12 +534,15 @@ class RoomService {
         throw Exception('Oda dolu');
       }
 
+      // Yeni oyuncuyu ekle
       print('Inserting new player with userId: $userId into room $roomId');
       await _supabaseClient.from('room_players').insert({
         'room_id': room.id,
         'user_id': userId,
         'is_host': false,
         'joined_at': DateTime.now().toIso8601String(),
+        'is_connected': true,
+        'updated_at': DateTime.now().toIso8601String()
       });
       print('Player inserted successfully');
     } catch (e) {
@@ -479,7 +550,6 @@ class RoomService {
       throw Exception('Odaya katılırken hata: $e');
     }
   }
-
   Future<void> leaveRoom(int roomId) async {
     final userId = getCurrentUserId();
     if (userId == null) throw Exception('Kullanıcı ID\'si alınamadı');

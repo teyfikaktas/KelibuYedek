@@ -31,6 +31,7 @@ class WaitingRoomController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    updateConnectionStatus(true);
 
     // Kullanıcının bu odaya erişimi olup olmadığını kontrol et
     _checkAccess().then((_) {
@@ -38,8 +39,17 @@ class WaitingRoomController extends GetxController {
         _initRoom();
       }
     });
-  }
 
+  }
+  void updateConnectionStatus(bool isConnected) {
+    try {
+      // roomId.value kullanarak int değerini doğru şekilde alın
+      roomService.updatePlayerConnectionStatus(roomId.value, isConnected);
+      print('Bağlantı durumu güncellendi: $isConnected');
+    } catch (e) {
+      print('Bağlantı durumu güncellenirken hata: $e');
+    }
+  }
   Future<void> _checkAccess() async {
     try {
       isLoading.value = true;
@@ -249,7 +259,7 @@ class WaitingRoomController extends GetxController {
       // Bağlantıyı takip et ama oyuncuyu odadan çıkarma
       roomService.trackPlayerConnection(roomId.value, userId);
     }
-
+    updateConnectionStatus(false);
     _roomSubscription.cancel();
     _playersSubscription.cancel();
     super.onClose();
