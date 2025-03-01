@@ -552,13 +552,35 @@ class RaceScreen extends StatelessWidget {
           final index = entry.key;
           final option = entry.value;
 
-          // Cevap gösteriliyorken butonun rengini belirle
-          Color? buttonColor = const Color(0xFF242424);
+          // Default buton stili
+          Color buttonColor = const Color(0xFF242424);
+          Color textColor = Colors.white;
+          IconData? leadingIcon;
+
+          // Cevap gösteriliyorken buton renklerini ve ikonları belirle
           if (controller.showAnswer.value) {
-            if (index == currentQuestion.correctOptionIndex) {
+            final bool isCorrectOption = index == currentQuestion.correctOptionIndex;
+            final bool isSelectedOption = index == controller.selectedAnswer.value;
+
+            if (isCorrectOption && isSelectedOption) {
+              // Doğru cevap ve kullanıcı bunu seçti
               buttonColor = Colors.green;
-            } else if (index == controller.selectedAnswer.value) {
+              textColor = Colors.white;
+              leadingIcon = Icons.check_circle;
+            } else if (isCorrectOption) {
+              // Doğru cevap ama kullanıcı bunu seçmedi
+              buttonColor = Colors.green.withOpacity(0.7);
+              textColor = Colors.white;
+              leadingIcon = Icons.check_circle_outline;
+            } else if (isSelectedOption) {
+              // Yanlış cevap ve kullanıcı bunu seçti
               buttonColor = Colors.red;
+              textColor = Colors.white;
+              leadingIcon = Icons.cancel;
+            } else {
+              // Yanlış cevap ve kullanıcı bunu seçmedi
+              buttonColor = const Color(0xFF242424);
+              textColor = Colors.white.withOpacity(0.5);
             }
           }
 
@@ -573,19 +595,30 @@ class RaceScreen extends StatelessWidget {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
+                // Disable'da bile renkleri korumak için
+                disabledBackgroundColor: buttonColor,
+                disabledForegroundColor: textColor,
               ),
-              child: Text(
-                option,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (leadingIcon != null) ...[
+                    Icon(leadingIcon, color: textColor),
+                    const SizedBox(width: 8),
+                  ],
+                  Text(
+                    option,
+                    style: TextStyle(
+                      color: textColor,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
               ),
             ),
           );
         }).toList(),
       ),
     );
-  }
-}
+  }}
