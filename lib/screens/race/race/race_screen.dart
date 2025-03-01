@@ -8,25 +8,28 @@ class RaceScreen extends StatelessWidget {
   const RaceScreen({Key? key}) : super(key: key);
 
   @override
-  @override
   Widget build(BuildContext context) {
     print('RaceScreen building...');
 
-    // Controller'ı en başta bul ve null değilse devam et
-    late final RaceController controller;
-    try {
-      controller = Get.find<RaceController>();
-      print('RaceController found with roomId: ${controller.roomId.value}');
-    } catch (e) {
-      print('Error finding RaceController: $e');
-      // Hata durumunda geri dön
-      Future.microtask(() => Get.back());
+    // Controller'ı kontrol et
+    if (!Get.isRegistered<RaceController>()) {
+      print('RaceController bulunamadı!');
+      // Widget ağacını oluştururken direkt navigasyon yapmak yerine,
+      // buildden sonraki frame'de yapalım
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Get.offNamed('/race'); // Ana sayfaya yönlendirme
+      });
+
+      // Yüklenme göstergesi döndürelim
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       );
     }
 
-    // Controller artık null olmayacak şekilde kullanılabilir
+    // Controller var, şimdi güvenle kullanabiliriz
+    final controller = Get.find<RaceController>();
+    print('RaceController found with roomId: ${controller.roomId.value}');
+
     return WillPopScope(
       onWillPop: () async {
         // Geri tuşuna basıldığında çıkış diyaloğunu göster
@@ -57,52 +60,81 @@ class RaceScreen extends StatelessWidget {
               : const SizedBox.shrink()),
         ),
         body: SafeArea(
-          child: Obx(() {
-            return Column(
-              children: [
-                _buildScoreBoard(controller),
-
-                // Tek oyuncu kaldığında zamanlayıcı göster
-                if (controller.isLastPlayerTimerActive.value)
-                  Container(
-                    margin: const EdgeInsets.all(16),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.amber.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.amber.withOpacity(0.5)),
-                    ),
-                    child: Column(
-                      children: [
-                        Text(
-                          'Odada tek kaldınız!',
-                          style: TextStyle(
-                            color: Colors.amber[300],
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
+          child: GetBuilder<RaceController>(
+            init: controller,
+            builder: (controller) {
+              // Soruların yüklenmesini bekleyen bir loading göster
+              if (controller.isWaitingForPlayers.value || controller.questions.isEmpty) {
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Oyun Yükleniyor...',
+                        style: TextStyle(
+                          color: Colors.grey[400],
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          '${controller.lastPlayerTimeLeft.value} saniye içinde başka oyuncu katılmazsa kazanan olarak ilan edileceksiniz.',
-                          style: TextStyle(
-                            color: Colors.amber[200],
-                            fontSize: 14,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(height: 20),
+                      const CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.amber),
+                      ),
+                    ],
                   ),
+                );
+              }
 
-                const Spacer(),
-                _buildQuestion(controller),
-                const SizedBox(height: 20),
-                _buildOptions(controller),
-                const Spacer(),
-              ],
-            );
-          }),
+              return Column(
+                children: [
+                  _buildScoreBoard(controller),
+
+                  // Tek oyuncu kaldığında zamanlayıcı göster
+                  Obx(() {
+                    return controller.isLastPlayerTimerActive.value
+                        ? Container(
+                      margin: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.amber.withOpacity(0.5)),
+                      ),
+                      child: Column(
+                        children: [
+                          Text(
+                            'Odada tek kaldınız!',
+                            style: TextStyle(
+                              color: Colors.amber[300],
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            '${controller.lastPlayerTimeLeft.value} saniye içinde başka oyuncu katılmazsa kazanan olarak ilan edileceksiniz.',
+                            style: TextStyle(
+                              color: Colors.amber[200],
+                              fontSize: 14,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    )
+                        : const SizedBox.shrink();
+                  }),
+
+                  const Spacer(),
+                  _buildQuestion(controller),
+                  const SizedBox(height: 20),
+                  _buildOptions(controller),
+                  const Spacer(),
+                ],
+              );
+            },
+          ),
         ),
       ),
     );
@@ -299,61 +331,177 @@ class RaceScreen extends StatelessWidget {
     );
   }
 
+// RaceScreen içindeki _buildScoreBoard metoduna şu değişikliği ekleyin
   Widget _buildScoreBoard(RaceController controller) {
-    return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF242424),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey[850]!),
-      ),
-      child: Row(
-        children: controller.playerScores.entries.map((entry) {
-          final playerId = entry.key;
-          final score = entry.value;
+    // Skorboard verilerini kontrol et ve logla
+    print('Skorboard için oyuncu sayısı: ${controller.playerScores.length}');
+    controller.playerScores.forEach((playerId, score) {
+      print('Oyuncu: $playerId, Skor: ${score.score}, Soru: ${score.currentQuestionIndex}');
+    });
 
-          return Expanded(
-            child: Column(
-              children: [
-                FutureBuilder<String>(
-                  future: controller.getPlayerName(playerId),
-                  builder: (context, snapshot) {
-                    return Text(
-                      snapshot.data ?? 'Oyuncu',
-                      style: TextStyle(
-                        color: Colors.grey[400],
-                        fontSize: 14,
+    // Eğer skorboard boşsa yükleniyor göster
+    if (controller.playerScores.isEmpty) {
+      return Container(
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFF242424),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey[850]!),
+        ),
+        child: const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    // Normal skorboard gösterimi - Obx ile sarmalanarak anlık güncellemeleri algıla
+    return Obx(() {
+      return Container(
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFF242424),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey[850]!),
+        ),
+        child: Row(
+          children: controller.playerScores.entries.map((entry) {
+            final playerId = entry.key;
+            final score = entry.value;
+
+            return Expanded(
+              child: Column(
+                children: [
+                  // İsim gösterimi - Obx içine aldık, artık FutureBuilder gerekmeyebilir
+                  FutureBuilder<String>(
+                    future: controller.getPlayerName(playerId),
+                    builder: (context, snapshot) {
+                      return Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            snapshot.data ?? 'Oyuncu',
+                            style: TextStyle(
+                              color: Colors.grey[400],
+                              fontSize: 14,
+                            ),
+                          ),
+                          // Bağlantı durumu göstergesi
+                          Container(
+                            width: 8,
+                            height: 8,
+                            margin: const EdgeInsets.only(left: 4),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: controller.playerConnectionStatus[playerId] ?? true
+                                  ? Colors.green
+                                  : Colors.red,
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  // Skor değerleri - Bu kısmı highlight edelim ki güncellendiğinde dikkat çeksin
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 300),
+                    transitionBuilder: (Widget child, Animation<double> animation) {
+                      return FadeTransition(
+                        opacity: animation,
+                        child: ScaleTransition(
+                          scale: animation,
+                          child: child,
+                        ),
+                      );
+                    },
+                    child: Text(
+                      '${score.score}',
+                      key: ValueKey<int>(score.score), // Değer değiştiğinde animasyon için key
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
                       ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  score.score.toString(),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${score.currentQuestionIndex + 1}/10',
-                  style: TextStyle(
-                    color: Colors.grey[600],
-                    fontSize: 12,
+                  const SizedBox(height: 4),
+                  Text(
+                    '${score.currentQuestionIndex + 1}/10',
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 12,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
+            );
+          }).toList(),
+        ),
+      );
+    });
+  }  Widget _buildQuestion(RaceController controller) {
+    // Soru ve seçenekleri göstermeden önce kontrol
+    if (controller.questions.isEmpty) {
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: const Color(0xFF242424),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey[850]!),
+        ),
+        child: Column(
+          children: [
+            Text(
+              'Sorular Yükleniyor...',
+              style: TextStyle(
+                color: Colors.grey[400],
+                fontSize: 16,
+              ),
             ),
-          );
-        }).toList(),
-      ),
-    );
-  }
+            const SizedBox(height: 16),
+            const CircularProgressIndicator(),
+          ],
+        ),
+      );
+    }
 
-  Widget _buildQuestion(RaceController controller) {
+    // Soru listesi dolu, şimdi de indeksi kontrol et
+    if (controller.currentQuestionIndex.value >= controller.questions.length) {
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: const Color(0xFF242424),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey[850]!),
+        ),
+        child: Column(
+          children: [
+            Text(
+              'Sorular Tamamlandı',
+              style: TextStyle(
+                color: Colors.grey[400],
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Bütün soruları yanıtladınız!',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Artık güvenle soruyu gösterebiliriz
     final currentQuestion = controller.getCurrentQuestion();
 
     return Container(
@@ -389,6 +537,12 @@ class RaceScreen extends StatelessWidget {
   }
 
   Widget _buildOptions(RaceController controller) {
+    // Sorular yüklenmemişse veya tamamlanmışsa boş bir container göster
+    if (controller.questions.isEmpty ||
+        controller.currentQuestionIndex.value >= controller.questions.length) {
+      return Container();
+    }
+
     final currentQuestion = controller.getCurrentQuestion();
 
     return Container(
@@ -422,7 +576,7 @@ class RaceScreen extends StatelessWidget {
               ),
               child: Text(
                 option,
-                style: TextStyle(
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 16,
                   fontWeight: FontWeight.w500,
@@ -433,4 +587,5 @@ class RaceScreen extends StatelessWidget {
         }).toList(),
       ),
     );
-  }}
+  }
+}
