@@ -404,9 +404,12 @@ class ApiService {
   Future<Map<String, dynamic>> login({
     required String email,
     required String password,
-    required String fcmToken, // fcm_token parametresini ekledik
+    required String fcmToken,
   }) async {
     try {
+      // İlk girişte BadPaddingException oluşabilir, önceden temizleyelim
+      await _clearTokens();
+
       final deviceId = await deviceService.getDeviceId();
       final response = await _dio.post(
         '/auth/login',
@@ -414,7 +417,7 @@ class ApiService {
           'email': email,
           'password': password,
           'device_id': deviceId,
-          'fcm_token': fcmToken, // fcm_token sunucuya gönderiliyor
+          'fcm_token': fcmToken,
         },
       );
 
@@ -457,6 +460,31 @@ class ApiService {
         );
       }
       throw ApiException('Bağlantı hatası: ${e.message}');
+    } catch (e) {
+      // BadPaddingException ve diğer şifreleme hatalarını yakala
+      if (e.toString().contains('BadPaddingException') ||
+          e.toString().contains('PlatformException') ||
+          e.toString().contains('Cipher')) {
+        // Token'ları temizle ve kullanıcıya bilgi ver
+        await _clearTokens();
+        throw ApiException('Oturum bilgilerinde sorun oluştu. Otomatik olarak temizlendi, lütfen tekrar deneyin.');
+      }
+      // Diğer beklenmeyen hatalar
+      throw ApiException('Beklenmeyen bir hata oluştu: ${e.toString()}');
+    }
+  }
+
+// Token'ları temizlemek için yardımcı fonksiyon
+  Future<void> _clearTokens() async {
+    try {
+      await storage.delete(key: 'access_token');
+      await storage.delete(key: 'refresh_token');
+      await storage.delete(key: 'token_type');
+      await storage.delete(key: 'expires_at');
+      // Diğer ilgili saklanan verileri de temizleyebilirsiniz
+    } catch (e) {
+      // Temizleme sırasında bir hata oluşursa sessizce devam et
+      print('Token temizleme sırasında hata: $e');
     }
   }
 

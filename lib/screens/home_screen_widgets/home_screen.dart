@@ -1190,7 +1190,6 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _fetchData(); // Bu metod kullanıcı puanını da güncelliyor
   }
   @override
   void initState() {
@@ -1208,48 +1207,52 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _initializeData() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
-    var userProvider = Provider.of<UserProvider>(context, listen: true);
+    var userProvider = Provider.of<UserProvider>(context, listen: false);
     pointValueNotifier.value = userProvider.point;
-    final String? fcmToken = await FirebaseMessaging.instance.getToken();
-    print('fcmtoken');
 
-    print('fcmtoken' + fcmToken!);
     try {
-      // Kritik veriler önce
-      await Future.wait([
-        _fetchData(),
-        checkSubscriptionStatus(),
-      ]);
+      // Kritik verileri tek tek kontrollü şekilde yükle
+      await _fetchData().catchError((e) {
+        print('Error in _fetchData: $e');
+        // Kritik hata değilse devam et
+      });
+
+      await checkSubscriptionStatus().catchError((e) {
+        print('Error in checkSubscriptionStatus: $e');
+        // Kritik hata değilse devam et
+      });
 
       // Ekran hazır
+      if (!mounted) return;
       setState(() => _isLoading = false);
 
-      // Arka planda yüklenen veriler
-      await Future.wait([
-        _loadWordOfTheDay(),
-        _loadDarkModePreference(),
-      ]);
-
-      // En son yüklenen veriler
-      _loadPromotionMessage();
-      _fetchActiveUsers();
-
+      // Arka plan görevlerini gecikmeli başlat
+      Future.delayed(Duration(milliseconds: 300), () {
+        if (!mounted) return;
+        _loadWordOfTheDay();
+        _loadDarkModePreference();
+        _loadPromotionMessage();
+        _fetchActiveUsers();
+      });
 
     } catch (e) {
-      print(e);
-      setState(() => _isLoading = false);
+      print('General initialization error: $e');
+      if (mounted) setState(() => _isLoading = false);
     }
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _showVipBenefitsPanel();
-    });
+    // Panel gösterimi için gecikmeli çağrı
+    if (mounted) {
+      Future.delayed(Duration(milliseconds: 500), () {
+        if (mounted) _showVipBenefitsPanel();
+      });
+    }
   }
 
   Future<void> _fetchActiveUsers() async {
     final container = riverpod.ProviderScope.containerOf(context);
-    var userProvider = Provider.of<UserProvider>(context, listen: true);
-    print(_fetchActiveUsers());
+    var userProvider = Provider.of<UserProvider>(context, listen: false);
     container.read(globalUserIdProvider.notifier).state = userProvider.userId.toInt();
     container.read(globalUsernameProvider.notifier).state = userProvider.username;
     print('userProvider.userId.toInt()');

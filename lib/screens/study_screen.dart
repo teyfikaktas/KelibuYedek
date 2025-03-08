@@ -18,7 +18,9 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:back_button_interceptor/back_button_interceptor.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sqflite/sqflite.dart';
 
+import '../Models/sqlite/dbhelper.dart';
 import '../globalDart/urls.dart';
 import '../shared_preferences/shared_preferences.dart';
 import '../variables.dart';
@@ -64,6 +66,7 @@ class _ScoreDisplayState extends State<ScoreDisplay> with TickerProviderStateMix
   void dispose() {
     _colorController.dispose();
     widget.userPointsNotifier.removeListener(_onScoreChanged);
+
     super.dispose();
   }
 
@@ -147,7 +150,7 @@ class StudyScreen extends StatefulWidget {
   _StudyScreenState createState() => _StudyScreenState();
 }
 
-class _StudyScreenState extends State<StudyScreen> with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
+class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   Map<int, ValueNotifier<bool>> starredNotifiers = {};
   late TabController _tabController;
   bool _isMenuExpanded = false;
@@ -176,7 +179,9 @@ class _StudyScreenState extends State<StudyScreen> with SingleTickerProviderStat
   Map<int, Future<List<String>>> exampleSentences = {};
   ValueNotifier<bool> _isAtBottom = ValueNotifier<bool>(false);
   int score = 0;
-
+  String? _selectedType;
+  String? _selectedLevel;
+  int _maxSentencesToShow = 10; // Varsayılan olarak maksimum 10 cümle
   Map<int, ValueNotifier<int>> _currentSentenceIndices = {};
   bool _isDarkMode = false; // Dark mode durumu
   late ScrollController _scrollController;
@@ -225,11 +230,14 @@ class _StudyScreenState extends State<StudyScreen> with SingleTickerProviderStat
     });
   }
   bool _showScrollButton = false;
-
+  late AnimationController _filterPanelController;
+  late Animation<double> _filterPanelAnimation;
+  bool _isFilterPanelVisible = false;
   @override
   void initState() {
     super.initState();
     ApiService().logSetEntry('Çalış Modu', 'Çalış moduna ', '');
+    _initializeTts();
 
     // Kontrolcülerin başlatılması
     _scrollController = ScrollController();
@@ -239,7 +247,15 @@ class _StudyScreenState extends State<StudyScreen> with SingleTickerProviderStat
 
     // Dinleyicilerin eklenmesi
     _scrollController.addListener(_scrollListener);
+    _filterPanelController = AnimationController(
+      duration: const Duration(milliseconds: 250),
+      vsync: this,
+    );
 
+    _filterPanelAnimation = CurvedAnimation(
+      parent: _filterPanelController,
+      curve: Curves.easeInOut,
+    );
     // Başlangıç değerlerinin ayarlanması
     _loadDarkModePreference();
     filteredWords = widget.words;
@@ -349,6 +365,11 @@ class _StudyScreenState extends State<StudyScreen> with SingleTickerProviderStat
       throw e;
     }
   }
+// Var olan _toggleFilterPanel fonksiyonunu değiştirin
+  void _toggleFilterPanel() {
+    WordDetail currentWord = getDisplayedWords()[_selectedPageIndex.value];
+    _showFilterPanel(currentWord, _filteredSentences);
+  }
   @override
   void dispose() {
     _pageController.dispose();
@@ -357,11 +378,22 @@ class _StudyScreenState extends State<StudyScreen> with SingleTickerProviderStat
     _tabController.dispose();
     _searchController.dispose();
     _sentencePageController.dispose();
+    _filterPanelController.dispose();
+    _sentencePageControllers.forEach((_, controller) => controller.dispose());
     for (var controller in _sentencePageControllers.values) {
       controller.dispose();
     }
     for (var controller in _sentencePageControllers.values) {
       controller.dispose();
+    }
+    _flutterTts.stop();
+
+    // Tüm Notifier'ları temizle
+    for (var notifier in _isPlayingNotifiers.values) {
+      notifier.dispose();
+    }
+    for (var notifier in _currentWordIndexNotifiers.values) {
+      notifier.dispose();
     }
     super.dispose();
   }
@@ -793,7 +825,7 @@ class _StudyScreenState extends State<StudyScreen> with SingleTickerProviderStat
                           color: isCurrentWord ? Colors.white : Colors.black87,
                         ),
                         maxLines: 1,
-                        minFontSize: 12,
+                        minFontSize: 6,
                         overflow: TextOverflow.ellipsis,
                       ),
                       SizedBox(height: 4),
@@ -804,7 +836,7 @@ class _StudyScreenState extends State<StudyScreen> with SingleTickerProviderStat
                           color: isCurrentWord ? Colors.white70 : Colors.black54,
                         ),
                         maxLines: 1,
-                        minFontSize: 10,
+                        minFontSize: 6,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
@@ -907,6 +939,2062 @@ class _StudyScreenState extends State<StudyScreen> with SingleTickerProviderStat
       },
     );
   }
+  List<TextSpan> _getHighlightedText(String text, String wordToHighlight) {
+    if (wordToHighlight.isEmpty) return [TextSpan(text: text)];
+
+    // Büyük/küçük harf duyarsız arama için
+    String pattern = wordToHighlight.toLowerCase();
+    String textLower = text.toLowerCase();
+
+    List<TextSpan> spans = [];
+    int start = 0;
+    int indexOfMatch;
+
+    while (true) {
+      indexOfMatch = textLower.indexOf(pattern, start);
+      if (indexOfMatch == -1) {
+        // Kalan metni ekle
+        if (start < text.length) {
+          spans.add(TextSpan(text: text.substring(start)));
+        }
+        break;
+      }
+
+      // Eşleşmeden önceki metni ekle
+      if (indexOfMatch > start) {
+        spans.add(TextSpan(text: text.substring(start, indexOfMatch)));
+      }
+
+      // Eşleşen kelimeyi vurgulayarak ekle
+      spans.add(TextSpan(
+        text: text.substring(indexOfMatch, indexOfMatch + wordToHighlight.length),
+        style: GoogleFonts.poppins(
+          fontWeight: FontWeight.bold,
+          color: Colors.teal,
+          backgroundColor: Colors.teal.withOpacity(0.1),
+        ),
+      ));
+
+      // İlerleme
+      start = indexOfMatch + wordToHighlight.length;
+    }
+
+    return spans;
+  }
+  List<Map<String, dynamic>> _filteredSentences = [];
+// Açılır filtre paneli oluşturmak için _buildSentencesSection fonksiyonu
+// Eklenmesi gereken sınıf değişkenleri
+  final FlutterTts _flutterTts = FlutterTts();
+  final Map<int, ValueNotifier<bool>> _isPlayingNotifiers = {};
+  final Map<int, ValueNotifier<int>> _currentWordIndexNotifiers = {}; // Okunan kelime indeksi
+  final Map<int, List<String>> _sentenceWordsMap = {}; // Cümleleri kelimelere bölmek için
+
+  Widget _buildSentencesSection(WordDetail word) {
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _loadSentencesFromDatabase(word.word ?? ''),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.teal),
+            ),
+          );
+        } else if (snapshot.hasError) {
+          return Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.red.shade50,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.red.withOpacity(0.1),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Text(
+              'Cümleler yüklenirken bir hata oluştu: ${snapshot.error}',
+              style: GoogleFonts.poppins(
+                fontSize: 16,
+                color: Colors.red.shade700,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          );
+        } else {
+          final sentencesData = snapshot.data;
+          if (sentencesData == null || sentencesData.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.sentiment_dissatisfied,
+                    size: 48,
+                    color: Colors.grey[400],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    "Bu kelime için örnek cümle bulunamadı.",
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      color: Colors.grey[600],
+                      fontWeight: FontWeight.w500,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            );
+          }
+
+          // İlk yüklemede filtrelenmiş cümleleri ayarla
+          if (_filteredSentences.isEmpty) {
+            _filteredSentences = List.from(sentencesData);
+          }
+
+          // PageController kontrolü
+          if (_sentencePageControllers[word.id] == null) {
+            _sentencePageControllers[word.id] = PageController();
+          }
+
+          // Mevcut tüm seviye ve tipleri al
+          Set<String> availableLevels = {};
+          Set<String> availableTypes = {};
+
+          for (var sentence in sentencesData) {
+            if (sentence['level'] != null && sentence['level'].toString().isNotEmpty) {
+              availableLevels.add(sentence['level']);
+            }
+            if (sentence['type'] != null && sentence['type'].toString().isNotEmpty) {
+              availableTypes.add(sentence['type']);
+            }
+          }
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Header ve aktif filtreleri gösteren widget
+              _buildHeaderWithFilters(sentencesData, word),
+
+              // PageView ve cümleler
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  return Container(
+                    key: ValueKey<String>('sentenceContainer_${word.id}_${_filteredSentences.length}'),
+                    constraints: BoxConstraints(
+                      minHeight: 200,
+                      maxHeight: 350,
+                    ),
+                    child: _filteredSentences.isEmpty
+                        ? Center(
+                      child: Text(
+                        "Seçilen filtrelere uygun cümle bulunamadı.",
+                        style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.w500,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    )
+                        : Stack(
+                      children: [
+                        PageView.builder(
+                          key: PageStorageKey<String>('sentences_pageview_${word.id}'),
+                          physics: const BouncingScrollPhysics(),
+                          controller: _sentencePageControllers[word.id]!,
+                          itemCount: _filteredSentences.length,
+                          itemBuilder: (context, index) {
+                            final data = _filteredSentences[index];
+                            final sentence = data['sentence'] ?? '';
+                            final wordToHighlight = word.word ?? '';
+
+                            // Cümleyi kelimelere ayır ve sakla
+                            if (!_sentenceWordsMap.containsKey(index)) {
+                              // Noktalama işaretlerini korumak için düzgün bir şekilde böl
+                              _sentenceWordsMap[index] = _splitSentenceToWords(sentence);
+                            }
+
+                            // Her cümle için bir kelime indeksi izleyicisi oluştur
+                            if (!_currentWordIndexNotifiers.containsKey(index)) {
+                              _currentWordIndexNotifiers[index] = ValueNotifier<int>(-1);
+                            }
+
+                            return Card(
+                              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              elevation: 4,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(16),
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topRight,
+                                    end: Alignment.bottomLeft,
+                                    colors: [Colors.white, Colors.teal.shade50],
+                                  ),
+                                ),
+                                padding: const EdgeInsets.all(20),
+                                child: SingleChildScrollView(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      // Ana cümle - okunan kelime vurgulaması ile
+                                      InkWell(
+                                        onTap: () {
+                                          _speakSentence(sentence, index);
+                                        },
+                                        child: Row(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Expanded(
+                                              child: ValueListenableBuilder<int>(
+                                                valueListenable: _currentWordIndexNotifiers[index]!,
+                                                builder: (context, currentWordIndex, child) {
+                                                  return _buildHighlightedText(
+                                                    _sentenceWordsMap[index]!,
+                                                    wordToHighlight,
+                                                    currentWordIndex,
+                                                  );
+                                                },
+                                              ),
+                                            ),
+                                            // Dinleme butonu
+                                            ValueListenableBuilder<bool>(
+                                              valueListenable: _isPlayingNotifiers.putIfAbsent(index, () => ValueNotifier<bool>(false)),
+                                              builder: (context, isPlaying, child) {
+                                                return IconButton(
+                                                  icon: Icon(
+                                                    isPlaying ? Icons.volume_up : Icons.volume_up_outlined,
+                                                    color: isPlaying ? Colors.teal : Colors.grey,
+                                                  ),
+                                                  onPressed: () {
+                                                    _speakSentence(sentence, index);
+                                                  },
+                                                );
+                                              },
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(height: 12),
+                                      // Türkçe çeviri
+                                      Text(
+                                        data['translate'] ?? '',
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 12,
+                                          color: Colors.grey[700],
+                                          fontStyle: FontStyle.italic,
+                                          height: 1.4,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 16),
+                                      // type ve level bilgilerini gösteren satır
+                                      Row(
+                                        children: [
+                                          if (data['type'] != null)
+                                            Container(
+                                              margin: const EdgeInsets.only(right: 8),
+                                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                              decoration: BoxDecoration(
+                                                color: Colors.teal.shade400,
+                                                borderRadius: BorderRadius.circular(20),
+                                                boxShadow: [
+                                                  BoxShadow(
+                                                    color: Colors.teal.withOpacity(0.2),
+                                                    blurRadius: 4,
+                                                    offset: const Offset(0, 2),
+                                                  ),
+                                                ],
+                                              ),
+                                              child: Text(
+                                                data['type'],
+                                                style: GoogleFonts.poppins(
+                                                  fontSize: 14,
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                            ),
+                                          if (data['level'] != null)
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                              decoration: BoxDecoration(
+                                                color: Colors.orange.shade400,
+                                                borderRadius: BorderRadius.circular(20),
+                                                boxShadow: [
+                                                  BoxShadow(
+                                                    color: Colors.orange.withOpacity(0.2),
+                                                    blurRadius: 4,
+                                                    offset: const Offset(0, 2),
+                                                  ),
+                                                ],
+                                              ),
+                                              child: Text(
+                                                data['level'],
+                                                style: GoogleFonts.poppins(
+                                                  fontSize: 14,
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+
+              const SizedBox(height: 12),
+
+              // Sayfa göstergesi
+              if (_filteredSentences.isNotEmpty) _buildPaginationIndicator(word),
+            ],
+          );
+        }
+      },
+    );
+  }
+
+// Cümleyi kelimelere ayıran yardımcı fonksiyon
+  List<String> _splitSentenceToWords(String sentence) {
+    // Daha basit bir yaklaşım kullanarak cümleyi kelimelere bölelim
+    // Önce boşluklara göre böl
+    List<String> words = sentence.split(' ');
+    List<String> result = [];
+
+    // Her bir öğeyi noktalama işaretlerinden temizle ve ekle
+    for (var word in words) {
+      if (word.isNotEmpty) {
+        // Noktalama işaretlerini korumak istiyorsak doğrudan ekleyebiliriz
+        result.add(word);
+      }
+    }
+
+    return result;
+  }
+// Okunan kelimeyi vurgulayan widget
+// Okunan kelimeyi vurgulayan widget
+  Widget _buildHighlightedText(List<String> words, String wordToHighlight, int currentWordIndex) {
+    final wordToHighlightLower = wordToHighlight.toLowerCase();
+
+    return RichText(
+      text: TextSpan(
+        style: GoogleFonts.poppins(
+          fontSize: 14,
+          color: Colors.black87,
+          height: 1.5,
+        ),
+        children: List.generate(words.length, (index) {
+          final word = words[index];
+          final isWordHighlighted = word.toLowerCase().contains(wordToHighlightLower);
+          final isCurrentlyBeingRead = index == currentWordIndex;
+
+          // Okuma vurgulaması (okunan kelime)
+          if (isCurrentlyBeingRead) {
+            return TextSpan(
+              text: word + (index < words.length - 1 ? ' ' : ''),
+              style: TextStyle(
+                backgroundColor: Colors.yellow.withOpacity(0.5),
+                fontWeight: isWordHighlighted ? FontWeight.bold : FontWeight.normal,
+                color: isWordHighlighted ? Colors.teal : Colors.black,
+              ),
+            );
+          }
+
+          // Aranan kelime vurgulaması
+          if (isWordHighlighted) {
+            return TextSpan(
+              text: word + (index < words.length - 1 ? ' ' : ''),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.teal,
+              ),
+            );
+          }
+
+          // Normal kelime
+          return TextSpan(
+            text: word + (index < words.length - 1 ? ' ' : ''),
+          );
+        }),
+      ),
+    );
+  }
+
+// Cümleyi seslendirme fonksiyonu - kelime vurgulaması eklendi
+  Future<void> _speakSentence(String sentence, int index) async {
+    // Eğer zaten çalıyorsa durdur
+    if (_isPlayingNotifiers[index]?.value == true) {
+      await _flutterTts.stop();
+      _isPlayingNotifiers[index]?.value = false;
+      _currentWordIndexNotifiers[index]?.value = -1; // Vurgulamayı sıfırla
+      return;
+    }
+
+    // TTS ayarları
+    await _flutterTts.setLanguage("en-US"); // İngilizce için
+    await _flutterTts.setSpeechRate(0.5); // Konuşma hızı (yavaş: 0.5)
+    await _flutterTts.setVolume(1.0); // Ses seviyesi
+    await _flutterTts.setPitch(1.0); // Ses tonu
+
+    // Kelime başı olayını dinle
+    _flutterTts.setProgressHandler((String text, int startOffset, int endOffset, String word) {
+      // Okunan kelimeyi bul ve vurgula
+      if (word.isNotEmpty) {
+        final words = _sentenceWordsMap[index] ?? [];
+        int wordIdx = -1;
+
+        // Tam kelime eşleşme kontrolü
+        for (int i = 0; i < words.length; i++) {
+          if (words[i].toLowerCase() == word.toLowerCase()) {
+            wordIdx = i;
+            break;
+          }
+        }
+
+        // Tam eşleşme bulunamadıysa, içeren kelimeleri ara
+        if (wordIdx == -1) {
+          for (int i = 0; i < words.length; i++) {
+            if (words[i].toLowerCase().contains(word.toLowerCase()) ||
+                word.toLowerCase().contains(words[i].toLowerCase())) {
+              wordIdx = i;
+              break;
+            }
+          }
+        }
+
+        if (wordIdx != -1) {
+          _currentWordIndexNotifiers[index]?.value = wordIdx;
+        }
+      }
+    });
+
+    // Çalma/durma durumunu takip etmek için dinleyicileri ekle
+    _flutterTts.setCompletionHandler(() {
+      _isPlayingNotifiers[index]?.value = false;
+      _currentWordIndexNotifiers[index]?.value = -1; // Vurgulamayı sıfırla
+    });
+
+    _flutterTts.setErrorHandler((error) {
+      _isPlayingNotifiers[index]?.value = false;
+      _currentWordIndexNotifiers[index]?.value = -1; // Vurgulamayı sıfırla
+    });
+
+    // Ses simgesini aktif hale getir
+    _isPlayingNotifiers[index]?.value = true;
+    _currentWordIndexNotifiers[index]?.value = -1; // Vurgulamayı başlangıçta sıfırla
+
+    // Cümleyi okut
+    await _flutterTts.speak(sentence);
+  }
+
+// TTS'i başlat
+  Future<void> _initializeTts() async {
+    await _flutterTts.setLanguage("en-US");
+
+    // TTS'in özelliklerini kontrol et - bu metod hataya sebep oluyordu
+    try {
+      bool hasProgressFeature = await _flutterTts.isLanguageAvailable("en-US");
+
+      if (hasProgressFeature) {
+        print("TTS başarıyla başlatıldı ve İngilizce destekleniyor!");
+      } else {
+        print("Bu dil desteklenmiyor, başka bir dil seçin");
+      }
+    } catch (e) {
+      print("TTS başlatılırken hata oluştu: $e");
+    }
+  }
+  // Gerekli import'lar:
+// import 'package:flutter_tts/flutter_tts.dart';
+Widget _buildFloatingFilterButton(WordDetail word, List<Map<String, dynamic>> sentencesData) {
+    return GestureDetector(
+      onTap: () => _showFilterModal(word, sentencesData),
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.15),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
+          border: Border.all(
+            color: Colors.teal.shade300,
+            width: 1.5,
+          ),
+        ),
+        child: Icon(
+          Icons.filter_list,
+          size: 22,
+          color: Colors.teal.shade700,
+        ),
+      ),
+    );
+  }
+
+  // Header ve aktif filtreleri gösteren widget
+  Widget _buildHeaderWithFilters(List<Map<String, dynamic>> sentencesData, WordDetail word) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // Sayfa bilgisi
+          AnimatedBuilder(
+            animation: _sentencePageControllers[word.id]!,
+            builder: (context, _) {
+              int currentPage = _sentencePageControllers[word.id]!.hasClients
+                  ? (_sentencePageControllers[word.id]!.page?.round() ?? 0)
+                  : 0;
+
+              return RichText(
+                text: TextSpan(
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    color: Colors.grey.shade700,
+                  ),
+                  children: [
+                    TextSpan(
+                      text: "Cümle ",
+                      style: TextStyle(
+                        fontWeight: FontWeight.normal,
+                      ),
+                    ),
+                    TextSpan(
+                      text: "${currentPage + 1}/${_filteredSentences.length}",
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.teal.shade700,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+
+          // Filtre chips ve ayarlar butonu (header'da)
+          Row(
+            children: [
+              // Aktif filtre bilgileri
+              if (_selectedLevel != null)
+                _buildFilterChip(
+                  label: _selectedLevel!,
+                  color: Colors.orange.shade400,
+                  onTap: _toggleFilterPanel,
+                ),
+
+              if (_selectedType != null)
+                _buildFilterChip(
+                  label: _selectedType!,
+                  color: Colors.teal.shade400,
+                  onTap: _toggleFilterPanel,
+                ),
+
+              // Header'daki ayarlar butonu
+              GestureDetector(
+                onTap: () => _showFilterModal(word, sentencesData),
+                child: Container(
+                  margin: const EdgeInsets.only(left: 8),
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.08),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                    border: Border.all(
+                      color: Colors.teal.shade300,
+                      width: 1.5,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.filter_list_rounded,
+                        size: 18,
+                        color: Colors.teal.shade700,
+                      ),
+                      SizedBox(width: 6),
+                      Text(
+                        "Filtrele",
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.teal.shade700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              )            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Cümle kartının yanında görünen yüzen filtreleme butonu
+
+  // Aktif filtre gösterge chip'i
+  Widget _buildFilterChip({
+    required String label,
+    required Color color,
+    required VoidCallback onTap
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(left: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.2),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                color: color,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  void _filterSentences(List<Map<String, dynamic>> allSentences, WordDetail word) {
+    setState(() {
+      // Filtreleri uygula
+      _filteredSentences = allSentences.where((sentence) {
+        // Seviye filtreleme
+        bool levelMatch = _selectedLevel == null ||
+            sentence['level'] == _selectedLevel;
+
+        // Tür filtreleme
+        bool typeMatch = _selectedType == null ||
+            sentence['type'] == _selectedType;
+
+        return levelMatch && typeMatch;
+      }).toList();
+
+      // Maksimum cümle sayısı sınırlama - eğer _maxSentencesToShow 0 ise tüm cümleleri göster
+      if (_maxSentencesToShow > 0 && _filteredSentences.length > _maxSentencesToShow) {
+        _filteredSentences = _filteredSentences.sublist(0, _maxSentencesToShow);
+      }
+
+      // PageController'ı sıfırla
+      if (_sentencePageControllers[word.id]?.hasClients == true) {
+        _sentencePageControllers[word.id]!.jumpToPage(0);
+      }
+
+      // İşlem sonrası filtrelenmiş cümle sayısı kontrolü
+      if (_filteredSentences.isEmpty && allSentences.isNotEmpty) {
+        // Kullanıcıya görsel feedback vermek için mesaj gösterilebilir
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Seçilen filtrelere uygun cümle bulunamadı'),
+            duration: Duration(seconds: 2),
+            backgroundColor: Colors.orange,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+      }
+    });
+  }
+
+
+// Filtre panelini açmak için bu fonksiyonu çağırın
+  void _showFilterPanel(WordDetail word, List<Map<String, dynamic>> sentencesData) {
+    // Mevcut değerleri geçici olarak saklayalım
+    String? tempSelectedLevel = _selectedLevel;
+    String? tempSelectedType = _selectedType;
+    int tempMaxSentences = _maxSentencesToShow;
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            // Mevcut filtrelerin durumunu alın
+            Set<String> availableLevels = {};
+            Set<String> availableTypes = {};
+
+            for (var sentence in sentencesData) {
+              if (sentence['level'] != null && sentence['level'].toString().isNotEmpty) {
+                availableLevels.add(sentence['level']);
+              }
+              if (sentence['type'] != null && sentence['type'].toString().isNotEmpty) {
+                availableTypes.add(sentence['type']);
+              }
+            }
+
+            // Burada filtrelenen cümle sayısını hesaplıyoruz
+            List<Map<String, dynamic>> tempFilteredSentences = sentencesData.where((sentence) {
+              bool levelMatch = tempSelectedLevel == null || sentence['level'] == tempSelectedLevel;
+              bool typeMatch = tempSelectedType == null || sentence['type'] == tempSelectedType;
+              return levelMatch && typeMatch;
+            }).toList();
+
+            int totalFilteredCount = tempFilteredSentences.length;
+            int displayCount = tempMaxSentences == 0 ? totalFilteredCount :
+            (tempMaxSentences < totalFilteredCount ? tempMaxSentences : totalFilteredCount);
+
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              insetPadding: EdgeInsets.all(20),
+              child: Container(
+                width: double.infinity,
+                constraints: BoxConstraints(maxWidth: 500),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 10,
+                      offset: Offset(0, 5),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Panel Başlığı
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Colors.teal.shade700, Colors.teal.shade500],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.only(
+                          topLeft: Radius.circular(20),
+                          topRight: Radius.circular(20),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.filter_list, color: Colors.white, size: 24),
+                          SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              "Cümle Filtreleri",
+                              style: GoogleFonts.poppins(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            padding: EdgeInsets.zero,
+                            constraints: BoxConstraints(),
+                            icon: Icon(Icons.close, color: Colors.white),
+                            onPressed: () => Navigator.of(context).pop(),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Panel İçeriği
+                    Flexible(
+                      child: SingleChildScrollView(
+                        child: Padding(
+                          padding: EdgeInsets.all(24),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Bilgi Satırı
+                              Container(
+                                padding: EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.teal.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: Colors.teal.withOpacity(0.3),
+                                    width: 1,
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.info_outline, color: Colors.teal.shade700, size: 20),
+                                    SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            "Filtreleme Bilgisi",
+                                            style: GoogleFonts.poppins(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w600,
+                                              color: Colors.teal.shade700,
+                                            ),
+                                          ),
+                                          SizedBox(height: 4),
+                                          Text(
+                                            "Toplam $totalFilteredCount cümle içinden $displayCount tanesi gösterilecek",
+                                            style: GoogleFonts.poppins(
+                                              fontSize: 13,
+                                              color: Colors.teal.shade800,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+
+                              SizedBox(height: 24),
+
+                              // Tümünü Göster Butonu
+                              Container(
+                                width: double.infinity,
+                                margin: EdgeInsets.symmetric(vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: Colors.teal.shade600,
+                                  borderRadius: BorderRadius.circular(14),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.teal.withOpacity(0.15),
+                                      offset: Offset(0, 3),
+                                      blurRadius: 8,
+                                      spreadRadius: 0,
+                                    ),
+                                  ],
+                                ),
+                                child: ElevatedButton.icon(
+                                  icon: Padding(
+                                    padding: EdgeInsets.only(right: 8),
+                                    child: Icon(
+                                      Icons.visibility_outlined,
+                                      size: 20,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  label: Text(
+                                    "Tüm Cümleleri Göster",
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.transparent,
+                                    disabledBackgroundColor: Colors.transparent,
+                                    foregroundColor: Colors.white,
+                                    elevation: 0,
+                                    padding: EdgeInsets.symmetric(vertical: 18),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                    shadowColor: Colors.transparent,
+                                  ),
+                                  onPressed: () {
+                                    setDialogState(() {
+                                      tempSelectedLevel = null;
+                                      tempSelectedType = null;
+                                      tempMaxSentences = 0;
+                                    });
+                                  },
+                                ),
+                              ),
+                              SizedBox(height: 24),
+
+                              // Seviye Filtresi
+                              Text(
+                                "Seviye",
+                                style: GoogleFonts.poppins(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.orange.shade700,
+                                ),
+                              ),
+                              SizedBox(height: 12),
+                              Wrap(
+                                spacing: 10,
+                                runSpacing: 10,
+                                children: [
+                                  _buildDialogFilterOption(
+                                    label: "Tümü",
+                                    isSelected: tempSelectedLevel == null,
+                                    color: Colors.orange.shade400,
+                                    onTap: () {
+                                      setDialogState(() {
+                                        tempSelectedLevel = null;
+                                      });
+                                    },
+                                  ),
+                                  ...availableLevels.map((level) => _buildDialogFilterOption(
+                                    label: level,
+                                    isSelected: tempSelectedLevel == level,
+                                    color: Colors.orange.shade400,
+                                    onTap: () {
+                                      setDialogState(() {
+                                        tempSelectedLevel = level;
+                                      });
+                                    },
+                                  )).toList(),
+                                ],
+                              ),
+
+                              SizedBox(height: 24),
+
+                              // Tür Filtresi
+                              Text(
+                                "Cümle Tipi",
+                                style: GoogleFonts.poppins(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.teal.shade700,
+                                ),
+                              ),
+                              SizedBox(height: 12),
+                              Wrap(
+                                spacing: 10,
+                                runSpacing: 10,
+                                children: [
+                                  _buildDialogFilterOption(
+                                    label: "Tümü",
+                                    isSelected: tempSelectedType == null,
+                                    color: Colors.teal.shade400,
+                                    onTap: () {
+                                      setDialogState(() {
+                                        tempSelectedType = null;
+                                      });
+                                    },
+                                  ),
+                                  ...availableTypes.map((type) => _buildDialogFilterOption(
+                                    label: type,
+                                    isSelected: tempSelectedType == type,
+                                    color: Colors.teal.shade400,
+                                    onTap: () {
+                                      setDialogState(() {
+                                        tempSelectedType = type;
+                                      });
+                                    },
+                                  )).toList(),
+                                ],
+                              ),
+
+                              SizedBox(height: 24),
+
+                              // Gösterilecek Cümle Sayısı
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    "Gösterilecek Cümle Sayısı",
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.grey.shade800,
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: tempMaxSentences == 0 ? Colors.teal.shade100 : Colors.grey.shade100,
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(
+                                        color: tempMaxSentences == 0 ? Colors.teal : Colors.grey.shade300,
+                                        width: 1,
+                                      ),
+                                    ),
+                                    child: Text(
+                                      tempMaxSentences == 0 ? "Tümü" : tempMaxSentences.toString(),
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        color: tempMaxSentences == 0 ? Colors.teal : Colors.grey.shade700,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              SizedBox(height: 12),
+
+                              // Sayı Seçenekleri
+                              Container(
+                                padding: EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.withOpacity(0.05),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Wrap(
+                                  spacing: 12,
+                                  runSpacing: 12,
+                                  alignment: WrapAlignment.center,
+                                  children: [
+                                    _buildDialogNumberOption(0, "Tümü", tempMaxSentences, (value) {
+                                      setDialogState(() {
+                                        tempMaxSentences = value;
+                                      });
+                                    }),
+                                    _buildDialogNumberOption(5, "5", tempMaxSentences, (value) {
+                                      setDialogState(() {
+                                        tempMaxSentences = value;
+                                      });
+                                    }),
+                                    _buildDialogNumberOption(10, "10", tempMaxSentences, (value) {
+                                      setDialogState(() {
+                                        tempMaxSentences = value;
+                                      });
+                                    }),
+                                    _buildDialogNumberOption(20, "20", tempMaxSentences, (value) {
+                                      setDialogState(() {
+                                        tempMaxSentences = value;
+                                      });
+                                    }),
+                                    _buildDialogNumberOption(30, "30", tempMaxSentences, (value) {
+                                      setDialogState(() {
+                                        tempMaxSentences = value;
+                                      });
+                                    }),
+                                    _buildDialogNumberOption(50, "50", tempMaxSentences, (value) {
+                                      setDialogState(() {
+                                        tempMaxSentences = value;
+                                      });
+                                    }),
+                                    _buildDialogNumberOption(100, "100", tempMaxSentences, (value) {
+                                      setDialogState(() {
+                                        tempMaxSentences = value;
+                                      });
+                                    }),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    // Panel Alt Butonları
+                    Container(
+                      padding: EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        borderRadius: BorderRadius.only(
+                          bottomLeft: Radius.circular(20),
+                          bottomRight: Radius.circular(20),
+                        ),
+                        border: Border(
+                          top: BorderSide(
+                            color: Colors.grey.shade200,
+                            width: 1,
+                          ),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          // İptal Butonu
+                          Expanded(
+                            child: OutlinedButton(
+                              child: Text(
+                                "İptal",
+                                style: GoogleFonts.poppins(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.grey.shade800,
+                                padding: EdgeInsets.symmetric(vertical: 16),
+                                side: BorderSide(color: Colors.grey.shade300),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              onPressed: () {
+                                Navigator.of(context).pop();
+                              },
+                            ),
+                          ),
+                          SizedBox(width: 12),
+
+                          // Uygula Butonu
+                          Expanded(
+                            flex: 2,
+                            child: ElevatedButton(
+                              child: Text(
+                                "Filtreleri Uygula",
+                                style: GoogleFonts.poppins(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.teal.shade700,
+                                foregroundColor: Colors.white,
+                                padding: EdgeInsets.symmetric(vertical: 16),
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              onPressed: () {
+                                // Değişiklikleri kaydet ve uygula
+                                setState(() {
+                                  _selectedLevel = tempSelectedLevel;
+                                  _selectedType = tempSelectedType;
+                                  _maxSentencesToShow = tempMaxSentences;
+                                  _filterSentences(sentencesData, word);
+                                });
+                                Navigator.of(context).pop();
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+// Filtre seçenekleri için buton (Dialog için)
+  Widget _buildDialogFilterOption({
+    required String label,
+    required bool isSelected,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? color : Colors.transparent,
+          borderRadius: BorderRadius.circular(30),
+          border: Border.all(
+            color: isSelected ? color : Colors.grey.shade300,
+            width: 1.5,
+          ),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: isSelected ? Colors.white : Colors.grey.shade800,
+          ),
+        ),
+      ),
+    );
+  }
+
+// Sayı seçimi için buton (Dialog için)
+  Widget _buildDialogNumberOption(
+      int value,
+      String label,
+      int currentValue,
+      Function(int) onSelected,
+      ) {
+    bool isSelected = currentValue == value;
+
+    return GestureDetector(
+      onTap: () => onSelected(value),
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.teal : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? Colors.teal : Colors.grey.shade300,
+            width: 1.5,
+          ),
+          boxShadow: isSelected ? [
+            BoxShadow(
+              color: Colors.teal.withOpacity(0.2),
+              blurRadius: 4,
+              offset: Offset(0, 2),
+            ),
+          ] : null,
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: isSelected ? Colors.white : Colors.grey.shade700,
+          ),
+        ),
+      ),
+    );
+  }
+
+
+// Floating filtre butonu da yeni modal dialog'u açacak
+  void _showFilterModal(WordDetail word, List<Map<String, dynamic>> sentencesData) {
+    // Mevcut değerleri geçici olarak saklayalım
+    String? tempSelectedLevel = _selectedLevel;
+    String? tempSelectedType = _selectedType;
+    int tempMaxSentences = _maxSentencesToShow;
+
+    // Mevcut tüm seviye ve tipleri al
+    Set<String> availableLevels = {};
+    Set<String> availableTypes = {};
+
+    for (var sentence in sentencesData) {
+      if (sentence['level'] != null && sentence['level'].toString().isNotEmpty) {
+        availableLevels.add(sentence['level']);
+      }
+      if (sentence['type'] != null && sentence['type'].toString().isNotEmpty) {
+        availableTypes.add(sentence['type']);
+      }
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            // Burada filtrelenen cümle sayısını hesaplıyoruz
+            List<Map<String, dynamic>> tempFilteredSentences = sentencesData.where((sentence) {
+              bool levelMatch = tempSelectedLevel == null || sentence['level'] == tempSelectedLevel;
+              bool typeMatch = tempSelectedType == null || sentence['type'] == tempSelectedType;
+              return levelMatch && typeMatch;
+            }).toList();
+
+            int totalFilteredCount = tempFilteredSentences.length;
+            int displayCount = tempMaxSentences == 0 ? totalFilteredCount :
+            (tempMaxSentences < totalFilteredCount ? tempMaxSentences : totalFilteredCount);
+
+            return DraggableScrollableSheet(
+              initialChildSize: 0.8, // Sayfanın %80'ini kaplar
+              minChildSize: 0.5,     // En az %50'sini kaplar
+              maxChildSize: 0.95,    // En fazla %95'ini kaplar
+              builder: (_, scrollController) {
+                return Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(24),
+                      topRight: Radius.circular(24),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black26,
+                        blurRadius: 10.0,
+                        offset: Offset(0, -2),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      // Tutamak çizgisi
+                      Container(
+                        margin: EdgeInsets.only(top: 12),
+                        height: 4,
+                        width: 40,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade300,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+
+                      // Panel Başlığı
+                      Container(
+                        padding: EdgeInsets.fromLTRB(24, 24, 24, 16),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.teal.shade50,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Icon(
+                                Icons.filter_list_rounded,
+                                color: Colors.teal.shade700,
+                                size: 24,
+                              ),
+                            ),
+                            SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    "Cümle Filtreleri",
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.grey.shade800,
+                                    ),
+                                  ),
+                                  SizedBox(height: 4),
+                                  Text(
+                                    "Görmek istediğiniz cümleleri filtreleyin",
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 14,
+                                      color: Colors.grey.shade600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // Bilgi Paneli
+                      Container(
+                        margin: EdgeInsets.symmetric(horizontal: 24),
+                        padding: EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.teal.shade50,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.info_outline, color: Colors.teal.shade700),
+                            SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                "Toplam $totalFilteredCount cümle içinden $displayCount tanesi gösterilecek",
+                                style: GoogleFonts.poppins(
+                                  fontSize: 14,
+                                  color: Colors.teal.shade800,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // Filtre İçeriği
+                      Expanded(
+                        child: ListView(
+                          controller: scrollController,
+                          padding: EdgeInsets.fromLTRB(24, 16, 24, 24),
+                          children: [
+                            // Tümünü Göster Butonu
+                            Container(
+                              margin: EdgeInsets.only(bottom: 24),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [Colors.teal.shade700, Colors.teal.shade500],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                borderRadius: BorderRadius.circular(16),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.teal.withOpacity(0.25),
+                                    offset: Offset(0, 4),
+                                    blurRadius: 12,
+                                    spreadRadius: 0,
+                                  ),
+                                ],
+                              ),
+                              child: ElevatedButton.icon(
+                                icon: Stack(
+                                  alignment: Alignment.center,
+                                  children: [
+                                    Container(
+                                      padding: EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withOpacity(0.2),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Icon(
+                                        Icons.visibility_outlined,
+                                        size: 20,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                label: Text(
+                                  "Tüm Cümleleri Göster",
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: 0.5,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.transparent,
+                                  foregroundColor: Colors.white,
+                                  padding: EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  elevation: 0,
+                                  shadowColor: Colors.transparent,
+                                ),
+                                onPressed: () {
+                                  setModalState(() {
+                                    tempSelectedLevel = null;
+                                    tempSelectedType = null;
+                                    tempMaxSentences = 0; // 0 değeri tüm cümleleri gösterir
+                                  });
+                                },
+                              ),
+                            ),
+                            // Seviye Seçimi
+                            Container(
+                              margin: EdgeInsets.only(bottom: 24),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Container(
+                                        padding: EdgeInsets.all(6),
+                                        decoration: BoxDecoration(
+                                          color: Colors.orange.shade100,
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: Icon(
+                                          Icons.signal_cellular_alt,
+                                          color: Colors.orange.shade700,
+                                          size: 18,
+                                        ),
+                                      ),
+                                      SizedBox(width: 12),
+                                      Text(
+                                        "Seviye Seçimi",
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.orange.shade800,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  SizedBox(height: 12),
+                                  Wrap(
+                                    spacing: 10,
+                                    runSpacing: 10,
+                                    children: [
+                                      _buildModalFilterOption(
+                                        label: "Tümü",
+                                        isSelected: tempSelectedLevel == null,
+                                        color: Colors.orange.shade400,
+                                        onTap: () {
+                                          setModalState(() {
+                                            tempSelectedLevel = null;
+                                          });
+                                        },
+                                      ),
+                                      ...availableLevels.map((level) => _buildModalFilterOption(
+                                        label: level,
+                                        isSelected: tempSelectedLevel == level,
+                                        color: Colors.orange.shade400,
+                                        onTap: () {
+                                          setModalState(() {
+                                            tempSelectedLevel = level;
+                                          });
+                                        },
+                                      )).toList(),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            // Cümle Tipi Seçimi
+                            Container(
+                              margin: EdgeInsets.only(bottom: 24),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Container(
+                                        padding: EdgeInsets.all(6),
+                                        decoration: BoxDecoration(
+                                          color: Colors.teal.shade100,
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: Icon(
+                                          Icons.category,
+                                          color: Colors.teal.shade700,
+                                          size: 18,
+                                        ),
+                                      ),
+                                      SizedBox(width: 12),
+                                      Text(
+                                        "Cümle Tipi",
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.teal.shade800,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  SizedBox(height: 12),
+                                  Wrap(
+                                    spacing: 10,
+                                    runSpacing: 10,
+                                    children: [
+                                      _buildModalFilterOption(
+                                        label: "Tümü",
+                                        isSelected: tempSelectedType == null,
+                                        color: Colors.teal.shade400,
+                                        onTap: () {
+                                          setModalState(() {
+                                            tempSelectedType = null;
+                                          });
+                                        },
+                                      ),
+                                      ...availableTypes.map((type) => _buildModalFilterOption(
+                                        label: type,
+                                        isSelected: tempSelectedType == type,
+                                        color: Colors.teal.shade400,
+                                        onTap: () {
+                                          setModalState(() {
+                                            tempSelectedType = type;
+                                          });
+                                        },
+                                      )).toList(),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            // Cümle Sayısı Seçimi
+                            Container(
+                              margin: EdgeInsets.only(bottom: 24),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Container(
+                                        padding: EdgeInsets.all(6),
+                                        decoration: BoxDecoration(
+                                          color: Colors.blue.shade100,
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: Icon(
+                                          Icons.format_list_numbered,
+                                          color: Colors.blue.shade700,
+                                          size: 18,
+                                        ),
+                                      ),
+                                      SizedBox(width: 12),
+                                      Text(
+                                        "Gösterilecek Cümle Sayısı",
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.blue.shade800,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  SizedBox(height: 4),
+                                  Text(
+                                    "Şu an: ${tempMaxSentences == 0 ? 'Tümü' : tempMaxSentences.toString()}",
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 14,
+                                      color: Colors.grey.shade600,
+                                    ),
+                                  ),
+                                  SizedBox(height: 12),
+                                  Wrap(
+                                    spacing: 10,
+                                    runSpacing: 10,
+                                    children: [
+                                      _buildModalNumberOption(0, "Tümü", tempMaxSentences, (value) {
+                                        setModalState(() {
+                                          tempMaxSentences = value;
+                                        });
+                                      }),
+                                      _buildModalNumberOption(5, "5", tempMaxSentences, (value) {
+                                        setModalState(() {
+                                          tempMaxSentences = value;
+                                        });
+                                      }),
+                                      _buildModalNumberOption(10, "10", tempMaxSentences, (value) {
+                                        setModalState(() {
+                                          tempMaxSentences = value;
+                                        });
+                                      }),
+                                      _buildModalNumberOption(20, "20", tempMaxSentences, (value) {
+                                        setModalState(() {
+                                          tempMaxSentences = value;
+                                        });
+                                      }),
+                                      _buildModalNumberOption(30, "30", tempMaxSentences, (value) {
+                                        setModalState(() {
+                                          tempMaxSentences = value;
+                                        });
+                                      }),
+                                      _buildModalNumberOption(50, "50", tempMaxSentences, (value) {
+                                        setModalState(() {
+                                          tempMaxSentences = value;
+                                        });
+                                      }),
+                                      _buildModalNumberOption(100, "100", tempMaxSentences, (value) {
+                                        setModalState(() {
+                                          tempMaxSentences = value;
+                                        });
+                                      }),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // Alt Butonlar
+                      Container(
+                        padding: EdgeInsets.fromLTRB(24, 0, 24, 24),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.05),
+                              offset: Offset(0, -4),
+                              blurRadius: 6,
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            // İptal Butonu
+                            Expanded(
+                              child: OutlinedButton(
+                                child: Text(
+                                  "İptal",
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: Colors.grey.shade700,
+                                  padding: EdgeInsets.symmetric(vertical: 16),
+                                  side: BorderSide(color: Colors.grey.shade300),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                onPressed: () {
+                                  Navigator.of(context).pop();
+                                },
+                              ),
+                            ),
+                            SizedBox(width: 12),
+
+                            // Uygula Butonu
+                            Expanded(
+                              flex: 2,
+                              child: ElevatedButton(
+                                child: Text(
+                                  "Filtreleri Uygula",
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.teal.shade700,
+                                  foregroundColor: Colors.white,
+                                  padding: EdgeInsets.symmetric(vertical: 16),
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                onPressed: () {
+                                  // Değişiklikleri kaydet ve uygula
+                                  setState(() {
+                                    _selectedLevel = tempSelectedLevel;
+                                    _selectedType = tempSelectedType;
+                                    _maxSentencesToShow = tempMaxSentences;
+                                    _filterSentences(sentencesData, word);
+                                  });
+                                  Navigator.of(context).pop();
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+  Widget _buildModalFilterOption({
+    required String label,
+    required bool isSelected,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? color : Colors.transparent,
+          borderRadius: BorderRadius.circular(30),
+          border: Border.all(
+            color: isSelected ? color : Colors.grey.shade300,
+            width: 1.5,
+          ),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: isSelected ? Colors.white : Colors.grey.shade800,
+          ),
+        ),
+      ),
+    );
+  }
+
+// Sayı seçimi için buton (Modal için)
+  Widget _buildModalNumberOption(
+      int value,
+      String label,
+      int currentValue,
+      Function(int) onSelected,
+      ) {
+    bool isSelected = currentValue == value;
+
+    return GestureDetector(
+      onTap: () => onSelected(value),
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.blue.shade500 : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? Colors.blue.shade500 : Colors.grey.shade300,
+            width: 1.5,
+          ),
+          boxShadow: isSelected ? [
+            BoxShadow(
+              color: Colors.blue.withOpacity(0.2),
+              blurRadius: 4,
+              offset: Offset(0, 2),
+            ),
+          ] : null,
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: isSelected ? Colors.white : Colors.grey.shade700,
+          ),
+        ),
+      ),
+    );
+  }
+  // Sayı seçimlerini buton şeklinde göstermek için yeni bir widget
+  Widget _buildNumberOption(int value, String label, List<Map<String, dynamic>> sentencesData, WordDetail word) {
+    bool isSelected = _maxSentencesToShow == value;
+
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _maxSentencesToShow = value;
+          _filterSentences(sentencesData, word);
+        });
+      },
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.teal : Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSelected ? Colors.teal : Colors.grey.shade300,
+            width: 1,
+          ),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: isSelected ? Colors.white : Colors.grey.shade700,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Filtreleme seçeneği (radio button benzeri)
+  Widget _buildFilterOption({
+    required String label,
+    required bool isSelected,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? color : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? color : Colors.grey.shade300,
+            width: 1.5,
+          ),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: isSelected ? Colors.white : Colors.grey.shade700,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Aksiyon butonu
+  Widget _buildActionButton({
+    required String label,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return ElevatedButton.icon(
+      onPressed: onTap,
+      icon: Icon(icon, size: 16),
+      label: Text(
+        label,
+        style: GoogleFonts.poppins(
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: color,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+    );
+  }
+
+  // Geliştirilmiş, kaydırılabilir sayfa göstergesi
+  Widget _buildPaginationIndicator(WordDetail word) {
+    return AnimatedBuilder(
+      animation: _sentencePageControllers[word.id]!,
+      builder: (context, _) {
+        int currentPage = _sentencePageControllers[word.id]!.hasClients
+            ? (_sentencePageControllers[word.id]!.page?.round() ?? 0)
+            : 0;
+
+        // Nokta göstergelerini içeren kaydırılabilir konteyner
+        return Container(
+          height: 24,
+          child: _filteredSentences.length > 10
+              ? _buildScrollablePaginationDots(currentPage,word)
+              : _buildFixedPaginationDots(currentPage),
+        );
+      },
+    );
+  }
+
+  // 10'dan az sayfa için statik pagination dots
+  Widget _buildFixedPaginationDots(int currentPage) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(
+        _filteredSentences.length,
+            (index) => Container(
+          margin: const EdgeInsets.symmetric(horizontal: 4),
+          width: index == currentPage ? 24 : 8,
+          height: 8,
+          decoration: BoxDecoration(
+            color: index == currentPage ? Colors.teal : Colors.grey.shade300,
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // 10'dan fazla sayfa için kaydırılabilir pagination dots
+  Widget _buildScrollablePaginationDots(int currentPage, WordDetail word) {
+    return LayoutBuilder(
+        builder: (context, constraints) {
+          // Kaydırılabilir genişlik için mevcut genişlik
+          final availableWidth = constraints.maxWidth;
+
+          // Her bir noktanın genişliği (margin dahil)
+          const dotWidth = 16.0; // 8 dot + 8 margin
+          const activeDotWidth = 32.0; // 24 dot + 8 margin
+
+          // Ekranda gösterilebilecek maksimum nokta sayısı
+          final maxVisibleDots = (availableWidth - activeDotWidth) ~/ dotWidth;
+
+          // Başlangıç ve bitiş indeksi
+          int startIdx = 0;
+          int endIdx = _filteredSentences.length - 1;
+
+          // Eğer nokta sayısı ekran sığacağından fazlaysa, aktif sayfaya göre aralık belirle
+          if (_filteredSentences.length > maxVisibleDots) {
+            // Aktif nokta mümkün olduğunca ortada görünsün
+            final halfVisible = (maxVisibleDots - 1) ~/ 2;
+
+            // Başlangıç indeksi hesapla
+            startIdx = currentPage - halfVisible;
+
+            // Sınırları ayarla
+            if (startIdx < 0) {
+              startIdx = 0;
+            }
+
+            // Bitiş indeksi hesapla
+            endIdx = startIdx + maxVisibleDots - 1;
+
+            // Bitiş indeksi toplam sayıyı aşmasın
+            if (endIdx >= _filteredSentences.length) {
+              endIdx = _filteredSentences.length - 1;
+              // Başlangıç indeksini tekrar ayarla
+              startIdx = endIdx - maxVisibleDots + 1;
+              if (startIdx < 0) startIdx = 0;
+            }
+          }
+
+          return SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Sol ok göstergesi (gerekirse)
+                if (startIdx > 0)
+                  GestureDetector(
+                    onTap: () {
+                      _sentencePageControllers[word.id]!.animateToPage(
+                        0,
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeInOut,
+                      );
+                    },
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 4),
+                      child: Icon(
+                        Icons.arrow_back_ios,
+                        size: 14,
+                        color: Colors.grey.shade500,
+                      ),
+                    ),
+                  ),
+
+                // Görünür noktalar
+                ...List.generate(
+                  endIdx - startIdx + 1,
+                      (i) {
+                    final index = i + startIdx;
+                    return GestureDetector(
+                      onTap: () {
+                        _sentencePageControllers[word.id]!.animateToPage(
+                          index,
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeInOut,
+                        );
+                      },
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 4),
+                        width: index == currentPage ? 24 : 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: index == currentPage ? Colors.teal : Colors.grey.shade300,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+
+                // Sağ ok göstergesi (gerekirse)
+                if (endIdx < _filteredSentences.length - 1)
+                  GestureDetector(
+                    onTap: () {
+                      _sentencePageControllers[word.id]!.animateToPage(
+                        _filteredSentences.length - 1,
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeInOut,
+                      );
+                    },
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 4),
+                      child: Icon(
+                        Icons.arrow_forward_ios,
+                        size: 14,
+                        color: Colors.grey.shade500,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          );
+        });
+  }
+
   void _loadStarredStatusAsync() async {
     final service = StarredWordsService();
     final starredWordIds = await service.loadStarredWords(widget.classroomId, widget.studySetId);
@@ -1160,7 +3248,7 @@ class _StudyScreenState extends State<StudyScreen> with SingleTickerProviderStat
                   ),
                 ),
                 SizedBox(height: 8),
-                buildSentencePageView(exampleSentences[word.id] ?? Future.value(["Cümle bulunamadı"]), _sentencePageControllers[word.id]!),
+                _buildSentencesSection(word),
                 SizedBox(height: 24),
                 buildAudioNoteWidget(),
 
@@ -1240,6 +3328,49 @@ class _StudyScreenState extends State<StudyScreen> with SingleTickerProviderStat
         ),
       ],
     );
+  }
+  Future<List<Map<String, dynamic>>> _loadSentencesFromDatabase(String word) async {
+    final dbHelper = DatabaseHelper();
+    try {
+      final db = await dbHelper.database;
+
+      // Temel kelime formları için sorgu parametreleri oluştur
+      List<String> wordForms = [];
+
+      // Temel kelime
+      wordForms.add('"$word"');
+
+      // -ing formu
+      wordForms.add('"${word}ing"');
+
+      // -s formu
+      wordForms.add('"${word}s"');
+
+      // Kelimenin son harfine göre özel formlar
+      if (word.endsWith('y')) {
+        // -y ile biten kelimeler için -ies formu
+        String base = word.substring(0, word.length - 1);
+        wordForms.add('"${base}ies"');
+      } else if (word.endsWith('e')) {
+        // -e ile biten kelimeler için -ing formu (e düşer)
+        String base = word.substring(0, word.length - 1);
+        wordForms.add('"${base}ing"');
+      }
+
+      // MATCH koşulları
+      String matchConditions = wordForms.map((_) => 'sentence MATCH ?').join(' OR ');
+
+      // Sorguyu çalıştır
+      final List<Map<String, dynamic>> results = await db.rawQuery('''
+      SELECT * FROM sentences 
+      WHERE $matchConditions
+    ''', wordForms);
+
+      return results;
+    } catch (e) {
+      print("Error getting sentences for word '$word': $e");
+      return []; // Hata durumunda boş liste döndürülür
+    }
   }
 
   void _scrollToBottom() {
@@ -2162,7 +4293,8 @@ class _StudyScreenState extends State<StudyScreen> with SingleTickerProviderStat
       }).toList();
     });
   }
-}class SideMenu extends StatefulWidget {
+}
+class SideMenu extends StatefulWidget {
   final Function(String) onSectionSelected;
   final bool isExpanded;
   final Function(bool) onExpandChanged;
@@ -2177,7 +4309,7 @@ class _StudyScreenState extends State<StudyScreen> with SingleTickerProviderStat
   _SideMenuState createState() => _SideMenuState();
 }
 
-class _SideMenuState extends State<SideMenu> with SingleTickerProviderStateMixin {
+class _SideMenuState extends State<SideMenu> with TickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _widthAnimation;
 
@@ -2194,6 +4326,7 @@ class _SideMenuState extends State<SideMenu> with SingleTickerProviderStateMixin
     if (widget.isExpanded) {
       _animationController.value = 1.0;
     }
+
   }
 
   @override

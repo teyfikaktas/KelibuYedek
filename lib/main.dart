@@ -13,6 +13,7 @@ import 'package:kelibu/screens/race/core/services/RoomService.dart';
 import 'package:purchases_flutter/models/purchases_configuration.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'Models/sqlite/dbhelper.dart';
 import 'firebase_options.dart';
 import 'package:animations/animations.dart';
 import 'package:flutter/material.dart';
@@ -520,7 +521,7 @@ class _SplashScreenState extends State<SplashScreen> with WidgetsBindingObserver
   bool _isVideoInitialized = false;
   bool _isNavigating = false;
   bool _mounted = true;
-
+  bool _isStaticSplashVisible = true;
   @override
   void initState() {
     super.initState();
@@ -543,35 +544,194 @@ class _SplashScreenState extends State<SplashScreen> with WidgetsBindingObserver
     if (!_mounted) return;
 
     try {
-      // Paralel işlemler
-      final results = await Future.wait([
-        _initializeVideoPlayer(),
-        WordDataCache.loadAllData().timeout(Duration(seconds: 5)),
-        SharedPreferences.getInstance(),
-        InternetConnectionChecker().isConnected(),
-      ], eagerError: true).timeout(
-        Duration(seconds: 10),
-        onTimeout: () {
-          throw TimeoutException('Initialization timeout');
-        },
-      );
+      // İnternet bağlantısını kontrol et (hızlı ve kritik adım)
+      bool hasInternet = false;
+      try {
+        hasInternet = await InternetConnectionChecker().isConnected()
+            .timeout(Duration(seconds: 5), onTimeout: () => false);
+      } catch (e) {
+        print("Internet check error: $e");
+        hasInternet = false;
+      }
 
       if (!_mounted) return;
 
-      final hasInternet = results[3] as bool;
+      // İnternet yoksa, doğrudan internet olmayan sayfaya geç
       if (!hasInternet) {
         _navigateToNoInternet();
         return;
       }
 
-      await _checkNavigationFlow();
+      // SharedPreferences - hafif ve hızlı olduğu için önce bunu yükle
+      SharedPreferences? prefs;
+      try {
+        // SharedPreferences.getInstance() null dönmediği için timeout'u farklı şekilde ele alıyoruz
+        final prefsFuture = SharedPreferences.getInstance();
+        // Timeout'u kontrol etmek için Future.timeout kullanıyoruz
+        bool timeoutOccurred = false;
+
+        prefs = await prefsFuture.timeout(
+          Duration(seconds: 5),
+          onTimeout: () {
+            timeoutOccurred = true;
+            print("SharedPreferences timeout");
+            // getInstance() null dönüş yapamaz, bu yüzden exception fırlatıyoruz
+            throw TimeoutException("SharedPreferences timeout");
+          },
+        );
+      } catch (e) {
+        print("SharedPreferences error: $e");
+      }
+
+      if (!_mounted) return;
+
+      if (prefs == null) {
+        _navigateToLogin();
+        return;
+      }
+
+      // Statik splash göster
+      setState(() {
+        _isStaticSplashVisible = true;
+      });
+
+      // WordDataCache'i başlat, hata olursa bile devam et
+      try {
+        bool wordCacheTimeoutOccurred = false;
+        await WordDataCache.loadAllData().timeout(
+          Duration(seconds: 10),
+          onTimeout: () {
+            wordCacheTimeoutOccurred = true;
+            print("WordDataCache loading timeout, continuing without full data");
+            throw TimeoutException("WordDataCache loading timeout");
+          },
+        );
+      } catch (e) {
+        print("WordDataCache error: $e, continuing anyway");
+        // Sadece log, uygulamayı durdurma
+      }
+      try {
+        bool dbTimeoutOccurred = false;
+        await DatabaseHelper().initializeDatabase().timeout(
+          Duration(seconds: 15), // 26 MB için biraz daha fazla süre tanıyın
+          onTimeout: () {
+            dbTimeoutOccurred = true;
+            print("Database loading timeout, continuing with partial functionality");
+            throw TimeoutException("Database loading timeout");
+          },
+        );
+      } catch (e) {
+        print("Database loading error: $e, continuing with limited functionality");
+        // Kritik bir hata değilse devam edebilirsiniz
+      }
+      if (!_mounted) return;
+
+      // Kritik kullanıcı bilgilerini kontrol et
+      final onboardingComplete = prefs.getBool('onboarding_complete') ?? false;
+      final userId = prefs.getString('userId');
+      final storedVersion = prefs.getString('app_version');
+      const String CURRENT_VERSION = "3";
+
+      if (!onboardingComplete) {
+        _navigateToOnboarding();
+        return;
+      }
+
+      if (storedVersion != CURRENT_VERSION || userId == null || userId.isEmpty) {
+        _navigateToLogin();
+        return;
+      }
+
+      // Kullanıcı bilgilerini yükle
+      bool userLoaded = false;
+      try {
+        userLoaded = await userProviderGlobal.loadUser().timeout(
+          Duration(seconds: 15),
+          onTimeout: () {
+            print("User loading timeout");
+            return false;
+          },
+        );
+      } catch (e) {
+        print("User loading error: $e");
+        userLoaded = false;
+      }
+
+      if (!_mounted) return;
+
+      if (!userLoaded) {
+        _navigateToLogin();
+        return;
+      }
+
+      // Video oynatıcıyı başlatmayı dene
+      bool videoInitialized = false;
+      try {
+        // Video oynatıcıyı başlat
+        _controller = VideoPlayerController.asset('assets/splash_video.mp4');
+
+        await _controller.initialize().timeout(
+          Duration(seconds: 5),
+          onTimeout: () {
+            print("Video initialization timeout, skipping video");
+            throw TimeoutException("Video initialization timeout");
+          },
+        );
+
+        if (_mounted) {
+          setState(() {
+            _isVideoInitialized = true;
+            _isStaticSplashVisible = false; // Video hazır olduğu için statik splash'i gizle
+          });
+
+          // Video bitince navigasyonu kontrol et
+          _controller.addListener(() {
+            if (_controller.value.position >= _controller.value.duration) {
+              _checkNavigationFlow();
+            }
+          });
+
+          _controller.play();
+          videoInitialized = true;
+        }
+      } catch (e) {
+        print("Video initialization error: $e, continuing without video");
+        videoInitialized = false;
+      }
+
+      if (!_mounted) return;
+
+      // Kullanıcı bilgilerini güncellemeyi dene ama hata olursa durdurma
+      try {
+        await _updateUserInfo().timeout(
+          Duration(seconds: 5),
+          onTimeout: () {
+            print("User info update timeout, continuing anyway");
+            return;
+          },
+        );
+      } catch (e) {
+        print("User info update error: $e, continuing anyway");
+      }
+
+      // Video başlatılamadıysa, kısa bir gecikme sonra ana ekrana geç
+      if (!videoInitialized) {
+        // 1.5 saniye logo göster, sonra ana ekrana geç
+        Future.delayed(Duration(milliseconds: 1500), () {
+          if (_mounted) {
+            _navigateToMain();
+          }
+        });
+      }
+      // Video başlatıldıysa, video bitişinde _controller listener'ı _checkNavigationFlow'u çağıracak
 
     } catch (e, stackTrace) {
       print("Initialization error: $e");
       print("Stack trace: $stackTrace");
 
       if (_mounted) {
-        await _clearAppData();
+        // Kritik hata durumunda login sayfasına yönlendir
+        // Tam app temizliği yerine sadece yönlendirme yap
         _navigateToLogin();
       }
     }
@@ -641,19 +801,84 @@ class _SplashScreenState extends State<SplashScreen> with WidgetsBindingObserver
       _navigateToLogin();
     }
   }
+// _navigateToLogin() metodunu aşağıdaki şekilde güncelleyin
+  void _navigateToLogin() async {
+    if (!_mounted) return;
+
+    // Login ekranına gitmeden önce tüm verileri sil
+    await _clearAppData();
+
+    Navigator.pushReplacement(
+      context,
+      PageRouteBuilder(
+        pageBuilder: (_, __, ___) => LoginScreen(),
+        transitionsBuilder: (_, animation, __, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+        transitionDuration: Duration(milliseconds: 300),
+      ),
+    );
+  }
+
+// _clearAppData() fonksiyonunu genişletin ve eksik kaynakları da temizleyin
   Future<void> _clearAppData() async {
+    print('⚠️ TÜM VERİLER SİLİNİYOR...');
     try {
+      // SharedPreferences temizliği
       final prefs = await SharedPreferences.getInstance();
       await prefs.clear();
+      print('✅ SharedPreferences temizlendi');
 
+      // Secure Storage temizliği
       final storage = FlutterSecureStorage();
       await storage.deleteAll();
+      print('✅ Secure Storage temizlendi');
 
-      await Hive.close();
-      final appDir = await path_provider.getApplicationDocumentsDirectory();
-      await appDir.delete(recursive: true);
-    } catch (e) {
-      print('Error clearing app data: $e');
+      // GetStorage temizliği
+      try {
+        final getStorage = GetStorage();
+        await getStorage.erase();
+        print('✅ GetStorage temizlendi');
+      } catch (e) {
+        print('❌ GetStorage temizleme hatası: $e');
+      }
+
+      // Hive verilerini temizle
+      try {
+        await Hive.close();
+        print('✅ Hive kapatıldı');
+      } catch (e) {
+        print('❌ Hive kapatma hatası: $e');
+      }
+
+      // Uygulama dokümanlarını temizle
+      try {
+        final appDir = await path_provider.getApplicationDocumentsDirectory();
+        final appDirPath = appDir.path;
+
+        // Tüm klasörü silmek yerine, sadece içindeki dosyaları sil
+        final directory = Directory(appDirPath);
+        if (await directory.exists()) {
+          final files = directory.listSync();
+          for (var file in files) {
+            try {
+              await file.delete(recursive: true);
+            } catch (e) {
+              print('❌ Dosya silme hatası (${file.path}): $e');
+            }
+          }
+        }
+        print('✅ Uygulama dokümanları temizlendi');
+      } catch (e) {
+        print('❌ Uygulama dokümanları temizleme hatası: $e');
+      }
+
+      // Kullanıcı provider'ını sıfırla
+
+      print('✅ Tüm veriler başarıyla temizlendi');
+    } catch (e, stackTrace) {
+      print('❌ Veri temizleme hatası: $e');
+      print('❌ Stack trace: $stackTrace');
     }
   }
 
@@ -698,19 +923,6 @@ class _SplashScreenState extends State<SplashScreen> with WidgetsBindingObserver
     );
   }
 
-  void _navigateToLogin() {
-    if (!_mounted) return;
-    Navigator.pushReplacement(
-      context,
-      PageRouteBuilder(
-        pageBuilder: (_, __, ___) => LoginScreen(),
-        transitionsBuilder: (_, animation, __, child) {
-          return FadeTransition(opacity: animation, child: child);
-        },
-        transitionDuration: Duration(milliseconds: 300),
-      ),
-    );
-  }
 
   void _navigateToOnboarding() {
     if (!_mounted) return;
