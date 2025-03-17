@@ -46,7 +46,6 @@ dependencies:
   percent_indicator: ^4.2.3
   flutter_dialogs: ^3.0.0
   confetti: ^0.7.0
-  webview_flutter: ^4.10.0
   hive_flutter: ^1.1.0
   rive: ^0.12.4
   auto_size_text: ^3.0.0
@@ -74,6 +73,8 @@ dependencies:
   animated_toggle_switch: ^0.8.2
   animated_page_view_scrolling: ^0.0.3
   font_awesome_flutter: ^10.7.0
+  sqflite_common_ffi: ^2.3.5
+  sqlite3_flutter_libs: ^0.5.31
   collection: ^1.18.0
   fl_chart: ^0.68.0
   glassmorphism: ^3.0.0
@@ -81,16 +82,14 @@ dependencies:
   animated_background: ^2.0.0
   flutter_animate: ^4.1.1
   chewie: 1.7.5
-  youtube_player_flutter: ^8.0.0
   connectivity_plus: ^4.0.1
   fancy_bottom_navigation_plus: ^1.0.3
   salomon_bottom_bar: ^3.3.2
   device_info_plus: ^11.0.0
   google_nav_bar: ^5.0.6
-  workmanager: ^0.5.2
   pdf: ^3.11.1
-  pdf_render: ^1.4.12
   screenshot: ^3.0.0
+  flutter_inappwebview: ^6.1.5
   saver_gallery: ^3.0.6
   flutter_drawing_board: ^0.9.4
   syncfusion_flutter_pdfviewer: ^27.1.51
@@ -104,8 +103,7 @@ dependencies:
   cloud_firestore: ^5.5.1
   firebase_core: ^3.11.0
   firebase_auth: ^5.4.2
-  onesignal_flutter: ^5.2.8
-  purchases_flutter: ^8.4.5
+  purchases_flutter: ^8.6.0
   dio: ^5.8.0+1
   flame: ^1.23.0
   get: ^4.6.6
@@ -120,7 +118,6 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^2.0.0
-  flutter_tts:
 flutter_icons:
   ios: true
   android: true
@@ -134,7 +131,6 @@ flutter:
   assets:
     - assets/logo.png
     - assets/phd.png
-    - assets/images/bg.png
     - assets/correct.wav
     - assets/wrong.wav
     - assets/splash_video.mp4
@@ -147,8 +143,6 @@ flutter:
     - assets/welcome.json
     - assets/brain.json
     - assets/phdakademi.jpg
-    - assets/icons8-instagram.svg
-    - assets/point.png
     - assets/pdf/level1.pdf
     - assets/pdf/level2.pdf
     - assets/pdf/level3.pdf

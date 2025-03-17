@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:webview_flutter/webview_flutter.dart';
+import 'package:video_player/video_player.dart';
+import 'package:chewie/chewie.dart';
 
 class VideoPlayerScreen extends StatefulWidget {
   final String videoUrl;
@@ -11,14 +12,46 @@ class VideoPlayerScreen extends StatefulWidget {
 }
 
 class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
-  late WebViewController _controller;
+  late VideoPlayerController _videoPlayerController;
+  ChewieController? _chewieController;
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..loadRequest(Uri.parse(widget.videoUrl));
+    _initializePlayer();
+  }
+
+  void _initializePlayer() async {
+    _videoPlayerController = VideoPlayerController.network(widget.videoUrl);
+
+    await _videoPlayerController.initialize();
+
+    _chewieController = ChewieController(
+      videoPlayerController: _videoPlayerController,
+      autoPlay: true,
+      looping: false,
+      aspectRatio: _videoPlayerController.value.aspectRatio,
+      errorBuilder: (context, errorMessage) {
+        return Center(
+          child: Text(
+            'Video yüklenirken bir hata oluştu: $errorMessage',
+            style: TextStyle(color: Colors.white),
+          ),
+        );
+      },
+    );
+
+    setState(() {
+      _isLoading = false;
+    });
+  }
+
+  @override
+  void dispose() {
+    _videoPlayerController.dispose();
+    _chewieController?.dispose();
+    super.dispose();
   }
 
   @override
@@ -61,23 +94,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-                child: WebViewWidget(controller: _controller),
-              ),
-            ),
-          ),
-          Padding(
-            padding: EdgeInsets.symmetric(vertical: 16),
-            child: ElevatedButton.icon(
-              icon: Icon(Icons.refresh, color: Colors.white),
-              label: Text('Yenile', style: TextStyle(color: Colors.white)),
-              onPressed: () => _controller.reload(),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue[700],
-                padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30),
-                ),
-                elevation: 0,
+                child: _isLoading
+                    ? Center(child: CircularProgressIndicator())
+                    : Chewie(controller: _chewieController!),
               ),
             ),
           ),

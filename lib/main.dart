@@ -50,7 +50,6 @@ import 'package:kelibu/screens/InternetConnectionCheckPage.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:salomon_bottom_bar/salomon_bottom_bar.dart';
 import 'package:logging/logging.dart';
-import 'package:onesignal_flutter/onesignal_flutter.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -156,56 +155,6 @@ Future<void> _clearAppData() async {
     print('App data cleared successfully');
   } catch (e) {
     print('Error clearing app data: $e');
-  }
-}
-Future<void> initializeOneSignal() async {
-  try {
-    // Enable OneSignal debugging
-    OneSignal.Debug.setLogLevel(OSLogLevel.verbose);
-
-    // Initialize OneSignal
-    OneSignal.initialize("1b7644ee-9086-4bdc-aa32-1071c7b0b0ad");
-
-    // Request notification permissions with proper error handling
-    bool allowed = await OneSignal.Notifications.requestPermission(true)
-        .timeout(
-      Duration(seconds: 10),
-      onTimeout: () {
-        print('OneSignal permission request timed out');
-        return false;
-      },
-    );
-
-    print('Notification permission allowed: $allowed');
-
-    // Add delay before checking subscription status
-    await Future.delayed(Duration(seconds: 2));
-
-    // Get and log detailed subscription status
-    final pushSubscription = OneSignal.User.pushSubscription;
-    print('Detailed Push Subscription Status:');
-    print('- Token: ${pushSubscription.token}');
-    print('- OptedIn: ${pushSubscription.optedIn}');
-    print('- ID: ${pushSubscription.id}');
-
-    // Set up notification handlers
-    OneSignal.Notifications.addClickListener((event) {
-      print('Notification clicked:');
-      print('- Title: ${event.notification.title}');
-      print('- Body: ${event.notification.body}');
-      print('- Additional Data: ${event.notification.additionalData}');
-    });
-
-    OneSignal.Notifications.addForegroundWillDisplayListener((event) {
-      print('Notification received in foreground:');
-      print('- Title: ${event.notification.title}');
-      print('- Body: ${event.notification.body}');
-      event.notification.display();
-    });
-
-  } catch (e, stackTrace) {
-    print('OneSignal initialization error: $e');
-    print('Stack trace: $stackTrace');
   }
 }
 void main() async {

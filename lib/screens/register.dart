@@ -22,7 +22,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _confirmPasswordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
   bool _isLoading = false;
   bool _isDarkMode = false;
   final storage = FlutterSecureStorage();
@@ -47,10 +48,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Future<void> _loadBrainQuotes() async {
-    String data = await DefaultAssetBundle.of(context).loadString('assets/brain.json');
+    String data =
+        await DefaultAssetBundle.of(context).loadString('assets/brain.json');
     List<dynamic> jsonResult = json.decode(data);
     setState(() {
-      _brainQuotes = jsonResult.map((item) => item['quote'].toString()).toList();
+      _brainQuotes =
+          jsonResult.map((item) => item['quote'].toString()).toList();
     });
   }
 
@@ -64,10 +67,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Future<void> register() async {
-    if (!await _checkInternetConnection()) {
-      showCustomDialog(context, 'Bağlantı Hatası', 'İnternet bağlantınızı kontrol edip tekrar deneyiniz.');
-      return;
-    }
+
 
     if (!_validateForm()) return;
 
@@ -96,22 +96,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
         _emailController.text.trim().isEmpty ||
         _passwordController.text.trim().isEmpty ||
         _confirmPasswordController.text.trim().isEmpty) {
-      showCustomDialog(context, 'Eksik Bilgi', 'Lütfen tüm alanları doldurunuz.');
+      showCustomDialog(
+          context, 'Eksik Bilgi', 'Lütfen tüm alanları doldurunuz.');
       return false;
     }
 
     if (!isValidEmail(_emailController.text.trim())) {
-      showCustomDialog(context, 'Geçersiz E-posta', 'Lütfen geçerli bir e-posta adresi giriniz.');
+      showCustomDialog(context, 'Geçersiz E-posta',
+          'Lütfen geçerli bir e-posta adresi giriniz.');
       return false;
     }
 
     if (!isStrongPassword(_passwordController.text.trim())) {
-      showCustomDialog(context, 'Zayıf Şifre', 'Şifreniz en az 8 karakter olmalı ve büyük harf, küçük harf ve rakam içermelidir.');
+      showCustomDialog(context, 'Zayıf Şifre',
+          'Şifreniz en az 8 karakter olmalı ve büyük harf, küçük harf ve rakam içermelidir.');
       return false;
     }
 
-    if (_passwordController.text.trim() != _confirmPasswordController.text.trim()) {
-      showCustomDialog(context, 'Şifre Uyuşmazlığı', 'Girdiğiniz şifreler birbiriyle uyuşmuyor.');
+    if (_passwordController.text.trim() !=
+        _confirmPasswordController.text.trim()) {
+      showCustomDialog(context, 'Şifre Uyuşmazlığı',
+          'Girdiğiniz şifreler birbiriyle uyuşmuyor.');
       return false;
     }
 
@@ -120,12 +125,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   void _handleSuccessfulRegistration(Map<String, dynamic> responseData) {
     print(responseData);
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => VerifyEmailScreen(email: _emailController.text.trim())),
-      );
-      showCustomDialog(context, 'Doğrulama Gerekli', 'Lütfen e-postanıza gönderilen doğrulama kodunu giriniz.');
-
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+          builder: (context) =>
+              VerifyEmailScreen(email: _emailController.text.trim())),
+    );
+    showCustomDialog(context, 'Doğrulama Gerekli',
+        'Lütfen e-postanıza gönderilen doğrulama kodunu giriniz.');
   }
 
   void _handleApiException(ApiException e) {
@@ -149,12 +156,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
     print(e);
     String errorMessage = e.toString().toLowerCase();
     String title = 'Beklenmeyen Hata';
-    String content = 'Bir hata oluştu. Lütfen daha sonra tekrar deneyin.';
+    String content = e.toString();
 
-    if (errorMessage.contains('zaten kullanımda') || errorMessage.contains('unique')) {
+    if (errorMessage.contains('zaten kullanımda') ||
+        errorMessage.contains('unique')) {
       title = 'E-posta Kullanımda';
-      content = 'E-posta adresi zaten kullanımda. Giriş ekranından giriş yapabilirsiniz.';
-    } else if (errorMessage.contains('e-posta alanı') || errorMessage.contains('email')) {
+      content =
+          'E-posta adresi zaten kullanımda. Giriş ekranından giriş yapabilirsiniz.';
+    } else if (errorMessage.contains('e-posta alanı') ||
+        errorMessage.contains('email')) {
       title = 'E-posta Hatası';
       if (errorMessage.contains('gereklidir')) {
         content = 'E-posta alanı gereklidir.';
@@ -176,12 +186,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
     showCustomDialog(context, title, content);
   }
+
   Future<bool> _checkInternetConnection() async {
     var connectivityResult = await (Connectivity().checkConnectivity());
     return connectivityResult != ConnectivityResult.none;
   }
 
-  Widget _buildTextField(TextEditingController controller, String label, IconData icon, {bool isPassword = false, bool isConfirm = false}) {
+  Widget _buildTextField(
+      TextEditingController controller, String label, IconData icon,
+      {bool isPassword = false, bool isConfirm = false}) {
     return Container(
       margin: EdgeInsets.only(bottom: 15),
       decoration: BoxDecoration(
@@ -198,38 +211,46 @@ class _RegisterScreenState extends State<RegisterScreen> {
       ),
       child: TextField(
         controller: controller,
-        obscureText: isPassword && !(isConfirm ? _isConfirmPasswordVisible : _isPasswordVisible),
+        obscureText: isPassword &&
+            !(isConfirm ? _isConfirmPasswordVisible : _isPasswordVisible),
         keyboardType: isConfirm ? TextInputType.visiblePassword : null,
         style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black),
         decoration: InputDecoration(
           labelText: label,
-          labelStyle: TextStyle(color: _isDarkMode ? Colors.white70 : Colors.grey),
-          prefixIcon: Icon(icon, color: _isDarkMode ? Colors.white70 : Colors.grey),
+          labelStyle:
+              TextStyle(color: _isDarkMode ? Colors.white70 : Colors.grey),
+          prefixIcon:
+              Icon(icon, color: _isDarkMode ? Colors.white70 : Colors.grey),
           suffixIcon: isPassword || isConfirm
               ? IconButton(
-            icon: Icon(
-              isConfirm
-                  ? (_isConfirmPasswordVisible ? Icons.visibility : Icons.visibility_off)
-                  : (_isPasswordVisible ? Icons.visibility : Icons.visibility_off),
-              color: _isDarkMode ? Colors.white70 : Colors.grey,
-            ),
-            onPressed: () {
-              setState(() {
-                if (isConfirm) {
-                  _isConfirmPasswordVisible = !_isConfirmPasswordVisible;
-                } else {
-                  _isPasswordVisible = !_isPasswordVisible;
-                }
-              });
-            },
-          )
+                  icon: Icon(
+                    isConfirm
+                        ? (_isConfirmPasswordVisible
+                            ? Icons.visibility
+                            : Icons.visibility_off)
+                        : (_isPasswordVisible
+                            ? Icons.visibility
+                            : Icons.visibility_off),
+                    color: _isDarkMode ? Colors.white70 : Colors.grey,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      if (isConfirm) {
+                        _isConfirmPasswordVisible = !_isConfirmPasswordVisible;
+                      } else {
+                        _isPasswordVisible = !_isPasswordVisible;
+                      }
+                    });
+                  },
+                )
               : null,
           border: InputBorder.none,
           contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 15),
         ),
         onChanged: (value) {
           controller.text = value.trim();
-          controller.selection = TextSelection.fromPosition(TextPosition(offset: controller.text.length));
+          controller.selection = TextSelection.fromPosition(
+              TextPosition(offset: controller.text.length));
         },
       ),
     );
@@ -261,146 +282,162 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        backgroundColor: _isDarkMode ? Colors.grey[900] : Colors.white,
-        body: SafeArea(
+      backgroundColor: _isDarkMode ? Colors.grey[900] : Colors.white,
+      body: SafeArea(
         child: LayoutBuilder(
-        builder: (context, constraints) {
-      return SingleChildScrollView(
-          child: ConstrainedBox(
-          constraints: BoxConstraints(minHeight: constraints.maxHeight),
-    child: IntrinsicHeight(
-    child: Padding(
-    padding: EdgeInsets.all(constraints.maxWidth * 0.05),
-    child: Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: <Widget>[
-    Row(
-    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-    children: [
-    IconButton(
-    icon: Icon(
-    Icons.arrow_back,
-    color: _isDarkMode ? Colors.white : Colors.black,
-    ),
-    onPressed: () => Navigator.of(context).pop(),
-    ),
-    IconButton(
-    icon: Icon(Icons.help_outline, color: _isDarkMode ? Colors.white : Colors.black),
-    onPressed: () {
-    // Yardım sayfasına yönlendirme yapılabilir
-    },
-    ),
-    ],
-    ),
-    SizedBox(height: constraints.maxHeight * 0.02),
-    Center(
-    child: Container(
-    width: constraints.maxWidth * 0.25,
-    height: constraints.maxWidth * 0.25,
-    decoration: BoxDecoration(
-    shape: BoxShape.circle,
-    image: DecorationImage(
-    image: AssetImage('assets/logo.png'),
-    fit: BoxFit.contain,
-    ),
-    ),
-    ),
-    ),
-    SizedBox(height: constraints.maxHeight * 0.01),
-    Center(
-    child: Text(
-    "Kelibu'ya Hoş Geldiniz!",
-    style: TextStyle(
-    fontSize: constraints.maxWidth * 0.05,
-    fontWeight: FontWeight.bold,
-    color: _isDarkMode ? Colors.white : Colors.black,
-    ),
-    ),
-    ),
-    SizedBox(height: constraints.maxHeight * 0.005),
-    Center(
-    child: Text(
-    "Kelime haznenizi genişletmeye hazır mısınız?",
-    style: TextStyle(
-    fontSize: constraints.maxWidth * 0.035,
-    color: _isDarkMode ? Colors.white70 : Colors.grey,
-    ),
-    ),
-    ),
-    SizedBox(height: constraints.maxHeight * 0.03),
-    Container(
-    padding: EdgeInsets.all(constraints.maxWidth * 0.05),
-    decoration: BoxDecoration(
-    color: _isDarkMode ? Colors.grey[800] : Colors.white,
-    borderRadius: BorderRadius.circular(15),
-    boxShadow: [
-    BoxShadow(
-    color: Colors.grey.withOpacity(0.1),
-    spreadRadius: 5,
-    blurRadius: 7,
-    offset: Offset(0, 3),
-    ),
-    ],
-    ),
-    child: Column(
-    children: [
-    _buildTextField(_nameController, 'İsim', Icons.person),
-    _buildTextField(_emailController, 'E-posta', Icons.email),
-    _buildTextField(_passwordController, 'Şifre', Icons.lock, isPassword: true),
-    _buildTextField(_confirmPasswordController, 'Şifre Tekrar', Icons.lock, isPassword: true, isConfirm: true),
-    SizedBox(height: constraints.maxHeight * 0.01),
-    _isLoading
-    ? Center(child: CircularProgressIndicator())
-        : _buildButton('Kayıt Ol', Colors.blue, register),
-    ],
-    ),
-    ),
-      SizedBox(height: constraints.maxHeight * 0.015),
-      Center(
-        child: TextButton(
-          onPressed: () {
-            Navigator.pop(context);
-          },
-          child: Text(
-            'Zaten hesabın var mı? Giriş Yap',
-            style: TextStyle(color: Colors.blue),
-          ),
-        ),
-      ),
-      Spacer(),
-      if (_brainQuotes.isNotEmpty)
-        Center(
-          child: Padding(
-            padding: EdgeInsets.symmetric(vertical: constraints.maxHeight * 0.01),
-            child: Text(
-              _brainQuotes[DateTime.now().millisecond % _brainQuotes.length],
-              style: TextStyle(
-                fontSize: constraints.maxWidth * 0.03,
-                fontStyle: FontStyle.italic,
-                color: _isDarkMode ? Colors.white70 : Colors.grey,
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: IntrinsicHeight(
+                  child: Padding(
+                    padding: EdgeInsets.all(constraints.maxWidth * 0.05),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            IconButton(
+                              icon: Icon(
+                                Icons.arrow_back,
+                                color:
+                                    _isDarkMode ? Colors.white : Colors.black,
+                              ),
+                              onPressed: () => Navigator.of(context).pop(),
+                            ),
+                            IconButton(
+                              icon: Icon(Icons.help_outline,
+                                  color: _isDarkMode
+                                      ? Colors.white
+                                      : Colors.black),
+                              onPressed: () {
+                                // Yardım sayfasına yönlendirme yapılabilir
+                              },
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: constraints.maxHeight * 0.02),
+                        Center(
+                          child: Container(
+                            width: constraints.maxWidth * 0.25,
+                            height: constraints.maxWidth * 0.25,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              image: DecorationImage(
+                                image: AssetImage('assets/logo.png'),
+                                fit: BoxFit.contain,
+                              ),
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: constraints.maxHeight * 0.01),
+                        Center(
+                          child: Text(
+                            "Kelibu'ya Hoş Geldiniz!",
+                            style: TextStyle(
+                              fontSize: constraints.maxWidth * 0.05,
+                              fontWeight: FontWeight.bold,
+                              color: _isDarkMode ? Colors.white : Colors.black,
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: constraints.maxHeight * 0.005),
+                        Center(
+                          child: Text(
+                            "Kelime haznenizi genişletmeye hazır mısınız?",
+                            style: TextStyle(
+                              fontSize: constraints.maxWidth * 0.035,
+                              color: _isDarkMode ? Colors.white70 : Colors.grey,
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: constraints.maxHeight * 0.03),
+                        Container(
+                          padding: EdgeInsets.all(constraints.maxWidth * 0.05),
+                          decoration: BoxDecoration(
+                            color:
+                                _isDarkMode ? Colors.grey[800] : Colors.white,
+                            borderRadius: BorderRadius.circular(15),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.grey.withOpacity(0.1),
+                                spreadRadius: 5,
+                                blurRadius: 7,
+                                offset: Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            children: [
+                              _buildTextField(
+                                  _nameController, 'İsim', Icons.person),
+                              _buildTextField(
+                                  _emailController, 'E-posta', Icons.email),
+                              _buildTextField(
+                                  _passwordController, 'Şifre', Icons.lock,
+                                  isPassword: true),
+                              _buildTextField(_confirmPasswordController,
+                                  'Şifre Tekrar', Icons.lock,
+                                  isPassword: true, isConfirm: true),
+                              SizedBox(height: constraints.maxHeight * 0.01),
+                              _isLoading
+                                  ? Center(child: CircularProgressIndicator())
+                                  : _buildButton(
+                                      'Kayıt Ol', Colors.blue, register),
+                            ],
+                          ),
+                        ),
+                        SizedBox(height: constraints.maxHeight * 0.015),
+                        Center(
+                          child: TextButton(
+                            onPressed: () {
+                              Navigator.pop(context);
+                            },
+                            child: Text(
+                              'Zaten hesabın var mı? Giriş Yap',
+                              style: TextStyle(color: Colors.blue),
+                            ),
+                          ),
+                        ),
+                        Spacer(),
+                        if (_brainQuotes.isNotEmpty)
+                          Center(
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(
+                                  vertical: constraints.maxHeight * 0.01),
+                              child: Text(
+                                _brainQuotes[DateTime.now().millisecond %
+                                    _brainQuotes.length],
+                                style: TextStyle(
+                                  fontSize: constraints.maxWidth * 0.03,
+                                  fontStyle: FontStyle.italic,
+                                  color: _isDarkMode
+                                      ? Colors.white70
+                                      : Colors.grey,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ),
+                        Center(
+                          child: Text(
+                            'Kelibu, bir PhD Akademi ürünüdür.',
+                            style: TextStyle(
+                              fontSize: constraints.maxWidth * 0.03,
+                              color: _isDarkMode ? Colors.white70 : Colors.grey,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
-              textAlign: TextAlign.center,
-            ),
-          ),
-        ),
-      Center(
-        child: Text(
-          'Kelibu, bir PhD Akademi ürünüdür.',
-          style: TextStyle(
-            fontSize: constraints.maxWidth * 0.03,
-            color: _isDarkMode ? Colors.white70 : Colors.grey,
-          ),
+            );
+          },
         ),
       ),
-    ],
-    ),
-    ),
-    ),
-          ),
-      );
-        },
-        ),
-        ),
     );
   }
 }

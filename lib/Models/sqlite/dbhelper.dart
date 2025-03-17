@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
+import 'package:path/path.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper _instance = DatabaseHelper._internal();
@@ -41,24 +42,24 @@ class DatabaseHelper {
 
   Future<Database> _initDatabase() async {
     try {
-      // Get the application documents directory
+      // Uygulamanın belgeler dizinini al
       var databasesPath = await getDatabasesPath();
-      var path = join(databasesPath, "sqlite.db");
+      String path = join(databasesPath, 'sqlite.db');
 
-      // Check if the database exists
-      var exists = await databaseExists(path);
+      // Veritabanının var olup olmadığını kontrol et
+      bool exists = await databaseExists(path);
 
       if (!exists) {
         print("Creating new copy from asset");
 
-        // Make sure the parent directory exists
+        // Üst dizinin var olduğundan emin ol
         try {
           await Directory(dirname(path)).create(recursive: true);
         } catch (e) {
           print("Error creating directory: $e");
         }
 
-        // Copy from asset with timeout
+        // Asset'ten veritabanını yükle ve cihaza kopyala
         try {
           ByteData data = await rootBundle.load(join("assets/Model", "sqlite.db"))
               .timeout(Duration(seconds: 20),
@@ -66,7 +67,6 @@ class DatabaseHelper {
 
           List<int> bytes = data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
 
-          // Write and flush the bytes written with timeout
           await File(path).writeAsBytes(bytes, flush: true)
               .timeout(Duration(seconds: 30),
               onTimeout: () => throw TimeoutException("Writing database to device timed out"));
@@ -74,27 +74,21 @@ class DatabaseHelper {
           print("Database copied from assets successfully");
         } catch (e) {
           print("Error copying database from assets: $e");
-          rethrow; // Bu kritik bir hata, yukarı iletilmeli
+          rethrow;
         }
       } else {
         print("Opening existing database");
       }
 
-      // Open the database with timeout
-      return await openDatabase(
-          path,
-          readOnly: false,
-          // Büyük veritabanı için daha uzun timeout süresi
-      ).timeout(
-          Duration(seconds: 15),
-          onTimeout: () => throw TimeoutException("Opening database timed out")
-      );
+      // Veritabanını aç ve döndür
+      return await openDatabase(path, readOnly: false)
+          .timeout(Duration(seconds: 15),
+          onTimeout: () => throw TimeoutException("Opening database timed out"));
     } catch (e) {
       print("Database initialization error: $e");
-      rethrow; // Hatayı yukarı ilet
+      rethrow;
     }
-  }
-  Future<List<String>> getTableNames(Database db) async {
+  }  Future<List<String>> getTableNames(Database db) async {
     // SQLite main tablosundan tüm tablo isimlerini sorgula
     final List<Map<String, dynamic>> tables = await db.rawQuery(
         "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE 'android_%'");

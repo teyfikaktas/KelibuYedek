@@ -11,11 +11,13 @@ list(APPEND FLUTTER_PLUGIN_LIST
   file_selector_windows
   firebase_auth
   firebase_core
+  flutter_inappwebview_windows
   flutter_secure_storage_windows
   flutter_tts
   permission_handler_windows
   rive_common
   share_plus
+  sqlite3_flutter_libs
   syncfusion_pdfviewer_windows
   url_launcher_windows
 )
