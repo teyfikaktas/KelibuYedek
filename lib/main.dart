@@ -13,7 +13,6 @@ import 'package:kelibu/screens/race/core/services/RoomService.dart';
 import 'package:purchases_flutter/models/purchases_configuration.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'Models/sqlite/dbhelper.dart';
 import 'firebase_options.dart';
 import 'package:animations/animations.dart';
 import 'package:flutter/material.dart';
@@ -558,20 +557,6 @@ class _SplashScreenState extends State<SplashScreen> with WidgetsBindingObserver
       } catch (e) {
         print("WordDataCache error: $e, continuing anyway");
         // Sadece log, uygulamayı durdurma
-      }
-      try {
-        bool dbTimeoutOccurred = false;
-        await DatabaseHelper().initializeDatabase().timeout(
-          Duration(seconds: 15), // 26 MB için biraz daha fazla süre tanıyın
-          onTimeout: () {
-            dbTimeoutOccurred = true;
-            print("Database loading timeout, continuing with partial functionality");
-            throw TimeoutException("Database loading timeout");
-          },
-        );
-      } catch (e) {
-        print("Database loading error: $e, continuing with limited functionality");
-        // Kritik bir hata değilse devam edebilirsiniz
       }
       if (!_mounted) return;
 
