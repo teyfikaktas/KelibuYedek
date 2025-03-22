@@ -533,10 +533,10 @@ class _StudyScreenState extends State<LibraryDart> {
 
   Widget buildDerivationsSection(List<Derivation> derivations) {
     // Her tip için filtrasyon yap
-    var verbs = derivations.where((d) => d.type.toLowerCase() == 'verb').toList();
-    var nouns = derivations.where((d) => d.type.toLowerCase() == 'noun').toList();
-    var adjectives = derivations.where((d) => d.type.toLowerCase() == 'adjective').toList();
-    var adverbs = derivations.where((d) => d.type.toLowerCase() == 'adverb').toList();
+    var verbs = derivations.where((d) => d.type?.toLowerCase() == 'verb').toList();
+    var nouns = derivations.where((d) => d.type?.toLowerCase() == 'noun').toList();
+    var adjectives = derivations.where((d) => d.type?.toLowerCase() == 'adjective').toList();
+    var adverbs = derivations.where((d) => d.type?.toLowerCase() == 'adverb').toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

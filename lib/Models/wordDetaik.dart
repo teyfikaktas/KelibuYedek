@@ -1,6 +1,8 @@
-import 'package:csv/csv.dart';
-import 'package:flutter/services.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:collection/collection.dart';
+
+// Supabase istemcisi için global değişken
+final supabase = Supabase.instance.client;
 
 class WordDetail {
   final int id;
@@ -8,10 +10,10 @@ class WordDetail {
   final String meaning;
   final String? defination;
   final String? type;
-  final String? image; // Eğer bir 'image' alanınız varsa bu şekilde ekleyin
+  final String? image;
   late final List<Collocation> collocations;
   late final List<Derivation> derivations;
-  late final List<Synonym> synonyms; // Synonyms listesi eklendi
+  late final List<Synonym> synonyms;
 
   WordDetail({
     required this.id,
@@ -19,137 +21,259 @@ class WordDetail {
     required this.meaning,
     required this.defination,
     required this.type,
-    this.image, // Opsiyonel olarak bu alan eklenebilir
+    this.image,
     required this.collocations,
     required this.derivations,
-    required this.synonyms, // Synonyms parametresi eklendi
+    required this.synonyms,
   });
 
+  // Mevcut fromJson metodu
   factory WordDetail.fromJson(Map<String, dynamic> json) {
-    var collocationsList = json['collocations'] as List;
-    var derivationsList = json['derivations'] as List;
-    var synonymsList = json['synonyms'] as List; // JSON'dan synonyms listesi çekildi
+    var collocationsList = json['collocations'] as List? ?? [];
+    var derivationsList = json['derivations'] as List? ?? [];
+    var synonymsList = json['synonyms'] as List? ?? [];
+
     return WordDetail(
       id: json['id'],
-      word: json['terim'], // 'terim' yerine 'word' kullanıldı
-      meaning: json['tanim'],
-      type: json['type'] as String?,
-      image: json['image'] as String?, // null kontrolü
-      defination: json['defination'] as String?,
+      word: json['terim'] ?? json['word'] ?? '',
+      meaning: json['tanim'] ?? json['meaning'] ?? '',
+      type: json['type'],
+      image: json['image'],
+      defination: json['defination'] ?? json['definition'],
       collocations: collocationsList.map((c) => Collocation.fromJson(c)).toList(),
       derivations: derivationsList.map((d) => Derivation.fromJson(d)).toList(),
-      synonyms: synonymsList.map((s) => Synonym.fromJson(s)).toList(), // Synonyms listesi eklendi
+      synonyms: synonymsList.map((s) => Synonym.fromJson(s)).toList(),
     );
   }
+
+  // Supabase'den veri çekerken kullanılacak metod
+  factory WordDetail.fromSupabase(Map<String, dynamic> json) {
+    return WordDetail(
+      id: json['id'],
+      word: json['terim'] ?? '',
+      meaning: json['tanim'] ?? '',
+      type: json['type'],
+      image: json['image'],
+      defination: json['definition'],
+      collocations: [],
+      derivations: [],
+      synonyms: [],
+    );
+  }
+
   String toString() {
     return 'WordDetail(word: $word, meaning: $meaning)';
   }
-  Future<List<WordDetail>> fetchWordsDetailsFromCsv(String filePath) async {
-    final csvFile = await rootBundle.loadString(filePath);
-    List<List<dynamic>> csvList = CsvToListConverter().convert(csvFile);
 
-    // WordDetail nesnelerinin ilk oluşturulması.
-    List<WordDetail> words = csvList.sublist(1).map((csvRow) {
-      return WordDetail(
-        id: int.parse(csvRow[0]),
-        word: csvRow[1],
-        meaning: csvRow[2],
-        image: csvRow[3],
-        type: csvRow[4],
-        defination: csvRow[5],
-        collocations: [],
-        derivations: [],
-        synonyms: [],
-      );
-    }).toList();
-    print(words);
-    // İlişkili verilerin eklenmesi için fonksiyonlar.
+  // CSV yerine Supabase'den kelime detaylarını alıyor
+  static Future<List<WordDetail>> fetchWordsDetailsFromSupabase() async {
     try {
-      await fetchAndAttachSynonymsToWordDetail('assets/Model/collacations.csv', words);
-      // Diğer fonksiyonlar
+      // Tüm kelimeleri çek
+      final response = await supabase
+          .from('words')
+          .select();
+
+      // WordDetail nesnelerini oluştur
+      List<WordDetail> words = (response as List)
+          .map((json) => WordDetail.fromSupabase(json))
+          .toList();
+
+      // İlişkili verileri ekle
+      await fetchAndAttachSynonymsFromSupabase(words);
+      await fetchAndAttachCollocationsFromSupabase(words);
+      await fetchAndAttachDerivationsFromSupabase(words);
+
+      return words;
     } catch (e) {
-      print('Bir hata oluştu: $e');
+      print('Supabase\'den kelimeler alınırken hata: $e');
+      return [];
     }
-    await fetchAndAttachCollocations('asset/Model/collocations.csv', words);
-    await fetchAndAttachDerivations('asset/Model/derivations.csv', words);
-
-    return words;
   }
-  Future<void> fetchAndAttachSynonymsToWordDetail(String filePath, List<WordDetail> words) async {
-    String wordsFilePath = 'assets/Model/words.csv'; // assets/models klasörü altında varsayıyoruz
-    final csvFile = await rootBundle.loadString(wordsFilePath);
-    final converter = CsvToListConverter(
-      eol: '\n', // Satır sonu karakteri olarak '\n' kullan
-      // Diğer gerekli yapılandırmalar burada belirtilebilir
-    );
-    List<List<dynamic>> csvList = converter.convert(csvFile);
-    csvList.sublist(1).forEach((csvRow) {
-      var wordId = int.parse(csvRow[3]);
-      var synonym = Synonym(
-        id: int.parse(csvRow[0]),
-        term: csvRow[1],
-        tanim: csvRow[2],
-        anlam: findMeaning(words, csvRow[1]), // Türkçe anlamı bulmak için bir fonksiyon
-      );
 
-      var wordDetail = words.firstWhereOrNull((word) => word.id == wordId); // firstWhereOrNull kullanımı
-      if (wordDetail != null) {
-        wordDetail.synonyms.add(synonym); // veya collocations, derivations için benzer
+  // ID'lere göre detayları getir
+  static Future<List<WordDetail>> fetchWordsDetailsFromSupabaseByIds(List<int> wordIds) async {
+    try {
+      // Belirli kelimeleri ID'lerine göre çek
+      final response = await supabase
+          .from('words')
+          .select()
+          .filter('id', 'in', wordIds);
+
+      // WordDetail nesnelerini oluştur
+      List<WordDetail> words = (response as List)
+          .map((json) => WordDetail.fromSupabase(json))
+          .toList();
+
+      // İlişkili verileri ekle
+      await fetchAndAttachSynonymsFromSupabase(words);
+      await fetchAndAttachCollocationsFromSupabase(words);
+      await fetchAndAttachDerivationsFromSupabase(words);
+
+      return words;
+    } catch (e) {
+      print('Supabase\'den kelimeler alınırken hata: $e');
+      return [];
+    }
+  }
+
+  // Kelime arama
+  static Future<WordDetail?> searchWordInSupabase(String term) async {
+    try {
+      final response = await supabase
+          .from('words')
+          .select()
+          .ilike('terim', term.trim())
+          .limit(1);
+
+      if ((response as List).isEmpty) {
+        return null;
       }
-      wordDetail?.synonyms.add(synonym);
-    });
+
+      // WordDetail nesnesini oluştur
+      WordDetail word = WordDetail.fromSupabase(response[0]);
+
+      // İlişkili verileri ekle
+      await fetchAndAttachSynonymsFromSupabase([word]);
+      await fetchAndAttachCollocationsFromSupabase([word]);
+      await fetchAndAttachDerivationsFromSupabase([word]);
+
+      return word;
+    } catch (e) {
+      print('Supabase\'de kelime aranırken hata: $e');
+      return null;
+    }
   }
 
-  String findMeaning(List<WordDetail> words, String term) {
-    var word = words.firstWhereOrNull((word) => word.word == term);
-    return word?.meaning ?? 'Anlam bulunamadı';
-  }
-  Future<void> fetchAndAttachCollocations(String filePath, List<WordDetail> words) async {
-    final csvFile = await rootBundle.loadString(filePath);
-    final converter = CsvToListConverter(
-      eol: '\n', // Satır sonu karakteri olarak '\n' kullan
-      // Diğer gerekli yapılandırmalar burada belirtilebilir
-    );
-    List<List<dynamic>> csvList = converter.convert(csvFile);
-    csvList.sublist(1).forEach((csvRow) {
-      var wordId = int.parse(csvRow[3]); // word_id kolonu
-      var collocation = Collocation(
-        id: int.parse(csvRow[0]),
-        term: csvRow[1],
-        definition: csvRow[2],
-        anlam: findMeaning(words, csvRow[1]),
-      );
+  // Tam metin araması
+  static Future<List<WordDetail>> searchWordsFullText(String searchTerm) async {
+    try {
+      final response = await supabase
+          .from('words')
+          .select()
+          .textSearch('fts', searchTerm);
 
-      var wordDetail = words.firstWhereOrNull((word) => word.id == wordId);
-      wordDetail?.collocations.add(collocation);
-    });
-  }
+      // WordDetail nesnelerini oluştur
+      List<WordDetail> words = (response as List)
+          .map((json) => WordDetail.fromSupabase(json))
+          .toList();
 
-  Future<void> fetchAndAttachDerivations(String filePath, List<WordDetail> words) async {
-    final csvFile = await rootBundle.loadString(filePath);
-    final converter = CsvToListConverter(
-      eol: '\n', // Satır sonu karakteri olarak '\n' kullan
-      // Diğer gerekli yapılandırmalar burada belirtilebilir
-    );
-    List<List<dynamic>> csvList = converter.convert(csvFile);
+      // İlişkili verileri ekle
+      await fetchAndAttachSynonymsFromSupabase(words);
+      await fetchAndAttachCollocationsFromSupabase(words);
+      await fetchAndAttachDerivationsFromSupabase(words);
 
-    csvList.sublist(1).forEach((csvRow) {
-      var wordId = int.parse(csvRow[3]); // word_id kolonu
-      var derivation = Derivation(
-        id: int.parse(csvRow[0]),
-        term: csvRow[1],
-        definition: csvRow[2],
-        type: csvRow[4], // Derivation tipi
-        anlam: findMeaning(words, csvRow[1]),
-      );
-
-      var wordDetail = words.firstWhereOrNull((word) => word.id == wordId);
-      wordDetail?.derivations.add(derivation);
-    });
+      return words;
+    } catch (e) {
+      print('Tam metin araması yapılırken hata: $e');
+      return [];
+    }
   }
 
+  // CSV yerine Supabase'den eşanlamlıları al
+  static Future<void> fetchAndAttachSynonymsFromSupabase(List<WordDetail> words) async {
+    if (words.isEmpty) return;
+
+    try {
+      // Tüm kelimelerin ID'lerini al
+      List<int> wordIds = words.map((w) => w.id).toList();
+
+      // Eşanlamlıları çek
+      final response = await supabase
+          .from('synonyms')
+          .select()
+          .filter('word_id', 'in', wordIds);
+
+      // Her eşanlamlıyı ilgili kelimeye ekle
+      for (var syn in response as List) {
+        var wordId = syn['word_id'];
+        var synonym = Synonym(
+          id: syn['id'],
+          term: syn['terim'],
+          tanim: syn['tanim'],
+          anlam: syn['type'],
+        );
+
+        var wordDetail = words.firstWhereOrNull((word) => word.id == wordId);
+        if (wordDetail != null) {
+          wordDetail.synonyms.add(synonym);
+        }
+      }
+    } catch (e) {
+      print('Eşanlamlılar alınırken hata: $e');
+    }
+  }
+
+  // CSV yerine Supabase'den kolokasyonları al
+  static Future<void> fetchAndAttachCollocationsFromSupabase(List<WordDetail> words) async {
+    if (words.isEmpty) return;
+
+    try {
+      // Tüm kelimelerin ID'lerini al
+      List<int> wordIds = words.map((w) => w.id).toList();
+
+      // Kolokasyonları çek
+      final response = await supabase
+          .from('collocations')
+          .select()
+          .filter('word_id', 'in', wordIds);
+
+      // Her kolokasyonu ilgili kelimeye ekle
+      for (var coll in response as List) {
+        var wordId = coll['word_id'];
+        var collocation = Collocation(
+          id: coll['id'],
+          term: coll['terim'],
+          definition: coll['anlam'],
+          anlam: coll['turkce'],
+        );
+
+        var wordDetail = words.firstWhereOrNull((word) => word.id == wordId);
+        if (wordDetail != null) {
+          wordDetail.collocations.add(collocation);
+        }
+      }
+    } catch (e) {
+      print('Kolokasyonlar alınırken hata: $e');
+    }
+  }
+
+  // CSV yerine Supabase'den türetilmiş kelimeleri al
+  static Future<void> fetchAndAttachDerivationsFromSupabase(List<WordDetail> words) async {
+    if (words.isEmpty) return;
+
+    try {
+      // Tüm kelimelerin ID'lerini al
+      List<int> wordIds = words.map((w) => w.id).toList();
+
+      // Türetilmiş kelimeleri çek
+      final response = await supabase
+          .from('derivations')
+          .select()
+          .filter('word_id', 'in', wordIds);
+
+      // Her türetilmiş kelimeyi ilgili kelimeye ekle
+      for (var der in response as List) {
+        var wordId = der['word_id'];
+        var derivation = Derivation(
+          id: der['id'],
+          term: der['terim'],
+          definition: der['anlam'],
+          type: der['type'],
+          anlam: der['turkce'],
+        );
+
+        var wordDetail = words.firstWhereOrNull((word) => word.id == wordId);
+        if (wordDetail != null) {
+          wordDetail.derivations.add(derivation);
+        }
+      }
+    } catch (e) {
+      print('Türetilmiş kelimeler alınırken hata: $e');
+    }
+  }
 }
 
+// Diğer model sınıfları değişmedi
 class Collocation {
   final int id;
   final String term;
@@ -160,24 +284,23 @@ class Collocation {
     required this.id,
     required this.term,
     required this.definition,
-    required this.anlam,
+    this.anlam,
   });
 
   factory Collocation.fromJson(Map<String, dynamic> json) {
     return Collocation(
       id: json['id'],
       term: json['terim'],
-      definition: json['tanim'],
-      anlam: json['anlam'],
+      definition: json['anlam'],
+      anlam:  json['turkce'],
     );
   }
 }
-
 class Derivation {
   final int id;
   final String term;
   final String definition;
-  final String type;
+  final String? type; // Nullable olarak değiştirildi
   final String? anlam;
 
   Derivation({
@@ -192,18 +315,19 @@ class Derivation {
     return Derivation(
       id: json['id'],
       term: json['terim'],
-      definition: json['tanim'],
+      definition: json['tanim'] ?? json['Anlam'] ?? '',
       type: json['type'],
-      anlam:json['anlam'],
+      anlam: json['anlam'] ?? json['Turkce'],
     );
   }
 }
 
-class Synonym { // Synonym sınıfı eklendi
+class Synonym {
   final int id;
   final String term;
   final String tanim;
   final String? anlam;
+
   Synonym({
     required this.id,
     required this.term,
@@ -215,8 +339,8 @@ class Synonym { // Synonym sınıfı eklendi
     return Synonym(
       id: json['id'],
       term: json['terim'],
-      tanim:json['tanim'],
-      anlam:json['anlam'],
+      tanim: json['tanim'],
+      anlam: json['anlam'],
     );
   }
 }

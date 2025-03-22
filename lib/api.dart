@@ -45,22 +45,9 @@ class WordDataCache {
   static List<List<dynamic>>? _derivationsData;
 
   static Future<void> loadAllData() async {
-    if (_wordsData == null) {
-      print('Veri yükleme başladı');
-
-      final wordsCsvContent = await rootBundle.loadString('assets/Model/words.csv');
-      final synonymsCsvContent = await rootBundle.loadString('assets/Model/synonyms.csv');
-      final collocationsCsvContent = await rootBundle.loadString('assets/Model/collacations.csv');
-      final derivationsCsvContent = await rootBundle.loadString('assets/Model/derivations.csv');
-
-      _wordsData = await compute(parseCsvData, wordsCsvContent);
-      _synonymsData = await compute(parseCsvData, synonymsCsvContent);
-      _collocationsData = await compute(parseCsvData, collocationsCsvContent);
-      _derivationsData = await compute(parseCsvData, derivationsCsvContent);
-
-      print('Veri yükleme tamamlandı');
+     print('Veri yükleme tamamlandı');
     }
-  }
+
 
   static List<List<dynamic>> parseCsvData(String csvContent) {
     return const CsvToListConverter(eol: '\n').convert(csvContent);
@@ -1163,6 +1150,7 @@ List<Product> _parseProducts(List<dynamic> productsJson) {
     }
   }
 
+  // Yıldızlı kelimeler - Mevcut sunucu API'sini kullan (değişiklik yok)
   Future<List<WordDetail>> fetchStarWordsAll(int userId) async {
     final response = await _dio.post('/get-star-words-all', data: {'user_id': userId});
     if (response.statusCode == 200) {
@@ -1172,6 +1160,18 @@ List<Product> _parseProducts(List<dynamic> productsJson) {
       return uniqueWordCardsMap.values.toList();
     } else {
       throw Exception('Yıldızlı kelimeler yüklenirken bir hata oluştu: ${response.data}');
+    }
+  }
+  Future<List<WordDetail>> _fetchWordsDetailFromServer(List<int> wordIds) async {
+    try {
+      final response = await _dio.post('/get-words-detail', data: {'word_ids': wordIds});
+      if (response.statusCode == 200 && response.data != null) {
+        return (response.data as List).map((data) => WordDetail.fromJson(data)).toList();
+      }
+      return [];
+    } catch (e) {
+      print('Kelime detayları sunucu hatası: $e');
+      return [];
     }
   }
 
@@ -1221,18 +1221,18 @@ List<Product> _parseProducts(List<dynamic> productsJson) {
   //-----------------------------------------------------
   // CSV'DEN KELİME DETAYLARI ÇEKME
   //-----------------------------------------------------
+  // Kelime detaylarını Supabase'den al
   Future<List<WordDetail>> fetchWordsDetail(List<int> wordIds) async {
-    await WordDataCache.loadAllData();
-    print("Fetching details for ${wordIds.length} starred words");
+    try {
+      return await WordDetail.fetchWordsDetailsFromSupabaseByIds(wordIds);
+    } catch (e) {
+      print('Supabase kelime detayları hatası: $e');
 
-    final words = _parseWordsDetail(wordIds);
-    _attachSynonyms(words);
-    _attachCollocations(words);
-    _attachDerivations(words);
-
-    print("Fetched ${words.length} word details");
-    return words;
+      // Hata durumunda orijinal sunucu API'sine dön
+      return _fetchWordsDetailFromServer(wordIds);
+    }
   }
+  // Yıldızlı kelimeler - Mevcut sunucu API'sini kullan (değişiklik yok)
 
   void _attachSynonyms(List<WordDetail> words) {
     for (var csvRow in WordDataCache._synonymsData!.sublist(1)) {
@@ -1293,29 +1293,12 @@ List<Product> _parseProducts(List<dynamic> productsJson) {
   }
 
   Future<WordDetail?> searchWord(String term) async {
-    await WordDataCache.loadAllData();
-    term = term.trim().toLowerCase();
-
-    var matchedWord = WordDataCache._wordsData!
-        .sublist(1)
-        .firstWhereOrNull((row) => row[1].toString().toLowerCase() == term);
-
-    if (matchedWord != null) {
-      return WordDetail(
-        id: int.parse(matchedWord[0].toString()),
-        word: matchedWord[1].toString(),
-        meaning: matchedWord[2].toString(),
-        type: matchedWord.length > 4 ? matchedWord[4]?.toString() : null,
-        image: matchedWord.length > 3 ? matchedWord[3]?.toString() : null,
-        defination:matchedWord[5] ,
-        collocations: [],
-        derivations: [],
-        synonyms: [],
-      );
+    try {
+      return await WordDetail.searchWordInSupabase(term);
+    } catch (e) {
+      print('Supabase kelime araması hatası: $e');
     }
-    return null;
   }
-
   Future<WordDetail> loadWordDetails(WordDetail word) async {
     await Future.wait([
       fetchAndAttachSynonymsToWordDetail([word]),

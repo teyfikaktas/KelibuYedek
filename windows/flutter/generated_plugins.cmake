@@ -17,7 +17,6 @@ list(APPEND FLUTTER_PLUGIN_LIST
   permission_handler_windows
   rive_common
   share_plus
-  sqlite3_flutter_libs
   syncfusion_pdfviewer_windows
   url_launcher_windows
 )

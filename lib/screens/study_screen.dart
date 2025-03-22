@@ -23,7 +23,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../Models/sqlite/dbhelper.dart';
 import '../controllers/SentenceController.dart';
 import '../globalDart/urls.dart';
 import '../shared_preferences/shared_preferences.dart';
@@ -4451,7 +4450,7 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
   }
 // Derivations bölümü
   Widget buildDerivationsSection(List<Derivation> derivations) {
-    var groupedDerivations = groupBy(derivations, (d) => d.type.toLowerCase());
+    var groupedDerivations = groupBy(derivations, (d) => d.type?.toLowerCase());
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
