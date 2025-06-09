@@ -151,10 +151,12 @@ class ExampleSentenceContent extends StatelessWidget {
               style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
             ),
             IconButton(
-              icon: Icon(Icons.info_outline),
+              icon: Icon(
+                Icons.info_outline,
+                color: Colors.teal, // Burada rengi teal olarak değiştirdim
+              ),
               onPressed: () => _showInfoDialog(context),
-            ),
-          ],
+            ),          ],
         ),
         SizedBox(height: 20),
         Container(
@@ -247,12 +249,46 @@ class ExampleSentenceContent extends StatelessWidget {
                   style: TextStyle(fontSize: 14),
                   textAlign: TextAlign.center,
                 ),
+                SizedBox(height: 15),
+                Text(
+                  'Tam eşleşme: Kelimenin doğrudan kendisini cümle içinde görmeyi sağlar.',
+                  style: TextStyle(fontSize: 14),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 15),
+                Text(
+                  'Geniş Eşleşme: Kelimeyi ve türevlerini çok daha fazla cümlede görmeyi sağlar.',
+                  style: TextStyle(fontSize: 14),
+                  textAlign: TextAlign.center,
+                ),
                 SizedBox(height: 20),
                 Text(
                   'Anlayışınız için teşekkür ederiz.',
                   style: TextStyle(fontSize: 14, fontStyle: FontStyle.italic),
                 ),
-                SizedBox(height: 10),
+                SizedBox(height: 15),
+                Container(
+                  padding: EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.blue.withOpacity(0.5)),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.info_outline, color: Colors.blue, size: 20),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Çeviriler yapay zeka çevirisidir ve fikir vermek için hazırlanmıştır. Tam çeviri olmayabilir.',
+                          style: TextStyle(fontSize: 13, color: Colors.blue.shade800),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: 15),
                 Text(
                   'PhD Akademi',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.teal),
@@ -278,7 +314,6 @@ class ExampleSentenceContent extends StatelessWidget {
       },
     );
   }
-
   Widget bulletPoint(String text) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
@@ -1648,19 +1683,23 @@ class _QuizScreenState extends State<QuizScreen> {
       },
     );
   }
+
   void _showExampleSentence() {
     if (questions.isNotEmpty) {
       final currentQuestion = questions[currentQuestionIndex];
       _showExampleSentenceDialog(currentQuestion);
     }
-  }  void _speakAndHighlight(String sentence, String highlightWord, StateSetter setStateModal) async {
+  }
+
+  void _speakAndHighlight(String sentence, String highlightWord, StateSetter setStateModal) async {
 
 
     await _speakSentence(sentence);  // Tüm cümleyi oku
 
   }
+  int _maxSentencesToShow = 0; // Varsayılan olarak maksimum 10 cümle
 
-  void _showExampleSentenceDialog(QuizQuestion question) {
+  void _showInfoDialog(BuildContext context) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -1671,17 +1710,909 @@ class _QuizScreenState extends State<QuizScreen> {
           elevation: 0,
           backgroundColor: Colors.transparent,
           child: ContentBox(
-            content: ExampleSentenceContent(
-              question: question,
-              onListen: (sentence) => _speakSentence(sentence),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Text(
+                  'Örnek Cümleler Hakkında',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
+                ),
+                SizedBox(height: 15),
+                Text(
+                  'Örnek cümleleri oluştururken karşılaşılabilecek durumlar:',
+                  style: TextStyle(fontSize: 14),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 10),
+                bulletPoint('Kelimenin farklı anlamda kullanılması',),
+                bulletPoint('Benzer kelimelerin karışması (tent/tenth)'),
+                SizedBox(height: 15),
+                Text(
+                  'Bu durumlar, kelimelerin türemiş hallerini görebilmeniz için tercih edilmiştir.',
+                  style: TextStyle(fontSize: 14),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 15),
+                Text(
+                  'Tam Eşleşme: Kelimenin doğrudan kendisini cümle içinde görmeyi sağlar.',
+                  style: TextStyle(fontSize: 14),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 15),
+                Text(
+                  'Geniş Eşleşme: Kelimeyi ve türevlerini çok daha fazla cümlede görmeyi sağlar.',
+                  style: TextStyle(fontSize: 14),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 20),
+                Text(
+                  'Anlayışınız için teşekkür ederiz.',
+                  style: TextStyle(fontSize: 14, fontStyle: FontStyle.italic),
+                ),
+                SizedBox(height: 15),
+                Container(
+                  padding: EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.blue.withOpacity(0.5)),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.info_outline, color: Colors.blue, size: 20),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Çeviriler yapay zeka çevirisidir ve fikir vermek için hazırlanmıştır. Tam çeviri olmayabilir.',
+                          style: TextStyle(fontSize: 13, color: Colors.blue.shade800),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: 15),
+                Text(
+                  'PhD Akademi',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.teal),
+                ),
+                SizedBox(height: 20),
+                Align(
+                  alignment: Alignment.bottomRight,
+                  child: TextButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
+                    child: Text(
+                      'Anladım',
+                      style: TextStyle(fontSize: 18, color: Colors.teal),
+                    ),
+                  ),
+                ),
+              ],
             ),
-            icon: Icons.menu_book,
+            icon: Icons.info_outline,
           ),
         );
       },
     );
   }
 
+  Widget bulletPoint(String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        children: [
+          Text('• ', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+          Expanded(
+            child: Text(text, style: TextStyle(fontSize: 14)),
+          ),
+        ],
+      ),
+    );
+  }  void _showExampleSentenceDialog(QuizQuestion question) {
+    final colors = _isDarkMode ? darkModeColors : lightModeColors;
+    String _sentenceSelectionMode = 'traditional'; // 'traditional' veya 'ai' olabilir
+    String? _selectedLevel = null;
+    String? _selectedType = null;
+    int _maxSentencesToShow = 0;
+    List<Map<String, dynamic>> _filteredSentences = [];
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return Dialog(
+              backgroundColor: colors["background"],
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Container(
+                width: MediaQuery.of(context).size.width * 0.9,
+                padding: EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Başlık satırı: tıklanabilir bilgi ikonu, başlık metni ve sağdaki butonlar
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            IconButton(
+                              icon: Icon(Icons.info_outline, size: 24, color: colors["text"]),
+                              onPressed: () {
+                                _showInfoDialog(context);
+                              },
+                            ),
+                            SizedBox(width: 8),
+                            Text(
+                              'Örnek Cümleler',
+                              style: GoogleFonts.poppins(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: colors["text"],
+                              ),
+                            ),
+                          ],
+                        ),
+                        Row(
+                          children: [
+                            // Filtre butonu - sadece ikon
+                            GestureDetector(
+                              onTap: () => _showFilterModal(
+                                context,
+                                question.term,
+                                _sentenceSelectionMode, // Mod bilgisini aktarıyoruz
+                                    (level, type, maxCount) {
+                                  setDialogState(() {
+                                    _selectedLevel = level;
+                                    _selectedType = type;
+                                    _maxSentencesToShow = maxCount;
+                                  });
+                                },
+                              ),
+                              child: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: _isDarkMode ? Colors.grey.shade800 : Colors.white,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: _isDarkMode
+                                        ? Colors.teal.shade300.withOpacity(0.5)
+                                        : Colors.teal.shade300,
+                                    width: 1.5,
+                                  ),
+                                ),
+                                child: Icon(
+                                  Icons.filter_list_rounded,
+                                  size: 18,
+                                  color: _isDarkMode ? Colors.teal.shade300 : Colors.teal.shade700,
+                                ),
+                              ),
+                            ),
+                            SizedBox(width: 8),
+                            IconButton(
+                              icon: Icon(Icons.close, color: colors["text"]),
+                              onPressed: () => Navigator.of(context).pop(),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    Divider(color: colors["borderColor"]),
+
+                    // Eşleşme modu seçimleri
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        children: [
+                          _buildSelectionButton(
+                            label: "Tam Eşleşme",
+                            isSelected: _sentenceSelectionMode == 'traditional',
+                            onTap: () {
+                              setDialogState(() {
+                                _sentenceSelectionMode = 'traditional';
+                                // Mode değiştiğinde filtreleri sıfırla
+                                _selectedLevel = null;
+                                _selectedType = null;
+                              });
+                            },
+                          ),
+                          SizedBox(width: 8),
+                          _buildSelectionButton(
+                            label: "Geniş Eşleşme",
+                            isSelected: _sentenceSelectionMode == 'ai',
+                            onTap: () {
+                              setDialogState(() {
+                                _sentenceSelectionMode = 'ai';
+                                // Mode değiştiğinde filtreleri sıfırla
+                                _selectedLevel = null;
+                                _selectedType = null;
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    SizedBox(height: 10),
+                    // Cümle içeriği
+                    Expanded(
+                      child: FutureBuilder<List<Map<String, dynamic>>>(
+                        future: _fetchSentencesBasedOnMode(question.term, _sentenceSelectionMode),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState == ConnectionState.waiting) {
+                            return Center(
+                              child: CircularProgressIndicator(color: Colors.teal),
+                            );
+                          } else if (snapshot.hasError) {
+                            return Center(
+                              child: Text(
+                                'Cümleler yüklenirken hata oluştu: ${snapshot.error}',
+                                style: GoogleFonts.poppins(color: Colors.red),
+                              ),
+                            );
+                          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                            return Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.sentiment_dissatisfied, size: 48, color: colors["unselectedText"]),
+                                  SizedBox(height: 16),
+                                  Text(
+                                    'Bu kelime için örnek cümle bulunamadı.',
+                                    style: GoogleFonts.poppins(color: colors["unselectedText"]),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
+                              ),
+                            );
+                          } else {
+                            // Filtreleri uygula
+                            _filteredSentences = snapshot.data!.where((sentence) {
+                              bool levelMatch = _selectedLevel == null || sentence['level'] == _selectedLevel;
+                              bool typeMatch = _selectedType == null || sentence['type'] == _selectedType;
+                              return levelMatch && typeMatch;
+                            }).toList();
+
+                            // Maksimum gösterim sınırı
+                            if (_maxSentencesToShow > 0 && _filteredSentences.length > _maxSentencesToShow) {
+                              _filteredSentences = _filteredSentences.sublist(0, _maxSentencesToShow);
+                            }
+
+                            if (_filteredSentences.isEmpty) {
+                              return Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.filter_list_off, size: 48, color: colors["unselectedText"]),
+                                    SizedBox(height: 16),
+                                    Text(
+                                      'Seçili filtrelere uygun cümle bulunamadı.',
+                                      style: GoogleFonts.poppins(color: colors["unselectedText"]),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }
+
+                            // AnimatedSentenceCarousel widget'ını kullan
+                            return AnimatedSentenceCarousel(
+                              sentences: _filteredSentences,
+                              wordToHighlight: question.term,
+                              wordId: question.id,
+                              isDarkMode: _isDarkMode,
+                            );
+                          }
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+  Widget _buildSelectionButton({
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.teal.shade700 : Colors.grey.shade200,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? Colors.teal.shade700 : Colors.grey.shade400,
+            width: 1,
+          ),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: isSelected ? Colors.white : Colors.grey.shade700,
+          ),
+        ),
+      ),
+    );
+  }
+  String _sentenceSelectionMode = 'traditional'; // 'default', 'traditional', veya 'ai' olabilir
+  String? _selectedType;
+  String? _selectedLevel;
+// 3. Filtre modali fonksiyonu
+// Yeni implementasyon - moda özel filtre seçenekleri içeren modal
+  void _showFilterModal(
+      BuildContext context,
+      String word,
+      String currentMode, // Şu anki mod
+      Function(String? level, String? type, int maxCount) onApplyFilters // Filtreleri geri döndüren callback
+      ) {
+    final colors = _isDarkMode ? darkModeColors : lightModeColors;
+    String? tempSelectedLevel = _selectedLevel;
+    String? tempSelectedType = _selectedType;
+    int tempMaxSentences = _maxSentencesToShow;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext context) {
+        // Moda göre uygun filtreleri getir
+        return FutureBuilder<List<Map<String, dynamic>>>(
+          // Bu noktada, mevcut moda göre uygun cümleleri getiriyoruz
+          future: _fetchSentencesBasedOnMode(word, currentMode),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return Container(
+                height: MediaQuery.of(context).size.height * 0.3,
+                decoration: BoxDecoration(
+                  color: colors["background"],
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                ),
+                child: Center(
+                  child: CircularProgressIndicator(color: Colors.teal),
+                ),
+              );
+            }
+
+            final List<Map<String, dynamic>> sentences = snapshot.data ?? [];
+
+            // Mevcut modda bulunan benzersiz seviye ve tipleri çıkar
+            final Set<String> availableLevels = {};
+            final Set<String> availableTypes = {};
+
+            for (var sentence in sentences) {
+              if (sentence['level'] != null && sentence['level'].toString().isNotEmpty) {
+                availableLevels.add(sentence['level'].toString());
+              }
+              if (sentence['type'] != null && sentence['type'].toString().isNotEmpty) {
+                availableTypes.add(sentence['type'].toString());
+              }
+            }
+
+            // Logla
+            print("Mod: $currentMode");
+            print("Bulunan seviyeler: $availableLevels");
+            print("Bulunan tipler: $availableTypes");
+
+            return StatefulBuilder(
+                builder: (context, setModalState) {
+                  return DraggableScrollableSheet(
+                    initialChildSize: 0.7,
+                    minChildSize: 0.5,
+                    maxChildSize: 0.95,
+                    builder: (_, controller) {
+                      return Container(
+                        decoration: BoxDecoration(
+                          color: colors["background"],
+                          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                        ),
+                        child: ListView(
+                          controller: controller,
+                          padding: EdgeInsets.all(24),
+                          children: [
+                            // İşaretçi çizgi
+                            Center(
+                              child: Container(
+                                height: 5,
+                                width: 40,
+                                margin: EdgeInsets.only(bottom: 16),
+                                decoration: BoxDecoration(
+                                  color: colors["unselectedText"]!.withOpacity(0.3),
+                                  borderRadius: BorderRadius.circular(2.5),
+                                ),
+                              ),
+                            ),
+
+                            // Filtreleme başlığı
+                            Text(
+                              'Cümle Filtreleri',
+                              style: GoogleFonts.poppins(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                                color: colors["text"],
+                              ),
+                            ),
+                            SizedBox(height: 10),
+
+                            // Mod bilgisi
+                            Container(
+                              padding: EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: colors["buttonBackground"]!.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.info_outline,
+                                    color: colors["buttonBackground"],
+                                    size: 20,
+                                  ),
+                                  SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      "Şu anda \"${currentMode == 'traditional' ? 'Tam Eşleşme' : 'Geniş Eşleşme'}\" modundasınız. Filtre seçenekleri bu moda göre değişiklik gösterir.",
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 13,
+                                        color: colors["text"],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            SizedBox(height: 20),
+
+                            // Tümünü göster butonu
+                            ElevatedButton.icon(
+                              icon: Icon(Icons.visibility_outlined, color: Colors.white),
+                              label: Text(
+                                "Tüm Cümleleri Göster",
+                                style: GoogleFonts.poppins(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.teal.shade600,
+                                padding: EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              onPressed: () {
+                                setModalState(() {
+                                  tempSelectedLevel = null;
+                                  tempSelectedType = null;
+                                  tempMaxSentences = 0;
+                                });
+                              },
+                            ),
+                            SizedBox(height: 24),
+
+                            // Seviye seçimi
+                            Text(
+                              "Seviye",
+                              style: GoogleFonts.poppins(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.orange.shade700,
+                              ),
+                            ),
+                            SizedBox(height: 12),
+                            availableLevels.isEmpty
+                                ? Text(
+                              "Bu modda seviye bilgisi bulunmamaktadır.",
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                color: colors["unselectedText"],
+                                fontStyle: FontStyle.italic,
+                              ),
+                            )
+                                : Wrap(
+                              spacing: 10,
+                              runSpacing: 10,
+                              children: [
+                                _buildFilterOption(
+                                  label: "Tümü",
+                                  isSelected: tempSelectedLevel == null,
+                                  color: Colors.orange.shade400,
+                                  onTap: () {
+                                    setModalState(() {
+                                      tempSelectedLevel = null;
+                                    });
+                                  },
+                                ),
+                                ...availableLevels.map((level) => _buildFilterOption(
+                                  label: level,
+                                  isSelected: tempSelectedLevel == level,
+                                  color: Colors.orange.shade400,
+                                  onTap: () {
+                                    setModalState(() {
+                                      tempSelectedLevel = level;
+                                    });
+                                  },
+                                )).toList(),
+                              ],
+                            ),
+                            SizedBox(height: 24),
+
+                            // Tür seçimi
+                            Text(
+                              "Cümle Tipi",
+                              style: GoogleFonts.poppins(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.teal.shade700,
+                              ),
+                            ),
+                            SizedBox(height: 12),
+                            availableTypes.isEmpty
+                                ? Text(
+                              "Bu modda cümle tipi bilgisi bulunmamaktadır.",
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                color: colors["unselectedText"],
+                                fontStyle: FontStyle.italic,
+                              ),
+                            )
+                                : Wrap(
+                              spacing: 10,
+                              runSpacing: 10,
+                              children: [
+                                _buildFilterOption(
+                                  label: "Tümü",
+                                  isSelected: tempSelectedType == null,
+                                  color: Colors.teal.shade400,
+                                  onTap: () {
+                                    setModalState(() {
+                                      tempSelectedType = null;
+                                    });
+                                  },
+                                ),
+                                ...availableTypes.map((type) => _buildFilterOption(
+                                  label: type,
+                                  isSelected: tempSelectedType == type,
+                                  color: Colors.teal.shade400,
+                                  onTap: () {
+                                    setModalState(() {
+                                      tempSelectedType = type;
+                                    });
+                                  },
+                                )).toList(),
+                              ],
+                            ),
+                            SizedBox(height: 24),
+
+                            // Gösterilecek maksimum cümle sayısı
+                            Text(
+                              "Gösterilecek Cümle Sayısı",
+                              style: GoogleFonts.poppins(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.blue.shade700,
+                              ),
+                            ),
+                            SizedBox(height: 12),
+                            Wrap(
+                              spacing: 10,
+                              runSpacing: 10,
+                              children: [
+                                for (var count in [0, 5, 10, 20, 30, 50, 100])
+                                  _buildNumberOption(
+                                      count,
+                                      count == 0 ? "Tümü" : count.toString(),
+                                      tempMaxSentences,
+                                          (value) {
+                                        setModalState(() {
+                                          tempMaxSentences = value;
+                                        });
+                                      }
+                                  ),
+                              ],
+                            ),
+                            SizedBox(height: 30),
+
+                            // Uygula ve İptal butonları
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: OutlinedButton(
+                                    child: Text(
+                                      "İptal",
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: colors["text"],
+                                      padding: EdgeInsets.symmetric(vertical: 16),
+                                      side: BorderSide(color: Colors.grey.shade300),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
+                                    onPressed: () {
+                                      Navigator.of(context).pop();
+                                    },
+                                  ),
+                                ),
+                                SizedBox(width: 12),
+                                Expanded(
+                                  flex: 2,
+                                  child: ElevatedButton(
+                                    child: Text(
+                                      "Filtreleri Uygula",
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.teal.shade700,
+                                      foregroundColor: Colors.white,
+                                      padding: EdgeInsets.symmetric(vertical: 16),
+                                      elevation: 0,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
+                                    onPressed: () {
+                                      // Filtreleri geri döndür
+                                      onApplyFilters(
+                                          tempSelectedLevel,
+                                          tempSelectedType,
+                                          tempMaxSentences
+                                      );
+                                      Navigator.of(context).pop();
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  );
+                }
+            );
+          },
+        );
+      },
+    );
+  }// 4. Yardımcı widget'lar
+  Widget _buildFilterOption({
+    required String label,
+    required bool isSelected,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? color : Colors.transparent,
+          borderRadius: BorderRadius.circular(30),
+          border: Border.all(
+            color: isSelected ? color : Colors.grey.shade300,
+            width: 1.5,
+          ),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: isSelected ? Colors.white : Colors.grey.shade800,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNumberOption(
+      int value,
+      String label,
+      int currentValue,
+      Function(int) onSelected,
+      ) {
+    bool isSelected = currentValue == value;
+
+    return GestureDetector(
+      onTap: () => onSelected(value),
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.blue.shade500 : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? Colors.blue.shade500 : Colors.grey.shade300,
+            width: 1.5,
+          ),
+          boxShadow: isSelected ? [
+            BoxShadow(
+              color: Colors.blue.withOpacity(0.2),
+              blurRadius: 4,
+              offset: Offset(0, 2),
+            ),
+          ] : null,
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: isSelected ? Colors.white : Colors.grey.shade700,
+          ),
+        ),
+      ),
+    );
+  }
+
+// 5. Cümle arama fonksiyonları
+  Future<List<Map<String, dynamic>>> _fetchSentencesBasedOnMode(String word, String mode) async {
+    if (mode == 'traditional') {
+      // Geleneksel mod: Tam eşleşme
+      try {
+        final data = await supabase
+            .from('sentences')
+            .select()
+            .eq('word', word);
+
+        // Sonuçları loglama
+        print("Tam eşleşme modu için bulunan cümle sayısı: ${data.length}");
+        if (data.isNotEmpty) {
+          // Mevcut seviye ve tipleri loglama
+          final levels = data.map((item) => item['level']).toSet();
+          final types = data.map((item) => item['type']).toSet();
+          print("Tam eşleşme modunda bulunan seviyeler: $levels");
+          print("Tam eşleşme modunda bulunan tipler: $types");
+        }
+
+        return List<Map<String, dynamic>>.from(data);
+      } catch (e) {
+        print("Tam eşleşme cümle yüklenirken hata: $e");
+        return [];
+      }
+    } else {
+      // AI modu: FTS arama ve daha geniş eşleşme
+      try {
+        final results = await _searchWords(word);
+
+        // Sonuçları loglama
+        print("Geniş eşleşme modu için bulunan cümle sayısı: ${results.length}");
+        if (results.isNotEmpty) {
+          // Mevcut seviye ve tipleri loglama
+          final levels = results.map((item) => item['level']).toSet();
+          final types = results.map((item) => item['type']).toSet();
+          print("Geniş eşleşme modunda bulunan seviyeler: $levels");
+          print("Geniş eşleşme modunda bulunan tipler: $types");
+        }
+
+        return results;
+      } catch (e) {
+        print("Geniş eşleşme cümle arama hatası: $e");
+        return [];
+      }
+    }
+  }
+  Future<List<Map<String, dynamic>>> _searchWords(String word) async {
+    // Arama terimini hazırla
+    final String searchTerm = word.trim();
+
+    if (searchTerm.contains(' ')) {
+      // Phrasal verbs ve çok kelimeli ifadeler için
+      final String exactPhraseQuery = searchTerm.split(' ').join(' <-> ');
+
+      try {
+        final exactMatches = await supabase
+            .from('sentences')
+            .select()
+            .textSearch('fts', exactPhraseQuery, config: 'english');
+
+        if (exactMatches.length >= 3) {
+          return List<Map<String, dynamic>>.from(exactMatches);
+        }
+
+        // Daha esnek bir sorgu
+        final List<String> words = searchTerm.split(' ');
+        String orQuery = words.join(' | ');
+
+        final proximityMatches = await supabase
+            .from('sentences')
+            .select()
+            .textSearch('fts', orQuery, config: 'english');
+
+        // ILIKE ile arama
+        List<Map<String, dynamic>> ilikeMatches = [];
+        if (exactMatches.length + proximityMatches.length < 3) {
+          ilikeMatches = await supabase
+              .from('sentences')
+              .select()
+              .ilike('sentence', '%$searchTerm%');
+        }
+
+        // Sonuçları birleştir
+        List<Map<String, dynamic>> allResults = List<Map<String, dynamic>>.from(exactMatches);
+        allResults.addAll(proximityMatches);
+        allResults.addAll(ilikeMatches);
+
+        // Tekrarları kaldır
+        final Set<String> uniqueIds = {};
+        final List<Map<String, dynamic>> uniqueResults = [];
+
+        for (var item in allResults) {
+          String id = item['id'].toString();
+          if (!uniqueIds.contains(id)) {
+            uniqueIds.add(id);
+            uniqueResults.add(item);
+          }
+        }
+
+        return uniqueResults;
+      } catch (e) {
+        print("Geniş eşleşme cümle yüklenirken hata: $e");
+        return [];
+      }
+    } else {
+      // Tek kelime için
+      try {
+        final String queryTerm = searchTerm.length > 3 ? "$searchTerm:*" : searchTerm;
+
+        final data = await supabase
+            .from('sentences')
+            .select()
+            .textSearch('fts', queryTerm, config: 'english');
+
+        if (data.length < 3) {
+          final ilikeResults = await supabase
+              .from('sentences')
+              .select()
+              .ilike('sentence', '% $searchTerm %');
+
+          List<Map<String, dynamic>> allResults = List<Map<String, dynamic>>.from(data);
+          allResults.addAll(ilikeResults);
+
+          // Tekrarları kaldır
+          final Set<String> uniqueIds = {};
+          final List<Map<String, dynamic>> uniqueResults = [];
+
+          for (var item in allResults) {
+            String id = item['id'].toString();
+            if (!uniqueIds.contains(id)) {
+              uniqueIds.add(id);
+              uniqueResults.add(item);
+            }
+          }
+
+          return uniqueResults;
+        }
+
+        return List<Map<String, dynamic>>.from(data);
+      } catch (e) {
+        print("Geniş eşleşme cümle yüklenirken hata: $e");
+        return [];
+      }
+    }
+  }
 
   Future<void> _speakSentence(String sentence) async {
     await flutterTts.setLanguage("en-US");
@@ -2097,6 +3028,7 @@ class _QuizScreenState extends State<QuizScreen> {
       leftBarIndicatorColor: Colors.green,
     ).show(context);
   }
+
 }
 
 class QuizQuestion {
@@ -2713,5 +3645,645 @@ class ContentBox extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+// AnimatedSentenceCarousel bileşeni - ilk dosyadan uyarlanmıştır
+class AnimatedSentenceCarousel extends StatefulWidget {
+  final List<Map<String, dynamic>> sentences;
+  final String wordToHighlight;
+  final int wordId;
+  final bool isDarkMode;
+
+  const AnimatedSentenceCarousel({
+    Key? key,
+    required this.sentences,
+    required this.wordToHighlight,
+    required this.wordId,
+    required this.isDarkMode,
+  }) : super(key: key);
+
+  @override
+  _AnimatedSentenceCarouselState createState() => _AnimatedSentenceCarouselState();
+}
+
+class _AnimatedSentenceCarouselState extends State<AnimatedSentenceCarousel> with SingleTickerProviderStateMixin {
+  int _currentIndex = 0;
+  final FlutterTts _flutterTts = FlutterTts();
+  bool _isPlaying = false;
+  int _highlightedWordIndex = -1;
+  Map<int, List<String>> _sentenceWordsMap = {};
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
+  Timer? _debounceTimer;
+  bool _isAnimating = false;
+  bool _isForward = true; // Yön kontrolü için değişken
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeTts();
+    _initAnimations();
+    // Tüm cümleleri kelimelere böl
+    for (int i = 0; i < widget.sentences.length; i++) {
+      _sentenceWordsMap[i] = _splitSentenceToWords(widget.sentences[i]['sentence'] ?? '');
+    }
+
+    // İlk cümlenin hemen görünmesi için animasyonu başlat
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _animationController.forward();
+    });
+  }
+
+  void _initAnimations() {
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 400), // Biraz daha hızlı
+      vsync: this,
+    );
+
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeOutCubic, // Daha yumuşak bir eğri
+    ));
+
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0.3, 0),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeOutCubic, // Daha yumuşak bir eğri
+    ));
+
+    _animationController.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        setState(() {
+          _isAnimating = false;
+        });
+      }
+    });
+  }
+
+  Future<void> _initializeTts() async {
+    await _flutterTts.setLanguage("en-US");
+    await _flutterTts.setSpeechRate(0.5);
+    await _flutterTts.setVolume(1.0);
+    await _flutterTts.setPitch(1.0);
+
+    _flutterTts.setProgressHandler((String text, int startOffset, int endOffset, String word) {
+      if (word.isNotEmpty) {
+        final words = _sentenceWordsMap[_currentIndex] ?? [];
+        String textUpToNow = text.substring(0, startOffset);
+        int wordCount = textUpToNow.split(' ').where((s) => s.isNotEmpty).length;
+
+        if (wordCount >= 0 && wordCount < words.length) {
+          setState(() {
+            _highlightedWordIndex = wordCount;
+          });
+        }
+      }
+    });
+
+    _flutterTts.setCompletionHandler(() {
+      setState(() {
+        _isPlaying = false;
+        _highlightedWordIndex = -1;
+      });
+    });
+
+    _flutterTts.setErrorHandler((error) {
+      setState(() {
+        _isPlaying = false;
+        _highlightedWordIndex = -1;
+      });
+    });
+  }
+
+  List<String> _splitSentenceToWords(String sentence) {
+    List<String> words = sentence.split(' ');
+    List<String> result = [];
+
+    for (var word in words) {
+      if (word.isNotEmpty) {
+        result.add(word);
+      }
+    }
+
+    return result;
+  }
+
+  Future<void> _speakSentence(String sentence) async {
+    if (_isPlaying) {
+      await _flutterTts.stop();
+      setState(() {
+        _isPlaying = false;
+        _highlightedWordIndex = -1;
+      });
+      return;
+    }
+
+    setState(() {
+      _isPlaying = true;
+      _highlightedWordIndex = -1;
+    });
+
+    await _flutterTts.speak(sentence);
+  }
+
+  void _goToNext() {
+    if (_isAnimating) return;
+
+    setState(() {
+      _isAnimating = true;
+      _isForward = true; // İleri yönde
+    });
+
+    // Önce mevcut içeriği dışarı kaydır (soldan sağa)
+    _slideAnimation = Tween<Offset>(
+      begin: Offset.zero,
+      end: const Offset(-0.3, 0),
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInCubic,
+    ));
+
+    _fadeAnimation = Tween<double>(
+      begin: 1.0,
+      end: 0.0,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInCubic,
+    ));
+
+    _animationController.forward(from: 0.0).then((_) {
+      setState(() {
+        _currentIndex = (_currentIndex + 1) % widget.sentences.length;
+        _highlightedWordIndex = -1;
+        if (_isPlaying) {
+          _flutterTts.stop();
+          _isPlaying = false;
+        }
+
+        // Yeni içeriği içeri kaydır (sağdan sola)
+        _slideAnimation = Tween<Offset>(
+          begin: const Offset(0.3, 0),
+          end: Offset.zero,
+        ).animate(CurvedAnimation(
+          parent: _animationController,
+          curve: Curves.easeOutCubic,
+        ));
+
+        _fadeAnimation = Tween<double>(
+          begin: 0.0,
+          end: 1.0,
+        ).animate(CurvedAnimation(
+          parent: _animationController,
+          curve: Curves.easeOutCubic,
+        ));
+      });
+
+      _animationController.forward(from: 0.0);
+    });
+  }
+
+  void _goToPrevious() {
+    if (_isAnimating) return;
+
+    setState(() {
+      _isAnimating = true;
+      _isForward = false; // Geri yönde
+    });
+
+    // Önce mevcut içeriği dışarı kaydır (sağdan sola)
+    _slideAnimation = Tween<Offset>(
+      begin: Offset.zero,
+      end: const Offset(0.3, 0),
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInCubic,
+    ));
+
+    _fadeAnimation = Tween<double>(
+      begin: 1.0,
+      end: 0.0,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInCubic,
+    ));
+
+    _animationController.forward(from: 0.0).then((_) {
+      setState(() {
+        _currentIndex = (_currentIndex - 1 + widget.sentences.length) % widget.sentences.length;
+        _highlightedWordIndex = -1;
+        if (_isPlaying) {
+          _flutterTts.stop();
+          _isPlaying = false;
+        }
+
+        // Yeni içeriği içeri kaydır (soldan sağa)
+        _slideAnimation = Tween<Offset>(
+          begin: const Offset(-0.3, 0),
+          end: Offset.zero,
+        ).animate(CurvedAnimation(
+          parent: _animationController,
+          curve: Curves.easeOutCubic,
+        ));
+
+        _fadeAnimation = Tween<double>(
+          begin: 0.0,
+          end: 1.0,
+        ).animate(CurvedAnimation(
+          parent: _animationController,
+          curve: Curves.easeOutCubic,
+        ));
+      });
+
+      _animationController.forward(from: 0.0);
+    });
+  }
+
+  void _goToIndex(int index) {
+    if (index == _currentIndex || _isAnimating) return;
+
+    setState(() {
+      _isAnimating = true;
+      _isForward = index > _currentIndex; // Yönü belirle
+    });
+
+    // Yöne göre animasyon ayarla
+    if (_isForward) {
+      _slideAnimation = Tween<Offset>(
+        begin: Offset.zero,
+        end: const Offset(-0.3, 0),
+      ).animate(CurvedAnimation(
+        parent: _animationController,
+        curve: Curves.easeInCubic,
+      ));
+    } else {
+      _slideAnimation = Tween<Offset>(
+        begin: Offset.zero,
+        end: const Offset(0.3, 0),
+      ).animate(CurvedAnimation(
+        parent: _animationController,
+        curve: Curves.easeInCubic,
+      ));
+    }
+
+    _fadeAnimation = Tween<double>(
+      begin: 1.0,
+      end: 0.0,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInCubic,
+    ));
+
+    _animationController.forward(from: 0.0).then((_) {
+      setState(() {
+        _currentIndex = index;
+        _highlightedWordIndex = -1;
+        if (_isPlaying) {
+          _flutterTts.stop();
+          _isPlaying = false;
+        }
+
+        // Yeni içeriği içeri kaydır
+        if (_isForward) {
+          _slideAnimation = Tween<Offset>(
+            begin: const Offset(0.3, 0),
+            end: Offset.zero,
+          ).animate(CurvedAnimation(
+            parent: _animationController,
+            curve: Curves.easeOutCubic,
+          ));
+        } else {
+          _slideAnimation = Tween<Offset>(
+            begin: const Offset(-0.3, 0),
+            end: Offset.zero,
+          ).animate(CurvedAnimation(
+            parent: _animationController,
+            curve: Curves.easeOutCubic,
+          ));
+        }
+
+        _fadeAnimation = Tween<double>(
+          begin: 0.0,
+          end: 1.0,
+        ).animate(CurvedAnimation(
+          parent: _animationController,
+          curve: Curves.easeOutCubic,
+        ));
+      });
+
+      _animationController.forward(from: 0.0);
+    });
+  }
+
+  // Throttle function to prevent rapid navigation
+  void _throttleNavigation(Function() callback) {
+    if (_debounceTimer?.isActive ?? false) return;
+    _debounceTimer = Timer(Duration(milliseconds: 300), () {
+      callback();
+    });
+  }
+
+  Widget _buildHighlightedText(List<String> words, String wordToHighlight, int currentWordIndex) {
+    final wordToHighlightLower = wordToHighlight.toLowerCase();
+
+    return RichText(
+      text: TextSpan(
+        style: GoogleFonts.poppins(
+          fontSize: 16,
+          color: widget.isDarkMode ? Colors.white.withOpacity(0.9) : Colors.black87,
+          height: 1.5,
+        ),
+        children: List.generate(words.length, (index) {
+          final word = words[index];
+          final isWordHighlighted = word.toLowerCase().contains(wordToHighlightLower);
+          final isCurrentlyBeingRead = index == currentWordIndex;
+
+          // Reading highlight (current word)
+          if (isCurrentlyBeingRead) {
+            return TextSpan(
+              text: word + (index < words.length - 1 ? ' ' : ''),
+              style: TextStyle(
+                color: Colors.teal,
+                fontWeight: FontWeight.w700,
+                decoration: TextDecoration.underline,
+                decorationColor: Colors.teal,
+                decorationThickness: 2,
+                letterSpacing: 0.3,
+              ),
+            );
+          }
+
+          // Search term highlight
+          if (isWordHighlighted) {
+            return TextSpan(
+              text: word + (index < words.length - 1 ? ' ' : ''),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.teal,
+              ),
+            );
+          }
+
+          // Normal word
+          return TextSpan(
+            text: word + (index < words.length - 1 ? ' ' : ''),
+          );
+        }),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.sentences.isEmpty) {
+      return Center(
+        child: Text(
+          "Bu kelime için örnek cümle bulunamadı.",
+          style: GoogleFonts.poppins(
+            fontSize: 16,
+            color: widget.isDarkMode ? Colors.grey[400] : Colors.grey[600],
+            fontWeight: FontWeight.w500,
+          ),
+          textAlign: TextAlign.center,
+        ),
+      );
+    }
+
+    final currentSentence = widget.sentences[_currentIndex];
+    final sentence = currentSentence['sentence'] ?? '';
+    final translation = currentSentence['translate'] ?? '';
+    final level = currentSentence['level'] ?? '';
+
+    return Column(
+      children: [
+
+        // Navigation and counter
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                "Cümle ${_currentIndex + 1}/${widget.sentences.length}",
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.teal.shade700,
+                ),
+              ),
+              Row(
+                children: [
+                  if (level.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade400,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        level,
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          color: Colors.white,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+
+        // Main content card with AnimatedBuilder
+        AnimatedBuilder(
+          animation: _animationController,
+          builder: (context, child) {
+            // İlk yüklemede animasyon uygulanmaması için kontrol
+            if (_currentIndex == 0 && !_animationController.isAnimating && _animationController.status != AnimationStatus.completed) {
+              return child!;
+            }
+
+            return FadeTransition(
+              opacity: _fadeAnimation,
+              child: SlideTransition(
+                position: _slideAnimation,
+                child: child,
+              ),
+            );
+          },
+          child: GestureDetector(
+            onHorizontalDragEnd: (details) {
+              if (details.primaryVelocity! > 0) {
+                // Swipe right -> go to previous
+                _throttleNavigation(_goToPrevious);
+              } else if (details.primaryVelocity! < 0) {
+                // Swipe left -> go to next
+                _throttleNavigation(_goToNext);
+              }
+            },
+            child: Card(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              elevation: 4,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  gradient: LinearGradient(
+                    begin: Alignment.topRight,
+                    end: Alignment.bottomLeft,
+                    colors: widget.isDarkMode
+                        ? [Colors.grey.shade800, Colors.grey.shade900]
+                        : [Colors.white, Colors.teal.shade50],
+                  ),
+                ),
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Main sentence with highlighted word
+                    InkWell(
+                      onTap: () => _speakSentence(sentence),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: _buildHighlightedText(
+                              _sentenceWordsMap[_currentIndex] ?? [],
+                              widget.wordToHighlight,
+                              _highlightedWordIndex,
+                            ),
+                          ),
+                          // Audio button
+                          IconButton(
+                            icon: Icon(
+                              _isPlaying ? Icons.volume_up : Icons.volume_up_outlined,
+                              color: _isPlaying ? Colors.teal : widget.isDarkMode ? Colors.grey[400] : Colors.grey,
+                            ),
+                            onPressed: () => _speakSentence(sentence),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    // Turkish translation
+                    if (translation.isNotEmpty)
+                      Text(
+                        translation,
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          color: widget.isDarkMode ? Colors.grey[400] : Colors.grey[700],
+                          fontStyle: FontStyle.italic,
+                          height: 1.4,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+
+        // Navigation buttons
+        Padding(
+          padding: const EdgeInsets.only(top: 16.0, bottom: 4.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Previous button
+              IconButton(
+                onPressed: _currentIndex > 0 ? _goToPrevious : null,
+                icon: Icon(Icons.arrow_back_ios),
+                color: _currentIndex > 0
+                    ? (widget.isDarkMode ? Colors.teal.shade300 : Colors.teal)
+                    : Colors.grey.withOpacity(0.3),
+              ),
+
+              // Page indicator dots
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(
+                      widget.sentences.length,
+                          (index) => GestureDetector(
+                        onTap: () => _goToIndex(index),
+                        child: AnimatedContainer(
+                          duration: Duration(milliseconds: 200),
+                          margin: EdgeInsets.symmetric(horizontal: 4),
+                          width: index == _currentIndex ? 24 : 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: index == _currentIndex
+                                ? Colors.teal
+                                : (widget.isDarkMode ? Colors.grey.shade600 : Colors.grey.shade300),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              // Next button
+              IconButton(
+                onPressed: _currentIndex < widget.sentences.length - 1 ? _goToNext : null,
+                icon: Icon(Icons.arrow_forward_ios),
+                color: _currentIndex < widget.sentences.length - 1
+                    ? (widget.isDarkMode ? Colors.teal.shade300 : Colors.teal)
+                    : Colors.grey.withOpacity(0.3),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  @override
+  void dispose() {
+    _flutterTts.stop();
+    _animationController.dispose();
+    _debounceTimer?.cancel();
+    super.dispose();
+  }
+}
+
+// QuizScreen sınıfına eklenecek yeni _showExampleSentenceDialog fonksiyonu
+
+// Cümleleri veritabanından çekme fonksiyonu
+Future<List<Map<String, dynamic>>> _fetchExampleSentencesForWord(String word) async {
+  try {
+    // Önce veritabanından cümleleri çek
+    final data = await supabase
+        .from('sentences')
+        .select()
+        .eq('word', word);
+
+    // Eğer cümle bulunamazsa API'den cümle çekmeyi dene
+    if (data.isEmpty) {
+      var apiSentences = await ApiService().fetchExampleSentences(word);
+
+      // API'den gelen cümleleri aynı formata dönüştür
+      return apiSentences.map<Map<String, dynamic>>((item) => {
+        'sentence': item['cumle'] ?? '',
+        'translate': item['turkce'] ?? '',
+        'level': item['level'] ?? '',
+      }).toList();
+    }
+
+    return List<Map<String, dynamic>>.from(data);
+  } catch (e) {
+    print("Cümle yüklenirken hata: $e");
+    return [];
   }
 }

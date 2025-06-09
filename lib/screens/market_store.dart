@@ -625,6 +625,12 @@ class _MarketPageState extends State<MarketPage> {
             /// Fiyatlandırma Seçenekleri
             Column(
               children: [
+                // Ücretsiz Deneme Seçeneği - YENİ
+                _buildFreeTrial(
+                  isWideScreen: isWideScreen,
+                  fontSize: priceFontSize,
+                ),
+                SizedBox(height: 8.h),
                 if (monthlyPackage != null) ...[
                   _buildPricingOption(
                     label: 'Aylık',
@@ -675,6 +681,67 @@ class _MarketPageState extends State<MarketPage> {
     );
   }
 
+// Ücretsiz deneme widget'ı
+  Widget _buildFreeTrial({required bool isWideScreen, required double fontSize}) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(16.r),
+        border: Border.all(
+          color: Colors.amber,
+          width: 2,
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: EdgeInsets.all(8.w),
+                decoration: BoxDecoration(
+                  color: Colors.amber,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.star,
+                  color: Colors.white,
+                  size: 20.sp,
+                ),
+              ),
+              SizedBox(width: 12.w),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '7 Gün Ücretsiz Deneme',
+                    style: GoogleFonts.poppins(
+                      fontSize: fontSize * 0.8,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  Text(
+                    'Hemen başla, istediğin zaman iptal et',
+                    style: GoogleFonts.poppins(
+                      fontSize: fontSize * 0.5,
+                      color: Colors.white.withOpacity(0.8),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          Icon(
+            Icons.arrow_forward_ios,
+            color: Colors.white,
+            size: 16.sp,
+          ),
+        ],
+      ),
+    );
+  }
   /// Fiyat satırı (Aylık/Yıllık)
   Widget _buildPricingOption({
     required String label,
@@ -1309,17 +1376,35 @@ class _KelibuProPaywallState extends State<KelibuProPaywall> {
       }
     } on PurchasesErrorCode catch (e) {
       _hideLoadingDialog();
-      _showErrorDialog(
-          'Satın alma işlemi iptal edildi veya hata oluştu.\nHata Kodu: ${e.toString()}');
+
+      // Hata türüne göre daha kullanıcı dostu mesajlar
+      String errorMessage = 'Satın alma işlemi tamamlanamadı.';
+
+      if (e == PurchasesErrorCode.purchaseCancelledError) {
+        errorMessage = 'Satın alma işlemi iptal edildi.';
+      } else if (e == PurchasesErrorCode.networkError) {
+        errorMessage = 'İnternet bağlantınızı kontrol edip tekrar deneyiniz.';
+      } else if (e == PurchasesErrorCode.paymentPendingError) {
+        errorMessage = 'Ödemeniz işleniyor. Kısa süre içinde tekrar kontrol ediniz.';
+      } else if (e == PurchasesErrorCode.receiptAlreadyInUseError) {
+        errorMessage = 'Bu abonelik zaten başka bir hesapta aktif.';
+      }
+
+      _showErrorDialog(errorMessage);
+
+      // Hata günlüğü (sadece geliştirici için)
+      print('RevenueCat satın alma hatası: $e');
+
     } catch (e) {
       _hideLoadingDialog();
-      _showErrorDialog(
-          'Satın alma sırasında beklenmeyen bir hata oldu: ${e.toString()}');
+      _showErrorDialog('Satın alma sırasında beklenmeyen bir hata oluştu. Lütfen daha sonra tekrar deneyiniz.');
+
+      // Hata günlüğü (sadece geliştirici için)
+      print('Beklenmeyen hata: $e');
     } finally {
       setState(() => _isPurchasing = false);
     }
   }
-
   Future<void> _restorePurchases() async {
     _showLoadingDialog();
     try {

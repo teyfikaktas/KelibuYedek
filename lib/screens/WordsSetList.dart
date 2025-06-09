@@ -14,6 +14,7 @@ import 'package:get_storage/get_storage.dart';
 
 import '../providers/sub_provider.dart';
 import '../providers/user_provider.dart';
+import 'game_mod.dart';
 import 'market_store.dart';
 
 class WordSetsPage extends StatefulWidget {
@@ -57,7 +58,163 @@ class _WordSetsPageState extends State<WordSetsPage> {
       pinnedList.map((id) => MapEntry(id as int, true)),
     );
   }
+// WordSetsPage sınıfına bu method'u ekleyin
 
+// WordSetsPage'deki navigateToGameModeFromSearchHistory method'unu bu şekilde güncelleyin
+
+  Future<void> navigateToGameModeFromSearchHistory() async {
+    // Loading dialog göster
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return WillPopScope(
+          onWillPop: () async => false,
+          child: Center(
+            child: LogoLoadingIndicator(),
+          ),
+        );
+      },
+    );
+
+    try {
+      // Arama geçmişindeki kelimelerin ID'lerini al
+      List<int> searchHistoryIds = await _getSearchHistoryIds();
+
+      // Dialog'u kapat
+      if (Navigator.canPop(context)) {
+        Navigator.of(context).pop();
+      }
+
+      if (searchHistoryIds.isEmpty) {
+        // Eğer arama geçmişi boşsa kullanıcıyı bilgilendir
+        Get.snackbar(
+          "",
+          "",
+          titleText: Container(),
+          messageText: Row(
+            children: [
+              Container(
+                padding: EdgeInsets.all(8.sp),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.info_outline,
+                  color: Colors.white,
+                  size: 20.sp,
+                ),
+              ),
+              SizedBox(width: 12.w),
+              Text(
+                'Önce sözlükten kelime arayın',
+                style: GoogleFonts.nunito(
+                  color: Colors.white,
+                  fontSize: 16.sp,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.orange,
+          borderRadius: 16,
+          duration: Duration(seconds: 3),
+          snackPosition: SnackPosition.TOP,
+          margin: EdgeInsets.all(16),
+          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+        );
+        return;
+      }
+
+      // GameModeScreen'e git - List<int>'i String'e çevir
+      final result = await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => GameModeScreen(
+            studySetName: searchHistoryIds.join(','), // ID'leri virgülle ayırarak String yap
+            classroomId: 1, // Sabit değer
+            studySetId: 1,  // Sabit değer
+          ),
+        ),
+      );
+
+      if (result != null) {
+        print('GameMode\'dan geri dönüldü');
+        // Gerekirse sayfa yenileme işlemleri burada yapılabilir
+      }
+    } catch (e) {
+      // Dialog'u güvenli şekilde kapat
+      if (Navigator.canPop(context)) {
+        Navigator.of(context).pop();
+      }
+      print('Hata: $e');
+
+      Get.snackbar(
+        "",
+        "",
+        titleText: Container(),
+        messageText: Row(
+          children: [
+            Container(
+              padding: EdgeInsets.all(8.sp),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                Icons.error_outline,
+                color: Colors.white,
+                size: 20.sp,
+              ),
+            ),
+            SizedBox(width: 12.w),
+            Text(
+              'Bir hata oluştu: $e',
+              style: GoogleFonts.nunito(
+                color: Colors.white,
+                fontSize: 16.sp,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: Colors.red,
+        borderRadius: 16,
+        duration: Duration(seconds: 3),
+        snackPosition: SnackPosition.TOP,
+        margin: EdgeInsets.all(16),
+        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+      );
+    }
+  }
+// Arama geçmişindeki kelimelerin ID'lerini al
+  Future<List<int>> _getSearchHistoryIds() async {
+    final prefs = await SharedPreferences.getInstance();
+    List<String> searchHistory = prefs.getStringList('search_history') ?? [];
+
+    List<int> wordIds = [];
+    final apiService = ApiService();
+
+    for (String searchTerm in searchHistory) {
+      try {
+        final searchResult = await apiService.searchWord(searchTerm);
+        if (searchResult != null) {
+          wordIds.add(searchResult.id);
+        }
+      } catch (e) {
+        print('Kelime ID alınırken hata: $searchTerm - $e');
+      }
+    }
+
+    return wordIds;
+  }
+
+// Arama geçmişindeki kelime sayısını al
+  Future<int> _getSearchHistoryCount() async {
+    final prefs = await SharedPreferences.getInstance();
+    List<String> searchHistory = prefs.getStringList('search_history') ?? [];
+    return searchHistory.length;
+  }
   Future<void> _togglePin(int productId) async {
     HapticFeedback.mediumImpact();
 
@@ -321,12 +478,22 @@ class _WordSetsPageState extends State<WordSetsPage> {
                   ? Center(child: LogoLoadingIndicator())
                   : Obx(() => ListView.builder(
                 padding: EdgeInsets.symmetric(vertical: 8.h),
-                itemCount: _getSortedProducts().length,
-                itemBuilder: (context, index) => _buildProductItem(
-                  _getSortedProducts()[index],
-                  index,
-                  isVip,
-                ),
+                itemCount: _getSortedProducts().length + 2, // +1 son arananlar kartı için
+                itemBuilder: (context, index) {
+                  // İlk öğe olarak son arananlar kartını göster
+                  if (index == 0) {
+                    return _buildRecentSearchesCard();
+                  }
+                  if (index == 1) {
+                    return _buildPersonalCollectionCard(); // Yeni kart
+                  }
+                  // Diğer öğeler için gerçek index 1 azalmalı
+                  return _buildProductItem(
+                    _getSortedProducts()[index - 1],
+                    index - 1,
+                    isVip,
+                  );
+                },
               )),
             ),
           ],
@@ -334,7 +501,105 @@ class _WordSetsPageState extends State<WordSetsPage> {
       ),
     );
   }
-
+  Widget _buildPersonalCollectionCard() {
+    return Container(
+      height: 100.h,
+      margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Color(0xFF6366F1), // Modern indigo
+            Color(0xFF4F46E5),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0xFF6366F1).withOpacity(0.3),
+            blurRadius: 8,
+            offset: Offset(0, 4),
+          )
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            // Kişisel koleksiyon sayfasına git
+          },
+          borderRadius: BorderRadius.circular(16),
+          child: Stack(
+            children: [
+              Positioned(
+                right: -20,
+                bottom: -20,
+                child: Icon(
+                  Icons.collections_bookmark,
+                  size: 80.sp,
+                  color: Colors.white.withOpacity(0.2),
+                ),
+              ),
+              Padding(
+                padding: EdgeInsets.all(16.sp),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.person,
+                          color: Colors.white,
+                          size: 24.sp,
+                        ),
+                        SizedBox(width: 8.w),
+                        Expanded(
+                          child: Text(
+                            'Benim Koleksiyonum',
+                            style: GoogleFonts.nunito(
+                              fontSize: 18.sp,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                        // "YAKINDA" rozeti
+                        Container(
+                          padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
+                          decoration: BoxDecoration(
+                            color: Colors.amber,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            'YAKINDA',
+                            style: GoogleFonts.nunito(
+                              fontSize: 10.sp,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    Text(
+                      'Kendi kelime setlerini oluştur',
+                      style: GoogleFonts.nunito(
+                        fontSize: 14.sp,
+                        color: Colors.white.withOpacity(0.9),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
   Widget _buildProBanner(bool isVip) {
     if (!isVip && !_isFreeMode) {
       return Container(
@@ -443,7 +708,7 @@ class _WordSetsPageState extends State<WordSetsPage> {
     ];
     final color = colors[index % colors.length];
     final icon = icons[index % icons.length];
-    final isUnlocked = _isFreeMode || isVip || product.id == 46;
+    final isUnlocked = _isFreeMode || isVip || product.id == 46 || product.id == 41;
     final isPinned = _pinnedProducts[product.id ?? 0] ?? false;
 
     return Container(
@@ -579,6 +844,158 @@ class _WordSetsPageState extends State<WordSetsPage> {
           ),
         ),
       ),
+    );
+  }
+// WordSetsPage'deki _buildRecentSearchesCard method'unu bu şekilde güncelleyin
+
+  Widget _buildRecentSearchesCard() {
+    return FutureBuilder<int>(
+      future: _getSearchHistoryCount(),
+      builder: (context, snapshot) {
+        final searchCount = snapshot.data ?? 0;
+
+        return Container(
+          height: 100.h,
+          margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                Color(0xFF9C27B0),
+                Color(0xFF7B1FA2),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Color(0xFF9C27B0).withOpacity(0.3),
+                blurRadius: 8,
+                offset: Offset(0, 4),
+              )
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: searchCount > 0
+                  ? () => navigateToGameModeFromSearchHistory()
+                  : () {
+                Get.snackbar(
+                  "",
+                  "",
+                  titleText: Container(),
+                  messageText: Row(
+                    children: [
+                      Container(
+                        padding: EdgeInsets.all(8.sp),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          Icons.search,
+                          color: Colors.white,
+                          size: 20.sp,
+                        ),
+                      ),
+                      SizedBox(width: 12.w),
+                      Text(
+                        'Önce sözlükten kelime arayın',
+                        style: GoogleFonts.nunito(
+                          color: Colors.white,
+                          fontSize: 16.sp,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                  backgroundColor: Color(0xFF9C27B0),
+                  borderRadius: 16,
+                  duration: Duration(seconds: 2),
+                  snackPosition: SnackPosition.TOP,
+                  margin: EdgeInsets.all(16),
+                  padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+                );
+              },
+              borderRadius: BorderRadius.circular(16),
+              child: Stack(
+                children: [
+                  Positioned(
+                    right: -20,
+                    bottom: -20,
+                    child: Icon(
+                      Icons.history,
+                      size: 80.sp,
+                      color: Colors.white.withOpacity(0.2),
+                    ),
+                  ),
+                  Padding(
+                    padding: EdgeInsets.all(16.sp),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              searchCount > 0 ? Icons.star : Icons.search,
+                              color: searchCount > 0 ? Colors.amber : Colors.white70,
+                              size: 24.sp,
+                            ),
+                            SizedBox(width: 8.w),
+                            Expanded(
+                              child: Text(
+                                'Son Aradığım Kelimeler',
+                                style: GoogleFonts.nunito(
+                                  fontSize: 18.sp,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 12.h),
+                        Row(
+                          children: [
+                            Container(
+                              padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                '$searchCount kelime',
+                                style: GoogleFonts.nunito(
+                                  fontSize: 14.sp,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                            Spacer(),
+                            Text(
+                              searchCount > 0 ? 'Oyna!' : 'Henüz yok',
+                              style: GoogleFonts.nunito(
+                                fontSize: 14.sp,
+                                fontWeight: FontWeight.w600,
+                                color: searchCount > 0 ? Colors.white : Colors.white70,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

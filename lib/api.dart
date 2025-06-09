@@ -865,6 +865,25 @@ class ApiService {
       throw Exception('Failed to load categories. Error: $e');
     }
   }
+  Future<bool> updateFcmToken(int userId, String fcmToken) async {
+    try {
+      final response = await _dio.post('/update-fcm-token', data: {
+        'user_id': userId,
+        'fcm_token': fcmToken,
+      });
+
+      if (response.statusCode == 200) {
+        print('FCM token başarıyla güncellendi');
+        return true;
+      } else {
+        print('FCM token güncellenemedi: ${response.data}');
+        return false;
+      }
+    } catch (e) {
+      print('FCM token güncellenirken hata: $e');
+      return false;
+    }
+  }
   List<Product>? _cachedProducts;
   DateTime? _lastFetchTime;
   final Duration _cacheValidity = Duration(minutes: 60);

@@ -17,7 +17,6 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:another_flushbar/flushbar.dart';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:path/path.dart' as p;
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:path_provider/path_provider.dart';

@@ -9,7 +9,6 @@ import 'package:kelibu/screens/sdk/customShowDialog.dart';
 import 'package:kelibu/variables.dart';
 
 import '../api.dart';
-import 'login_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({Key? key}) : super(key: key);

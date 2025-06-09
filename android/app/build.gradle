@@ -18,12 +18,12 @@ def flutterRoot = localProperties.getProperty('flutter.sdk')
 
 def flutterVersionCode = localProperties.getProperty('flutter.versionCode')
 if (flutterVersionCode == null) {
-    flutterVersionCode = '48'
+    flutterVersionCode = '58'
 }
 
 def flutterVersionName = localProperties.getProperty('flutter.versionName')
 if (flutterVersionName == null) {
-    flutterVersionName = '1.7.0'
+    flutterVersionName = '1.9.8'
 }
 
 def keystoreProperties = new Properties()

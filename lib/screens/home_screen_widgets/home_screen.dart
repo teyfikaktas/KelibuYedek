@@ -40,6 +40,7 @@ import 'dart:convert';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../shared_preferences/shared_preferences.dart';
+import '../../widgets/searchPanel/searchPanel.dart';
 import '../WordsSetList.dart';
 import '../leader_screen.dart';
 import 'package:flutter_tts/flutter_tts.dart';
@@ -1186,6 +1187,9 @@ class _HomeScreenState extends State<HomeScreen> {
   OverlayEntry? _overlayEntry;
   int activeUserCount = 0;
   bool _isLoading = true;
+  String? fcmErrorMessage;
+  bool showFcmError = false;
+  ValueNotifier<bool> fcmTokenUpdatedNotifier = ValueNotifier(false);
 
   @override
   void didChangeDependencies() {
@@ -1228,9 +1232,10 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!mounted) return;
       setState(() => _isLoading = false);
 
-      // Arka plan görevlerini gecikmeli başlat
-      Future.delayed(Duration(milliseconds: 300), () {
+      // FCM token güncellemeyi gecikmeli başlat, diğer arka plan görevleriyle birlikte
+      Future.delayed(Duration(milliseconds: 500), () {
         if (!mounted) return;
+        updateFcmToken(context); // catchError içinde değil, doğrudan çağırıyoruz
         _loadWordOfTheDay();
         _loadDarkModePreference();
         _loadPromotionMessage();
@@ -1249,7 +1254,40 @@ class _HomeScreenState extends State<HomeScreen> {
       });
     }
   }
-
+  // 3. Opsiyonel olarak, bir FCM token bağlantı durumu gösterici widget ekleyebilirsiniz:
+  Widget _buildFcmStatusIndicator() {
+    return ValueListenableBuilder<bool>(
+      valueListenable: fcmTokenUpdatedNotifier, // Bu notifier'ı eklemeniz gerekecek
+      builder: (context, isUpdated, child) {
+        return Container(
+          padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+          decoration: BoxDecoration(
+            color: isUpdated ? Colors.green.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(4.r),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                isUpdated ? Icons.check_circle : Icons.sync,
+                size: 12.sp,
+                color: isUpdated ? Colors.green : Colors.orange,
+              ),
+              SizedBox(width: 4.w),
+              Text(
+                isUpdated ? 'Bildirimler Aktif' : 'Bildirim Senkronizasyonu',
+                style: TextStyle(
+                  color: isUpdated ? Colors.green : Colors.orange,
+                  fontSize: 10.sp,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
   Future<void> _fetchActiveUsers() async {
     final container = riverpod.ProviderScope.containerOf(context);
     var userProvider = Provider.of<UserProvider>(context, listen: false);
@@ -1580,7 +1618,71 @@ class _HomeScreenState extends State<HomeScreen> {
 
     await fetchPackages(currentUserId);
   }
+  Future<void> updateFcmToken(BuildContext context) async {
+    try {
+      // Hata panelini temizle
+      setState(() {
+        fcmErrorMessage = null;
+        showFcmError = false;
+      });
 
+      // iOS için APNS token kontrolü ve gecikme
+      if (Platform.isIOS) {
+        String? apnsToken = await FirebaseMessaging.instance.getAPNSToken();
+        if (apnsToken == null) {
+          // APNS token yoksa biraz bekle
+          await Future.delayed(const Duration(seconds: 3));
+          apnsToken = await FirebaseMessaging.instance.getAPNSToken();
+        }
+      }
+
+      // FCM token'ı alma
+      String? token = await FirebaseMessaging.instance.getToken();
+      if (token == null) {
+        // Token alınamadı, hata panelini göster
+        setState(() {
+          showFcmError = true;
+          fcmTokenUpdatedNotifier.value = false;
+        });
+
+        // Yine de SnackBar gösterelim
+        Future.microtask(() {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('FCM token alınamadı: Token null'),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 5),
+            ),
+          );
+        });
+        return;
+      }
+
+
+
+      // Kullanıcı ID'sini alma
+      var userProvider = Provider.of<UserProvider>(context, listen: false);
+      int userId = userProvider.userId;
+
+      // ApiService ile token'ı gönderme
+      await ApiService().updateFcmToken(userId, token);
+
+      // Token başarıyla güncellendi
+      setState(() {
+        fcmTokenUpdatedNotifier.value = true;
+        showFcmError = false;
+      });
+
+      // Başarılı durumunu göster
+    } catch (e) {
+      // Hata durumunda hata panelini göster
+      setState(() {
+        showFcmError = true;
+        fcmTokenUpdatedNotifier.value = false;
+      });
+
+    }
+  }
   Future<void> fetchPackages(int userId) async {
     try {
       List<Package> packages = await ApiService().fetchCategories(userId);
@@ -1590,6 +1692,130 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (error) {
       print("API Error, loading packages from prefs: $error");
     }
+  }
+  Widget _buildFcmErrorPanel(String errorMessage) {
+    return Positioned.fill(
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            showFcmError = false; // Hata panelini kapat
+          });
+        },
+        child: Container(
+          color: Colors.black.withOpacity(0.7),
+          child: Center(
+            child: Container(
+              margin: EdgeInsets.symmetric(horizontal: 24.w),
+              padding: EdgeInsets.all(16.w),
+              decoration: BoxDecoration(
+                color: _isDarkMode ? Colors.grey[850] : Colors.white,
+                borderRadius: BorderRadius.circular(12.r),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    blurRadius: 10,
+                    offset: Offset(0, 5),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.error_outline,
+                        color: Colors.red,
+                        size: 28.sp,
+                      ),
+                      SizedBox(width: 12.w),
+                    ],
+                  ),
+                  SizedBox(height: 16.h),
+                  Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.all(12.w),
+                    decoration: BoxDecoration(
+                      color: _isDarkMode ? Colors.grey[800] : Colors.grey[100],
+                      borderRadius: BorderRadius.circular(8.r),
+                    ),
+                    child: Text(
+                      errorMessage,
+                      style: GoogleFonts.poppins(
+                        fontSize: 14.sp,
+                        color: _isDarkMode ? Colors.white70 : Colors.black87,
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 20.h),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          // Hata mesajını kopyala
+                          Clipboard.setData(ClipboardData(text: errorMessage));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Hata kopyalandı'),
+                              backgroundColor: Colors.green,
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        },
+                        icon: Icon(Icons.copy, size: 18.sp),
+                        label: Text(
+                          "Kopyala",
+                          style: GoogleFonts.poppins(fontSize: 14.sp),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          // Hatayı paylaş
+                          Share.share(
+                            'FCM Token Hatası: $errorMessage',
+                            subject: 'Kelibu FCM Token Hatası',
+                          );
+                        },
+                        icon: Icon(Icons.share, size: 18.sp),
+                        label: Text(
+                          "Paylaş",
+                          style: GoogleFonts.poppins(fontSize: 14.sp),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            showFcmError = false; // Hata panelini kapat
+                          });
+                        },
+                        icon: Icon(Icons.close, size: 18.sp),
+                        label: Text(
+                          "Kapat",
+                          style: GoogleFonts.poppins(fontSize: 14.sp),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> savePackagesToPrefs(List<Package> packages) async {
@@ -3153,311 +3379,6 @@ class SearchPanel extends StatelessWidget {
   }
 }
 
-class SearchDialog extends StatefulWidget {
-  final bool isDarkMode;
-
-  const SearchDialog({Key? key, required this.isDarkMode}) : super(key: key);
-
-  @override
-  _SearchDialogState createState() => _SearchDialogState();
-}
-
-class _SearchDialogState extends State<SearchDialog> {
-  TextEditingController _searchController = TextEditingController();
-  bool _isSearching = false;
-  String _searchError = '';
-  WordDetail? _searchResult;
-  FocusNode _searchFocusNode = FocusNode();
-  bool _showSearchPanel = true;
-
-  @override
-  void dispose() {
-    _searchFocusNode.dispose();
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      elevation: 0,
-      backgroundColor: widget.isDarkMode ? Colors.grey[900] : Colors.white,
-      child: contentBox(context),
-    );
-  }
-
-  Widget contentBox(BuildContext context) {
-    return Stack(
-      children: <Widget>[
-        Container(
-          padding:
-              EdgeInsets.only(left: 20.w, top: 65.h, right: 20.w, bottom: 20.h),
-          margin: EdgeInsets.only(top: 45.h),
-          decoration: BoxDecoration(
-            shape: BoxShape.rectangle,
-            color: widget.isDarkMode ? Color(0xFF1C1C1E) : Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.3),
-                offset: Offset(0, 10),
-                blurRadius: 10,
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    "Kelime Ara",
-                    style: GoogleFonts.nunito(
-                      fontSize: 24.sp,
-                      fontWeight: FontWeight.w700,
-                      color:
-                          widget.isDarkMode ? Colors.white : Color(0xFF4B4B4B),
-                    ),
-                  ),
-                  IconButton(
-                    icon: Icon(Icons.close,
-                        color: widget.isDarkMode ? Colors.white : Colors.black),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ],
-              ),
-              SizedBox(height: 20.h),
-              if (_showSearchPanel)
-                _buildSearchPanel()
-              else
-                _buildResultPanel(),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSearchPanel() {
-    return Column(
-      children: [
-        TextField(
-          controller: _searchController,
-          focusNode: _searchFocusNode,
-          style: TextStyle(
-            color: widget.isDarkMode ? Colors.white : Colors.black,
-            fontSize: 18.sp,
-          ),
-          decoration: InputDecoration(
-            hintText: "Kelime girin...",
-            hintStyle: TextStyle(
-              color: widget.isDarkMode ? Colors.white70 : Colors.grey[600],
-              fontSize: 18.sp,
-            ),
-            filled: true,
-            fillColor:
-                widget.isDarkMode ? Color(0xFF2C2C2E) : Color(0xFFF0F0F0),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(30),
-              borderSide: BorderSide.none,
-            ),
-            prefixIcon:
-                Icon(Icons.search, color: Color(0xFF58CC02), size: 24.sp),
-            suffixIcon: IconButton(
-              icon: Icon(Icons.clear,
-                  color: widget.isDarkMode ? Colors.white70 : Colors.grey[600]),
-              onPressed: () {
-                _searchController.clear();
-              },
-            ),
-          ),
-          onSubmitted: (term) => performSearch(term),
-          textInputAction: TextInputAction.search,
-        ),
-        SizedBox(height: 15.h),
-        if (_searchError.isNotEmpty)
-          Text(
-            _searchError,
-            style: TextStyle(color: Colors.red, fontSize: 16.sp),
-          ),
-        SizedBox(height: 25.h),
-        ElevatedButton(
-          child: _isSearching
-              ? SizedBox(
-                  width: 20.w,
-                  height: 20.h,
-                  child: CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                  ),
-                )
-              : Text(
-                  "Ara",
-                  style: GoogleFonts.nunito(
-                    fontSize: 20.sp,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
-                ),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Color(0xFF58CC02),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            padding: EdgeInsets.symmetric(horizontal: 40.w, vertical: 12.h),
-            elevation: 0,
-          ),
-          onPressed:
-              _isSearching ? null : () => performSearch(_searchController.text),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildResultPanel() {
-    return Container(
-      margin: EdgeInsets.only(top: 20.h),
-      padding: EdgeInsets.all(16.w),
-      decoration: BoxDecoration(
-        color: widget.isDarkMode ? Color(0xFF2C2C2E) : Colors.grey[200],
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                "${_searchResult!.word}",
-                style: GoogleFonts.nunito(
-                  fontSize: 24.sp,
-                  fontWeight: FontWeight.w700,
-                  color: widget.isDarkMode ? Colors.white : Color(0xFF4B4B4B),
-                ),
-              ),
-              IconButton(
-                icon: Icon(Icons.close,
-                    color:
-                        widget.isDarkMode ? Colors.white70 : Colors.grey[600]),
-                onPressed: () {
-                  setState(() {
-                    _showSearchPanel = true;
-                    _searchResult = null;
-                  });
-                },
-              ),
-            ],
-          ),
-          SizedBox(height: 10.h),
-          Text(
-            "${_searchResult!.meaning}",
-            style: GoogleFonts.nunito(
-              fontSize: 18.sp,
-              color: widget.isDarkMode ? Colors.white70 : Colors.grey[600],
-            ),
-          ),
-          SizedBox(height: 20.h),
-          Center(
-            child: ElevatedButton.icon(
-              icon: Icon(Icons.celebration, color: Colors.white),
-              label: Text(
-                "Detaylı Keşfet!",
-                style: GoogleFonts.nunito(
-                  fontSize: 18.sp,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                ),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Color(0xFFFF9800),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 10.h),
-                elevation: 0,
-              ),
-              onPressed: () => _navigateToWordDetail(_searchResult!),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> performSearch(String term) async {
-    if (term.isEmpty) return;
-
-    setState(() {
-      _isSearching = true;
-      _searchError = '';
-    });
-
-    try {
-      final apiService = ApiService();
-      final searchResult = await apiService.searchWord(term);
-
-      if (searchResult != null) {
-        setState(() {
-          _searchResult = searchResult;
-          _showSearchPanel = false;
-        });
-      } else {
-        setState(() {
-          _searchError = 'Kelime bulunamadı';
-        });
-      }
-    } catch (e) {
-      setState(() {
-        _searchError = 'Bir hata oluştu: $e';
-      });
-    } finally {
-      setState(() {
-        _isSearching = false;
-      });
-    }
-  }
-
-  void _navigateToWordDetail(WordDetail word) async {
-    final apiService = ApiService();
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return Center(child: CircularProgressIndicator());
-      },
-    );
-
-    try {
-      List<int> wordIds = [word.id];
-      List<WordDetail> detailedWords =
-          await apiService.fetchWordsDetail(wordIds);
-
-      if (detailedWords.isNotEmpty) {
-        WordDetail detailedWord = detailedWords.first;
-        Navigator.of(context).pop(); // Loading dialog'u kapat
-
-        Navigator.of(context).push(MaterialPageRoute(
-          builder: (context) => StudyScreen(
-            words: [detailedWord],
-            classroomId: 0,
-            studySetId: 0,
-            isStarred: true,
-          ),
-        ));
-      } else {
-        throw Exception('Detaylı kelime bilgisi bulunamadı.');
-      }
-    } catch (e) {
-      Navigator.of(context).pop(); // Loading dialog'u kapat
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text('Kelime detayları yüklenirken bir hata oluştu.')),
-      );
-    }
-  }
-}
 
 class WordOfTheDayCache {
   static const String _keyWord = 'word_of_the_day';

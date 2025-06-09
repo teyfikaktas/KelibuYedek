@@ -20,10 +20,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:back_button_interceptor/back_button_interceptor.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:sqflite/sqflite.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
-import '../controllers/SentenceController.dart';
 import '../globalDart/urls.dart';
 import '../shared_preferences/shared_preferences.dart';
 import '../variables.dart';
@@ -819,6 +816,104 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
     'Türemeler': -1,
     'Collocations': -1,
   };
+  void _showInfoDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          child: ContentBoxSentence(
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Text(
+                  'Örnek Cümleler Hakkında',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
+                ),
+                SizedBox(height: 15),
+                Text(
+                  'Örnek cümleleri oluştururken karşılaşılabilecek durumlar:',
+                  style: TextStyle(fontSize: 14),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 10),
+                bulletPoint('Kelimenin farklı anlamda kullanılması',),
+                bulletPoint('Benzer kelimelerin karışması (tent/tenth)'),
+                SizedBox(height: 15),
+                Text(
+                  'Bu durumlar, kelimelerin türemiş hallerini görebilmeniz için tercih edilmiştir.',
+                  style: TextStyle(fontSize: 14),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 15),
+                Text(
+                  'Tam Eşleşme: Kelimenin doğrudan kendisini cümle içinde görmeyi sağlar.',
+                  style: TextStyle(fontSize: 14),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 15),
+                Text(
+                  'Geniş Eşleşme: Kelimeyi ve türevlerini çok daha fazla cümlede görmeyi sağlar.',
+                  style: TextStyle(fontSize: 14),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 20),
+                Text(
+                  'Anlayışınız için teşekkür ederiz.',
+                  style: TextStyle(fontSize: 14, fontStyle: FontStyle.italic),
+                ),
+                SizedBox(height: 15),
+                Container(
+                  padding: EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.blue.withOpacity(0.5)),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.info_outline, color: Colors.blue, size: 20),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Çeviriler yapay zeka çevirisidir ve fikir vermek için hazırlanmıştır. Tam çeviri olmayabilir.',
+                          style: TextStyle(fontSize: 13, color: Colors.blue.shade800),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: 15),
+                Text(
+                  'PhD Akademi',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.teal),
+                ),
+                SizedBox(height: 20),
+                Align(
+                  alignment: Alignment.bottomRight,
+                  child: TextButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
+                    child: Text(
+                      'Anladım',
+                      style: TextStyle(fontSize: 18, color: Colors.teal),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            icon: Icons.info_outline,
+          ),
+        );
+      },
+    );
+  }
 
   void _showExitConfirmationDialog() {
     showDialog<bool>(
@@ -1631,41 +1726,28 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
                 ),
               ],
             ),
-            child: Text(
-              'Cümleler yüklenirken bir hata oluştu: ${snapshot.error}',
-              style: GoogleFonts.poppins(
-                fontSize: 16,
-                color: Colors.red.shade700,
-                fontWeight: FontWeight.w500,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Her durumda butonları göster
+                _buildHeaderWithFilters(snapshot.data ?? [], word),
+
+                SizedBox(height: 16),
+
+                // Hata mesajı
+                Text(
+                  'Cümleler yüklenirken bir hata oluştu: ${snapshot.error}',
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    color: Colors.red.shade700,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
             ),
           );
         } else {
-          final sentencesData = snapshot.data;
-          if (sentencesData == null || sentencesData.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.sentiment_dissatisfied,
-                    size: 48,
-                    color: Colors.grey[400],
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    "Bu kelime için örnek cümle bulunamadı.",
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      color: Colors.grey[600],
-                      fontWeight: FontWeight.w500,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
-            );
-          }
+          final sentencesData = snapshot.data ?? []; // Null durumunda boş liste kullan
 
           // Her kelime için benzersiz bir filtrelenmiş cümleler listesi oluştur
           List<Map<String, dynamic>> currentWordFilteredSentences;
@@ -1683,41 +1765,86 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // Header ve aktif filtreleri gösteren widget
+              // Cümle olmasa bile bu kısmı her zaman göster!
               _buildHeaderWithFilters(sentencesData, word),
 
-              // Yeni Animated Sentence Carousel widget'ı kullan
-              currentWordFilteredSentences.isEmpty
-                  ? Center(
-                child: Text(
-                  "Seçilen filtrelere uygun cümle bulunamadı.",
-                  style: GoogleFonts.poppins(
-                    fontSize: 16,
-                    color: Colors.grey[600],
-                    fontWeight: FontWeight.w500,
+              SizedBox(height: 16),
+
+              // Cümle yoksa özel mesaj göster
+              if (currentWordFilteredSentences.isEmpty)
+                Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.sentiment_dissatisfied,
+                        size: 48,
+                        color: Colors.grey[400],
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        "Bu kelime için örnek cümle bulunamadı.",
+                        style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.w500,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      // Tekrar deneme butonu ekliyoruz
+                      SizedBox(height: 16),
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            // Cümle seçim modunu değiştir
+                            _sentenceSelectionMode = _sentenceSelectionMode == 'traditional' ? 'ai' : 'traditional';
+                            // Mevcut filtrelenen cümleleri temizle
+                            _wordFilteredSentences.remove(word.id);
+                            // Yeni cümleleri yükle
+                            _applySentenceSelection(word, sentencesData);
+                          });
+                        },
+                        icon: Icon(Icons.refresh),
+                        label: Text(
+                          "Farklı modda ara",
+                          style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.teal,
+                          foregroundColor: Colors.white,
+                          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  textAlign: TextAlign.center,
+                )
+              else
+              // Cümleler varsa AnimatedSentenceCarousel'i göster
+                Container(
+                  key: ValueKey<String>('sentenceContainer_${word.id}_${currentWordFilteredSentences.length}_${_selectedLevel ?? "all"}_${_selectedType ?? "all"}_${_maxSentencesToShow}_${DateTime.now().millisecondsSinceEpoch}'),
+                  constraints: BoxConstraints(
+                    minHeight: 200,
+                    maxHeight: 350,
+                  ),
+                  child: AnimatedSentenceCarousel(
+                    sentences: currentWordFilteredSentences,
+                    wordToHighlight: word.word ?? '',
+                    wordId: word.id,
+                    isDarkMode: _isDarkMode,
+                  ),
                 ),
-              )
-                  : Container(
-                key: ValueKey<String>('sentenceContainer_${word.id}_${currentWordFilteredSentences.length}_${_selectedLevel ?? "all"}_${_selectedType ?? "all"}_${_maxSentencesToShow}_${DateTime.now().millisecondsSinceEpoch}'),
-                constraints: BoxConstraints(
-                  minHeight: 200,
-                  maxHeight: 350,
-                ),
-                child: AnimatedSentenceCarousel(
-                  sentences: currentWordFilteredSentences,
-                  wordToHighlight: word.word ?? '',
-                  wordId: word.id,
-                  isDarkMode: _isDarkMode,
-                ),
-              ),
             ],
           );
         }
       },
     );
-  }  // _sentencePageControllers haritasını sıfırlayıp yeniden oluşturun
-  void _resetSentenceController(WordDetail word) {
+  }  void _resetSentenceController(WordDetail word) {
     if (_sentencePageControllers.containsKey(word.id)) {
       // Önce dispose et (eğer varsa)
       if (_sentencePageControllers[word.id]!.hasClients) {
@@ -1881,127 +2008,139 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
 
 
 
+// _buildHeaderWithFilters fonksiyonunu da güncelleyelim
   Widget _buildHeaderWithFilters(List<Map<String, dynamic>> sentencesData, WordDetail word) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Sayfa bilgisi
-          AnimatedBuilder(
-            animation: _sentencePageControllers[word.id]!,
-            builder: (context, _) {
-              int currentPage = _sentencePageControllers[word.id]!.hasClients
-                  ? (_sentencePageControllers[word.id]!.page?.round() ?? 0)
-                  : 0;
-              List<Map<String, dynamic>> currentWordFilteredSentences =
-                  _wordFilteredSentences[word.id] ?? [];
-
-              return Text(
-                "Cümle ${currentPage + 1}/${currentWordFilteredSentences.length}",
+          // İlk satır - cümle bilgisi ve tür seçenekleri
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Cümle bilgisi
+              Text(
+                "Örnek Cümleler",
                 style: GoogleFonts.poppins(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
                   color: Colors.teal.shade700,
                 ),
-              );
-            },
-          ),
-          SizedBox(height: 12),
-
-          // Filtre ve butonlar üst üste
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Seviye filtresi
-              _buildFilterChip(
-                label: _selectedLevel != null ? _selectedLevel! : "Tüm Seviyeler",
-                color: Colors.orange.shade400,
-                onTap: () => _showFilterPanel(word, sentencesData),
               ),
-              SizedBox(height: 8),
 
-              // Geleneksel ve Yapay Zeka butonları
-              Row(
-                mainAxisAlignment: MainAxisAlignment.start,
-                children: [
-                  _buildSelectionButton(
-                    label: "Geleneksel",
-                    isSelected: _sentenceSelectionMode == 'traditional',
-                    onTap: () {
-                      setState(() {
-                        _sentenceSelectionMode = 'traditional';
-                        // Önce controller'ı sıfırla
-                        _resetSentenceController(word);
-                        // Sonra filtreleri uygula
-                        _applySentenceSelection(word, sentencesData);
-                      });
-                    },
-                  ),
-                  SizedBox(width: 8),
-                  _buildSelectionButton(
-                    label: "Yapay Zeka",
-                    isSelected: _sentenceSelectionMode == 'ai',
-                    onTap: () {
-                      setState(() {
-                        _sentenceSelectionMode = 'ai';
-                        _applySentenceSelection(word, sentencesData);
-                      });
-                    },
-                  ),
-                ],
-              ),
-              SizedBox(height: 8),
-
-              // Filtre butonu sağda sabit
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  GestureDetector(
-                    onTap: () => _showFilterModal(word, sentencesData),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: _isDarkMode ? Colors.grey.shade800 : Colors.white,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: _isDarkMode ? Colors.teal.shade300.withOpacity(0.5) : Colors.teal.shade300,
-                          width: 1.5,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: _isDarkMode ? Colors.black.withOpacity(0.2) : Colors.black.withOpacity(0.08),
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.filter_list_rounded,
-                            size: 18,
-                            color: _isDarkMode ? Colors.teal.shade300 : Colors.teal.shade700,
-                          ),
-                          SizedBox(width: 4),
-                          Text(
-                            "Filtrele",
-                            style: GoogleFonts.poppins(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                              color: _isDarkMode ? Colors.teal.shade300 : Colors.teal.shade700,
-                            ),
-                          ),
-                        ],
-                      ),
+              // Filtre butonu (her zaman görünür)
+              GestureDetector(
+                onTap: () => _showFilterModal(word, sentencesData),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: _isDarkMode ? Colors.grey.shade800 : Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: _isDarkMode ? Colors.teal.shade300.withOpacity(0.5) : Colors.teal.shade300,
+                      width: 1.5,
                     ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: _isDarkMode ? Colors.black.withOpacity(0.2) : Colors.black.withOpacity(0.08),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
-                ],
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.filter_list_rounded,
+                        size: 18,
+                        color: _isDarkMode ? Colors.teal.shade300 : Colors.teal.shade700,
+                      ),
+                      SizedBox(width: 4),
+                      Text(
+                        "Filtrele",
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: _isDarkMode ? Colors.teal.shade300 : Colors.teal.shade700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ],
           ),
-        ],
+
+          SizedBox(height: 12),
+
+          // İkinci satır - Seviye filtresi
+          if (_selectedLevel != null)
+            _buildFilterChip(
+              label: _selectedLevel!,
+              color: Colors.orange.shade400,
+              onTap: () => _showFilterPanel(word, sentencesData),
+            ),
+
+          SizedBox(height: 8),
+
+          // Üçüncü satır - Geleneksel ve Yapay Zeka butonları
+          // Bu butonları her durumda gösteriyoruz
+          Row(
+            mainAxisAlignment: MainAxisAlignment.start,
+            children: [
+              _buildSelectionButton(
+                label: "Tam Eşleşme",
+                isSelected: _sentenceSelectionMode == 'traditional',
+                onTap: () {
+                  // Mevcut scroll pozisyonunu saklayalım
+                  final currentScrollPosition = _scrollController.offset;
+
+                  setState(() {
+                    _sentenceSelectionMode = 'traditional';
+                    // Mevcut filtreli cümleleri temizliyoruz
+                    _wordFilteredSentences.remove(word.id);
+                  });
+
+                  // Yeni cümleleri yükle
+                  _applySentenceSelection(word, sentencesData);
+
+                  // Scroll pozisyonunu koruyalım (delay ekleyerek)
+                  Future.delayed(Duration(milliseconds: 100), () {
+                    if (_scrollController.hasClients) {
+                      _scrollController.jumpTo(currentScrollPosition);
+                    }
+                  });
+                },
+              ),
+              SizedBox(width: 8),
+              _buildSelectionButton(
+                label: "Geniş Eşleşme",
+                isSelected: _sentenceSelectionMode == 'ai',
+                onTap: () {
+                  // Mevcut scroll pozisyonunu saklayalım
+                  final currentScrollPosition = _scrollController.offset;
+
+                  setState(() {
+                    _sentenceSelectionMode = 'ai';
+                    // Mevcut filtreli cümleleri temizliyoruz
+                    _wordFilteredSentences.remove(word.id);
+                  });
+
+                  // Yeni cümleleri yükle
+                  _applySentenceSelection(word, sentencesData);
+
+                  // Scroll pozisyonunu koruyalım (delay ekleyerek)
+                  Future.delayed(Duration(milliseconds: 100), () {
+                    if (_scrollController.hasClients) {
+                      _scrollController.jumpTo(currentScrollPosition);
+                    }
+                  });
+                },
+              ),
+            ],
+          ),        ],
       ),
     );
   }
@@ -2664,6 +2803,27 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
 
 // Floating filtre butonu da yeni modal dialog'u açacak
   void _showFilterModal(WordDetail word, List<Map<String, dynamic>> sentencesData) {
+    if (sentencesData.isEmpty) {
+      // Mevcut modun tersini kullan
+      final newMode = _sentenceSelectionMode == 'traditional' ? 'ai' : 'traditional';
+
+      // Yükleme devam ediyor mesajı
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Cümleler ${newMode == 'ai' ? 'Yapay Zeka' : 'Geleneksel'} modunda yeniden yükleniyor..."),
+          duration: Duration(seconds: 2),
+        ),
+      );
+
+      // Modu değiştir ve yeni cümleleri yükle
+      setState(() {
+        _sentenceSelectionMode = newMode;
+        _applySentenceSelection(word, []);
+      });
+
+      return;
+    }
+
     // Mevcut değerleri geçici olarak saklayalım
     String? tempSelectedLevel = _selectedLevel;
     String? tempSelectedType = _selectedType;
@@ -3745,15 +3905,27 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
                 ),
                 SizedBox(height: 24),
 
-                // Örnek cümleler
-                Text(
-                  'Örnek Cümleler',
-                  style: GoogleFonts.poppins(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.teal.shade700,
-                  ),
+                Row(
+                  children: [
+                    Text(
+                      'Örnek Cümleler',
+                      style: GoogleFonts.poppins(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.teal.shade700,
+                      ),
+                    ),
+                    IconButton(
+                      icon: Icon(
+                        Icons.info_outline,
+                        color: Colors.teal,
+                      ),
+                      onPressed: () => _showInfoDialog(context),
+                    ),
+                  ],
                 ),
+
+
                 SizedBox(height: 8),
                 _buildSentencesSection(word),
                 SizedBox(height: 24),
@@ -3849,77 +4021,243 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
 
         print("Geleneksel mod - Aranan kelime: '$word' - Bulunan sonuç: ${data.length}");
         return List<Map<String, dynamic>>.from(data);
-
       } else {
-        // Yapay Zeka mod: FTS ile kelime kökü ve türevleri
-        final data = await supabase
-            .from('sentences')
-            .select()
-            .textSearch('fts', '$word:*', config: 'english');
-
-        print("Yapay Zeka mod - Aranan kelime: '$word:*' - Bulunan sonuç: ${data.length}");
-        return List<Map<String, dynamic>>.from(data);
+        // Yapay Zeka mod: FTS ile arama
+        return await searchWords(word);
       }
-
     } catch (e) {
       print("Supabase'den kelime '$word' için cümle alınırken hata: $e");
       return [];
     }
   }
+
+// FTS araması için ayrı bir fonksiyon
+  Future<List<Map<String, dynamic>>> searchWords(String word) async {
+    // Arama terimini hazırla - tam kelime eşleşmesi için
+    final String searchTerm = word.trim();
+
+    if (searchTerm.contains(' ')) {
+      // Phrasal verbs ve çok kelimeli deyimler için özel yaklaşım
+
+      // 1. Tam ifadeyi doğru formatla ara (phrase search)
+      // PostgreSQL FTS için phrase sorgusu formatını kullan
+      final String exactPhraseQuery = searchTerm.split(' ').join(' <-> ');
+
+      final exactMatches = await supabase
+          .from('sentences')
+          .select()
+          .textSearch('fts', exactPhraseQuery, config: 'english');
+
+      print("Tam ifade araması - Aranan: '$exactPhraseQuery' - Bulunan: ${exactMatches.length}");
+
+      // Eğer tam ifade araması yeterli sonuç verirse, sadece onları döndür
+      if (exactMatches.length >= 3) {
+        return List<Map<String, dynamic>>.from(exactMatches);
+      }
+
+      // 2. Eğer yeterli sonuç bulunamazsa, daha esnek bir sorgu deneyelim
+      // Kelimeleri OR operatörü ile bağlayarak ara
+      final List<String> words = searchTerm.split(' ');
+      String orQuery = words.join(' | ');
+
+      final proximityMatches = await supabase
+          .from('sentences')
+          .select()
+          .textSearch('fts', orQuery, config: 'english');
+
+      print("Yakınlık araması - Aranan: '$orQuery' - Bulunan: ${proximityMatches.length}");
+
+      // 3. Hala yeterli sonuç yoksa, ILIKE ile tam metin araması yapalım
+      List<Map<String, dynamic>> ilikeMatches = [];
+      if (exactMatches.length + proximityMatches.length < 3) {
+        ilikeMatches = await supabase
+            .from('sentences')
+            .select()
+            .ilike('sentence', '%$searchTerm%'); // Değiştirildi: 'content' yerine 'sentence' kullanıldı
+
+        print("ILIKE araması - Aranan: '$searchTerm' - Bulunan: ${ilikeMatches.length}");
+      }
+
+      // Sonuçları birleştir ve tekrarları kaldır
+      List<Map<String, dynamic>> allResults = List<Map<String, dynamic>>.from(exactMatches);
+      allResults.addAll(proximityMatches);
+      allResults.addAll(ilikeMatches);
+
+      // Tekrarlanan sonuçları kaldır
+      final Set<String> uniqueIds = {}; // Benzersiz ID'leri takip etmek için
+      final List<Map<String, dynamic>> uniqueResults = [];
+
+      for (var item in allResults) {
+        // ID'yi veya başka bir benzersiz tanımlayıcıyı kullanın
+        String id = item['id'].toString();
+        if (!uniqueIds.contains(id)) {
+          uniqueIds.add(id);
+          uniqueResults.add(item);
+        }
+      }
+
+      return uniqueResults;
+    } else {
+      // Tek kelimeler için tam kelime eşleşmesini zorla
+      // Kelimenin en az 4 karakter olması durumunda joker karakter kullan
+      final String queryTerm = searchTerm.length > 3 ? "$searchTerm:*" : searchTerm;
+
+      final data = await supabase
+          .from('sentences')
+          .select()
+          .textSearch('fts', queryTerm, config: 'english');
+
+      print("Tam kelime araması - Aranan: '$queryTerm' - Bulunan: ${data.length}");
+
+      // Yeterli sonuç yoksa ILIKE ile de arayalım
+      if (data.length < 3) {
+        final ilikeResults = await supabase
+            .from('sentences')
+            .select()
+            .ilike('sentence', '% $searchTerm %'); // Değiştirildi: 'content' yerine 'sentence' kullanıldı
+
+        print("ILIKE araması (tek kelime) - Aranan: '$searchTerm' - Bulunan: ${ilikeResults.length}");
+
+        // Sonuçları birleştir ve tekrarları kaldır
+        List<Map<String, dynamic>> allResults = List<Map<String, dynamic>>.from(data);
+        allResults.addAll(ilikeResults);
+
+        // Tekrarlanan sonuçları kaldır
+        final Set<String> uniqueIds = {}; // Benzersiz ID'leri takip etmek için
+        final List<Map<String, dynamic>> uniqueResults = [];
+
+        for (var item in allResults) {
+          // ID'yi veya başka bir benzersiz tanımlayıcıyı kullanın
+          String id = item['id'].toString();
+          if (!uniqueIds.contains(id)) {
+            uniqueIds.add(id);
+            uniqueResults.add(item);
+          }
+        }
+
+        return uniqueResults;
+      }
+
+      return List<Map<String, dynamic>>.from(data);
+    }
+  }
+  bool _isLoadingCentences = false; // Yükleme durumunu takip etmek için
+  int _retryAttempts = 0; // Deneme sayısını takip etmek için
+  int _maxRetryAttempts = 3; // Maksimum deneme sayısı
+
+// Cümle seçim modunu değiştirdiğinde tekrar deneme yapacak metod
+// _applySentenceSelection fonksiyonunu da düzeltelim
   void _applySentenceSelection(WordDetail word, List<Map<String, dynamic>> sentencesData) async {
-    // Önce TTS'i durdur
+    // İlk olarak TTS'i durdur
     _flutterTts.stop();
 
-    // Yeni cümleleri yükle
-    List<Map<String, dynamic>> newSentencesData = await _loadSentencesFromDatabase(word.word ?? '');
+    // Mevcut scroll pozisyonunu saklayalım
+    final currentScrollPosition = _scrollController.offset;
 
     setState(() {
-      // Örnek cümleleri güncelle
-      List<Map<String, dynamic>> filteredSentences = List.from(newSentencesData);
-      _wordFilteredSentences[word.id] = filteredSentences.where((sentence) {
-        bool levelMatch = _selectedLevel == null || sentence['level'] == _selectedLevel;
-        bool typeMatch = _selectedType == null || sentence['type'] == _selectedType;
-        return levelMatch && typeMatch;
-      }).toList();
+      _isLoadingCentences = true; // Yükleme başladı
+      _retryAttempts = 0; // Deneme sayısını sıfırla
+    });
 
-      if (_maxSentencesToShow > 0 && _wordFilteredSentences[word.id]!.length > _maxSentencesToShow) {
-        _wordFilteredSentences[word.id] = _wordFilteredSentences[word.id]!.sublist(0, _maxSentencesToShow);
+    // Yeniden deneme fonksiyonu
+    Future<List<Map<String, dynamic>>> _loadWithRetry() async {
+      while (_retryAttempts < _maxRetryAttempts) {
+        try {
+          // Yeni cümleleri yükle
+          List<Map<String, dynamic>> newSentencesData = await _loadSentencesFromDatabase(word.word ?? '');
+          // Başarılı olursa sonucu döndür
+          return newSentencesData;
+        } catch (e) {
+          // Hata durumunda
+          _retryAttempts++;
+          print("Cümle yükleme hatası (Deneme ${_retryAttempts}/$_maxRetryAttempts): $e");
+          if (_retryAttempts >= _maxRetryAttempts) {
+            // Maksimum deneme sayısına ulaşıldıysa hatayı göster
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text("Cümleler yüklenemedi. Lütfen tekrar deneyin."),
+                  backgroundColor: Colors.red,
+                  duration: Duration(seconds: 3),
+                ),
+              );
+            }
+            // Boş liste döndür
+            return [];
+          }
+          // Bir sonraki denemeden önce bekle (artan bekleme süresi)
+          await Future.delayed(Duration(milliseconds: 1000 * _retryAttempts));
+        }
       }
+      return []; // Döngü dışında bir güvenlik önlemi
+    }
 
-      // PageController'ı kesin bir şekilde sıfırla
-      if (_sentencePageControllers.containsKey(word.id)) {
-        _sentencePageControllers[word.id]?.dispose(); // Önce dispose et
-      }
+    // Yeniden deneme mekanizmasıyla veriyi yükle
+    List<Map<String, dynamic>> newSentencesData = await _loadWithRetry();
 
-      // Yeni PageController oluştur ve ilk sayfaya git
-      _sentencePageControllers[word.id] = PageController(initialPage: 0);
+    // Yükleme durumunu güncelle
+    if (mounted) {
+      setState(() {
+        _isLoadingCentences = false;
+      });
+    }
 
-      // Cümle oynatma ve vurgulama durumlarını temizle
-      _cleanupSentenceStates(word);
+    // Widget hala mount edilmişse işleme devam et
+    if (mounted) {
+      setState(() {
+        // Örnek cümleleri güncelle
+        _wordFilteredSentences[word.id] = newSentencesData.where((sentence) {
+          bool levelMatch = _selectedLevel == null || sentence['level'] == _selectedLevel;
+          bool typeMatch = _selectedType == null || sentence['type'] == _selectedType;
+          return levelMatch && typeMatch;
+        }).toList();
 
-      // Sayfa indeksini sıfırla
-      if (_sentenceIndices.containsKey(word.id)) {
-        _sentenceIndices[word.id]!.value = 0;
-      } else {
-        _sentenceIndices[word.id] = ValueNotifier<int>(0);
-      }
+        if (_maxSentencesToShow > 0 && _wordFilteredSentences[word.id]!.length > _maxSentencesToShow) {
+          _wordFilteredSentences[word.id] = _wordFilteredSentences[word.id]!.sublist(0, _maxSentencesToShow);
+        }
 
-      // Filtreleri temizle (isteğe bağlı)
-      _selectedLevel = null;
-      _selectedType = null;
-      _maxSentencesToShow = 0;
+        // PageController'ı kesin bir şekilde sıfırla
+        if (_sentencePageControllers.containsKey(word.id)) {
+          // Önce dispose edilip edilmediğini kontrol et
+          if (_sentencePageControllers[word.id]?.hasClients == true) {
+            // Burada dispose etmeyelim, sadece konumunu sıfırlayalım
+            _sentencePageControllers[word.id]?.jumpToPage(0);
+          } else {
+            // Eğer zaten dispose edilmişse, yeni bir controller oluştur
+            _sentencePageControllers[word.id] = PageController(initialPage: 0);
+          }
+        } else {
+          // Controller yoksa yeni bir tane oluştur
+          _sentencePageControllers[word.id] = PageController(initialPage: 0);
+        }
+
+        // Cümle oynatma ve vurgulama durumlarını temizle
+        _cleanupSentenceStates(word);
+
+        // Sayfa indeksini sıfırla
+        if (_sentenceIndices.containsKey(word.id)) {
+          _sentenceIndices[word.id]!.value = 0;
+        } else {
+          _sentenceIndices[word.id] = ValueNotifier<int>(0);
+        }
+      });
 
       // Son bir kontrol: PageController'ın mutlaka ilk sayfada olduğundan emin ol
+      // Ayrıca scroll pozisyonunu koruyalım
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_sentencePageControllers[word.id]?.hasClients == true) {
           _sentencePageControllers[word.id]?.jumpToPage(0);
         }
+
+        // Scroll pozisyonunu korumak için
+        if (_scrollController.hasClients) {
+          _scrollController.jumpTo(currentScrollPosition);
+        }
       });
 
       print("Cümle seçim modu değiştirildi: ${_sentenceSelectionMode}");
-    });
+    }
   }
-
   void _cleanupSentenceStates(WordDetail word) {
     // Kelimeye özel tüm state'leri temizle
     _sentenceWordsMap.removeWhere((key, value) => key.startsWith('${word.id}_'));
@@ -5012,6 +5350,58 @@ class _SideMenuState extends State<SideMenu> with TickerProviderStateMixin {
       visualDensity: VisualDensity.compact,
       contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       hoverColor: Colors.white.withOpacity(0.1),
+    );
+  }
+}
+class ContentBoxSentence extends StatelessWidget {
+  final Widget content;
+  final IconData icon;
+
+  const ContentBoxSentence({
+    Key? key,
+    required this.content,
+    required this.icon,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: <Widget>[
+        Container(
+          padding: EdgeInsets.only(
+            left: 20,
+            top: 65 + 20,
+            right: 20,
+            bottom: 20,
+          ),
+          margin: EdgeInsets.only(top: 45),
+          decoration: BoxDecoration(
+            shape: BoxShape.rectangle,
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black26,
+                offset: Offset(0, 10),
+                blurRadius: 10,
+              ),
+            ],
+          ),
+          child: content,
+        ),
+        Positioned(
+          left: 20,
+          right: 20,
+          child: CircleAvatar(
+            backgroundColor: Colors.teal,
+            radius: 45,
+            child: ClipRRect(
+              borderRadius: BorderRadius.all(Radius.circular(45)),
+              child: Icon(icon, color: Colors.white, size: 50),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

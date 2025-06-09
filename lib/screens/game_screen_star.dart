@@ -18,6 +18,7 @@ import '../event_bus.dart';
 import '../globalDart/urls.dart';
 import '../shared_preferences/shared_preferences.dart';
 import '../variables.dart';
+import '../widgets/match_mode_widget.dart';
 import 'flash_card.dart';
 import 'loadingIndicator.dart';
 import 'study_screen.dart';
@@ -317,6 +318,16 @@ class _GameModeStarScreenState extends State<GameModeStarScreen>
                                   ),
                                 ),
                               ),
+                            ),
+                          ),
+                          // GameModeStarScreen.dart'ta da:
+                          SliverToBoxAdapter(
+                            child: MatchModeWidget(
+                              words: _filteredWords, // veya words
+                              classroomId: widget.classroomId,
+                              studySetId: widget.studySetId,
+                              isDarkMode: _isDarkMode,
+                              isStarredMode: true,
                             ),
                           ),
                           SliverToBoxAdapter(

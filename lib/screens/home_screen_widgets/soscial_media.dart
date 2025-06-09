@@ -14,176 +14,162 @@ class SocialPanel extends StatelessWidget {
     return GetBuilder<SocialPanelController>(
       init: SocialPanelController(),
       builder: (controller) => Container(
-        margin: EdgeInsets.all(2.w), // Küçültüldü: 4 -> 2
-        padding: EdgeInsets.all(6.w), // Küçültüldü: 8 -> 6
+        margin: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
         decoration: BoxDecoration(
-          color: isDarkMode ? const Color(0xFF3A3A3A) : const Color(0xFFFFF1E6),
-          borderRadius: BorderRadius.circular(12.r), // Küçültüldü: 16 -> 12
+          color: isDarkMode ? const Color(0xFF222831) : const Color(0xFFFFF8E1),
+          borderRadius: BorderRadius.circular(12.r),
           boxShadow: [
             BoxShadow(
-              color: Colors.black12,
-              blurRadius: 4, // Küçültüldü: 6 -> 4
-              offset: const Offset(0, 2), // Küçültüldü: 3 -> 2
+              color: isDarkMode ? Colors.black26 : Colors.black12,
+              blurRadius: 2,
+              offset: const Offset(0, 1),
             ),
           ],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Row(
-              children: [
-                Container(
-                  width: 28.w, // Küçültüldü: 32 -> 28
-                  height: 28.w, // Küçültüldü: 32 -> 28
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: isDarkMode
-                        ? const Color(0xFF2E3A47)
-                        : const Color(0xFFFFD1DC),
-                    border: Border.all(color: Colors.white, width: 1),
-                  ),
-                  child: Center(
-                    child: FaIcon(
-                      FontAwesomeIcons.smile,
-                      color: Colors.white,
-                      size: 12.sp, // Küçültüldü: 14 -> 12
-                    ),
-                  ),
-                ),
-                SizedBox(width: 6.w), // Küçültüldü: 8 -> 6
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Bizi Takip Edin',
-                      style: GoogleFonts.luckiestGuy(
-                        fontSize: 6.sp, // Küçültüldü: 14 -> 12
-                        color: isDarkMode ? Colors.white : Colors.black87,
-                        shadows: const [
-                          Shadow(
-                            blurRadius: 1.5, // Küçültüldü: 2 -> 1.5
-                            color: Colors.black26,
-                            offset: Offset(0.5, 0.5), // Küçültüldü: 1,1 -> 0.5,0.5
-                          ),
-                        ],
-                      ),
-                    ),
-                    Text(
-                      '@kelibunet',
-                      style: GoogleFonts.luckiestGuy(
-                        fontSize: 10.sp, // Küçültüldü: 12 -> 10
-                        color: isDarkMode ? Colors.white70 : Colors.black54,
-                        shadows: const [
-                          Shadow(
-                            blurRadius: 1.5,
-                            color: Colors.black26,
-                            offset: Offset(0.5, 0.5),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            SizedBox(height: 8.h), // Küçültüldü: 12 -> 8
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _buildSocialButton(
-                  controller,
-                  FontAwesomeIcons.instagram,
-                  'instagram',
-                  const [
-                    Color(0xFFFFC1E3),
-                    Color(0xFFFFD1DC),
-                    Color(0xFFFFE4EC),
-                  ],
-                ),
-                _buildSocialButton(
-                  controller,
-                  null,
-                  'x',
-                  isDarkMode
-                      ? const [Color(0xFFB2EBF2), Color(0xFFB2DFDB)]
-                      : const [Color(0xFF424242), Color(0xFF212121)],
-                ),
-                _buildSocialButton(
-                  controller,
-                  FontAwesomeIcons.youtube,
-                  'youtube',
-                  const [
-                    Color(0xFFFFCDD2),
-                    Color(0xFFFFAB91),
-                  ],
-                ),
-              ],
-            ),
+            _buildCompactHeader(),
+            _buildCompactSocialButtons(controller),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildSocialButton(
+  Widget _buildCompactHeader() {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFA726),
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(14.r),
+          topRight: Radius.circular(14.r),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 18.w,
+            height: 18.w,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white,
+            ),
+            child: Center(
+              child: Text(
+                '#',
+                style: GoogleFonts.poppins(
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFFFFA726),
+                ),
+              ),
+            ),
+          ),
+          SizedBox(width: 4.w),
+          Expanded(
+            child: Text(
+              '@kelibunet',
+              style: GoogleFonts.poppins(
+                fontSize: 10.sp,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          SizedBox(width: 4.w),
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 1.h),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10.r),
+            ),
+            child: Text(
+              'Takip Et',
+              style: GoogleFonts.poppins(
+                fontSize: 8.sp,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFFFFA726),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompactSocialButtons(SocialPanelController controller) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 5.h, horizontal: 8.w),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _buildSocialIcon(
+            controller,
+            'instagram',
+            FontAwesomeIcons.instagram,
+            const LinearGradient(
+              colors: [Color(0xFFE1306C), Color(0xFFF56040)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          _buildSocialIcon(
+            controller,
+            'x',
+            FontAwesomeIcons.xTwitter,
+            LinearGradient(
+              colors: [Colors.black, Colors.black],
+              begin: Alignment.center,
+              end: Alignment.center,
+            ),
+          ),
+          _buildSocialIcon(
+            controller,
+            'youtube',
+            FontAwesomeIcons.youtube,
+            const LinearGradient(
+              colors: [Color(0xFFFF0000), Color(0xFFFF0000)],
+              begin: Alignment.center,
+              end: Alignment.center,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSocialIcon(
       SocialPanelController controller,
-      IconData? icon,
       String platform,
-      List<Color> gradientColors,
+      IconData icon,
+      Gradient gradient,
       ) {
-    final double buttonSize = platform == 'x' ? 28.w : 32.w; // Küçültüldü: 32,38 -> 28,32
-    final double iconSize = platform == 'x' ? 14.sp : 16.sp; // Küçültüldü: 16,18 -> 14,16
     return Obx(
           () => GestureDetector(
         onTap: () => controller.launchSocial(platform),
         child: TweenAnimationBuilder<double>(
           tween: Tween<double>(
             begin: 1,
-            end: controller.isPressed.value ? 0.95 : 1, // Küçültüldü: 0.9 -> 0.95
+            end: controller.isPressed.value ? 0.95 : 1,
           ),
           duration: const Duration(milliseconds: 100),
           builder: (context, scale, child) => Transform.scale(
             scale: scale,
             child: Container(
-              width: buttonSize,
-              height: buttonSize,
+              width: 32.w,
+              height: 32.w,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  colors: gradientColors,
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                border: Border.all(color: Colors.white, width: 1), // Küçültüldü: 1.5 -> 1
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black12,
-                    blurRadius: 2, // Küçültüldü: 3 -> 2
-                    offset: const Offset(0, 1), // Küçültüldü: 2 -> 1
-                  ),
-                ],
+                gradient: gradient,
               ),
               child: Center(
-                child: platform == 'x'
-                    ? Text(
-                  'X',
-                  style: GoogleFonts.luckiestGuy(
-                    fontSize: iconSize,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                    shadows: const [
-                      Shadow(
-                        blurRadius: 1.5,
-                        color: Colors.black26,
-                        offset: Offset(0.5, 0.5),
-                      ),
-                    ],
-                  ),
-                )
-                    : Icon(
+                child: FaIcon(
                   icon,
                   color: Colors.white,
-                  size: iconSize,
+                  size: 16.sp,
                 ),
               ),
             ),
@@ -217,6 +203,7 @@ class SocialPanelController extends GetxController {
     } catch (e) {
       print('URL açılamadı: $e');
     }
+
     isPressed.value = false;
   }
 }

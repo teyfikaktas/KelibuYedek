@@ -59,7 +59,11 @@ Future<void> initializeFirebase() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-
+  await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
+    alert: true,
+    badge: true,
+    sound: true,
+  );
   // iOS için özel kontroller
   if (Platform.isIOS) {
     try {
@@ -113,6 +117,19 @@ Future<void> initializeFirebase() async {
   } catch (e) {
     print('Topic aboneliği hatası: $e');
   }
+// Uygulama kapalıyken gelen bildirim tıklaması (initial message)
+  FirebaseMessaging.instance.getInitialMessage().then((RemoteMessage? message) {
+    if (message != null) {
+      print('Uygulama kapalıyken bildirime tıklandı! Data: ${message.data}');
+      // Zaten uygulamayı açacak, başka bir şey yapmaya gerek yok
+    }
+  });
+
+// Uygulama arkaplandayken gelen bildirim tıklaması
+  FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+    print('Arkaplandayken bildirime tıklandı! Data: ${message.data}');
+    // Zaten uygulamayı açacak, başka bir şey yapmaya gerek yok
+  });
   // Arka planda bildirim dinleyicisi
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 }
