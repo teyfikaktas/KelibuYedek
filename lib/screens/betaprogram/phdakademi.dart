@@ -1,10 +1,11 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
-import 'dart:convert';
 import 'package:kelibu/providers/user_provider.dart';
-import 'package:provider/provider.dart';
 import 'package:kelibu/variables.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class EgitimBasvuruPage extends StatefulWidget {
@@ -56,7 +57,6 @@ class _EgitimBasvuruPageState extends State<EgitimBasvuruPage> {
     if (response.statusCode == 200) {
       _showConfirmationDialog();
     } else {
-      print('Başvuru gönderilirken bir hata oluştu: ${response.body}');
     }
   }
 
@@ -71,7 +71,10 @@ class _EgitimBasvuruPageState extends State<EgitimBasvuruPage> {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
             gradient: LinearGradient(
-              colors: [_isDarkMode ? Colors.grey[800]! : Colors.blue, Colors.green],
+              colors: [
+                _isDarkMode ? Colors.grey[800]! : Colors.blue,
+                Colors.green
+              ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -118,8 +121,7 @@ class _EgitimBasvuruPageState extends State<EgitimBasvuruPage> {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(30),
                   ),
-                  padding:
-                  EdgeInsets.symmetric(horizontal: 30, vertical: 12),
+                  padding: EdgeInsets.symmetric(horizontal: 30, vertical: 12),
                 ),
                 child: Text(
                   'Tamam',

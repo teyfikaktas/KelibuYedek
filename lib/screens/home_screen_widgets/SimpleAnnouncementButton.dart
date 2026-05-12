@@ -1,4 +1,3 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -16,10 +15,12 @@ class SimpleAnnouncementButton extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<SimpleAnnouncementButton> createState() => _SimpleAnnouncementButtonState();
+  State<SimpleAnnouncementButton> createState() =>
+      _SimpleAnnouncementButtonState();
 }
 
-class _SimpleAnnouncementButtonState extends State<SimpleAnnouncementButton> with SingleTickerProviderStateMixin {
+class _SimpleAnnouncementButtonState extends State<SimpleAnnouncementButton>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   bool hasUnreadAnnouncements = false;
   static const String _lastViewedKey = 'last_viewed_announcements_time';
@@ -42,7 +43,8 @@ class _SimpleAnnouncementButtonState extends State<SimpleAnnouncementButton> wit
     try {
       final announcements = await ApiService().getAnnouncements();
       if (announcements.isNotEmpty) {
-        final latestAnnouncementTime = announcements.first.publishDate.millisecondsSinceEpoch;
+        final latestAnnouncementTime =
+            announcements.first.publishDate.millisecondsSinceEpoch;
 
         if (latestAnnouncementTime > lastViewed) {
           setState(() {
@@ -52,7 +54,6 @@ class _SimpleAnnouncementButtonState extends State<SimpleAnnouncementButton> wit
         }
       }
     } catch (e) {
-      print('Error checking announcements: $e');
     }
   }
 
@@ -81,9 +82,8 @@ class _SimpleAnnouncementButtonState extends State<SimpleAnnouncementButton> wit
         animation: _controller,
         builder: (context, child) {
           return Transform.scale(
-            scale: hasUnreadAnnouncements
-                ? 1.0 + (0.1 * _controller.value)
-                : 1.0,
+            scale:
+                hasUnreadAnnouncements ? 1.0 + (0.1 * _controller.value) : 1.0,
             child: Stack(
               clipBehavior: Clip.none,
               children: [

@@ -15,5 +15,4 @@ class AppUrls {
   static const String market = '$baseUrl/market.mp4';
   static const String studysets = '$baseUrl/studysets.mp4';
   static const String login = '$baseUrl/login.mp4';
-
 }

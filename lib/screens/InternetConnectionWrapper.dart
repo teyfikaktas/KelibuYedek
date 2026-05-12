@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
+
 import 'NetWorkService.dart';
 import 'noInternetPage.dart';
 
 class InternetConnectionWrapper extends StatefulWidget {
   final Widget child;
 
-  const InternetConnectionWrapper({Key? key, required this.child}) : super(key: key);
+  const InternetConnectionWrapper({Key? key, required this.child})
+      : super(key: key);
 
   @override
-  _InternetConnectionWrapperState createState() => _InternetConnectionWrapperState();
+  _InternetConnectionWrapperState createState() =>
+      _InternetConnectionWrapperState();
 }
 
 class _InternetConnectionWrapperState extends State<InternetConnectionWrapper> {
@@ -28,7 +31,8 @@ class _InternetConnectionWrapperState extends State<InternetConnectionWrapper> {
           _isConnected = isConnected;
         });
       }
-      await Future.delayed(Duration(seconds: 5)); // Her 5 saniyede bir kontrol et
+      await Future.delayed(
+          Duration(seconds: 5)); // Her 5 saniyede bir kontrol et
     }
   }
 

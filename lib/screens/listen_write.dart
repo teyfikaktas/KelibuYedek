@@ -1,31 +1,36 @@
 import 'dart:async';
 import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kelibu/Models/wordDetaik.dart';
-import 'package:flutter_tts/flutter_tts.dart';
 import 'package:kelibu/screens/video_player.dart';
 import 'package:provider/provider.dart';
+import 'package:quickalert/models/quickalert_type.dart';
+import 'package:quickalert/widgets/quickalert_dialog.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 import '../api.dart';
 import '../globalDart/urls.dart';
 import '../providers/user_provider.dart';
-import 'package:awesome_dialog/awesome_dialog.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../shared_preferences/shared_preferences.dart';
 import '../variables.dart';
-import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
+
 class ScoreDisplay extends StatefulWidget {
   final ValueNotifier<int> userPointsNotifier;
 
-  const ScoreDisplay({Key? key, required this.userPointsNotifier}) : super(key: key);
+  const ScoreDisplay({Key? key, required this.userPointsNotifier})
+      : super(key: key);
 
   @override
   _ScoreDisplayState createState() => _ScoreDisplayState();
 }
 
-class _ScoreDisplayState extends State<ScoreDisplay> with TickerProviderStateMixin {
+class _ScoreDisplayState extends State<ScoreDisplay>
+    with TickerProviderStateMixin {
   late AnimationController _colorController;
   late Animation<Color?> _colorAnimation;
 
@@ -111,7 +116,9 @@ class _ScoreDisplayState extends State<ScoreDisplay> with TickerProviderStateMix
         );
       },
     );
-  }}
+  }
+}
+
 class ListenAndWriteScreen extends StatefulWidget {
   final List<WordDetail> words;
   final int classroomId;
@@ -128,7 +135,8 @@ class ListenAndWriteScreen extends StatefulWidget {
   _ListenAndWriteScreenState createState() => _ListenAndWriteScreenState();
 }
 
-class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> with SingleTickerProviderStateMixin {
+class _ListenAndWriteScreenState extends State<ListenAndWriteScreen>
+    with SingleTickerProviderStateMixin {
   int currentWordIndex = 0;
   final FlutterTts flutterTts = FlutterTts();
   String correctWord = '';
@@ -160,8 +168,10 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> with Single
     ApiService().logSetEntry('Dinle yaz', 'Dinle ve Yaz moduna ', '');
 
     _userPoints = ValueNotifier<int>(0);
-    _animationController = AnimationController(duration: const Duration(milliseconds: 500), vsync: this);
-    _animation = CurvedAnimation(parent: _animationController, curve: Curves.easeInOut);
+    _animationController = AnimationController(
+        duration: const Duration(milliseconds: 500), vsync: this);
+    _animation =
+        CurvedAnimation(parent: _animationController, curve: Curves.easeInOut);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadUserPoints();
       _speakCurrentWord();
@@ -170,7 +180,8 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> with Single
 
     pointValueNotifier.value = score;
     Future.microtask(() {
-      UserProvider userProviderPoint = Provider.of<UserProvider>(context, listen: false);
+      UserProvider userProviderPoint =
+          Provider.of<UserProvider>(context, listen: false);
       setState(() {
         score = userProviderPoint.point;
         pointValueNotifier.value = score;
@@ -181,19 +192,27 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> with Single
     _initializeEnteredLetters();
     _loadDarkModePreference();
   }
+
   void _shuffleAndInitializeWords() {
     currentWords = List.from(originalWords);
     currentWords.shuffle();
     currentWordIndex = 0;
   }
+
   void _updateEnteredLetters(String value) {
     setState(() {
-      enteredLetters = value.padRight(correctWord.length).split('').take(correctWord.length).toList();
+      enteredLetters = value
+          .padRight(correctWord.length)
+          .split('')
+          .take(correctWord.length)
+          .toList();
     });
   }
+
   void _initializeEnteredLetters() {
     enteredLetters = List.filled(correctWord.length, '');
   }
+
   Future<void> _loadUserPoints() async {
     userProvider = Provider.of<UserProvider>(context, listen: false);
     _userPoints.value = userProvider.point;
@@ -230,19 +249,25 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> with Single
     textEditingController.clear();
     _animationController.forward(from: 0.0);
   }
+
   void _checkAnswer() async {
     String enteredWord = textEditingController.text.trim().toLowerCase();
     bool correct = enteredWord == correctWord;
 
     if (correct) {
-      int userGuessedLetters = enteredWord.split('').where((letter) => !enteredLetters.contains(letter)).length;
-      int bonusPoints = correctWord.length - enteredLetters.where((letter) => letter.isNotEmpty).length;
+      int userGuessedLetters = enteredWord
+          .split('')
+          .where((letter) => !enteredLetters.contains(letter))
+          .length;
+      int bonusPoints = correctWord.length -
+          enteredLetters.where((letter) => letter.isNotEmpty).length;
       int pointsEarned = 3 + bonusPoints;
 
       int currentPoints = _userPoints.value;
       int newPoints = currentPoints + pointsEarned;
 
-      UserProvider userProvider = Provider.of<UserProvider>(context, listen: false);
+      UserProvider userProvider =
+          Provider.of<UserProvider>(context, listen: false);
 
       try {
         await _updateUserScore(newPoints, pointsEarned);
@@ -251,62 +276,60 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> with Single
 
         _showSuccessDialog(bonusPoints);
       } catch (e) {
-        print("Puan güncelleme hatası: $e");
         _showErrorDialog("Puan güncellenirken bir hata oluştu.");
       }
     } else {
       _showErrorDialog("Yanlış cevap! Doğru kelime: $correctWord");
     }
   }
+
   Future<void> _updateUserScore(int newScore, int pointChange) async {
     try {
-      UserProvider userProvider = Provider.of<UserProvider>(context, listen: false);
+      UserProvider userProvider =
+          Provider.of<UserProvider>(context, listen: false);
       int currentPoints = userProvider.point;
 
-      print("Updating score - UserID: ${userProvider.userId}, Current Points: $currentPoints, New Score: $newScore, Point Change: $pointChange");
-
       if (newScore <= 1) {
-        print("New score is <= 1. Keeping current points.");
         newScore = currentPoints;
       }
 
-      if (newScore < currentPoints) {
-        print("Warning: New score ($newScore) is less than current points ($currentPoints).");
-      }
+      if (newScore < currentPoints) {}
 
       await Future.wait([
-        ApiService().updateUserPointTimePeriod(userProvider.userId, newScore, pointChange),
+        ApiService().updateUserPointTimePeriod(
+            userProvider.userId, newScore, pointChange),
         userProvider.addPoint(newScore),
       ]);
-
-      print("Score updated successfully. New score: $newScore");
     } catch (e) {
-      print("Error updating user score: $e");
       throw e;
     }
   }
+
   void _showSuccessDialog(int bonusPoints) {
-    AwesomeDialog(
+    QuickAlert.show(
       context: context,
-      dialogType: DialogType.success,
-      animType: AnimType.scale,
+      type: QuickAlertType.success,
       title: 'Doğru!',
-      desc: 'Tebrikler! Kelimenin anlamı: $correctWordMeaning\n'
+      text: 'Tebrikler! Kelimenin anlamı: $correctWordMeaning\n'
           'Bonus Puan: $bonusPoints',
-      btnOkOnPress: _proceedToNextWord,
-      dismissOnTouchOutside: false,
-    )..show();
+      onConfirmBtnTap: () {
+        Navigator.of(context).pop(); // Dialog'u kapat
+        _proceedToNextWord(); // Sonraki kelimeye geç
+      },
+      barrierDismissible: false,
+      confirmBtnText: 'Tamam',
+    );
   }
+
   void _showErrorDialog(String message) {
-    AwesomeDialog(
+    QuickAlert.show(
       context: context,
-      dialogType: DialogType.error,
-      animType: AnimType.scale,
+      type: QuickAlertType.error,
       title: 'Yanlış!',
-      desc: message,
-      btnOkOnPress: () {},
-      dismissOnTouchOutside: false,
-    )..show();
+      text: message,
+      barrierDismissible: false,
+      confirmBtnText: 'Tamam',
+    );
   }
 
   void _proceedToNextWord() {
@@ -317,15 +340,14 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> with Single
       });
       _speakCurrentWord();
     } else {
-      AwesomeDialog(
+      QuickAlert.show(
         context: context,
-        dialogType: DialogType.success,
-        animType: AnimType.scale,
+        type: QuickAlertType.success,
         title: 'Tebrikler!',
-        desc: 'Tüm kelimeleri tamamladınız.',
-        btnOkOnPress: () {},
-        dismissOnTouchOutside: false,
-      )..show();
+        text: 'Tüm kelimeleri tamamladınız.',
+        barrierDismissible: false,
+        confirmBtnText: 'Tamam',
+      );
     }
   }
 
@@ -351,6 +373,7 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> with Single
       _showErrorDialog("Yeterli puanınız yok. En az 1 puan gerekiyor.");
     }
   }
+
   void _toggleVirtualKeyboard() {
     setState(() {
       isVirtualKeyboardVisible = !isVirtualKeyboardVisible;
@@ -361,7 +384,9 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> with Single
     setState(() {
       showStarredOnly = !showStarredOnly;
       if (showStarredOnly) {
-        var filteredWords = originalWords.where((word) => starredStatus[word.id] ?? false).toList();
+        var filteredWords = originalWords
+            .where((word) => starredStatus[word.id] ?? false)
+            .toList();
         if (filteredWords.isNotEmpty) {
           currentWords = filteredWords;
           currentWords.shuffle();
@@ -400,7 +425,8 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> with Single
 
   void _loadStarredStatusAsync() async {
     final service = StarredWordsService();
-    final starredWordIds = await service.loadStarredWords(widget.classroomId, widget.studySetId);
+    final starredWordIds =
+        await service.loadStarredWords(widget.classroomId, widget.studySetId);
     int newStarredCount = 0;
 
     setState(() {
@@ -429,9 +455,9 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> with Single
       }
     });
 
-    StarredWordsService().toggleWordStarStatus(wordId, starredStatus[wordId]!, widget.classroomId, widget.studySetId);
+    StarredWordsService().toggleWordStarStatus(
+        wordId, starredStatus[wordId]!, widget.classroomId, widget.studySetId);
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -440,9 +466,11 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> with Single
         : "https://kelibu.net/images/defaultimage.png";
 
     return Scaffold(
-      backgroundColor: _isDarkMode ? darkModeColors["background"] : Colors.grey[100],
+      backgroundColor:
+          _isDarkMode ? darkModeColors["background"] : Colors.grey[100],
       appBar: AppBar(
-        backgroundColor: _isDarkMode ? darkModeColors["cardBackground"] : Colors.white,
+        backgroundColor:
+            _isDarkMode ? darkModeColors["cardBackground"] : Colors.white,
         elevation: 0,
         title: Text(
           'Dinle',
@@ -454,7 +482,9 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> with Single
         actions: [
           _buildStarredWordsButton(),
           IconButton(
-            icon: Icon(isVirtualKeyboardVisible ? Icons.keyboard_hide : Icons.keyboard),
+            icon: Icon(isVirtualKeyboardVisible
+                ? Icons.keyboard_hide
+                : Icons.keyboard),
             onPressed: _toggleVirtualKeyboard,
           ),
           IconButton(
@@ -468,10 +498,12 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> with Single
           _buildRoundedIconButton(
             Icons.slow_motion_video_sharp,
             Colors.green,
-                () {
+            () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => VideoPlayerScreen(videoUrl: AppUrls.listenandwrite)),
+                MaterialPageRoute(
+                    builder: (context) =>
+                        VideoPlayerScreen(videoUrl: AppUrls.listenandwrite)),
               );
             },
           ),
@@ -500,6 +532,7 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> with Single
       ),
     );
   }
+
   Widget _buildRoundedIconButton(
       IconData icon, Color color, VoidCallback onPressed) {
     return Padding(
@@ -526,7 +559,7 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> with Single
       runSpacing: 4,
       children: List.generate(
         correctWord.length,
-            (index) {
+        (index) {
           // Eğer enteredLetters dizisi doğru uzunlukta değilse, düzelt
           if (enteredLetters.length != correctWord.length) {
             enteredLetters = List.filled(correctWord.length, '');
@@ -536,10 +569,13 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> with Single
             width: 30,
             height: 30,
             decoration: BoxDecoration(
-              border: Border.all(color: _isDarkMode ? darkModeColors["text"]! : Colors.grey),
+              border: Border.all(
+                  color: _isDarkMode ? darkModeColors["text"]! : Colors.grey),
               borderRadius: BorderRadius.circular(5),
               color: enteredLetters[index].isNotEmpty
-                  ? (_isDarkMode ? darkModeColors["buttonBackground"] : Colors.blue.shade100)
+                  ? (_isDarkMode
+                      ? darkModeColors["buttonBackground"]
+                      : Colors.blue.shade100)
                   : Colors.transparent,
             ),
             child: Center(
@@ -556,6 +592,7 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> with Single
       ),
     );
   }
+
   Widget _buildInputField() {
     return Container(
       decoration: BoxDecoration(
@@ -584,10 +621,12 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> with Single
             borderSide: BorderSide.none,
           ),
           suffixIcon: IconButton(
-            icon: Icon(Icons.lightbulb_outline, color: _isDarkMode ? Colors.tealAccent[700] : Colors.indigo),
+            icon: Icon(Icons.lightbulb_outline,
+                color: _isDarkMode ? Colors.tealAccent[700] : Colors.indigo),
             onPressed: _getHint,
           ),
-          labelStyle: TextStyle(color: _isDarkMode ? Colors.white70 : Colors.indigo[800]),
+          labelStyle: TextStyle(
+              color: _isDarkMode ? Colors.white70 : Colors.indigo[800]),
           fillColor: _isDarkMode ? Color(0xFF2C3E50) : Colors.white,
           filled: true,
         ),
@@ -597,6 +636,7 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> with Single
       ),
     );
   }
+
   Widget _buildStarredWordsButton() {
     return GestureDetector(
       onTap: toggleStarredOnly,
@@ -618,7 +658,11 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> with Single
           children: <Widget>[
             Icon(
               showStarredOnly ? Icons.star : Icons.star_border,
-              color: showStarredOnly ? Colors.amber : _isDarkMode ? darkModeColors["text"] : Colors.black,
+              color: showStarredOnly
+                  ? Colors.amber
+                  : _isDarkMode
+                      ? darkModeColors["text"]
+                      : Colors.black,
               size: 20,
             ),
             const SizedBox(width: 4),
@@ -679,8 +723,10 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> with Single
                 SizedBox(height: 5),
                 LinearProgressIndicator(
                   value: (currentWordIndex + 1) / widget.words.length,
-                  backgroundColor: _isDarkMode ? Colors.grey[700] : Colors.grey[300],
-                  valueColor: AlwaysStoppedAnimation<Color>(_isDarkMode ? Colors.tealAccent[700]! : Colors.indigo),
+                  backgroundColor:
+                      _isDarkMode ? Colors.grey[700] : Colors.grey[300],
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                      _isDarkMode ? Colors.tealAccent[700]! : Colors.indigo),
                 ),
                 SizedBox(height: 5),
                 Text(
@@ -693,11 +739,14 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> with Single
             ),
           ),
           SizedBox(width: 20),
-          ScoreDisplay(userPointsNotifier: _userPoints,)
+          ScoreDisplay(
+            userPointsNotifier: _userPoints,
+          )
         ],
       ),
     );
   }
+
   Widget _buildWordCard(String imageUrl) {
     return Container(
       decoration: BoxDecoration(
@@ -742,8 +791,10 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> with Single
                     width: 180,
                     height: 180,
                     fit: BoxFit.cover,
-                    errorBuilder: (BuildContext context, Object exception, StackTrace? stackTrace) {
-                      return Image.asset('assets/logo.png', width: 180, height: 180, fit: BoxFit.cover);
+                    errorBuilder: (BuildContext context, Object exception,
+                        StackTrace? stackTrace) {
+                      return Image.asset('assets/logo.png',
+                          width: 180, height: 180, fit: BoxFit.cover);
                     },
                   ),
                 ),
@@ -765,12 +816,17 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> with Single
               children: [
                 ElevatedButton.icon(
                   icon: Icon(Icons.volume_up, size: 24),
-                  label: Text("Tekrar Dinle", style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600)),
+                  label: Text("Tekrar Dinle",
+                      style: GoogleFonts.poppins(
+                          fontSize: 16, fontWeight: FontWeight.w600)),
                   onPressed: () => _speak(correctWord),
                   style: ElevatedButton.styleFrom(
-                    foregroundColor: Colors.white, backgroundColor: _isDarkMode ? Colors.tealAccent[700] : Colors.indigo,
+                    foregroundColor: Colors.white,
+                    backgroundColor:
+                        _isDarkMode ? Colors.tealAccent[700] : Colors.indigo,
                     padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30)),
                     elevation: 5,
                   ),
                 ),
@@ -779,11 +835,17 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> with Single
                   duration: Duration(milliseconds: 300),
                   child: IconButton(
                     icon: Icon(
-                      starredStatus[widget.words[currentWordIndex].id] ?? false ? Icons.star : Icons.star_border,
-                      color: starredStatus[widget.words[currentWordIndex].id] ?? false ? Colors.amber : Colors.grey[400],
+                      starredStatus[widget.words[currentWordIndex].id] ?? false
+                          ? Icons.star
+                          : Icons.star_border,
+                      color: starredStatus[widget.words[currentWordIndex].id] ??
+                              false
+                          ? Colors.amber
+                          : Colors.grey[400],
                       size: 36,
                     ),
-                    onPressed: () => _toggleStar(widget.words[currentWordIndex].id),
+                    onPressed: () =>
+                        _toggleStar(widget.words[currentWordIndex].id),
                   ),
                 ),
               ],
@@ -800,18 +862,45 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> with Single
       icon: Icon(Icons.check),
       label: Text('Kontrol Et'),
       style: ElevatedButton.styleFrom(
-        foregroundColor: Colors.white, backgroundColor: _isDarkMode ? Colors.tealAccent[700] : Colors.indigo,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30.0)),
+        foregroundColor: Colors.white,
+        backgroundColor: _isDarkMode ? Colors.tealAccent[700] : Colors.indigo,
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(30.0)),
         padding: EdgeInsets.symmetric(horizontal: 30, vertical: 15),
         elevation: 5,
       ),
     );
   }
+
   Widget _buildKeyboard() {
     const List<String> letters = [
-      'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P',
-      'A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L',
-      'Z', 'X', 'C', 'V', 'B', 'N', 'M', ' '
+      'Q',
+      'W',
+      'E',
+      'R',
+      'T',
+      'Y',
+      'U',
+      'I',
+      'O',
+      'P',
+      'A',
+      'S',
+      'D',
+      'F',
+      'G',
+      'H',
+      'J',
+      'K',
+      'L',
+      'Z',
+      'X',
+      'C',
+      'V',
+      'B',
+      'N',
+      'M',
+      ' '
     ];
 
     return Wrap(
@@ -826,7 +915,9 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> with Single
     return ElevatedButton(
       child: Text(letter == ' ' ? 'Space' : letter),
       style: ElevatedButton.styleFrom(
-        foregroundColor: Colors.white, backgroundColor: _isDarkMode ? darkModeColors["buttonBackground"] : Colors.blue,
+        foregroundColor: Colors.white,
+        backgroundColor:
+            _isDarkMode ? darkModeColors["buttonBackground"] : Colors.blue,
         padding: EdgeInsets.all(10),
         minimumSize: Size(40, 40),
       ),
@@ -873,4 +964,3 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen> with Single
     );
   }
 }
-

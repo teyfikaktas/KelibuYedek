@@ -7,17 +7,14 @@ class User {
   final String? team; // Team is already nullable
   int? currentStreak;
 
-  User({
-    required this.name,
-    required this.avatar,
-    required this.point,
-    required this.id,
-    this.city, // Adjusted for nullable city
-    this.team,
-    this.currentStreak
-
-
-  });
+  User(
+      {required this.name,
+      required this.avatar,
+      required this.point,
+      required this.id,
+      this.city, // Adjusted for nullable city
+      this.team,
+      this.currentStreak});
 
   factory User.fromJson(Map<String, dynamic> json) {
     return User(
@@ -25,11 +22,11 @@ class User {
       avatar: json['avatar'] as String,
       point: json['point'] as int,
       id: json['id'] as int,
-      city: json['city'] as String?, // Adjust for nullable city
-      team: json['team'] as String?, // Adjust for nullable team
+      city: json['city'] as String?,
+      // Adjust for nullable city
+      team: json['team'] as String?,
+      // Adjust for nullable team
       currentStreak: json['current_streak'] as int?,
-
-
     );
   }
 }

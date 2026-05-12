@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+// ignore: unused_import
 import 'package:flutter_html/flutter_html.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kelibu/screens/loadingIndicator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../../Models/wordDetaik.dart';
 import '../../api.dart';
 import '../../screens/study_screen.dart';
@@ -19,7 +21,6 @@ class SearchDialog extends StatefulWidget {
 
 class _SearchDialogState extends State<SearchDialog> {
   TextEditingController _searchController = TextEditingController();
-  bool _isSearching = false;
   String _searchError = '';
   WordDetail? _searchResult;
   FocusNode _searchFocusNode = FocusNode();
@@ -135,15 +136,19 @@ class _SearchDialogState extends State<SearchDialog> {
                     style: GoogleFonts.nunito(
                       fontSize: 20.sp,
                       fontWeight: FontWeight.w700,
-                      color: widget.isDarkMode ? Colors.white : Color(0xFF4B4B4B),
+                      color:
+                          widget.isDarkMode ? Colors.white : Color(0xFF4B4B4B),
                     ),
                   ),
                   Row(
                     children: [
                       if (_allSearchHistory.isNotEmpty)
                         IconButton(
-                          icon: Icon(Icons.delete_outline,
-                            color: widget.isDarkMode ? Colors.red[300] : Colors.red,
+                          icon: Icon(
+                            Icons.delete_outline,
+                            color: widget.isDarkMode
+                                ? Colors.red[300]
+                                : Colors.red,
                           ),
                           onPressed: () {
                             _clearSearchHistory();
@@ -152,8 +157,10 @@ class _SearchDialogState extends State<SearchDialog> {
                           tooltip: "Tümünü Temizle",
                         ),
                       IconButton(
-                        icon: Icon(Icons.close,
-                          color: widget.isDarkMode ? Colors.white : Colors.black,
+                        icon: Icon(
+                          Icons.close,
+                          color:
+                              widget.isDarkMode ? Colors.white : Colors.black,
                         ),
                         onPressed: () => Navigator.of(context).pop(),
                       ),
@@ -170,48 +177,56 @@ class _SearchDialogState extends State<SearchDialog> {
               child: _allSearchHistory.isEmpty
                   ? _buildEmptyHistoryState()
                   : ListView.separated(
-                itemCount: _allSearchHistory.length,
-                separatorBuilder: (context, index) => Divider(
-                  color: widget.isDarkMode ? Colors.grey[800] : Colors.grey[300],
-                  height: 1,
-                  indent: 70.w,
-                ),
-                itemBuilder: (context, index) {
-                  return ListTile(
-                    leading: Icon(
-                      Icons.history,
-                      color: widget.isDarkMode ? Colors.grey[400] : Colors.grey[600],
-                    ),
-                    title: Text(
-                      _allSearchHistory[index],
-                      style: GoogleFonts.nunito(
-                        fontSize: 16.sp,
-                        color: widget.isDarkMode ? Colors.white : Colors.black87,
+                      itemCount: _allSearchHistory.length,
+                      separatorBuilder: (context, index) => Divider(
+                        color: widget.isDarkMode
+                            ? Colors.grey[800]
+                            : Colors.grey[300],
+                        height: 1,
+                        indent: 70.w,
                       ),
-                    ),
-                    trailing: IconButton(
-                      icon: Icon(
-                        Icons.close,
-                        size: 18.sp,
-                        color: widget.isDarkMode ? Colors.grey[400] : Colors.grey[600],
-                      ),
-                      onPressed: () {
-                        _removeFromHistory(_allSearchHistory[index]);
-                        if (_allSearchHistory.isEmpty) {
-                          Navigator.of(context).pop();
-                        } else {
-                          setState(() {}); // Listeyi yenile
-                        }
+                      itemBuilder: (context, index) {
+                        return ListTile(
+                          leading: Icon(
+                            Icons.history,
+                            color: widget.isDarkMode
+                                ? Colors.grey[400]
+                                : Colors.grey[600],
+                          ),
+                          title: Text(
+                            _allSearchHistory[index],
+                            style: GoogleFonts.nunito(
+                              fontSize: 16.sp,
+                              color: widget.isDarkMode
+                                  ? Colors.white
+                                  : Colors.black87,
+                            ),
+                          ),
+                          trailing: IconButton(
+                            icon: Icon(
+                              Icons.close,
+                              size: 18.sp,
+                              color: widget.isDarkMode
+                                  ? Colors.grey[400]
+                                  : Colors.grey[600],
+                            ),
+                            onPressed: () {
+                              _removeFromHistory(_allSearchHistory[index]);
+                              if (_allSearchHistory.isEmpty) {
+                                Navigator.of(context).pop();
+                              } else {
+                                setState(() {}); // Listeyi yenile
+                              }
+                            },
+                          ),
+                          onTap: () {
+                            _searchController.text = _allSearchHistory[index];
+                            Navigator.of(context).pop();
+                            performSearch(_allSearchHistory[index]);
+                          },
+                        );
                       },
                     ),
-                    onTap: () {
-                      _searchController.text = _allSearchHistory[index];
-                      Navigator.of(context).pop();
-                      performSearch(_allSearchHistory[index]);
-                    },
-                  );
-                },
-              ),
             ),
           ],
         ),
@@ -362,19 +377,23 @@ class _SearchDialogState extends State<SearchDialog> {
                 fontSize: 16.sp,
               ),
               filled: true,
-              fillColor: widget.isDarkMode ? Color(0xFF2C2C2E) : Color(0xFFF0F0F0),
+              fillColor:
+                  widget.isDarkMode ? Color(0xFF2C2C2E) : Color(0xFFF0F0F0),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(30),
                 borderSide: BorderSide.none,
               ),
-              prefixIcon: Icon(Icons.search, color: Color(0xFF58CC02), size: 22.sp),
+              prefixIcon:
+                  Icon(Icons.search, color: Color(0xFF58CC02), size: 22.sp),
               suffixIcon: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (_searchController.text.isNotEmpty)
                     IconButton(
                       icon: Icon(Icons.clear,
-                          color: widget.isDarkMode ? Colors.white70 : Colors.grey[600],
+                          color: widget.isDarkMode
+                              ? Colors.white70
+                              : Colors.grey[600],
                           size: 20.sp),
                       onPressed: () {
                         _searchController.clear();
@@ -415,7 +434,8 @@ class _SearchDialogState extends State<SearchDialog> {
                   Icon(
                     Icons.history,
                     size: 18.sp,
-                    color: widget.isDarkMode ? Colors.grey[400] : Colors.grey[700],
+                    color:
+                        widget.isDarkMode ? Colors.grey[400] : Colors.grey[700],
                   ),
                   SizedBox(width: 6.w),
                   Text(
@@ -423,7 +443,8 @@ class _SearchDialogState extends State<SearchDialog> {
                     style: GoogleFonts.nunito(
                       fontSize: 16.sp,
                       fontWeight: FontWeight.w600,
-                      color: widget.isDarkMode ? Colors.white : Color(0xFF4B4B4B),
+                      color:
+                          widget.isDarkMode ? Colors.white : Color(0xFF4B4B4B),
                     ),
                   ),
                   Spacer(),
@@ -433,7 +454,9 @@ class _SearchDialogState extends State<SearchDialog> {
                         "Tümünü Gör",
                         style: GoogleFonts.nunito(
                           fontSize: 14.sp,
-                          color: widget.isDarkMode ? Colors.blue[300] : Colors.blue,
+                          color: widget.isDarkMode
+                              ? Colors.blue[300]
+                              : Colors.blue,
                         ),
                       ),
                       onPressed: _showAllSearchHistory,
@@ -449,17 +472,23 @@ class _SearchDialogState extends State<SearchDialog> {
                       showDialog(
                         context: context,
                         builder: (context) => AlertDialog(
-                          backgroundColor: widget.isDarkMode ? Color(0xFF2C2C2E) : Colors.white,
+                          backgroundColor: widget.isDarkMode
+                              ? Color(0xFF2C2C2E)
+                              : Colors.white,
                           title: Text(
                             "Arama Geçmişini Temizle",
                             style: GoogleFonts.nunito(
-                              color: widget.isDarkMode ? Colors.white : Color(0xFF4B4B4B),
+                              color: widget.isDarkMode
+                                  ? Colors.white
+                                  : Color(0xFF4B4B4B),
                             ),
                           ),
                           content: Text(
                             "Tüm arama geçmişiniz silinecek. Onaylıyor musunuz?",
                             style: GoogleFonts.nunito(
-                              color: widget.isDarkMode ? Colors.white70 : Colors.grey[700],
+                              color: widget.isDarkMode
+                                  ? Colors.white70
+                                  : Colors.grey[700],
                             ),
                           ),
                           actions: [
@@ -491,19 +520,22 @@ class _SearchDialogState extends State<SearchDialog> {
           _searchHistory.isEmpty
               ? Expanded(child: _buildEmptyHistoryState())
               : Flexible(
-            child: ListView.separated(
-              shrinkWrap: true,
-              itemCount: _searchHistory.length > 3 ? 3 : _searchHistory.length,
-              separatorBuilder: (context, index) => Divider(
-                color: widget.isDarkMode ? Colors.grey[800] : Colors.grey[300],
-                height: 1,
-                indent: 48.w,
-              ),
-              itemBuilder: (context, index) {
-                return _buildHistoryItem(_searchHistory[index]);
-              },
-            ),
-          ),
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount:
+                        _searchHistory.length > 3 ? 3 : _searchHistory.length,
+                    separatorBuilder: (context, index) => Divider(
+                      color: widget.isDarkMode
+                          ? Colors.grey[800]
+                          : Colors.grey[300],
+                      height: 1,
+                      indent: 48.w,
+                    ),
+                    itemBuilder: (context, index) {
+                      return _buildHistoryItem(_searchHistory[index]);
+                    },
+                  ),
+                ),
 
           SizedBox(height: 16.h),
         ],
@@ -593,7 +625,9 @@ class _SearchDialogState extends State<SearchDialog> {
                       style: GoogleFonts.nunito(
                         fontSize: 22.sp,
                         fontWeight: FontWeight.w700,
-                        color: widget.isDarkMode ? Colors.white : Color(0xFF4B4B4B),
+                        color: widget.isDarkMode
+                            ? Colors.white
+                            : Color(0xFF4B4B4B),
                       ),
                     ),
                   ),
@@ -603,10 +637,13 @@ class _SearchDialogState extends State<SearchDialog> {
               Container(
                 padding: EdgeInsets.all(12.w),
                 decoration: BoxDecoration(
-                  color: widget.isDarkMode ? Color(0xFF2C2C2E) : Color(0xFFF5F5F5),
+                  color:
+                      widget.isDarkMode ? Color(0xFF2C2C2E) : Color(0xFFF5F5F5),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: widget.isDarkMode ? Colors.grey[800]! : Colors.grey[300]!,
+                    color: widget.isDarkMode
+                        ? Colors.grey[800]!
+                        : Colors.grey[300]!,
                     width: 1,
                   ),
                 ),
@@ -614,14 +651,16 @@ class _SearchDialogState extends State<SearchDialog> {
                   "${_searchResult!.meaning}",
                   style: GoogleFonts.nunito(
                     fontSize: 16.sp,
-                    color: widget.isDarkMode ? Colors.white70 : Colors.grey[800],
+                    color:
+                        widget.isDarkMode ? Colors.white70 : Colors.grey[800],
                   ),
                 ),
               ),
               SizedBox(height: 16.h),
               Center(
                 child: ElevatedButton.icon(
-                  icon: Icon(Icons.celebration, color: Colors.white, size: 20.sp),
+                  icon:
+                      Icon(Icons.celebration, color: Colors.white, size: 20.sp),
                   label: Text(
                     "Detaylı Keşfet!",
                     style: GoogleFonts.nunito(
@@ -635,7 +674,8 @@ class _SearchDialogState extends State<SearchDialog> {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
                     elevation: 0,
                   ),
                   onPressed: () => _navigateToWordDetail(_searchResult!),
@@ -652,7 +692,6 @@ class _SearchDialogState extends State<SearchDialog> {
     if (term.isEmpty) return;
 
     setState(() {
-      _isSearching = true;
       _searchError = '';
     });
 
@@ -678,9 +717,7 @@ class _SearchDialogState extends State<SearchDialog> {
         _searchError = 'Bir hata oluştu: $e';
       });
     } finally {
-      setState(() {
-        _isSearching = false;
-      });
+      setState(() {});
     }
   }
 
@@ -697,7 +734,7 @@ class _SearchDialogState extends State<SearchDialog> {
     try {
       List<int> wordIds = [word.id];
       List<WordDetail> detailedWords =
-      await apiService.fetchWordsDetail(wordIds);
+          await apiService.fetchWordsDetail(wordIds);
 
       if (detailedWords.isNotEmpty) {
         WordDetail detailedWord = detailedWords.first;

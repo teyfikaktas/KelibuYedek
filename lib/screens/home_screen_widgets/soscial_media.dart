@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 class SocialPanel extends StatelessWidget {
   final bool isDarkMode;
+
   const SocialPanel({Key? key, required this.isDarkMode}) : super(key: key);
 
   @override
@@ -142,13 +143,13 @@ class SocialPanel extends StatelessWidget {
   }
 
   Widget _buildSocialIcon(
-      SocialPanelController controller,
-      String platform,
-      IconData icon,
-      Gradient gradient,
-      ) {
+    SocialPanelController controller,
+    String platform,
+    IconData icon,
+    Gradient gradient,
+  ) {
     return Obx(
-          () => GestureDetector(
+      () => GestureDetector(
         onTap: () => controller.launchSocial(platform),
         child: TweenAnimationBuilder<double>(
           tween: Tween<double>(
@@ -189,7 +190,7 @@ class SocialPanelController extends GetxController {
 
     final String url;
     if (platform == 'youtube') {
-      url = 'https://www.youtube.com/@Kelibunet';
+      url = 'https://www.youtube.com/@phdakademi6447';
     } else {
       final baseUrl = platform == 'x' ? 'x' : 'www.$platform';
       url = 'https://$baseUrl.com/kelibunet';
@@ -201,7 +202,6 @@ class SocialPanelController extends GetxController {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
       }
     } catch (e) {
-      print('URL açılamadı: $e');
     }
 
     isPressed.value = false;

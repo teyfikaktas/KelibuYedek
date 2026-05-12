@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import 'login_screen.dart';
 
 class SlideData {
@@ -29,13 +30,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       icon: Icons.videogame_asset_outlined,
       title: "Oyun Modları",
       description:
-      "5 farklı oyun modu ile öğrenmenize güç katın! Bilmediğiniz kelimeleri işaretleyerek, sadece onlara çalışarak zaman kazanın.",
+          "5 farklı oyun modu ile öğrenmenize güç katın! Bilmediğiniz kelimeleri işaretleyerek, sadece onlara çalışarak zaman kazanın.",
     ),
     SlideData(
       icon: Icons.flash_on_outlined,
       title: "Flash Kart Modu",
       description:
-      "Flash kartlarla kelime bilginizi sistemli bir şekilde artırın!",
+          "Flash kartlarla kelime bilginizi sistemli bir şekilde artırın!",
     ),
     SlideData(
       icon: Icons.class_outlined,
@@ -46,39 +47,40 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       icon: Icons.headphones_outlined,
       title: "Dinle Modu",
       description:
-      "Kelimenin telaffuzunu dinleyerek kalıcı bir öğrenme deneyimi edinin.",
+          "Kelimenin telaffuzunu dinleyerek kalıcı bir öğrenme deneyimi edinin.",
     ),
     SlideData(
       icon: Icons.quiz_outlined,
       title: "Öğren Modu",
-      description: "Geleneksel quiz formatını kullanarak bilgilerinizi test edin.",
+      description:
+          "Geleneksel quiz formatını kullanarak bilgilerinizi test edin.",
     ),
     SlideData(
       icon: Icons.menu_book_outlined,
       title: "Çalış Modu",
       description:
-      "Eş anlamlar, örnek cümleler ve türemelerle kelimeleri derinlemesine inceleyin.",
+          "Eş anlamlar, örnek cümleler ve türemelerle kelimeleri derinlemesine inceleyin.",
     ),
     // 7) Bilinmeyen kelimeleri işaretleme
     SlideData(
       icon: Icons.star_border_purple500_outlined,
       title: "Bilinmeyen Kelimeleri İşaretle",
       description:
-      "Her sette karşılaştığınız ve zorlandığınız kelimeleri ‘yıldız’ işareti ile etiketleyerek, daha sonra tekrar gözden geçirmeye yönelik kişiselleştirilmiş bir öğrenme deneyimi oluşturun.",
+          "Her sette karşılaştığınız ve zorlandığınız kelimeleri ‘yıldız’ işareti ile etiketleyerek, daha sonra tekrar gözden geçirmeye yönelik kişiselleştirilmiş bir öğrenme deneyimi oluşturun.",
     ),
     // 8) Yıldızlı kelimelere odaklanma
     SlideData(
       icon: Icons.star_rate_rounded,
       title: "Yıldızlı Kelimelere Odaklanın",
       description:
-      "Yıldızladığınız kelimelere özel ayrı bir çalışma programı oluşturarak, öğrenme sürecinizi ihtiyaçlarınıza göre yönlendirin ve unutma riskini minimuma indirin.",
+          "Yıldızladığınız kelimelere özel ayrı bir çalışma programı oluşturarak, öğrenme sürecinizi ihtiyaçlarınıza göre yönlendirin ve unutma riskini minimuma indirin.",
     ),
     // 9) Demo Seti
     SlideData(
       icon: Icons.card_giftcard,
       title: "Ücretsiz Demo Seti",
       description:
-      "Üyelik oluşturduğunuz anda hesabınıza otomatik olarak bir demo seti tanımlanır. Böylece uygulamayı tamamen ücretsiz biçimde hemen deneyimlemeye başlayabilirsiniz.",
+          "Üyelik oluşturduğunuz anda hesabınıza otomatik olarak bir demo seti tanımlanır. Böylece uygulamayı tamamen ücretsiz biçimde hemen deneyimlemeye başlayabilirsiniz.",
     ),
   ];
 
@@ -130,7 +132,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: List.generate(
                       slides.length,
-                          (index) => buildDot(index),
+                      (index) => buildDot(index),
                     ),
                   ),
                   SizedBox(height: 20),

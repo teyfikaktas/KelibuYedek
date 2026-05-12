@@ -1,40 +1,40 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
-import 'package:flip_card/flip_card.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:flutter_svg/svg.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:kelibu/Models/wordDetaik.dart';
-import 'package:kelibu/api.dart';
-import 'package:flutter_tts/flutter_tts.dart';
-import 'package:kelibu/screens/video_player.dart';
-import '../globalDart/urls.dart';
-import '../providers/user_provider.dart';
-import 'package:provider/provider.dart';
-import '../providers/volume_provider.dart';
-import '../providers/language_provider.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:another_flushbar/flushbar.dart';
 import 'package:auto_size_text/auto_size_text.dart';
 import 'package:back_button_interceptor/back_button_interceptor.dart';
+import 'package:flip_card/flip_card.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_svg/svg.dart';
+import 'package:flutter_tts/flutter_tts.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:kelibu/Models/wordDetaik.dart';
+import 'package:kelibu/api.dart';
+import 'package:kelibu/screens/video_player.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../globalDart/urls.dart';
+import '../providers/language_provider.dart';
+import '../providers/user_provider.dart';
+import '../providers/volume_provider.dart';
 import '../shared_preferences/shared_preferences.dart';
 import '../variables.dart';
-import 'flash_card_star.dart';
-
 
 class ScoreDisplay extends StatefulWidget {
   final ValueNotifier<int> userPointsNotifier;
 
-  const ScoreDisplay({Key? key, required this.userPointsNotifier}) : super(key: key);
+  const ScoreDisplay({Key? key, required this.userPointsNotifier})
+      : super(key: key);
 
   @override
   _ScoreDisplayState createState() => _ScoreDisplayState();
 }
 
-class _ScoreDisplayState extends State<ScoreDisplay> with TickerProviderStateMixin {
+class _ScoreDisplayState extends State<ScoreDisplay>
+    with TickerProviderStateMixin {
   late AnimationController _colorController;
   late Animation<Color?> _colorAnimation;
 
@@ -120,16 +120,21 @@ class _ScoreDisplayState extends State<ScoreDisplay> with TickerProviderStateMix
         );
       },
     );
-  }}
+  }
+}
+
 class SwipeHintAnimation extends StatefulWidget {
   final Function onAnimationComplete;
 
-  SwipeHintAnimation({Key? key, required this.onAnimationComplete}) : super(key: key);
+  SwipeHintAnimation({Key? key, required this.onAnimationComplete})
+      : super(key: key);
 
   @override
   _SwipeHintAnimationState createState() => _SwipeHintAnimationState();
 }
-class _SwipeHintAnimationState extends State<SwipeHintAnimation> with SingleTickerProviderStateMixin {
+
+class _SwipeHintAnimationState extends State<SwipeHintAnimation>
+    with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _opacityAnimation;
   late Animation<Offset> _slideAnimation;
@@ -205,7 +210,8 @@ class AnimatedProgressBar extends StatefulWidget {
   _AnimatedProgressBarState createState() => _AnimatedProgressBarState();
 }
 
-class _AnimatedProgressBarState extends State<AnimatedProgressBar> with SingleTickerProviderStateMixin {
+class _AnimatedProgressBarState extends State<AnimatedProgressBar>
+    with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _progressAnimation;
   late Animation<double> _shineAnimation;
@@ -259,21 +265,20 @@ class _AnimatedProgressBarState extends State<AnimatedProgressBar> with SingleTi
     _animationController.dispose();
     super.dispose();
   }
+
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-        builder: (context, constraints) {
-          double safeWidth = constraints.maxWidth > 0 ? constraints.maxWidth : 100;
-          return Stack(
-            children: [
-              _buildBaseBar(safeWidth),
-              _buildProgressBar(safeWidth),
-              _buildShineEffect(safeWidth),
-              _buildProgressText(),
-            ],
-          );
-        }
-    );
+    return LayoutBuilder(builder: (context, constraints) {
+      double safeWidth = constraints.maxWidth > 0 ? constraints.maxWidth : 100;
+      return Stack(
+        children: [
+          _buildBaseBar(safeWidth),
+          _buildProgressBar(safeWidth),
+          _buildShineEffect(safeWidth),
+          _buildProgressText(),
+        ],
+      );
+    });
   }
 
   Widget _buildBaseBar(double width) {
@@ -384,13 +389,15 @@ class FlashCardScreen extends StatefulWidget {
     required this.words,
     required this.classroomId,
     required this.studySetId,
-    this.isStarred = false,  // Varsayılan değer false olarak ayarlandı
+    this.isStarred = false, // Varsayılan değer false olarak ayarlandı
   }) : super(key: key);
 
   @override
   _FlashCardScreenState createState() => _FlashCardScreenState();
 }
-class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+
+class _FlashCardScreenState extends State<FlashCardScreen>
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   bool isStarred = false;
   ValueNotifier<int> currentWordIndex = ValueNotifier(0);
   int wordId = 0;
@@ -408,6 +415,7 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
   ValueNotifier<bool> isAnimationCompletedNotifier = ValueNotifier(false);
   Map<int, ValueNotifier<bool>> starredNotifiers = {};
   ValueNotifier<int> starredWordCountNotifier = ValueNotifier(0);
+
   void _toggleAutoPlay() {
     setState(() {
       _isAutoPlaying = !_isAutoPlaying;
@@ -429,7 +437,8 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
 
   void _startAutoPlay() {
     _autoPlayTimer?.cancel();
-    _autoPlayTimer = Timer.periodic(Duration(milliseconds: (_autoPlaySpeed * 1000).toInt()), (timer) {
+    _autoPlayTimer = Timer.periodic(
+        Duration(milliseconds: (_autoPlaySpeed * 1000).toInt()), (timer) {
       if (currentWordIndex.value < _currentWordList.length - 1) {
         final currentWord = _currentWordList[currentWordIndex.value];
         final currentCardKey = cardKeys[currentWord.id];
@@ -439,7 +448,8 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
         // 2 saniye bekle
         Future.delayed(Duration(seconds: 2), () {
           // Türkçe kelimeyi oku
-          if (defaultTargetPlatform == TargetPlatform.iOS) _speak(currentWord.meaning);
+          if (defaultTargetPlatform == TargetPlatform.iOS)
+            _speak(currentWord.meaning);
 
           // Kart çevrilmemişse çevir
           if (currentCardKey?.currentState?.isFront ?? false) {
@@ -463,6 +473,7 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
       }
     });
   }
+
   Widget _buildAutoPlayControls(Map<String, Color> colors) {
     return Container(
       margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -476,19 +487,11 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                  "Otomatik Oynatma Hızı",
+              Text("Otomatik Oynatma Hızı",
                   style: TextStyle(
-                      color: colors["text"],
-                      fontWeight: FontWeight.bold
-                  )
-              ),
-              Text(
-                  "${_autoPlaySpeed.toStringAsFixed(1)} sn",
-                  style: TextStyle(
-                      color: colors["text"]
-                  )
-              ),
+                      color: colors["text"], fontWeight: FontWeight.bold)),
+              Text("${_autoPlaySpeed.toStringAsFixed(1)} sn",
+                  style: TextStyle(color: colors["text"])),
             ],
           ),
           SizedBox(height: 10),
@@ -521,19 +524,11 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                  "İlerleme",
+              Text("İlerleme",
                   style: TextStyle(
-                      color: colors["text"],
-                      fontWeight: FontWeight.bold
-                  )
-              ),
-              Text(
-                  "${currentWordIndex.value + 1} / ${_currentWordList.length}",
-                  style: TextStyle(
-                      color: colors["text"]
-                  )
-              ),
+                      color: colors["text"], fontWeight: FontWeight.bold)),
+              Text("${currentWordIndex.value + 1} / ${_currentWordList.length}",
+                  style: TextStyle(color: colors["text"])),
             ],
           ),
           SizedBox(height: 5),
@@ -546,7 +541,8 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
           ElevatedButton(
             child: Text(_isAutoPlaying ? 'Duraklat' : 'Başlat'),
             style: ElevatedButton.styleFrom(
-              foregroundColor: colors["background"], backgroundColor: colors["text"],
+              foregroundColor: colors["background"],
+              backgroundColor: colors["text"],
             ),
             onPressed: _toggleAutoPlay,
           ),
@@ -554,22 +550,27 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
       ),
     );
   }
+
   void _stopAutoPlay() {
     _autoPlayTimer?.cancel();
     _autoPlayTimer = null;
-    if (mounted) {  // Eklenen kontrol
+    if (mounted) {
+      // Eklenen kontrol
       setState(() {
         _isAutoPlaying = false;
       });
     }
   }
+
   int score = 0;
+
   Future<void> _loadDarkModePreference() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _isDarkMode = prefs.getBool("darkMode") ?? false;
     });
   }
+
   bool canSwipe() {
     final now = DateTime.now();
     if (lastSwipeTime == null) {
@@ -583,6 +584,7 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
     }
     return false;
   }
+
   Map<int, GlobalKey<FlipCardState>> cardKeys = {};
   ValueNotifier<int> starredWordCount = ValueNotifier(0);
   ValueNotifier<Color> borderColorNotifier = ValueNotifier(Colors.white);
@@ -599,12 +601,13 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
   late VolumeProvider volumeProvider;
 
   bool isVolumeOn = true;
-  int userID= 2;
+  int userID = 2;
   late int point;
   late PageController _pageController;
   List<WordDetail> _currentWordList = [];
   Map<int, bool> starredStatus = {};
   bool _isAnimationCompleted = false;
+
   bool myInterceptor(bool stopDefaultButtonEvent, RouteInfo info) {
     _showExitConfirmationDialog();
     return true;
@@ -631,8 +634,10 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
       ),
     ).then((value) => value ?? false ? Navigator.of(context).pop(true) : null);
   }
+
   ValueNotifier<Color> backgroundColorNotifier = ValueNotifier(Colors.blue);
   final FlutterTts flutterTts = FlutterTts();
+
   @override
   void initState() {
     super.initState();
@@ -675,31 +680,35 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
       pointValueNotife.value = userProvider.point;
     });
   }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.resumed) {
       _startAutoPlay();
 
-      print("Uygulama ön plana döndü, mevcut kart indeksi: ${currentWordIndex.value}");
-    }
-    else if (state == AppLifecycleState.paused) {
+      print(
+          "Uygulama ön plana döndü, mevcut kart indeksi: ${currentWordIndex.value}");
+    } else if (state == AppLifecycleState.paused) {
       _stopAutoPlay();
 
-      print("Uygulama ön plana döndü, mevcut kart indeksi: ${currentWordIndex.value}");
+      print(
+          "Uygulama ön plana döndü, mevcut kart indeksi: ${currentWordIndex.value}");
     }
   }
+
   @override
   void dispose() {
-    flutterTts.stop();  // TTS'i durdur
-    _autoPlayTimer?.cancel();  // Timer'ı iptal et
-    _isAutoPlaying = false;  // Doğrudan değeri güncelle, setState kullanma
+    flutterTts.stop(); // TTS'i durdur
+    _autoPlayTimer?.cancel(); // Timer'ı iptal et
+    _isAutoPlaying = false; // Doğrudan değeri güncelle, setState kullanma
 
     WidgetsBinding.instance.removeObserver(this);
     _animationController.dispose();
 
     super.dispose();
   }
+
   Future<void> _loadVolumeState() async {
     final prefs = await SharedPreferences.getInstance();
     bool savedVolumeState = prefs.getBool('isVolumeOn') ?? true;
@@ -712,12 +721,14 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
       volumeProvider = Provider.of<VolumeProvider>(context, listen: false);
       if (savedVolumeState != volumeProvider.isVolumeOn) {
         // Eğer kaydedilen durum ve provider durumu farklıysa, provider'ı kaydedilen duruma getir
-        if (!savedVolumeState) { // Özellikle kapalı durumda ise
+        if (!savedVolumeState) {
+          // Özellikle kapalı durumda ise
           volumeProvider.toggleVolume();
         }
       }
     });
   }
+
   Widget _buildVolumeControl(Color color) {
     return Consumer<VolumeProvider>(
       builder: (context, volumeProvider, child) {
@@ -735,32 +746,32 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
             });
 
             // Kullanıcıya geri bildirim göster
-            showCustomFlushbar(
-                context,
-                volumeProvider.isVolumeOn ? "Ses açıldı" : "Ses kapatıldı"
-            );
+            showCustomFlushbar(context,
+                volumeProvider.isVolumeOn ? "Ses açıldı" : "Ses kapatıldı");
           },
         );
       },
     );
   }
+
   void _initializeStarredStatus() {
     for (var word in widget.words) {
       starredNotifiers[word.id] = ValueNotifier(false);
     }
   }
+
   void _updateStarredWordCount(ValueNotifier<bool> isStarredNotifier) {
     int newCount = starredWordCountNotifier.value;
-    if(isStarredNotifier.value){
+    if (isStarredNotifier.value) {
       newCount = starredWordCountNotifier.value + 1;
-    }
-    else{
-      if(newCount>0){
-        newCount = starredWordCountNotifier.value-1;
+    } else {
+      if (newCount > 0) {
+        newCount = starredWordCountNotifier.value - 1;
       }
     }
     starredWordCountNotifier.value = newCount;
   }
+
   void _showExampleSentence() {
     if (_currentWordList.isNotEmpty) {
       final currentWord = _currentWordList[currentWordIndex.value];
@@ -784,8 +795,7 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
                 onListen: (sentence) => _speakSentence(sentence),
               ),
               icon: Icons.menu_book,
-            )
-        );
+            ));
       },
     );
   }
@@ -795,9 +805,11 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
     await flutterTts.setPitch(1.0);
     await flutterTts.speak(sentence);
   }
+
   void _loadStarredStatusAsync() async {
     final service = StarredWordsService();
-    final starredWordIds = await service.loadStarredWords(widget.classroomId, widget.studySetId);
+    final starredWordIds =
+        await service.loadStarredWords(widget.classroomId, widget.studySetId);
     setState(() {
       int newStarredCount = 0;
       for (var word in widget.words) {
@@ -820,14 +832,16 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
     if (!mounted) return;
 
     try {
-      final volumeProvider = Provider.of<VolumeProvider>(context, listen: false);
+      final volumeProvider =
+          Provider.of<VolumeProvider>(context, listen: false);
       if (volumeProvider.isVolumeOn) {
         // TTS işlemlerine geçmeden önce tekrar mounted kontrolü yap
         if (!mounted) return;
 
         await flutterTts.setLanguage(
-            text == _currentWordList[currentWordIndex.value].word ? "en-US" : "tr-TR"
-        );
+            text == _currentWordList[currentWordIndex.value].word
+                ? "en-US"
+                : "tr-TR");
 
         // Konuşmadan önce son bir mounted kontrolü
         if (!mounted) return;
@@ -835,14 +849,15 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
       }
     } catch (e) {
       // TTS sırasında oluşabilecek hataları yakala
-      print('_speak metodu hatası: $e');
     }
   }
+
   void _toggleStar(int wordId, ValueNotifier<bool> isStarredNotifier) async {
     final service = StarredWordsService();
     final newStatus = !isStarredNotifier.value;
 
-    await service.toggleWordStarStatus(wordId, newStatus, widget.classroomId, widget.studySetId);
+    await service.toggleWordStarStatus(
+        wordId, newStatus, widget.classroomId, widget.studySetId);
 
     setState(() {
       isStarredNotifier.value = newStatus;
@@ -850,13 +865,17 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
       _recalculateStarredWordCount();
 
       if (_showStarredOnly) {
-        _currentWordList = widget.words.where((word) => starredStatus[word.id] ?? false).toList();
+        _currentWordList = widget.words
+            .where((word) => starredStatus[word.id] ?? false)
+            .toList();
         if (_currentWordList.isEmpty) {
           _showStarredOnly = false;
           _currentWordList = widget.words;
-          showCustomFlushbar(context, "Yıldızlı kelime kalmadı. Tüm kelimeler gösteriliyor.");
+          showCustomFlushbar(
+              context, "Yıldızlı kelime kalmadı. Tüm kelimeler gösteriliyor.");
         } else {
-          currentWordIndex.value = currentWordIndex.value.clamp(0, _currentWordList.length - 1);
+          currentWordIndex.value =
+              currentWordIndex.value.clamp(0, _currentWordList.length - 1);
         }
         _pageController.jumpToPage(currentWordIndex.value);
       }
@@ -867,17 +886,21 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
     int count = starredStatus.values.where((isStarred) => isStarred).length;
     starredWordCountNotifier.value = count;
   }
+
   void _toggleStarredView() {
     setState(() {
       _showStarredOnly = !_showStarredOnly;
       _currentWordList = _showStarredOnly
-          ? widget.words.where((word) => starredStatus[word.id] ?? false).toList()
+          ? widget.words
+              .where((word) => starredStatus[word.id] ?? false)
+              .toList()
           : widget.words;
 
       if (_currentWordList.isEmpty && _showStarredOnly) {
         _showStarredOnly = false;
         _currentWordList = widget.words;
-        showCustomFlushbar(context, "Yıldızlı kelime bulunmamaktadır. Tüm kelimeler gösteriliyor.");
+        showCustomFlushbar(context,
+            "Yıldızlı kelime bulunmamaktadır. Tüm kelimeler gösteriliyor.");
       } else {
         currentWordIndex.value = 0;
         totalWords = _currentWordList.length;
@@ -885,7 +908,9 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
 
         showCustomFlushbar(
           context,
-          _showStarredOnly ? "Yıldızlı kelimeler modu açıldı." : "Tüm kelimeler gösteriliyor.",
+          _showStarredOnly
+              ? "Yıldızlı kelimeler modu açıldı."
+              : "Tüm kelimeler gösteriliyor.",
         );
       }
 
@@ -894,6 +919,7 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
       }
     });
   }
+
   Widget _buildStarIcon(int wordid, ValueNotifier<bool> isStarredNotifier) {
     return ValueListenableBuilder<bool>(
       valueListenable: isStarredNotifier,
@@ -903,7 +929,6 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
             shape: BoxShape.circle,
             color: Colors.white.withOpacity(0.7),
           ),
-
           child: IconButton(
             icon: AnimatedSwitcher(
               duration: const Duration(milliseconds: 300),
@@ -919,7 +944,7 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
             ),
             onPressed: () {
               _toggleStar(wordid, isStarredNotifier);
-           //   _toggleStarredView(); // Yıldızlı kelimeler modunu aç/kapa
+              //   _toggleStarredView(); // Yıldızlı kelimeler modunu aç/kapa
             },
           ),
         );
@@ -932,7 +957,8 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
     final colors = _isDarkMode ? darkModeColors : lightModeColors;
     userProvider = Provider.of<UserProvider>(context, listen: false);
     List<Widget> cardDeck = widget.words.map((word) {
-      return _buildCard(word.type, word.word, word.meaning, word.image, word.id, word, cardKeys[word.id]!);
+      return _buildCard(word.type, word.word, word.meaning, word.image, word.id,
+          word, cardKeys[word.id]!);
     }).toList();
 
     return LayoutBuilder(
@@ -963,10 +989,13 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
                 ),
                 ScoreDisplay(userPointsNotifier: pointValueNotife),
                 const SizedBox(width: 16),
-                _buildRoundedIconButton(Icons.slow_motion_video_sharp, Colors.green, ()   {
+                _buildRoundedIconButton(
+                    Icons.slow_motion_video_sharp, Colors.green, () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => VideoPlayerScreen(videoUrl: AppUrls.flashcard)),
+                    MaterialPageRoute(
+                        builder: (context) =>
+                            VideoPlayerScreen(videoUrl: AppUrls.flashcard)),
                   );
                 }),
               ],
@@ -992,7 +1021,9 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
     return ValueListenableBuilder<int>(
       valueListenable: currentWordIndex,
       builder: (context, index, child) {
-        double progress = _currentWordList.isNotEmpty ? (index + 1) / _currentWordList.length : 0;
+        double progress = _currentWordList.isNotEmpty
+            ? (index + 1) / _currentWordList.length
+            : 0;
         return Container(
           padding: EdgeInsets.symmetric(horizontal: 16),
           constraints: BoxConstraints(minHeight: 20, minWidth: 100),
@@ -1005,6 +1036,7 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
       },
     );
   }
+
   Widget _buildControlPanel(Map<String, Color> colors, BuildContext context) {
     return Container(
       margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -1025,18 +1057,17 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
         children: <Widget>[
           _buildControlButton(
               isVisibilityOn.value ? Icons.visibility : Icons.visibility_off,
-              colors["inputBackground"]!,
-                  () {
-                setState(() {
-                  isVisibilityOn.value = !isVisibilityOn.value;
-                });
-                showCustomFlushbar(
-                  context,
-                  isVisibilityOn.value ? "Resim açıldı" : "Resim kapandı",
-                );
-              }
-          ),
-          _buildControlButton(isShuffled ? Icons.sort : Icons.shuffle, colors["inputBackground"]!, () {
+              colors["inputBackground"]!, () {
+            setState(() {
+              isVisibilityOn.value = !isVisibilityOn.value;
+            });
+            showCustomFlushbar(
+              context,
+              isVisibilityOn.value ? "Resim açıldı" : "Resim kapandı",
+            );
+          }),
+          _buildControlButton(isShuffled ? Icons.sort : Icons.shuffle,
+              colors["inputBackground"]!, () {
             setState(() {
               isShuffled = !isShuffled;
               if (isShuffled) {
@@ -1057,7 +1088,7 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
               return _buildControlButton(
                 languageProvider.isEnglish ? Icons.language : Icons.translate,
                 colors["inputBackground"]!,
-                    () {
+                () {
                   languageProvider.toggleLanguage();
                   showCustomFlushbar(
                     context,
@@ -1069,7 +1100,8 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
               );
             },
           ),
-          _buildVolumeControl(colors["inputBackground"]!), // MyVolumeControl yerine bunu kullanın
+          _buildVolumeControl(colors["inputBackground"]!),
+          // MyVolumeControl yerine bunu kullanın
 
           _buildControlButton(Icons.hearing, colors["inputBackground"]!, () {
             _speak(_currentWordList[currentWordIndex.value].word);
@@ -1084,12 +1116,14 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
     );
   }
 
-  Widget _buildControlButton(IconData icon, Color color, VoidCallback onPressed) {
+  Widget _buildControlButton(
+      IconData icon, Color color, VoidCallback onPressed) {
     return IconButton(
       icon: Icon(icon, color: color),
       onPressed: onPressed,
     );
   }
+
   Widget _buildStarredWordsButton() {
     final colors = _isDarkMode ? darkModeColors : lightModeColors;
     return GestureDetector(
@@ -1134,6 +1168,7 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
       ),
     );
   }
+
   Widget buildStarredCountWidget(BuildContext context, bool isDarkMode) {
     final colors = isDarkMode ? darkModeColors : lightModeColors;
     double screenWidth = MediaQuery.of(context).size.width;
@@ -1167,7 +1202,8 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
               builder: (context, count, child) {
                 return AnimatedSwitcher(
                   duration: const Duration(milliseconds: 500),
-                  transitionBuilder: (Widget child, Animation<double> animation) {
+                  transitionBuilder:
+                      (Widget child, Animation<double> animation) {
                     return ScaleTransition(scale: animation, child: child);
                   },
                   child: Text(
@@ -1222,7 +1258,6 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
       },
     );
   }
-
 
   Widget _buildVisibilityButton(Map<String, Color> colors) {
     return ValueListenableBuilder<bool>(
@@ -1291,9 +1326,11 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
       },
     );
   }
+
   bool isLastWord() {
     return currentWordIndex.value == _currentWordList.length - 1;
   }
+
   void _showCompletionDialog() {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final primaryColor = Theme.of(context).primaryColor;
@@ -1364,11 +1401,13 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
                     ElevatedButton(
                       child: Text('Tekrar Başla'),
                       style: ElevatedButton.styleFrom(
-                        foregroundColor: Colors.white, backgroundColor: primaryColor,
+                        foregroundColor: Colors.white,
+                        backgroundColor: primaryColor,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(30),
                         ),
-                        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                       ),
                       onPressed: () {
                         Navigator.of(context).pop();
@@ -1382,11 +1421,13 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
                     OutlinedButton(
                       child: Text('Kapat'),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: primaryColor, side: BorderSide(color: primaryColor),
+                        foregroundColor: primaryColor,
+                        side: BorderSide(color: primaryColor),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(30),
                         ),
-                        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                       ),
                       onPressed: () {
                         Navigator.of(context).pop();
@@ -1401,6 +1442,7 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
       },
     );
   }
+
   Widget _buildWordCards(double screenWidth, double screenHeight) {
     return PageView.builder(
       itemCount: _currentWordList.length,
@@ -1436,30 +1478,42 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
               ),
             );
           },
-          child: _buildCard(word.type, word.word, word.meaning, word.image, word.id, word, cardKeys[word.id]!),
+          child: _buildCard(word.type, word.word, word.meaning, word.image,
+              word.id, word, cardKeys[word.id]!),
         );
       },
     );
   }
 
   Future<void> onCardSwiped() async {
-    if (canSwipe()) {  // Hızlı kaydırmaları önlemek için
+    if (canSwipe()) {
+      // Hızlı kaydırmaları önlemek için
       int newPoint = userProvider.point;
       newPoint += 1;
       pointValueNotife.value += 1;
 
-      await ApiService().updateUserPointTimePeriod(userProvider.userId, newPoint, 1);
+      await ApiService()
+          .updateUserPointTimePeriod(userProvider.userId, newPoint, 1);
       userProvider.addPoint(newPoint);
 
       // Kullanıcıya geri bildirim vermek için bir Flushbar gösterebilirsiniz
     }
   }
-  Widget _buildCard(String? type, String englishWord, String turkishWord, String? imageUrl, int wordId, WordDetail word, GlobalKey<FlipCardState> cardKey) {
+
+  Widget _buildCard(
+      String? type,
+      String englishWord,
+      String turkishWord,
+      String? imageUrl,
+      int wordId,
+      WordDetail word,
+      GlobalKey<FlipCardState> cardKey) {
     final colors = _isDarkMode ? darkModeColors : lightModeColors;
     String fullImageUrl = imageUrl != null
         ? "https://cloud.phdakademi.com/uploads/kelibu.net/$imageUrl"
         : "https://kelibu.net/images/defaultimage.png";
-    ValueNotifier<bool> isStarredNotifier = ValueNotifier<bool>(starredStatus[wordId] ?? false);
+    ValueNotifier<bool> isStarredNotifier =
+        ValueNotifier<bool>(starredStatus[wordId] ?? false);
 
     return Consumer<LanguageProvider>(
       builder: (context, languageProvider, child) {
@@ -1491,8 +1545,14 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
     );
   }
 
-  Widget _buildCardSide(Map<String, Color> colors, String imageUrl, String text, String? type, int wordId, ValueNotifier<bool> isStarredNotifier, bool isFront) {
-    print(imageUrl);
+  Widget _buildCardSide(
+      Map<String, Color> colors,
+      String imageUrl,
+      String text,
+      String? type,
+      int wordId,
+      ValueNotifier<bool> isStarredNotifier,
+      bool isFront) {
     return Container(
       decoration: BoxDecoration(
         color: colors["background"],
@@ -1514,32 +1574,33 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
               builder: (context, isVisible, _) {
                 return isVisible
                     ? Center(
-                  child: Image.network(
-                    imageUrl,
-                    fit: BoxFit.contain,
-                    width: double.infinity,
-                    height: double.infinity,
-                    errorBuilder: (BuildContext context, Object exception, StackTrace? stackTrace) {
-                      return Center(
-                        child: Image.asset(
-                          'assets/logo.png', // Path to your local asset image
+                        child: Image.network(
+                          imageUrl,
                           fit: BoxFit.contain,
                           width: double.infinity,
                           height: double.infinity,
+                          errorBuilder: (BuildContext context, Object exception,
+                              StackTrace? stackTrace) {
+                            return Center(
+                              child: Image.asset(
+                                'assets/logo.png', // Path to your local asset image
+                                fit: BoxFit.contain,
+                                width: double.infinity,
+                                height: double.infinity,
+                              ),
+                            );
+                          },
                         ),
-                      );
-                    },
-                  ),
-                )
+                      )
                     : Container(color: colors["borderColor"]);
               },
             ),
           ),
           Container(
-            constraints: BoxConstraints(minHeight: 100, minWidth: 100), // Bu satırı ekleyin
+            constraints: BoxConstraints(minHeight: 100, minWidth: 100),
+            // Bu satırı ekleyin
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(20),
-
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
@@ -1588,6 +1649,7 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
       ),
     );
   }
+
   void showCustomFlushbar(BuildContext context, String message) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
@@ -1634,6 +1696,7 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
       leftBarIndicatorColor: Colors.green,
     ).show(context);
   }
+
   Widget _buildRoundedIconButton(
       IconData icon, Color color, VoidCallback onPressed) {
     return Padding(
@@ -1648,8 +1711,8 @@ class _FlashCardScreenState extends State<FlashCardScreen> with SingleTickerProv
       ),
     );
   }
-
 }
+
 // Güncellenen ExampleSentenceContent sınıfı
 class ExampleSentenceContent extends StatefulWidget {
   final WordDetail word;
@@ -1665,13 +1728,12 @@ class ExampleSentenceContent extends StatefulWidget {
   _ExampleSentenceContentState createState() => _ExampleSentenceContentState();
 }
 
-
-
 class _ExampleSentenceContentState extends State<ExampleSentenceContent> {
   String? _selectedLevel;
   String? _selectedType;
   int _maxSentencesToShow = 0;
-  String _sentenceSelectionMode = 'traditional'; // 'traditional' veya 'ai' olabilir
+  String _sentenceSelectionMode =
+      'traditional'; // 'traditional' veya 'ai' olabilir
   List<Map<String, dynamic>> _filteredSentences = [];
   bool _isDarkMode = false;
 
@@ -1699,17 +1761,23 @@ class _ExampleSentenceContentState extends State<ExampleSentenceContent> {
     final isLargeScreen = screenSize.width >= 600;
 
     // Farklı ekran boyutlarına göre değerler tanımla
-    final double headerFontSize = isSmallScreen ? 18 : (isMediumScreen ? 20 : 22);
-    final double modeLabelFontSize = isSmallScreen ? 12 : (isMediumScreen ? 14 : 16);
-    final double buttonFontSize = isSmallScreen ? 10 : (isMediumScreen ? 12 : 14);
-    final double contentHeight = screenSize.height * 0.4; // Ekran yüksekliğinin %40'ı
-    final double horizontalPadding = isSmallScreen ? 8 : (isMediumScreen ? 16 : 24);
+    final double headerFontSize =
+        isSmallScreen ? 18 : (isMediumScreen ? 20 : 22);
+    final double modeLabelFontSize =
+        isSmallScreen ? 12 : (isMediumScreen ? 14 : 16);
+    final double buttonFontSize =
+        isSmallScreen ? 10 : (isMediumScreen ? 12 : 14);
+    final double contentHeight =
+        screenSize.height * 0.4; // Ekran yüksekliğinin %40'ı
+    final double horizontalPadding =
+        isSmallScreen ? 8 : (isMediumScreen ? 16 : 24);
 
     return LayoutBuilder(
       builder: (context, constraints) {
         return SingleChildScrollView(
           child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 12),
+            padding: EdgeInsets.symmetric(
+                horizontal: horizontalPadding, vertical: 12),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -1734,9 +1802,10 @@ class _ExampleSentenceContentState extends State<ExampleSentenceContent> {
                       children: [
                         IconButton(
                           icon: Icon(Icons.info_outline,
-                              color: _isDarkMode ? Colors.teal.shade300 : Colors.teal.shade700,
-                              size: isSmallScreen ? 20 : 24
-                          ),
+                              color: _isDarkMode
+                                  ? Colors.teal.shade300
+                                  : Colors.teal.shade700,
+                              size: isSmallScreen ? 20 : 24),
                           constraints: BoxConstraints(),
                           padding: EdgeInsets.all(isSmallScreen ? 4 : 8),
                           onPressed: () => _showInfoDialog(context),
@@ -1744,30 +1813,38 @@ class _ExampleSentenceContentState extends State<ExampleSentenceContent> {
 
                         // Filtre butonu - sadece ikon
                         GestureDetector(
-                          onTap: () => _showFilterModal(context, widget.word.word),
+                          onTap: () =>
+                              _showFilterModal(context, widget.word.word),
                           child: Container(
                             padding: EdgeInsets.all(isSmallScreen ? 6 : 8),
                             decoration: BoxDecoration(
-                              color: _isDarkMode ? Colors.grey.shade800 : Colors.white,
+                              color: _isDarkMode
+                                  ? Colors.grey.shade800
+                                  : Colors.white,
                               shape: BoxShape.circle,
                               border: Border.all(
-                                color: _isDarkMode ? Colors.teal.shade300.withOpacity(0.5) : Colors.teal.shade300,
+                                color: _isDarkMode
+                                    ? Colors.teal.shade300.withOpacity(0.5)
+                                    : Colors.teal.shade300,
                                 width: 1.5,
                               ),
                             ),
                             child: Icon(
                               Icons.filter_list_rounded,
                               size: isSmallScreen ? 16 : 18,
-                              color: _isDarkMode ? Colors.teal.shade300 : Colors.teal.shade700,
+                              color: _isDarkMode
+                                  ? Colors.teal.shade300
+                                  : Colors.teal.shade700,
                             ),
                           ),
                         ),
                         SizedBox(width: isSmallScreen ? 4 : 8),
                         IconButton(
                           icon: Icon(Icons.close,
-                              color: _isDarkMode ? Colors.teal.shade300 : Colors.teal.shade700,
-                              size: isSmallScreen ? 20 : 24
-                          ),
+                              color: _isDarkMode
+                                  ? Colors.teal.shade300
+                                  : Colors.teal.shade700,
+                              size: isSmallScreen ? 20 : 24),
                           constraints: BoxConstraints(),
                           padding: EdgeInsets.all(isSmallScreen ? 4 : 8),
                           onPressed: () => Navigator.of(context).pop(),
@@ -1800,7 +1877,8 @@ class _ExampleSentenceContentState extends State<ExampleSentenceContent> {
                           children: [
                             _buildSelectionButton(
                               label: "Tam Eşleşme",
-                              isSelected: _sentenceSelectionMode == 'traditional',
+                              isSelected:
+                                  _sentenceSelectionMode == 'traditional',
                               onTap: () {
                                 setState(() {
                                   _sentenceSelectionMode = 'traditional';
@@ -1831,7 +1909,8 @@ class _ExampleSentenceContentState extends State<ExampleSentenceContent> {
                 Container(
                   height: contentHeight,
                   child: FutureBuilder<List<Map<String, dynamic>>>(
-                    future: _fetchSentencesBasedOnMode(widget.word.word, _sentenceSelectionMode),
+                    future: _fetchSentencesBasedOnMode(
+                        widget.word.word, _sentenceSelectionMode),
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
                         return Center(
@@ -1855,17 +1934,18 @@ class _ExampleSentenceContentState extends State<ExampleSentenceContent> {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(
-                                  Icons.sentiment_dissatisfied,
-                                  size: isSmallScreen ? 36 : (isMediumScreen ? 48 : 56),
-                                  color: colors["unselectedText"]
-                              ),
+                              Icon(Icons.sentiment_dissatisfied,
+                                  size: isSmallScreen
+                                      ? 36
+                                      : (isMediumScreen ? 48 : 56),
+                                  color: colors["unselectedText"]),
                               SizedBox(height: isSmallScreen ? 12 : 16),
                               Padding(
                                 padding: EdgeInsets.symmetric(horizontal: 16),
                                 child: AutoSizeText(
                                   'Bu kelime için örnek cümle bulunamadı.',
-                                  style: GoogleFonts.poppins(color: colors["unselectedText"]),
+                                  style: GoogleFonts.poppins(
+                                      color: colors["unselectedText"]),
                                   textAlign: TextAlign.center,
                                   minFontSize: 12,
                                   maxLines: 2,
@@ -1877,14 +1957,18 @@ class _ExampleSentenceContentState extends State<ExampleSentenceContent> {
                       } else {
                         // Filtreleri uygula
                         _filteredSentences = snapshot.data!.where((sentence) {
-                          bool levelMatch = _selectedLevel == null || sentence['level'] == _selectedLevel;
-                          bool typeMatch = _selectedType == null || sentence['type'] == _selectedType;
+                          bool levelMatch = _selectedLevel == null ||
+                              sentence['level'] == _selectedLevel;
+                          bool typeMatch = _selectedType == null ||
+                              sentence['type'] == _selectedType;
                           return levelMatch && typeMatch;
                         }).toList();
 
                         // Maksimum gösterim sınırı
-                        if (_maxSentencesToShow > 0 && _filteredSentences.length > _maxSentencesToShow) {
-                          _filteredSentences = _filteredSentences.sublist(0, _maxSentencesToShow);
+                        if (_maxSentencesToShow > 0 &&
+                            _filteredSentences.length > _maxSentencesToShow) {
+                          _filteredSentences = _filteredSentences.sublist(
+                              0, _maxSentencesToShow);
                         }
 
                         if (_filteredSentences.isEmpty) {
@@ -1892,17 +1976,18 @@ class _ExampleSentenceContentState extends State<ExampleSentenceContent> {
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(
-                                    Icons.filter_list_off,
-                                    size: isSmallScreen ? 36 : (isMediumScreen ? 48 : 56),
-                                    color: colors["unselectedText"]
-                                ),
+                                Icon(Icons.filter_list_off,
+                                    size: isSmallScreen
+                                        ? 36
+                                        : (isMediumScreen ? 48 : 56),
+                                    color: colors["unselectedText"]),
                                 SizedBox(height: isSmallScreen ? 12 : 16),
                                 Padding(
                                   padding: EdgeInsets.symmetric(horizontal: 16),
                                   child: AutoSizeText(
                                     'Seçili filtrelere uygun cümle bulunamadı.',
-                                    style: GoogleFonts.poppins(color: colors["unselectedText"]),
+                                    style: GoogleFonts.poppins(
+                                        color: colors["unselectedText"]),
                                     textAlign: TextAlign.center,
                                     minFontSize: 12,
                                     maxLines: 2,
@@ -1935,15 +2020,13 @@ class _ExampleSentenceContentState extends State<ExampleSentenceContent> {
                     style: TextButton.styleFrom(
                       padding: EdgeInsets.symmetric(
                           horizontal: isSmallScreen ? 12 : 16,
-                          vertical: isSmallScreen ? 6 : 8
-                      ),
+                          vertical: isSmallScreen ? 6 : 8),
                     ),
                     child: AutoSizeText(
                       'Kapat',
                       style: TextStyle(
                           fontSize: isSmallScreen ? 16 : 18,
-                          color: Colors.teal
-                      ),
+                          color: Colors.teal),
                       minFontSize: 14,
                       maxLines: 1,
                     ),
@@ -1989,6 +2072,7 @@ class _ExampleSentenceContentState extends State<ExampleSentenceContent> {
       ),
     );
   }
+
   // Bilgi diyaloğunu göster
   void _showInfoDialog(BuildContext context) {
     showDialog(
@@ -2056,7 +2140,8 @@ class _ExampleSentenceContentState extends State<ExampleSentenceContent> {
                       Expanded(
                         child: Text(
                           'Çeviriler yapay zeka çevirisidir ve fikir vermek için hazırlanmıştır. Tam çeviri olmayabilir.',
-                          style: TextStyle(fontSize: 13, color: Colors.blue.shade800),
+                          style: TextStyle(
+                              fontSize: 13, color: Colors.blue.shade800),
                         ),
                       ),
                     ],
@@ -2065,7 +2150,10 @@ class _ExampleSentenceContentState extends State<ExampleSentenceContent> {
                 SizedBox(height: 15),
                 Text(
                   'PhD Akademi',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.teal),
+                  style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.teal),
                 ),
                 SizedBox(height: 20),
                 Align(
@@ -2094,7 +2182,8 @@ class _ExampleSentenceContentState extends State<ExampleSentenceContent> {
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Row(
         children: [
-          Text('• ', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+          Text('• ',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
           Expanded(
             child: Text(text, style: TextStyle(fontSize: 14)),
           ),
@@ -2102,6 +2191,7 @@ class _ExampleSentenceContentState extends State<ExampleSentenceContent> {
       ),
     );
   }
+
   // Filtre modalını göster
   void _showFilterModal(BuildContext context, String word) {
     final colors = _isDarkMode ? darkModeColors : lightModeColors;
@@ -2110,10 +2200,14 @@ class _ExampleSentenceContentState extends State<ExampleSentenceContent> {
     final isMediumScreen = screenSize.width >= 360 && screenSize.width < 600;
 
     // Ekran boyutuna göre boyutları ayarla
-    final double titleFontSize = isSmallScreen ? 20 : (isMediumScreen ? 24 : 28);
-    final double sectionTitleFontSize = isSmallScreen ? 16 : (isMediumScreen ? 18 : 20);
-    final double optionFontSize = isSmallScreen ? 12 : (isMediumScreen ? 14 : 16);
-    final double buttonFontSize = isSmallScreen ? 14 : (isMediumScreen ? 16 : 18);
+    final double titleFontSize =
+        isSmallScreen ? 20 : (isMediumScreen ? 24 : 28);
+    final double sectionTitleFontSize =
+        isSmallScreen ? 16 : (isMediumScreen ? 18 : 20);
+    final double optionFontSize =
+        isSmallScreen ? 12 : (isMediumScreen ? 14 : 16);
+    final double buttonFontSize =
+        isSmallScreen ? 14 : (isMediumScreen ? 16 : 18);
     final double padding = isSmallScreen ? 16 : (isMediumScreen ? 20 : 24);
 
     String? tempSelectedLevel = _selectedLevel;
@@ -2122,15 +2216,18 @@ class _ExampleSentenceContentState extends State<ExampleSentenceContent> {
 
     // Filtreleme için kullanılabilir seviyeleri ve türleri elde et
     Future<Map<String, Set<String>>> _getAvailableFilters(String word) async {
-      final sentences = await _fetchSentencesBasedOnMode(word, _sentenceSelectionMode);
+      final sentences =
+          await _fetchSentencesBasedOnMode(word, _sentenceSelectionMode);
       Set<String> levels = {};
       Set<String> types = {};
 
       for (var sentence in sentences) {
-        if (sentence['level'] != null && sentence['level'].toString().isNotEmpty) {
+        if (sentence['level'] != null &&
+            sentence['level'].toString().isNotEmpty) {
           levels.add(sentence['level']);
         }
-        if (sentence['type'] != null && sentence['type'].toString().isNotEmpty) {
+        if (sentence['type'] != null &&
+            sentence['type'].toString().isNotEmpty) {
           types.add(sentence['type']);
         }
       }
@@ -2162,276 +2259,276 @@ class _ExampleSentenceContentState extends State<ExampleSentenceContent> {
             final availableLevels = snapshot.data?['levels'] ?? {};
             final availableTypes = snapshot.data?['types'] ?? {};
 
-            return StatefulBuilder(
-                builder: (context, setModalState) {
-                  return DraggableScrollableSheet(
-                    initialChildSize: 0.7,
-                    minChildSize: 0.5,
-                    maxChildSize: 0.95,
-                    builder: (_, controller) {
-                      return Container(
-                        decoration: BoxDecoration(
-                          color: colors["background"],
-                          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            return StatefulBuilder(builder: (context, setModalState) {
+              return DraggableScrollableSheet(
+                initialChildSize: 0.7,
+                minChildSize: 0.5,
+                maxChildSize: 0.95,
+                builder: (_, controller) {
+                  return Container(
+                    decoration: BoxDecoration(
+                      color: colors["background"],
+                      borderRadius:
+                          BorderRadius.vertical(top: Radius.circular(20)),
+                    ),
+                    child: ListView(
+                      controller: controller,
+                      padding: EdgeInsets.all(padding),
+                      children: [
+                        // İşaretçi çizgi
+                        Center(
+                          child: Container(
+                            height: 5,
+                            width: 40,
+                            margin: EdgeInsets.only(
+                                bottom: isSmallScreen ? 12 : 16),
+                            decoration: BoxDecoration(
+                              color: colors["unselectedText"]!.withOpacity(0.3),
+                              borderRadius: BorderRadius.circular(2.5),
+                            ),
+                          ),
                         ),
-                        child: ListView(
-                          controller: controller,
-                          padding: EdgeInsets.all(padding),
+
+                        // Filtreleme başlığı
+                        AutoSizeText(
+                          'Cümle Filtreleri',
+                          style: GoogleFonts.poppins(
+                            fontSize: titleFontSize,
+                            fontWeight: FontWeight.bold,
+                            color: colors["text"],
+                          ),
+                          minFontSize: 18,
+                          maxLines: 1,
+                        ),
+                        SizedBox(height: isSmallScreen ? 16 : 20),
+
+                        // Tümünü göster butonu
+                        ElevatedButton.icon(
+                          icon: Icon(Icons.visibility_outlined,
+                              color: Colors.white,
+                              size: isSmallScreen ? 18 : 22),
+                          label: AutoSizeText(
+                            "Tüm Cümleleri Göster",
+                            style: GoogleFonts.poppins(
+                              fontSize: optionFontSize,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.white,
+                            ),
+                            minFontSize: 12,
+                            maxLines: 1,
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.teal.shade600,
+                            padding: EdgeInsets.symmetric(
+                                vertical: isSmallScreen ? 8 : 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          onPressed: () {
+                            setModalState(() {
+                              tempSelectedLevel = null;
+                              tempSelectedType = null;
+                              tempMaxSentences = 0;
+                            });
+                          },
+                        ),
+                        SizedBox(height: isSmallScreen ? 20 : 24),
+
+                        // Seviye seçimi
+                        AutoSizeText(
+                          "Seviye",
+                          style: GoogleFonts.poppins(
+                            fontSize: sectionTitleFontSize,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.orange.shade700,
+                          ),
+                          minFontSize: 14,
+                          maxLines: 1,
+                        ),
+                        SizedBox(height: isSmallScreen ? 8 : 12),
+                        Wrap(
+                          spacing: isSmallScreen ? 6 : 10,
+                          runSpacing: isSmallScreen ? 6 : 10,
                           children: [
-                            // İşaretçi çizgi
-                            Center(
-                              child: Container(
-                                height: 5,
-                                width: 40,
-                                margin: EdgeInsets.only(bottom: isSmallScreen ? 12 : 16),
-                                decoration: BoxDecoration(
-                                  color: colors["unselectedText"]!.withOpacity(0.3),
-                                  borderRadius: BorderRadius.circular(2.5),
-                                ),
-                              ),
-                            ),
-
-                            // Filtreleme başlığı
-                            AutoSizeText(
-                              'Cümle Filtreleri',
-                              style: GoogleFonts.poppins(
-                                fontSize: titleFontSize,
-                                fontWeight: FontWeight.bold,
-                                color: colors["text"],
-                              ),
-                              minFontSize: 18,
-                              maxLines: 1,
-                            ),
-                            SizedBox(height: isSmallScreen ? 16 : 20),
-
-                            // Tümünü göster butonu
-                            ElevatedButton.icon(
-                              icon: Icon(Icons.visibility_outlined,
-                                  color: Colors.white,
-                                  size: isSmallScreen ? 18 : 22
-                              ),
-                              label: AutoSizeText(
-                                "Tüm Cümleleri Göster",
-                                style: GoogleFonts.poppins(
-                                  fontSize: optionFontSize,
-                                  fontWeight: FontWeight.w500,
-                                  color: Colors.white,
-                                ),
-                                minFontSize: 12,
-                                maxLines: 1,
-                              ),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.teal.shade600,
-                                padding: EdgeInsets.symmetric(
-                                    vertical: isSmallScreen ? 8 : 12
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              onPressed: () {
+                            _buildFilterOption(
+                              label: "Tümü",
+                              isSelected: tempSelectedLevel == null,
+                              color: Colors.orange.shade400,
+                              onTap: () {
                                 setModalState(() {
                                   tempSelectedLevel = null;
-                                  tempSelectedType = null;
-                                  tempMaxSentences = 0;
                                 });
                               },
+                              fontSize: optionFontSize,
+                              smallScreen: isSmallScreen,
                             ),
-                            SizedBox(height: isSmallScreen ? 20 : 24),
+                            ...availableLevels
+                                .map((level) => _buildFilterOption(
+                                      label: level,
+                                      isSelected: tempSelectedLevel == level,
+                                      color: Colors.orange.shade400,
+                                      onTap: () {
+                                        setModalState(() {
+                                          tempSelectedLevel = level;
+                                        });
+                                      },
+                                      fontSize: optionFontSize,
+                                      smallScreen: isSmallScreen,
+                                    ))
+                                .toList(),
+                          ],
+                        ),
+                        SizedBox(height: isSmallScreen ? 20 : 24),
 
-                            // Seviye seçimi
-                            AutoSizeText(
-                              "Seviye",
-                              style: GoogleFonts.poppins(
-                                fontSize: sectionTitleFontSize,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.orange.shade700,
-                              ),
-                              minFontSize: 14,
-                              maxLines: 1,
+                        // Tür seçimi
+                        AutoSizeText(
+                          "Cümle Tipi",
+                          style: GoogleFonts.poppins(
+                            fontSize: sectionTitleFontSize,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.teal.shade700,
+                          ),
+                          minFontSize: 14,
+                          maxLines: 1,
+                        ),
+                        SizedBox(height: isSmallScreen ? 8 : 12),
+                        Wrap(
+                          spacing: isSmallScreen ? 6 : 10,
+                          runSpacing: isSmallScreen ? 6 : 10,
+                          children: [
+                            _buildFilterOption(
+                              label: "Tümü",
+                              isSelected: tempSelectedType == null,
+                              color: Colors.teal.shade400,
+                              onTap: () {
+                                setModalState(() {
+                                  tempSelectedType = null;
+                                });
+                              },
+                              fontSize: optionFontSize,
+                              smallScreen: isSmallScreen,
                             ),
-                            SizedBox(height: isSmallScreen ? 8 : 12),
-                            Wrap(
-                              spacing: isSmallScreen ? 6 : 10,
-                              runSpacing: isSmallScreen ? 6 : 10,
-                              children: [
-                                _buildFilterOption(
-                                  label: "Tümü",
-                                  isSelected: tempSelectedLevel == null,
-                                  color: Colors.orange.shade400,
-                                  onTap: () {
-                                    setModalState(() {
-                                      tempSelectedLevel = null;
-                                    });
-                                  },
-                                  fontSize: optionFontSize,
-                                  smallScreen: isSmallScreen,
-                                ),
-                                ...availableLevels.map((level) => _buildFilterOption(
-                                  label: level,
-                                  isSelected: tempSelectedLevel == level,
-                                  color: Colors.orange.shade400,
-                                  onTap: () {
-                                    setModalState(() {
-                                      tempSelectedLevel = level;
-                                    });
-                                  },
-                                  fontSize: optionFontSize,
-                                  smallScreen: isSmallScreen,
-                                )).toList(),
-                              ],
-                            ),
-                            SizedBox(height: isSmallScreen ? 20 : 24),
+                            ...availableTypes
+                                .map((type) => _buildFilterOption(
+                                      label: type,
+                                      isSelected: tempSelectedType == type,
+                                      color: Colors.teal.shade400,
+                                      onTap: () {
+                                        setModalState(() {
+                                          tempSelectedType = type;
+                                        });
+                                      },
+                                      fontSize: optionFontSize,
+                                      smallScreen: isSmallScreen,
+                                    ))
+                                .toList(),
+                          ],
+                        ),
+                        SizedBox(height: isSmallScreen ? 20 : 24),
 
-                            // Tür seçimi
-                            AutoSizeText(
-                              "Cümle Tipi",
-                              style: GoogleFonts.poppins(
-                                fontSize: sectionTitleFontSize,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.teal.shade700,
+                        // Gösterilecek maksimum cümle sayısı
+                        AutoSizeText(
+                          "Gösterilecek Cümle Sayısı",
+                          style: GoogleFonts.poppins(
+                            fontSize: sectionTitleFontSize,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.blue.shade700,
+                          ),
+                          minFontSize: 14,
+                          maxLines: 1,
+                        ),
+                        SizedBox(height: isSmallScreen ? 8 : 12),
+                        Wrap(
+                          spacing: isSmallScreen ? 6 : 10,
+                          runSpacing: isSmallScreen ? 6 : 10,
+                          children: [
+                            for (var count in [0, 5, 10, 20, 30, 50, 100])
+                              _buildNumberOption(
+                                count,
+                                count == 0 ? "Tümü" : count.toString(),
+                                tempMaxSentences,
+                                (value) {
+                                  setModalState(() {
+                                    tempMaxSentences = value;
+                                  });
+                                },
+                                optionFontSize,
+                                isSmallScreen,
                               ),
-                              minFontSize: 14,
-                              maxLines: 1,
-                            ),
-                            SizedBox(height: isSmallScreen ? 8 : 12),
-                            Wrap(
-                              spacing: isSmallScreen ? 6 : 10,
-                              runSpacing: isSmallScreen ? 6 : 10,
-                              children: [
-                                _buildFilterOption(
-                                  label: "Tümü",
-                                  isSelected: tempSelectedType == null,
-                                  color: Colors.teal.shade400,
-                                  onTap: () {
-                                    setModalState(() {
-                                      tempSelectedType = null;
-                                    });
-                                  },
-                                  fontSize: optionFontSize,
-                                  smallScreen: isSmallScreen,
-                                ),
-                                ...availableTypes.map((type) => _buildFilterOption(
-                                  label: type,
-                                  isSelected: tempSelectedType == type,
-                                  color: Colors.teal.shade400,
-                                  onTap: () {
-                                    setModalState(() {
-                                      tempSelectedType = type;
-                                    });
-                                  },
-                                  fontSize: optionFontSize,
-                                  smallScreen: isSmallScreen,
-                                )).toList(),
-                              ],
-                            ),
-                            SizedBox(height: isSmallScreen ? 20 : 24),
+                          ],
+                        ),
+                        SizedBox(height: isSmallScreen ? 24 : 30),
 
-                            // Gösterilecek maksimum cümle sayısı
-                            AutoSizeText(
-                              "Gösterilecek Cümle Sayısı",
-                              style: GoogleFonts.poppins(
-                                fontSize: sectionTitleFontSize,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.blue.shade700,
-                              ),
-                              minFontSize: 14,
-                              maxLines: 1,
-                            ),
-                            SizedBox(height: isSmallScreen ? 8 : 12),
-                            Wrap(
-                              spacing: isSmallScreen ? 6 : 10,
-                              runSpacing: isSmallScreen ? 6 : 10,
-                              children: [
-                                for (var count in [0, 5, 10, 20, 30, 50, 100])
-                                  _buildNumberOption(
-                                    count,
-                                    count == 0 ? "Tümü" : count.toString(),
-                                    tempMaxSentences,
-                                        (value) {
-                                      setModalState(() {
-                                        tempMaxSentences = value;
-                                      });
-                                    },
-                                    optionFontSize,
-                                    isSmallScreen,
+                        // Uygula ve İptal butonları
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                child: AutoSizeText(
+                                  "İptal",
+                                  style: GoogleFonts.poppins(
+                                    fontSize: buttonFontSize,
+                                    fontWeight: FontWeight.w500,
                                   ),
-                              ],
-                            ),
-                            SizedBox(height: isSmallScreen ? 24 : 30),
-
-                            // Uygula ve İptal butonları
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: OutlinedButton(
-                                    child: AutoSizeText(
-                                      "İptal",
-                                      style: GoogleFonts.poppins(
-                                        fontSize: buttonFontSize,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                      minFontSize: 12,
-                                      maxLines: 1,
-                                    ),
-                                    style: OutlinedButton.styleFrom(
-                                      foregroundColor: colors["text"],
-                                      padding: EdgeInsets.symmetric(
-                                          vertical: isSmallScreen ? 12 : 16
-                                      ),
-                                      side: BorderSide(color: Colors.grey.shade300),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                    ),
-                                    onPressed: () {
-                                      Navigator.of(context).pop();
-                                    },
+                                  minFontSize: 12,
+                                  maxLines: 1,
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: colors["text"],
+                                  padding: EdgeInsets.symmetric(
+                                      vertical: isSmallScreen ? 12 : 16),
+                                  side: BorderSide(color: Colors.grey.shade300),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
                                   ),
                                 ),
-                                SizedBox(width: isSmallScreen ? 8 : 12),
-                                Expanded(
-                                  flex: 2,
-                                  child: ElevatedButton(
-                                    child: AutoSizeText(
-                                      "Filtreleri Uygula",
-                                      style: GoogleFonts.poppins(
-                                        fontSize: buttonFontSize,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                      minFontSize: 12,
-                                      maxLines: 1,
-                                    ),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.teal.shade700,
-                                      foregroundColor: Colors.white,
-                                      padding: EdgeInsets.symmetric(
-                                          vertical: isSmallScreen ? 12 : 16
-                                      ),
-                                      elevation: 0,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                    ),
-                                    onPressed: () {
-                                      setState(() {
-                                        _selectedLevel = tempSelectedLevel;
-                                        _selectedType = tempSelectedType;
-                                        _maxSentencesToShow = tempMaxSentences;
-                                      });
-                                      Navigator.of(context).pop();
-                                    },
+                                onPressed: () {
+                                  Navigator.of(context).pop();
+                                },
+                              ),
+                            ),
+                            SizedBox(width: isSmallScreen ? 8 : 12),
+                            Expanded(
+                              flex: 2,
+                              child: ElevatedButton(
+                                child: AutoSizeText(
+                                  "Filtreleri Uygula",
+                                  style: GoogleFonts.poppins(
+                                    fontSize: buttonFontSize,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  minFontSize: 12,
+                                  maxLines: 1,
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.teal.shade700,
+                                  foregroundColor: Colors.white,
+                                  padding: EdgeInsets.symmetric(
+                                      vertical: isSmallScreen ? 12 : 16),
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
                                   ),
                                 ),
-                              ],
+                                onPressed: () {
+                                  setState(() {
+                                    _selectedLevel = tempSelectedLevel;
+                                    _selectedType = tempSelectedType;
+                                    _maxSentencesToShow = tempMaxSentences;
+                                  });
+                                  Navigator.of(context).pop();
+                                },
+                              ),
                             ),
                           ],
                         ),
-                      );
-                    },
+                      ],
+                    ),
                   );
-                }
-            );
+                },
+              );
+            });
           },
         );
       },
@@ -2451,9 +2548,7 @@ class _ExampleSentenceContentState extends State<ExampleSentenceContent> {
       onTap: onTap,
       child: Container(
         padding: EdgeInsets.symmetric(
-            horizontal: smallScreen ? 12 : 16,
-            vertical: smallScreen ? 8 : 10
-        ),
+            horizontal: smallScreen ? 12 : 16, vertical: smallScreen ? 8 : 10),
         decoration: BoxDecoration(
           color: isSelected ? color : Colors.transparent,
           borderRadius: BorderRadius.circular(30),
@@ -2479,22 +2574,20 @@ class _ExampleSentenceContentState extends State<ExampleSentenceContent> {
 
   // Sayı seçim butonu
   Widget _buildNumberOption(
-      int value,
-      String label,
-      int currentValue,
-      Function(int) onSelected,
-      double fontSize,
-      bool smallScreen,
-      ) {
+    int value,
+    String label,
+    int currentValue,
+    Function(int) onSelected,
+    double fontSize,
+    bool smallScreen,
+  ) {
     bool isSelected = currentValue == value;
 
     return GestureDetector(
       onTap: () => onSelected(value),
       child: Container(
         padding: EdgeInsets.symmetric(
-            horizontal: smallScreen ? 12 : 16,
-            vertical: smallScreen ? 8 : 10
-        ),
+            horizontal: smallScreen ? 12 : 16, vertical: smallScreen ? 8 : 10),
         decoration: BoxDecoration(
           color: isSelected ? Colors.blue.shade500 : Colors.white,
           borderRadius: BorderRadius.circular(12),
@@ -2502,13 +2595,15 @@ class _ExampleSentenceContentState extends State<ExampleSentenceContent> {
             color: isSelected ? Colors.blue.shade500 : Colors.grey.shade300,
             width: 1.5,
           ),
-          boxShadow: isSelected ? [
-            BoxShadow(
-              color: Colors.blue.withOpacity(0.2),
-              blurRadius: 4,
-              offset: Offset(0, 2),
-            ),
-          ] : null,
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: Colors.blue.withOpacity(0.2),
+                    blurRadius: 4,
+                    offset: Offset(0, 2),
+                  ),
+                ]
+              : null,
         ),
         child: AutoSizeText(
           label,
@@ -2526,18 +2621,15 @@ class _ExampleSentenceContentState extends State<ExampleSentenceContent> {
   }
 
   // Mod seçimine göre cümle getirme
-  Future<List<Map<String, dynamic>>> _fetchSentencesBasedOnMode(String word, String mode) async {
+  Future<List<Map<String, dynamic>>> _fetchSentencesBasedOnMode(
+      String word, String mode) async {
     if (mode == 'traditional') {
       // Geleneksel mod: Tam eşleşme
       try {
-        final data = await supabase
-            .from('sentences')
-            .select()
-            .eq('word', word);
+        final data = await supabase.from('sentences').select().eq('word', word);
 
         return List<Map<String, dynamic>>.from(data);
       } catch (e) {
-        print("Tam eşleşme cümle yüklenirken hata: $e");
         return [];
       }
     } else {
@@ -2584,7 +2676,8 @@ class _ExampleSentenceContentState extends State<ExampleSentenceContent> {
         }
 
         // Sonuçları birleştir
-        List<Map<String, dynamic>> allResults = List<Map<String, dynamic>>.from(exactMatches);
+        List<Map<String, dynamic>> allResults =
+            List<Map<String, dynamic>>.from(exactMatches);
         allResults.addAll(proximityMatches);
         allResults.addAll(ilikeMatches);
 
@@ -2602,13 +2695,13 @@ class _ExampleSentenceContentState extends State<ExampleSentenceContent> {
 
         return uniqueResults;
       } catch (e) {
-        print("Geniş eşleşme cümle yüklenirken hata: $e");
         return [];
       }
     } else {
       // Tek kelime için
       try {
-        final String queryTerm = searchTerm.length > 3 ? "$searchTerm:*" : searchTerm;
+        final String queryTerm =
+            searchTerm.length > 3 ? "$searchTerm:*" : searchTerm;
 
         final data = await supabase
             .from('sentences')
@@ -2621,7 +2714,8 @@ class _ExampleSentenceContentState extends State<ExampleSentenceContent> {
               .select()
               .ilike('sentence', '% $searchTerm %');
 
-          List<Map<String, dynamic>> allResults = List<Map<String, dynamic>>.from(data);
+          List<Map<String, dynamic>> allResults =
+              List<Map<String, dynamic>>.from(data);
           allResults.addAll(ilikeResults);
 
           // Tekrarları kaldır
@@ -2641,7 +2735,6 @@ class _ExampleSentenceContentState extends State<ExampleSentenceContent> {
 
         return List<Map<String, dynamic>>.from(data);
       } catch (e) {
-        print("Geniş eşleşme cümle yüklenirken hata: $e");
         return [];
       }
     }
@@ -2668,10 +2761,12 @@ class AnimatedSentenceCarousel extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  _AnimatedSentenceCarouselState createState() => _AnimatedSentenceCarouselState();
+  _AnimatedSentenceCarouselState createState() =>
+      _AnimatedSentenceCarouselState();
 }
 
-class _AnimatedSentenceCarouselState extends State<AnimatedSentenceCarousel> with SingleTickerProviderStateMixin {
+class _AnimatedSentenceCarouselState extends State<AnimatedSentenceCarousel>
+    with SingleTickerProviderStateMixin {
   int _currentIndex = 0;
   final FlutterTts _flutterTts = FlutterTts();
   bool _isPlaying = false;
@@ -2691,7 +2786,8 @@ class _AnimatedSentenceCarouselState extends State<AnimatedSentenceCarousel> wit
     _initAnimations();
     // Tüm cümleleri kelimelere böl
     for (int i = 0; i < widget.sentences.length; i++) {
-      _sentenceWordsMap[i] = _splitSentenceToWords(widget.sentences[i]['sentence'] ?? '');
+      _sentenceWordsMap[i] =
+          _splitSentenceToWords(widget.sentences[i]['sentence'] ?? '');
     }
 
     // İlk cümlenin hemen görünmesi için animasyonu başlat
@@ -2737,11 +2833,13 @@ class _AnimatedSentenceCarouselState extends State<AnimatedSentenceCarousel> wit
     await _flutterTts.setVolume(1.0);
     await _flutterTts.setPitch(1.0);
 
-    _flutterTts.setProgressHandler((String text, int startOffset, int endOffset, String word) {
+    _flutterTts.setProgressHandler(
+        (String text, int startOffset, int endOffset, String word) {
       if (word.isNotEmpty) {
         final words = _sentenceWordsMap[_currentIndex] ?? [];
         String textUpToNow = text.substring(0, startOffset);
-        int wordCount = textUpToNow.split(' ').where((s) => s.isNotEmpty).length;
+        int wordCount =
+            textUpToNow.split(' ').where((s) => s.isNotEmpty).length;
 
         if (wordCount >= 0 && wordCount < words.length) {
           setState(() {
@@ -2880,7 +2978,8 @@ class _AnimatedSentenceCarouselState extends State<AnimatedSentenceCarousel> wit
 
     _animationController.forward(from: 0.0).then((_) {
       setState(() {
-        _currentIndex = (_currentIndex - 1 + widget.sentences.length) % widget.sentences.length;
+        _currentIndex = (_currentIndex - 1 + widget.sentences.length) %
+            widget.sentences.length;
         _highlightedWordIndex = -1;
         if (_isPlaying) {
           _flutterTts.stop();
@@ -2993,23 +3092,28 @@ class _AnimatedSentenceCarouselState extends State<AnimatedSentenceCarousel> wit
     });
   }
 
-  Widget _buildHighlightedText(List<String> words, String wordToHighlight, int currentWordIndex) {
+  Widget _buildHighlightedText(
+      List<String> words, String wordToHighlight, int currentWordIndex) {
     final wordToHighlightLower = wordToHighlight.toLowerCase();
 
     // Ekran boyutuna göre font boyutunu ayarla
-    final fontSize = widget.isSmallScreen ? 14.0 : (widget.isMediumScreen ? 16.0 : 18.0);
+    final fontSize =
+        widget.isSmallScreen ? 14.0 : (widget.isMediumScreen ? 16.0 : 18.0);
     final lineHeight = widget.isSmallScreen ? 1.4 : 1.5;
 
     return RichText(
       text: TextSpan(
         style: GoogleFonts.poppins(
           fontSize: fontSize,
-          color: widget.isDarkMode ? Colors.white.withOpacity(0.9) : Colors.black87,
+          color: widget.isDarkMode
+              ? Colors.white.withOpacity(0.9)
+              : Colors.black87,
           height: lineHeight,
         ),
         children: List.generate(words.length, (index) {
           final word = words[index];
-          final isWordHighlighted = word.toLowerCase().contains(wordToHighlightLower);
+          final isWordHighlighted =
+              word.toLowerCase().contains(wordToHighlightLower);
           final isCurrentlyBeingRead = index == currentWordIndex;
 
           // Reading highlight (current word)
@@ -3071,8 +3175,10 @@ class _AnimatedSentenceCarouselState extends State<AnimatedSentenceCarousel> wit
     final level = currentSentence['level'] ?? '';
 
     // Ekran boyutuna göre padding değerleri
-    final horizontalPadding = widget.isSmallScreen ? 12.0 : (widget.isMediumScreen ? 16.0 : 20.0);
-    final verticalPadding = widget.isSmallScreen ? 6.0 : (widget.isMediumScreen ? 8.0 : 10.0);
+    final horizontalPadding =
+        widget.isSmallScreen ? 12.0 : (widget.isMediumScreen ? 16.0 : 20.0);
+    final verticalPadding =
+        widget.isSmallScreen ? 6.0 : (widget.isMediumScreen ? 8.0 : 10.0);
     final cardPadding = widget.isSmallScreen ? 16.0 : 20.0;
     final iconSize = widget.isSmallScreen ? 18.0 : 24.0;
     final dotSize = widget.isSmallScreen ? 6.0 : 8.0;
@@ -3084,7 +3190,8 @@ class _AnimatedSentenceCarouselState extends State<AnimatedSentenceCarousel> wit
       children: [
         // Navigation and counter
         Padding(
-          padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: verticalPadding),
+          padding: EdgeInsets.symmetric(
+              horizontal: horizontalPadding, vertical: verticalPadding),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -3104,8 +3211,7 @@ class _AnimatedSentenceCarouselState extends State<AnimatedSentenceCarousel> wit
                     Container(
                       padding: EdgeInsets.symmetric(
                           horizontal: widget.isSmallScreen ? 8 : 10,
-                          vertical: widget.isSmallScreen ? 3 : 4
-                      ),
+                          vertical: widget.isSmallScreen ? 3 : 4),
                       decoration: BoxDecoration(
                         color: Colors.orange.shade400,
                         borderRadius: BorderRadius.circular(20),
@@ -3132,7 +3238,9 @@ class _AnimatedSentenceCarouselState extends State<AnimatedSentenceCarousel> wit
           animation: _animationController,
           builder: (context, child) {
             // İlk yüklemede animasyon uygulanmaması için kontrol
-            if (_currentIndex == 0 && !_animationController.isAnimating && _animationController.status != AnimationStatus.completed) {
+            if (_currentIndex == 0 &&
+                !_animationController.isAnimating &&
+                _animationController.status != AnimationStatus.completed) {
               return child!;
             }
 
@@ -3155,14 +3263,17 @@ class _AnimatedSentenceCarouselState extends State<AnimatedSentenceCarousel> wit
               }
             },
             child: Card(
-              margin: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: verticalPadding),
+              margin: EdgeInsets.symmetric(
+                  horizontal: horizontalPadding, vertical: verticalPadding),
               elevation: 4,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(widget.isSmallScreen ? 12 : 16),
+                borderRadius:
+                    BorderRadius.circular(widget.isSmallScreen ? 12 : 16),
               ),
               child: Container(
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(widget.isSmallScreen ? 12 : 16),
+                  borderRadius:
+                      BorderRadius.circular(widget.isSmallScreen ? 12 : 16),
                   gradient: LinearGradient(
                     begin: Alignment.topRight,
                     end: Alignment.bottomLeft,
@@ -3191,12 +3302,19 @@ class _AnimatedSentenceCarouselState extends State<AnimatedSentenceCarousel> wit
                           // Audio button
                           IconButton(
                             icon: Icon(
-                              _isPlaying ? Icons.volume_up : Icons.volume_up_outlined,
-                              color: _isPlaying ? Colors.teal : widget.isDarkMode ? Colors.grey[400] : Colors.grey,
+                              _isPlaying
+                                  ? Icons.volume_up
+                                  : Icons.volume_up_outlined,
+                              color: _isPlaying
+                                  ? Colors.teal
+                                  : widget.isDarkMode
+                                      ? Colors.grey[400]
+                                      : Colors.grey,
                               size: iconSize,
                             ),
                             constraints: BoxConstraints(),
-                            padding: EdgeInsets.all(widget.isSmallScreen ? 4 : 8),
+                            padding:
+                                EdgeInsets.all(widget.isSmallScreen ? 4 : 8),
                             onPressed: () => _speakSentence(sentence),
                           ),
                         ],
@@ -3209,7 +3327,9 @@ class _AnimatedSentenceCarouselState extends State<AnimatedSentenceCarousel> wit
                         translation,
                         style: GoogleFonts.poppins(
                           fontSize: translationFontSize,
-                          color: widget.isDarkMode ? Colors.grey[400] : Colors.grey[700],
+                          color: widget.isDarkMode
+                              ? Colors.grey[400]
+                              : Colors.grey[700],
                           fontStyle: FontStyle.italic,
                           height: 1.4,
                         ),
@@ -3226,14 +3346,16 @@ class _AnimatedSentenceCarouselState extends State<AnimatedSentenceCarousel> wit
 
         // Navigation buttons
         Padding(
-          padding: EdgeInsets.only(top: verticalPadding * 2, bottom: verticalPadding / 2),
+          padding: EdgeInsets.only(
+              top: verticalPadding * 2, bottom: verticalPadding / 2),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               // Previous button
               IconButton(
                 onPressed: _currentIndex > 0 ? _goToPrevious : null,
-                icon: Icon(Icons.arrow_back_ios, size: widget.isSmallScreen ? 16 : 20),
+                icon: Icon(Icons.arrow_back_ios,
+                    size: widget.isSmallScreen ? 16 : 20),
                 constraints: BoxConstraints(),
                 padding: EdgeInsets.all(widget.isSmallScreen ? 4 : 8),
                 color: _currentIndex > 0
@@ -3249,17 +3371,21 @@ class _AnimatedSentenceCarouselState extends State<AnimatedSentenceCarousel> wit
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: List.generate(
                       widget.sentences.length,
-                          (index) => GestureDetector(
+                      (index) => GestureDetector(
                         onTap: () => _goToIndex(index),
                         child: AnimatedContainer(
                           duration: Duration(milliseconds: 200),
-                          margin: EdgeInsets.symmetric(horizontal: widget.isSmallScreen ? 3 : 4),
-                          width: index == _currentIndex ? activeDotWidth : dotSize,
+                          margin: EdgeInsets.symmetric(
+                              horizontal: widget.isSmallScreen ? 3 : 4),
+                          width:
+                              index == _currentIndex ? activeDotWidth : dotSize,
                           height: dotSize,
                           decoration: BoxDecoration(
                             color: index == _currentIndex
                                 ? Colors.teal
-                                : (widget.isDarkMode ? Colors.grey.shade600 : Colors.grey.shade300),
+                                : (widget.isDarkMode
+                                    ? Colors.grey.shade600
+                                    : Colors.grey.shade300),
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
@@ -3271,8 +3397,11 @@ class _AnimatedSentenceCarouselState extends State<AnimatedSentenceCarousel> wit
 
               // Next button
               IconButton(
-                onPressed: _currentIndex < widget.sentences.length - 1 ? _goToNext : null,
-                icon: Icon(Icons.arrow_forward_ios, size: widget.isSmallScreen ? 16 : 20),
+                onPressed: _currentIndex < widget.sentences.length - 1
+                    ? _goToNext
+                    : null,
+                icon: Icon(Icons.arrow_forward_ios,
+                    size: widget.isSmallScreen ? 16 : 20),
                 constraints: BoxConstraints(),
                 padding: EdgeInsets.all(widget.isSmallScreen ? 4 : 8),
                 color: _currentIndex < widget.sentences.length - 1
@@ -3294,6 +3423,7 @@ class _AnimatedSentenceCarouselState extends State<AnimatedSentenceCarousel> wit
     super.dispose();
   }
 }
+
 class ContentBox extends StatelessWidget {
   final Widget content;
   final IconData icon;
@@ -3346,6 +3476,7 @@ class ContentBox extends StatelessWidget {
     );
   }
 }
+
 class HighlightedText extends StatelessWidget {
   final String text;
   final String highlightedWord;

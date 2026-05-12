@@ -1,5 +1,6 @@
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:kelibu/event_bus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 import '../api.dart';
 import '../event.dart';
 import '../main.dart';
@@ -20,20 +21,17 @@ class StarredWordsService {
     _prefs ??= await SharedPreferences.getInstance();
   }
 
-  Future<void> toggleWordStarStatus(int wordId, bool isStarred, int classroomId, int studySetId) async {
+  Future<void> toggleWordStarStatus(
+      int wordId, bool isStarred, int classroomId, int studySetId) async {
     await ensureInitialized();
     final key = _generateKey(classroomId, studySetId);
     final starredWordsSet = await _getStarredWords(key);
     final userID = userProviderGlobal!.userId;
 
-    print("Toggling star status for wordId: $wordId, isStarred: $isStarred");
-
     await Future.wait([
       ApiService().starWord(wordId, classroomId, studySetId, userID),
       _updateStarredWords(key, starredWordsSet, wordId, isStarred),
     ]);
-
-    print("After toggle - Starred words for $key: ${await _getStarredWords(key)}");
 
     appEventBus.fire(StarredWordsChangedEvent(starredWordsSet.length));
   }
@@ -43,12 +41,12 @@ class StarredWordsService {
     final userID = userProviderGlobal!.userId;
     await ApiService().starWordDeleteAll(wordId, userID);
 
-    final futures = _prefs!.getKeys()
+    final futures = _prefs!
+        .getKeys()
         .where((key) => key.startsWith(_keyPrefix))
         .map((key) => _removeWordFromSet(key, wordId));
 
     await Future.wait(futures);
-    print("Removed wordId $wordId from all sets");
   }
 
   Future<void> removeWordFromAllById(int wordId) async {
@@ -61,7 +59,8 @@ class StarredWordsService {
     return _getStarredWords(key);
   }
 
-  Future<Set<int>> loadClassroomStarredWordsAll(int classroomId, List<int> studySetIds) async {
+  Future<Set<int>> loadClassroomStarredWordsAll(
+      int classroomId, List<int> studySetIds) async {
     await ensureInitialized();
 
     if (classroomId == -1) {
@@ -75,7 +74,6 @@ class StarredWordsService {
       allStarredWords.addAll(starredWords);
     }
 
-    print("Loaded ${allStarredWords.length} starred words for classroom $classroomId");
     return allStarredWords;
   }
 
@@ -89,7 +87,6 @@ class StarredWordsService {
         allStarredWords.addAll(starredWords);
       }
     }
-    print("Total starred words: ${allStarredWords.length}");
     return allStarredWords;
   }
 
@@ -97,64 +94,45 @@ class StarredWordsService {
     await ensureInitialized();
     final allKeys = _prefs!.getKeys();
 
-    print("All SharedPreferences keys and values:");
     for (String key in allKeys) {
-      var value = _prefs!.get(key);
-      print('$key: $value');
+      _prefs!.get(key);
     }
   }
 
   Future<Set<int>> _getStarredWords(String key) async {
-    print('Fetching starred words for key: $key');
     if (!_cache.containsKey(key)) {
       final List<String>? starredWordsStringList = _prefs!.getStringList(key);
       _cache[key] = starredWordsStringList?.map(int.parse).toSet() ?? {};
-      print('Loaded from SharedPreferences: ${_cache[key]}');
-    } else {
-      print('Loaded from cache: ${_cache[key]}');
-    }
+    } else {}
     return _cache[key]!;
   }
 
   Future<void> clearCache() async {
     _cache.clear();
-    print('Cache cleared');
   }
 
-  Future<void> _updateStarredWords(String key, Set<int> starredWords, int wordId, bool isStarred) async {
+  Future<void> _updateStarredWords(
+      String key, Set<int> starredWords, int wordId, bool isStarred) async {
     if (isStarred) {
       starredWords.add(wordId);
     } else {
       starredWords.remove(wordId);
     }
     _cache[key] = starredWords;
-    await _prefs!.setStringList(key, starredWords.map((id) => id.toString()).toList());
-    print("Updated starred words for $key: $starredWords");
+    await _prefs!
+        .setStringList(key, starredWords.map((id) => id.toString()).toList());
   }
 
   Future<void> _removeWordFromSet(String key, int wordId) async {
     final starredWords = await _getStarredWords(key);
     if (starredWords.remove(wordId)) {
       _cache[key] = starredWords;
-      await _prefs!.setStringList(key, starredWords.map((id) => id.toString()).toList());
-      print("Removed wordId $wordId from $key");
+      await _prefs!
+          .setStringList(key, starredWords.map((id) => id.toString()).toList());
     }
   }
 
   String _generateKey(int classroomId, int studySetId) {
     return '${_keyPrefix}_classroomId:${classroomId}_studySetId:${studySetId}';
-  }
-
-  List<String>? _getStringListSafe(String key) {
-    try {
-      final dynamic value = _prefs!.get(key);
-      if (value is List) {
-        return value.cast<String>();
-      }
-      return null;
-    } catch (e) {
-      print('Error getting string list for key $key: $e');
-      return null;
-    }
   }
 }

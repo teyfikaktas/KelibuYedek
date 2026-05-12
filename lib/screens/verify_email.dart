@@ -1,14 +1,16 @@
 import 'dart:async';
-import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:kelibu/screens/sdk/customShowDialog.dart';
-import 'package:kelibu/providers/user_provider.dart';
-import 'package:provider/provider.dart';
-import 'package:hive/hive.dart';
-import 'package:path_provider/path_provider.dart';
+
+import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:hive/hive.dart';
+import 'package:http/http.dart' as http;
+import 'package:kelibu/providers/user_provider.dart';
+import 'package:kelibu/screens/sdk/customShowDialog.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:provider/provider.dart';
+
 import '../main.dart';
 import '../variables.dart';
 
@@ -21,7 +23,8 @@ class VerifyEmailScreen extends StatefulWidget {
   _VerifyEmailScreenState createState() => _VerifyEmailScreenState();
 }
 
-class _VerifyEmailScreenState extends State<VerifyEmailScreen> with SingleTickerProviderStateMixin {
+class _VerifyEmailScreenState extends State<VerifyEmailScreen>
+    with SingleTickerProviderStateMixin {
   late Box<bool> _loginBox;
   bool _isLoading = false;
   bool _isDarkMode = false;
@@ -30,7 +33,8 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> with SingleTicker
   int _resendCooldown = 60;
   List<String> _enteredDigits = ['', '', '', '', '', ''];
   List<FocusNode> _focusNodes = List.generate(6, (index) => FocusNode());
-  List<TextEditingController> _controllers = List.generate(6, (index) => TextEditingController());
+  List<TextEditingController> _controllers =
+      List.generate(6, (index) => TextEditingController());
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
 
@@ -43,7 +47,8 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> with SingleTicker
       vsync: this,
       duration: Duration(milliseconds: 1000),
     );
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(_animationController);
+    _fadeAnimation =
+        Tween<double>(begin: 0.0, end: 1.0).animate(_animationController);
     _animationController.forward();
     _startInitialCooldown();
   }
@@ -114,18 +119,24 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> with SingleTicker
       });
 
       if (response.statusCode == 200) {
-        showCustomDialog(context, 'Başarılı', 'Yeni doğrulama kodu e-posta adresinize gönderildi.');
+        showCustomDialog(context, 'Başarılı',
+            'Yeni doğrulama kodu e-posta adresinize gönderildi.');
         _startInitialCooldown();
       } else {
         final responseBody = json.decode(response.body);
-        showCustomDialog(context, 'Hata', responseBody['message'] ?? 'Bir hata oluştu. Lütfen tekrar deneyin.');
+        showCustomDialog(
+            context,
+            'Hata',
+            responseBody['message'] ??
+                'Bir hata oluştu. Lütfen tekrar deneyin.');
       }
     } catch (e) {
       setState(() {
         _isLoading = false;
         _canResend = true;
       });
-      showCustomDialog(context, 'Hata', 'Bir hata oluştu. Lütfen tekrar deneyin.');
+      showCustomDialog(
+          context, 'Hata', 'Bir hata oluştu. Lütfen tekrar deneyin.');
     }
   }
 
@@ -133,7 +144,8 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> with SingleTicker
     final enteredCode = _enteredDigits.join();
 
     if (enteredCode.length != 6) {
-      showCustomDialog(context, 'Uyarı', 'Lütfen 6 haneli doğrulama kodunu eksiksiz giriniz.');
+      showCustomDialog(context, 'Uyarı',
+          'Lütfen 6 haneli doğrulama kodunu eksiksiz giriniz.');
       return;
     }
 
@@ -172,7 +184,8 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> with SingleTicker
           final bool phoneVerified = userData['phone_verified'] ?? false;
           final String createdAt = userData['created_at'].toString();
           final String city = userData['city'].toString();
-          final int birthYear = int.tryParse(userData['birth_year'].toString()) ?? 0;
+          final int birthYear =
+              int.tryParse(userData['birth_year'].toString()) ?? 0;
           final String? team = userData['team'];
 
           Provider.of<UserProvider>(context, listen: false).setUser(
@@ -186,18 +199,17 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> with SingleTicker
               createdAt,
               city,
               birthYear,
-              team
-          );
+              team);
 
           _loginBox.put('isLoggedIn', true);
 
           Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(builder: (context) => MainScreen()),
-                (Route<dynamic> route) => false,
+            (Route<dynamic> route) => false,
           );
-        }
-        else {
-          showCustomDialog(context, 'Hata', 'Doğrulama başarısız oldu. Lütfen tekrar deneyin.');
+        } else {
+          showCustomDialog(context, 'Hata',
+              'Doğrulama başarısız oldu. Lütfen tekrar deneyin.');
         }
       } else {
         final responseBody = response.body;
@@ -212,7 +224,8 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> with SingleTicker
       setState(() {
         _isLoading = false;
       });
-      showCustomDialog(context, 'Hata', 'Doğrulama işlemi sırasında bir hata oluştu: $e');
+      showCustomDialog(
+          context, 'Hata', 'Doğrulama işlemi sırasında bir hata oluştu: $e');
     }
   }
 
@@ -241,9 +254,10 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> with SingleTicker
       decoration: BoxDecoration(
         color: colors["inputBackground"],
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: _focusNodes[index].hasFocus
-            ? colors["blue"]!
-            : colors["borderColor"]!,
+        border: Border.all(
+            color: _focusNodes[index].hasFocus
+                ? colors["blue"]!
+                : colors["borderColor"]!,
             width: _focusNodes[index].hasFocus ? 2 : 1),
         boxShadow: [
           BoxShadow(
@@ -260,10 +274,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> with SingleTicker
         keyboardType: TextInputType.number,
         maxLength: 1,
         style: GoogleFonts.poppins(
-            fontSize: 24,
-            color: colors["text"],
-            fontWeight: FontWeight.w600
-        ),
+            fontSize: 24, color: colors["text"], fontWeight: FontWeight.w600),
         decoration: InputDecoration(
           counter: Offstage(),
           border: InputBorder.none,
@@ -329,7 +340,8 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> with SingleTicker
         backgroundColor: colors["background"],
         elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios_rounded, color: colors["text"], size: 22),
+          icon: Icon(Icons.arrow_back_ios_rounded,
+              color: colors["text"], size: 22),
           onPressed: () => Navigator.pop(context),
           tooltip: 'Geri',
         ),
@@ -417,40 +429,45 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> with SingleTicker
                         ),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
-                          children: List.generate(6, (index) => _buildCodeInputField(index)),
+                          children: List.generate(
+                              6, (index) => _buildCodeInputField(index)),
                         ),
                       ],
                     ),
                   ),
                   SizedBox(height: 32),
                   _isLoading
-                      ? CircularProgressIndicator(color: colors["buttonBackground"])
+                      ? CircularProgressIndicator(
+                          color: colors["buttonBackground"])
                       : ElevatedButton(
-                    onPressed: _verifyCode,
-                    style: ElevatedButton.styleFrom(
-                      foregroundColor: colors["buttonText"],
-                      backgroundColor: colors["buttonBackground"],
-                      padding: EdgeInsets.symmetric(horizontal: 50, vertical: 15),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                      elevation: 4,
-                    ),
-                    child: Text(
-                      'Doğrula',
-                      style: GoogleFonts.poppins(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ),
+                          onPressed: _verifyCode,
+                          style: ElevatedButton.styleFrom(
+                            foregroundColor: colors["buttonText"],
+                            backgroundColor: colors["buttonBackground"],
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 50, vertical: 15),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                            elevation: 4,
+                          ),
+                          child: Text(
+                            'Doğrula',
+                            style: GoogleFonts.poppins(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
                   SizedBox(height: 20),
                   TextButton.icon(
                     onPressed: _canResend ? _resendVerificationCode : null,
                     icon: Icon(
                       Icons.refresh_rounded,
                       size: 18,
-                      color: _canResend ? colors["blue"] : colors["unselectedText"],
+                      color: _canResend
+                          ? colors["blue"]
+                          : colors["unselectedText"],
                     ),
                     label: Text(
                       _canResend

@@ -1,6 +1,6 @@
+import 'package:chewie/chewie.dart';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
-import 'package:chewie/chewie.dart';
 
 class VideoPlayerScreen extends StatefulWidget {
   final String videoUrl;
@@ -69,7 +69,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             Image.asset('assets/logo.png', height: 30),
             SizedBox(width: 8),
             Text('Kelibu Rehber',
-                style: TextStyle(color: Colors.black87, fontWeight: FontWeight.w600)),
+                style: TextStyle(
+                    color: Colors.black87, fontWeight: FontWeight.w600)),
           ],
         ),
         backgroundColor: Colors.white,

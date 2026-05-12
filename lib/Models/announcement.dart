@@ -1,5 +1,3 @@
-
-
 // Ve Announcement sınıfında da bunu güncelleyelim:
 import 'AnnouncementCategory.dart';
 
@@ -9,7 +7,7 @@ class Announcement {
   final String content;
   final bool isImportant;
   final DateTime publishDate;
-  final AnnouncementCategory category;  // Burada değişti
+  final AnnouncementCategory category; // Burada değişti
 
   Announcement({
     required this.id,

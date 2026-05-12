@@ -1,60 +1,252 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart' as providerp;
-import 'package:get/get.dart';
-import 'package:get/get_core/src/get_main.dart';
-import 'package:get/get_navigation/src/root/get_material_app.dart';
-import 'package:get_storage/get_storage.dart';
-import 'package:hive_flutter/adapters.dart';
-import 'package:kelibu/routes/race/app_routes.dart';
-import 'package:kelibu/screens/race/core/services/RoomService.dart';
-import 'package:purchases_flutter/models/purchases_configuration.dart';
-import 'package:purchases_flutter/purchases_flutter.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'firebase_options.dart';
+import 'package:intl/date_symbol_data_local.dart';
+
 import 'package:animations/animations.dart';
+import 'package:dio/dio.dart'; // ✅ Ekle
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' as providerp;
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:hive/hive.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:hive_flutter/adapters.dart';
 import 'package:kelibu/api.dart';
-import 'package:kelibu/providers/connectivity.dart';
 import 'package:kelibu/providers/darkmodeprovider.dart';
 import 'package:kelibu/providers/socket.dart';
 import 'package:kelibu/providers/sub_provider.dart';
+import 'package:kelibu/routes/race/app_routes.dart';
+import 'package:kelibu/screens/InternetConnectionCheckPage.dart';
 import 'package:kelibu/screens/advantages/books_pro.dart';
 import 'package:kelibu/screens/betaprogram/beta_apply.dart';
 import 'package:kelibu/screens/betaprogram/phdakademi.dart';
 import 'package:kelibu/screens/connectivyplus.dart';
 import 'package:kelibu/screens/connectivywrapper.dart';
+import 'package:kelibu/screens/home_screen_widgets/home_screen.dart';
+import 'package:kelibu/screens/leader_screen.dart';
+import 'package:kelibu/screens/login_screen.dart';
 import 'package:kelibu/screens/my_learn_path.dart';
+import 'package:kelibu/screens/noInternetPage.dart';
 import 'package:kelibu/screens/onboarding_screen.dart';
+import 'package:kelibu/screens/race/core/services/RoomService.dart';
 import 'package:kelibu/screens/src/self_english_beta.dart';
+import 'package:logging/logging.dart';
 import 'package:path_provider/path_provider.dart' as path_provider;
 import 'package:provider/provider.dart';
+import 'package:purchases_flutter/purchases_flutter.dart';
+import 'package:salomon_bottom_bar/salomon_bottom_bar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:video_player/video_player.dart';
-import 'providers/user_provider.dart';
-import 'screens/market_store.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'providers/volume_provider.dart';
+
+import 'firebase_options.dart';
 import 'providers/language_provider.dart';
 import 'providers/starred_word_provider.dart';
-import 'package:kelibu/screens/leader_screen.dart';
-import 'package:kelibu/screens/home_screen_widgets/home_screen.dart';
-import 'package:kelibu/screens/login_screen.dart';
-import 'package:kelibu/screens/noInternetPage.dart';
-import 'package:kelibu/screens/InternetConnectionCheckPage.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:salomon_bottom_bar/salomon_bottom_bar.dart';
-import 'package:logging/logging.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
+import 'providers/user_provider.dart';
+import 'providers/volume_provider.dart';
+import 'screens/market_store.dart';
+
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 late UserProvider userProviderGlobal;
 
+class SupabaseConfig {
+  static const String url = 'http://159.69.213.19:8080';
+  static const String anonKey =
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzQ5MjQzNjAw>';
+}
 
+Future<void> initializeSupabase() async {
+  try {
+    await Supabase.initialize(
+      url: SupabaseConfig.url,
+      anonKey: SupabaseConfig.anonKey,
+      authOptions: const FlutterAuthClientOptions(
+        authFlowType: AuthFlowType.pkce,
+      ),
+      realtimeClientOptions: const RealtimeClientOptions(
+        logLevel: RealtimeLogLevel.info,
+      ),
+      storageOptions: const StorageClientOptions(
+        retryAttempts: 10,
+      ),
+    );
+
+    // Bağlantı testi
+    await testSupabaseConnection();
+  } catch (e) {
+    rethrow;
+  }
+}
+Future<void> testSupabaseConnection() async {
+  try {
+    final client = Supabase.instance.client;
+    // 1. Basic health check - rooms tablosuna erişim
+    try {
+      await client.from('rooms').select('id').limit(1).timeout(
+        Duration(seconds: 5),
+        onTimeout: () {
+          throw TimeoutException('Supabase rooms query timeout');
+        },
+      );
+    } catch (e) {
+      throw e;
+    }
+
+    // 2. Auth endpoint kontrolü (opsiyonel)
+    try {
+      final session = client.auth.currentSession;
+      if (session != null) {
+      } else {
+      }
+    } catch (e) {
+      // Auth hatası kritik değil, devam et
+    }
+
+    // 3. Storage kontrolü (opsiyonel)
+    try {
+      final buckets = await client.storage.listBuckets().timeout(
+        Duration(seconds: 5),
+        onTimeout: () {
+          return [];
+        },
+      );
+    } catch (e) {
+      // Storage hatası kritik değil, devam et
+    }
+  } catch (e) {
+    throw e;
+  }
+}Future<void> initializeSupabaseWithRetry({int maxRetries = 3}) async {
+  for (int attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      await Supabase.initialize(
+        url: 'https://zpkpdbbdoatrsbdmdxkz.supabase.co',
+        anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpwa3BkYmJkb2F0cnNiZG1keGt6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzYyMDI3OTEsImV4cCI6MjA1MTc3ODc5MX0.L_DW2qAwsSmwh7TA3Nn9uZn9D3fp2oqlqynC9gsQ9uE',
+        authOptions: const FlutterAuthClientOptions(
+          authFlowType: AuthFlowType.pkce,
+        ),
+        realtimeClientOptions: const RealtimeClientOptions(
+          logLevel: RealtimeLogLevel.info,
+        ),
+        storageOptions: const StorageClientOptions(
+          retryAttempts: 10,
+        ),
+      ).timeout(
+        Duration(seconds: 10), // ✅ Timeout ekle
+        onTimeout: () {
+          throw TimeoutException('Supabase initialization timeout');
+        },
+      );
+
+      // ✅ Bağlantı test et
+      await _testSupabaseConnection();
+      return; // Başarılı, fonksiyondan çık
+
+    } catch (e) {
+      if (attempt == maxRetries) {
+        throw Exception('Failed to initialize Supabase after $maxRetries attempts: $e');
+      }
+
+      // ✅ Exponential backoff - her denemede bekleme süresi artar
+      final waitTime = Duration(seconds: attempt * 2); // 2s, 4s, 6s...
+      await Future.delayed(waitTime);
+    }
+  }
+}
+
+Future<void> _testSupabaseConnection() async {
+  try {
+    final client = Supabase.instance.client;
+
+    // ✅ Basit bir health check
+    await client.from('rooms').select('id').limit(1).timeout(
+      Duration(seconds: 5),
+      onTimeout: () {
+        throw TimeoutException('Supabase connection test timeout');
+      },
+    );
+  } catch (e) {
+    throw e;
+  }
+}
+
+Future<void> initializeFirebaseWithRetry({int maxRetries = 3}) async {
+  for (int attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      ).timeout(
+        Duration(seconds: 10),
+        onTimeout: () {
+          throw TimeoutException('Firebase initialization timeout');
+        },
+      );
+
+      await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+
+      // iOS kontrolleri
+      if (Platform.isIOS) {
+        try {
+          final apnsToken = await FirebaseMessaging.instance.getAPNSToken();
+          if (apnsToken == null) {
+            await Future.delayed(Duration(seconds: 2));
+            await FirebaseMessaging.instance.getAPNSToken();
+          }
+        } catch (e) {
+        }
+      }
+
+      await FirebaseMessaging.instance.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+        provisional: false,
+      );
+
+      try {
+        await FirebaseMessaging.instance.getToken();
+      } catch (e) {
+      }
+
+      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+        if (message.notification != null) {
+        }
+      });
+
+      try {
+        await FirebaseMessaging.instance.subscribeToTopic('announcements');
+      } catch (e) {
+      }
+
+      FirebaseMessaging.instance.getInitialMessage().then((RemoteMessage? message) {
+        if (message != null) {
+        }
+      });
+
+      FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+      });
+
+      FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+      return; // Başarılı
+
+    } catch (e) {
+      if (attempt == maxRetries) {
+        throw Exception('Failed to initialize Firebase after $maxRetries attempts: $e');
+      }
+
+      final waitTime = Duration(seconds: attempt * 2);
+      await Future.delayed(waitTime);
+    }
+  }
+}
 Future<void> initializeFirebase() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
@@ -69,65 +261,44 @@ Future<void> initializeFirebase() async {
     try {
       // APNS token'ı bekle
       final apnsToken = await FirebaseMessaging.instance.getAPNSToken();
-      print('APNS Token: $apnsToken');
 
       // Eğer APNS token null ise biraz bekle ve tekrar dene
       if (apnsToken == null) {
         await Future.delayed(Duration(seconds: 2));
-        final retryToken = await FirebaseMessaging.instance.getAPNSToken();
-        print('Retry APNS Token: $retryToken');
+        await FirebaseMessaging.instance.getAPNSToken();
       }
-    } catch (e) {
-      print('APNS token error: $e');
-    }
+    } catch (e) {}
   }
 
   // İzinleri iste
-  NotificationSettings settings = await FirebaseMessaging.instance.requestPermission(
+  await FirebaseMessaging.instance.requestPermission(
     alert: true,
     badge: true,
     sound: true,
     provisional: false, // iOS için geçici izin
   );
 
-  print('User granted permission: ${settings.authorizationStatus}');
-
   // FCM token'ı al
   try {
-    String? token = await FirebaseMessaging.instance.getToken();
-    print('FCM Token: $token');
-  } catch (e) {
-    print('Error getting FCM token: $e');
-  }
+    await FirebaseMessaging.instance.getToken();
+  } catch (e) {}
 
   // Ön planda bildirim dinleyicisi
   FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-    print('Got a message whilst in the foreground!');
-    print('Message data: ${message.data}');
-
-    if (message.notification != null) {
-      print('Message also contained a notification:');
-      print('Title: ${message.notification?.title}');
-      print('Body: ${message.notification?.body}');
-    }
+    if (message.notification != null) {}
   });
   try {
     await FirebaseMessaging.instance.subscribeToTopic('announcements');
-    print('Topic aboneliği başarılı');
-  } catch (e) {
-    print('Topic aboneliği hatası: $e');
-  }
+  } catch (e) {}
 // Uygulama kapalıyken gelen bildirim tıklaması (initial message)
   FirebaseMessaging.instance.getInitialMessage().then((RemoteMessage? message) {
     if (message != null) {
-      print('Uygulama kapalıyken bildirime tıklandı! Data: ${message.data}');
       // Zaten uygulamayı açacak, başka bir şey yapmaya gerek yok
     }
   });
 
 // Uygulama arkaplandayken gelen bildirim tıklaması
   FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-    print('Arkaplandayken bildirime tıklandı! Data: ${message.data}');
     // Zaten uygulamayı açacak, başka bir şey yapmaya gerek yok
   });
   // Arka planda bildirim dinleyicisi
@@ -140,19 +311,13 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-
-  print("Handling a background message: ${message.messageId}");
 }
+
 void configureLogging() {
   Logger.root.level = Level.ALL;
   Logger.root.onRecord.listen((record) {
-    print('${record.level.name}: ${record.time}: ${record.message}');
-    if (record.error != null) {
-      print('Error: ${record.error}');
-    }
-    if (record.stackTrace != null) {
-      print('Stack trace:\n${record.stackTrace}');
-    }
+    if (record.error != null) {}
+    if (record.stackTrace != null) {}
   });
 }
 
@@ -167,83 +332,100 @@ Future<void> _clearAppData() async {
     await Hive.close();
     final appDir = await path_provider.getApplicationDocumentsDirectory();
     await appDir.delete(recursive: true);
-
-    print('App data cleared successfully');
-  } catch (e) {
-    print('Error clearing app data: $e');
-  }
+  } catch (e) {}
 }
+
 void main() async {
   try {
     WidgetsFlutterBinding.ensureInitialized();
+    await initializeDateFormatting('tr_TR', null);
+// Google Sign-In initialize
+    if (Platform.isAndroid) {
+      await GoogleSignIn.instance.initialize(
+        serverClientId: '859879146409-ph1t7uif3kfr0jj8li0csdqi93nq9ieh.apps.googleusercontent.com',
+      );
+    }
+    // Firebase başlatma - retry mekanizmalı
+    try {
+      await initializeFirebaseWithRetry(maxRetries: 3);
+    } catch (e) {
+      // Firebase zorunlu değilse devam et
+    }
 
-    await initializeFirebase(); // Firebase başlatma
-
-    // getsnueCat konfigürasyonu
+    // RevenueCat konfigürasyonu
     PurchasesConfiguration configuration;
     if (Platform.isIOS) {
       configuration = PurchasesConfiguration("appl_ZFDqUCgRrrNraIvwMXBcjsqZSPe");
     } else {
       configuration = PurchasesConfiguration("goog_hZjNdDZQBOkrqzJxYoXdYigOJli");
     }
-    await Purchases.setLogLevel(LogLevel.verbose);
 
-    // Debug modda logları görmek için
-    await Purchases.setLogLevel(LogLevel.debug);
-    await Purchases.configure(configuration);
+    try {
+      await Purchases.setLogLevel(LogLevel.debug);
+      await Purchases.configure(configuration); // ✅ timeout kaldırıldı
+    } catch (e) {
+    }
+
     configureLogging();
-    await Hive.initFlutter();
-    await GetStorage.init();
-    // Supabase initialization
-    await Supabase.initialize(
-      url: 'https://zpkpdbbdoatrsbdmdxkz.supabase.co',
-      anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpwa3BkYmJkb2F0cnNiZG1keGt6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzYyMDI3OTEsImV4cCI6MjA1MTc3ODc5MX0.L_DW2qAwsSmwh7TA3Nn9uZn9D3fp2oqlqynC9gsQ9uE',
-      authOptions: const FlutterAuthClientOptions(
-        authFlowType: AuthFlowType.pkce,
-      ),
-      realtimeClientOptions: const RealtimeClientOptions(
-        logLevel: RealtimeLogLevel.info,
-      ),
-      storageOptions: const StorageClientOptions(
-        retryAttempts: 10,
-      ),
-    );
-    Get.put(UserProvider()); // Önce UserProvider'ı inject et
-    Get.put(RoomService(
-      Supabase.instance.client,
-      Get.find<UserProvider>(),
-    ));
-    // Supabase bağlantı kontrolü
 
+    // Hive ve GetStorage
+    try {
+      await Hive.initFlutter();
+    } catch (e) {
+    }
+
+    try {
+      await GetStorage.init();
+    } catch (e) {
+    }
+
+    // Supabase initialization - retry mekanizmalı
+    try {
+      await initializeSupabaseWithRetry(maxRetries: 3);
+    } catch (e) {
+      // Supabase olmadan da uygulama çalışabilir (offline mode)
+    }
+
+    // Dependency injection
+    try {
+      Get.put(UserProvider());
+      Get.put(RoomService(
+        Supabase.instance.client,
+        Get.find<UserProvider>(),
+      ));
+    } catch (e) {
+      // Fallback provider'lar
+      Get.put(UserProvider());
+    }
 
     // Kayıtlı kullanıcı varsa RevenueCat'e bildir
-    String? userId = await _getStoredUserId(); // Bu metodu oluşturacağız
+    String? userId = await _getStoredUserId();
     if (userId != null) {
       try {
-        await Purchases.logIn(userId);
+        await Purchases.logIn(userId); // ✅ timeout kaldırıldı
       } catch (e) {
-        print('RevenueCat login error: $e');
       }
     }
 
-    // OneSignal
-
+    // Servis kontrolleri
     await checkAllServices();
 
     // Global state yönetimi
     userProviderGlobal = UserProvider();
-    bool userLoaded = await userProviderGlobal.loadUser().timeout(
-      Duration(seconds: 5),
-      onTimeout: () {
-        print("User loading timeout");
-        return false;
-      },
-    );
+    bool userLoaded = false;
 
-    if (!userLoaded) {
-      await _clearAppData();
+    try {
+      userLoaded = await userProviderGlobal.loadUser().timeout(
+        Duration(seconds: 10),
+        onTimeout: () {
+          return false;
+        },
+      );
+    } catch (e) {
+      userLoaded = false;
     }
 
+    // Uygulama başlatma
     runApp(
       providerp.ProviderScope(
         child: MultiProvider(
@@ -261,104 +443,99 @@ void main() async {
         ),
       ),
     );
-  } catch (e, stackTrace) {
-    print('Initialization error: $e');
-    print('Stack trace: $stackTrace');
-    await _clearAppData();
-    runApp(const MyApp());
+  } catch (e) {
+    // Minimal başlatma - hata sayfası göster
+    runApp(MaterialApp(
+      home: Scaffold(
+        body: Center(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.error_outline, size: 64, color: Colors.red),
+                SizedBox(height: 16),
+                Text(
+                  'Uygulama Başlatılamadı',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'Lütfen internet bağlantınızı kontrol edin ve tekrar deneyin.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey[600]),
+                ),
+                SizedBox(height: 24),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    exit(0);
+                  },
+                  icon: Icon(Icons.refresh),
+                  label: Text('Uygulamayı Yeniden Başlat'),
+                  style: ElevatedButton.styleFrom(
+                    padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ));
   }
 }
 Future<void> checkAllServices() async {
-  print('\n====== SİSTEM DURUM KONTROLÜ BAŞLADI ======');
-  print('🕐 Kontrol Zamanı: ${DateTime.now()}');
+  try {
+    final client = Supabase.instance.client;
 
+
+    try {
+      await client.from('rooms').select('id').count();
+    } catch (e) {}
+  } catch (e) {}
   // Hive Kontrolü
   try {
     final box = await Hive.openBox('testBox');
     await box.put('test', 'OK');
-    final testValue = await box.get('test');
-    print('📦 Hive Durumu: ${testValue == 'OK' ? "Çalışıyor ✅" : "Hata ❌"}');
+    await box.get('test');
     await box.delete('test');
     await box.close();
-  } catch (e) {
-    print('📦 Hive Hatası: $e ❌');
-  }
+  } catch (e) {}
 
   // GetStorage Kontrolü
   try {
     final storage = GetStorage();
     await storage.write('test', 'OK');
-    final testValue = storage.read('test');
-    print('💾 GetStorage Durumu: ${testValue == 'OK' ? "Çalışıyor ✅" : "Hata ❌"}');
+    storage.read('test');
     await storage.remove('test');
-  } catch (e) {
-    print('💾 GetStorage Hatası: $e ❌');
-  }
+  } catch (e) {}
 
   // RevenueCat Kontrolü
   try {
-    final offerings = await Purchases.getOfferings();
-    print('💰 RevenueCat Durumu: ${offerings != null ? "Çalışıyor ✅" : "Hata ❌"}');
-  } catch (e) {
-    print('💰 RevenueCat Hatası: $e ❌');
-  }
+    await Purchases.getOfferings();
+  } catch (e) {}
 
   // Supabase Kontrolleri
-  try {
-    final client = Supabase.instance.client;
 
-    // Bağlantı Kontrolü
-    print('\n🔌 SUPABASE KONTROLLER:');
-    print('├─ Client: Bağlı ✅');
-
-    // Auth Durumu
-    final session = client.auth.currentSession;
-    print('├─ Auth: ${session != null ? "Oturum Açık ✅" : "Oturum Kapalı ⚠️"}');
-
-    // Realtime Durumu
-    final realtimeState = client.realtime.connectionState;
-    print('├─ Realtime: $realtimeState ✅');
-
-    // Rooms Tablosu Kontrolü
-    try {
-      final roomsCount = await client
-          .from('rooms')
-          .select('id')
-          .count();
-      print('└─ Rooms Tablosu: ${roomsCount.count ?? 0} kayıt var ✅');
-    } catch (e) {
-      print('└─ Rooms Tablosu Hatası: $e ❌');
-    }
-
-  } catch (e) {
-    print('🔌 Supabase Genel Hata: $e ❌');
-  }
 
   // User Provider Kontrolü
   try {
     if (userProviderGlobal != null) {
-      print('\n👤 USER PROVIDER:');
-      print('└─ Durum: Yüklendi ✅');
-    } else {
-      print('\n👤 USER PROVIDER:');
-      print('└─ Durum: Yüklenemedi ❌');
-    }
-  } catch (e) {
-    print('👤 User Provider Hatası: $e ❌');
-  }
-
-  print('\n====== SİSTEM DURUM KONTROLÜ TAMAMLANDI ======\n');
+    } else {}
+  } catch (e) {}
 }
+
 // Kullanıcı ID'sini almak için yardımcı metod
 Future<String?> _getStoredUserId() async {
   try {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     return prefs.getString('userId'); // veya kullandığınız storage key
   } catch (e) {
-    print('Error getting stored user ID: $e');
     return null;
   }
 }
+
 class MyApp extends StatelessWidget {
   const MyApp({Key? key}) : super(key: key);
 
@@ -378,7 +555,8 @@ class MyApp extends StatelessWidget {
           ],
           child: ConnectivityWrapper(child: SplashScreen()),
         ),
-        getPages: AppPages.routes, // Bu satırı ekleyin
+        getPages: AppPages.routes,
+        // Bu satırı ekleyin
 
         routes: {
           '/noInternet': (context) => NoInternetPage(),
@@ -481,17 +659,58 @@ class SplashScreen extends StatefulWidget {
   _SplashScreenState createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> with WidgetsBindingObserver {
-  late VideoPlayerController _controller;
+class _SplashScreenState extends State<SplashScreen>
+    with WidgetsBindingObserver {
+  VideoPlayerController? _controller; // ✅ nullable
   bool _isVideoInitialized = false;
   bool _isNavigating = false;
   bool _mounted = true;
-  bool _isStaticSplashVisible = true;
+  Timer? _safetyTimer;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _initialize();
+    _safetyTimer = Timer(Duration(seconds: 5), () {
+      if (_mounted && !_isNavigating) {
+        _checkNavigationFlow();
+      }
+    });
+  }
+
+  Future<void> _checkTokenAndNavigate() async {
+    const storage = FlutterSecureStorage();
+    final token = await storage.read(key: 'access_token');
+
+    if (token == null) {
+      // Token yok → Login
+      Get.offAll(() => LoginScreen());
+      return;
+    }
+
+    // ✅ Token'ı validate et
+    try {
+      final apiService = ApiService();
+      final response = await apiService.dio.get(
+        '/user', // veya '/auth/validate'
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Accept': 'application/json',
+          },
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        // Token geçerli → Ana sayfa
+        Get.offAll(() => HomeScreen());
+      }
+    } catch (e) {
+      // Token geçersiz → Sil ve Login'e git
+      await storage.delete(key: 'access_token');
+      Get.offAll(() => LoginScreen());
+    }
   }
 
   @override
@@ -499,132 +718,38 @@ class _SplashScreenState extends State<SplashScreen> with WidgetsBindingObserver
     if (!_mounted) return;
 
     if (state == AppLifecycleState.resumed) {
-      _controller.play();
+      _controller?.play();
     } else if (state == AppLifecycleState.paused) {
-      _controller.pause();
+      _controller?.pause();
     }
   }
 
   Future<void> _initialize() async {
     if (!_mounted) return;
-
     try {
-      // İnternet bağlantısını kontrol et (hızlı ve kritik adım)
       bool hasInternet = false;
       try {
-        hasInternet = await InternetConnectionChecker().isConnected()
-            .timeout(Duration(seconds: 5), onTimeout: () => false);
+        hasInternet = await InternetConnectionChecker()
+            .isConnected()
+            .timeout(const Duration(seconds: 5), onTimeout: () => false);
       } catch (e) {
-        print("Internet check error: $e");
         hasInternet = false;
       }
 
       if (!_mounted) return;
 
-      // İnternet yoksa, doğrudan internet olmayan sayfaya geç
       if (!hasInternet) {
         _navigateToNoInternet();
         return;
       }
 
-      // SharedPreferences - hafif ve hızlı olduğu için önce bunu yükle
-      SharedPreferences? prefs;
-      try {
-        // SharedPreferences.getInstance() null dönmediği için timeout'u farklı şekilde ele alıyoruz
-        final prefsFuture = SharedPreferences.getInstance();
-        // Timeout'u kontrol etmek için Future.timeout kullanıyoruz
-        bool timeoutOccurred = false;
-
-        prefs = await prefsFuture.timeout(
-          Duration(seconds: 5),
-          onTimeout: () {
-            timeoutOccurred = true;
-            print("SharedPreferences timeout");
-            // getInstance() null dönüş yapamaz, bu yüzden exception fırlatıyoruz
-            throw TimeoutException("SharedPreferences timeout");
-          },
-        );
-      } catch (e) {
-        print("SharedPreferences error: $e");
-      }
-
-      if (!_mounted) return;
-
-      if (prefs == null) {
-        _navigateToLogin();
-        return;
-      }
-
-      // Statik splash göster
-      setState(() {
-        _isStaticSplashVisible = true;
-      });
-
-      // WordDataCache'i başlat, hata olursa bile devam et
-      try {
-        bool wordCacheTimeoutOccurred = false;
-        await WordDataCache.loadAllData().timeout(
-          Duration(seconds: 10),
-          onTimeout: () {
-            wordCacheTimeoutOccurred = true;
-            print("WordDataCache loading timeout, continuing without full data");
-            throw TimeoutException("WordDataCache loading timeout");
-          },
-        );
-      } catch (e) {
-        print("WordDataCache error: $e, continuing anyway");
-        // Sadece log, uygulamayı durdurma
-      }
-      if (!_mounted) return;
-
-      // Kritik kullanıcı bilgilerini kontrol et
-      final onboardingComplete = prefs.getBool('onboarding_complete') ?? false;
-      final userId = prefs.getString('userId');
-      final storedVersion = prefs.getString('app_version');
-      const String CURRENT_VERSION = "3";
-
-      if (!onboardingComplete) {
-        _navigateToOnboarding();
-        return;
-      }
-
-      if (storedVersion != CURRENT_VERSION || userId == null || userId.isEmpty) {
-        _navigateToLogin();
-        return;
-      }
-
-      // Kullanıcı bilgilerini yükle
-      bool userLoaded = false;
-      try {
-        userLoaded = await userProviderGlobal.loadUser().timeout(
-          Duration(seconds: 15),
-          onTimeout: () {
-            print("User loading timeout");
-            return false;
-          },
-        );
-      } catch (e) {
-        print("User loading error: $e");
-        userLoaded = false;
-      }
-
-      if (!_mounted) return;
-
-      if (!userLoaded) {
-        _navigateToLogin();
-        return;
-      }
-
-      // Video oynatıcıyı başlatmayı dene
       bool videoInitialized = false;
       try {
-        // Video oynatıcıyı başlat
         _controller = VideoPlayerController.asset('assets/splash_video.mp4');
 
-        await _controller.initialize().timeout(
-          Duration(seconds: 5),
+        await _controller?.initialize().timeout(
+          const Duration(seconds: 5),
           onTimeout: () {
-            print("Video initialization timeout, skipping video");
             throw TimeoutException("Video initialization timeout");
           },
         );
@@ -632,83 +757,61 @@ class _SplashScreenState extends State<SplashScreen> with WidgetsBindingObserver
         if (_mounted) {
           setState(() {
             _isVideoInitialized = true;
-            _isStaticSplashVisible = false; // Video hazır olduğu için statik splash'i gizle
           });
 
-          // Video bitince navigasyonu kontrol et
-          _controller.addListener(() {
-            if (_controller.value.position >= _controller.value.duration) {
-              _checkNavigationFlow();
-            }
-          });
+          // ✅ BURASI DEĞİŞTİ - Listener'ı ekle
+          _controller!.addListener(_videoListener);
 
-          _controller.play();
+          await _controller?.play();
           videoInitialized = true;
         }
       } catch (e) {
-        print("Video initialization error: $e, continuing without video");
         videoInitialized = false;
       }
 
-      if (!_mounted) return;
-
-      // Kullanıcı bilgilerini güncellemeyi dene ama hata olursa durdurma
-      try {
-        await _updateUserInfo().timeout(
-          Duration(seconds: 5),
-          onTimeout: () {
-            print("User info update timeout, continuing anyway");
-            return;
-          },
-        );
-      } catch (e) {
-        print("User info update error: $e, continuing anyway");
-      }
-
-      // Video başlatılamadıysa, kısa bir gecikme sonra ana ekrana geç
       if (!videoInitialized) {
-        // 1.5 saniye logo göster, sonra ana ekrana geç
-        Future.delayed(Duration(milliseconds: 1500), () {
+        Future.delayed(const Duration(milliseconds: 1500), () {
           if (_mounted) {
-            _navigateToMain();
-          }
-        });
-      }
-      // Video başlatıldıysa, video bitişinde _controller listener'ı _checkNavigationFlow'u çağıracak
-
-    } catch (e, stackTrace) {
-      print("Initialization error: $e");
-      print("Stack trace: $stackTrace");
-
-      if (_mounted) {
-        // Kritik hata durumunda login sayfasına yönlendir
-        // Tam app temizliği yerine sadece yönlendirme yap
-        _navigateToLogin();
-      }
-    }
-  }
-
-  Future<void> _initializeVideoPlayer() async {
-    try {
-      _controller = VideoPlayerController.asset('assets/splash_video.mp4');
-      await _controller.initialize();
-
-      if (_mounted) {
-        setState(() => _isVideoInitialized = true);
-        await _controller.play();
-
-        _controller.addListener(() {
-          if (_controller.value.position >= _controller.value.duration) {
             _checkNavigationFlow();
           }
         });
       }
+
+      try {} catch (e) {}
+
+      // User yükleme - arka planda
+      try {
+        await userProviderGlobal.loadUser().timeout(
+          const Duration(seconds: 15),
+          onTimeout: () {
+            return false;
+          },
+        );
+      } catch (e) {}
+
+      try {
+        await _updateUserInfo().timeout(
+          const Duration(seconds: 5),
+          onTimeout: () {
+            return;
+          },
+        );
+      } catch (e) {}
     } catch (e) {
-      print("Video initialization error: $e");
-      throw e;
+      if (_mounted) {
+        _navigateToLogin();
+      }
     }
   }
-
+// 1️⃣ Önce fonksiyonu tanımla (class içinde, en üstte)
+  void _videoListener() {
+    final controller = _controller;
+    if (controller != null &&
+        controller.value.isInitialized &&
+        controller.value.position >= controller.value.duration) {
+      _checkNavigationFlow();
+    }
+  }
   Future<void> _checkNavigationFlow() async {
     if (_isNavigating || !_mounted) return;
     _isNavigating = true;
@@ -722,37 +825,46 @@ class _SplashScreenState extends State<SplashScreen> with WidgetsBindingObserver
         return;
       }
 
-      // Sadece versiyon kontrolü yap
+      // Versiyon kontrolü
       final storedVersion = prefs.getString('app_version');
       const String CURRENT_VERSION = "3";
 
-      // Versiyon kontrolü veya userId eksikse login'e yönlendir
-      final userId = prefs.getString('userId');
-      if (storedVersion != CURRENT_VERSION || userId == null || userId.isEmpty) {
+      const storage = FlutterSecureStorage();
+
+      final token = await storage.read(key: 'access_token');
+      if (storedVersion != CURRENT_VERSION || token == null || token.isEmpty) {
         await _clearAppData();
         _navigateToLogin();
         return;
       }
 
-      // User bilgilerini kontrol et
+      bool isTokenValid = await _validateToken(token);
+
+      if (!isTokenValid) {
+        await _clearAppData();
+        _navigateToLogin();
+        return;
+      }
+
       if (await userProviderGlobal.loadUser()) {
         try {
           await _updateUserInfo();
           _navigateToMain();
         } catch (e) {
-          print("User info update error: $e");
           _navigateToMain();
         }
       } else {
         _navigateToLogin();
       }
-
     } catch (e) {
-      print("Navigation flow error: $e");
       _navigateToLogin();
     }
   }
-// _navigateToLogin() metodunu aşağıdaki şekilde güncelleyin
+
+  Future<bool> _validateToken(String token) async {
+    return await ApiService().validateToken(token);
+  }
+
   void _navigateToLogin() async {
     if (!_mounted) return;
 
@@ -773,74 +885,43 @@ class _SplashScreenState extends State<SplashScreen> with WidgetsBindingObserver
 
 // _clearAppData() fonksiyonunu genişletin ve eksik kaynakları da temizleyin
   Future<void> _clearAppData() async {
-    print('⚠️ TÜM VERİLER SİLİNİYOR...');
     try {
       // SharedPreferences temizliği
       final prefs = await SharedPreferences.getInstance();
       await prefs.clear();
-      print('✅ SharedPreferences temizlendi');
 
       // Secure Storage temizliği
       final storage = FlutterSecureStorage();
       await storage.deleteAll();
-      print('✅ Secure Storage temizlendi');
 
       // GetStorage temizliği
       try {
         final getStorage = GetStorage();
         await getStorage.erase();
-        print('✅ GetStorage temizlendi');
-      } catch (e) {
-        print('❌ GetStorage temizleme hatası: $e');
-      }
+      } catch (e) {}
 
       // Hive verilerini temizle
       try {
         await Hive.close();
-        print('✅ Hive kapatıldı');
-      } catch (e) {
-        print('❌ Hive kapatma hatası: $e');
-      }
+      } catch (e) {}
 
-      // Uygulama dokümanlarını temizle
       try {
         final appDir = await path_provider.getApplicationDocumentsDirectory();
         final appDirPath = appDir.path;
 
-        // Tüm klasörü silmek yerine, sadece içindeki dosyaları sil
         final directory = Directory(appDirPath);
         if (await directory.exists()) {
           final files = directory.listSync();
           for (var file in files) {
             try {
               await file.delete(recursive: true);
-            } catch (e) {
-              print('❌ Dosya silme hatası (${file.path}): $e');
-            }
+            } catch (e) {}
           }
         }
-        print('✅ Uygulama dokümanları temizlendi');
-      } catch (e) {
-        print('❌ Uygulama dokümanları temizleme hatası: $e');
-      }
+      } catch (e) {}
 
       // Kullanıcı provider'ını sıfırla
-
-      print('✅ Tüm veriler başarıyla temizlendi');
-    } catch (e, stackTrace) {
-      print('❌ Veri temizleme hatası: $e');
-      print('❌ Stack trace: $stackTrace');
-    }
-  }
-
-  Future<String?> _getToken() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      return prefs.getString('token');
-    } catch (e) {
-      print("Token get error: $e");
-      return null;
-    }
+    } catch (e) {}
   }
 
   Future<void> _updateUserInfo() async {
@@ -848,14 +929,13 @@ class _SplashScreenState extends State<SplashScreen> with WidgetsBindingObserver
 
     try {
       final userId = userProviderGlobal.userId;
-      final hash = await userProviderGlobal.getUsernameHash();
+      await userProviderGlobal.getUsernameHash();
       final userData = await ApiService().fetchUserPoint(userId);
 
       if (_mounted) {
         await userProviderGlobal.addPoint(userData['point']);
       }
     } catch (e) {
-      print("User info update error: $e");
       throw e;
     }
   }
@@ -873,7 +953,6 @@ class _SplashScreenState extends State<SplashScreen> with WidgetsBindingObserver
       ),
     );
   }
-
 
   void _navigateToOnboarding() {
     if (!_mounted) return;
@@ -913,20 +992,20 @@ class _SplashScreenState extends State<SplashScreen> with WidgetsBindingObserver
           child: Center(
             child: _isVideoInitialized
                 ? AspectRatio(
-              aspectRatio: _controller.value.aspectRatio,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  Container(color: Colors.white),
-                  VideoPlayer(_controller),
-                ],
-              ),
-            )
+                    aspectRatio: _controller!.value.aspectRatio,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Container(color: Colors.white),
+                        VideoPlayer(_controller!),
+                      ],
+                    ),
+                  )
                 : CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(
-                Theme.of(context).primaryColor,
-              ),
-            ),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      Theme.of(context).primaryColor,
+                    ),
+                  ),
           ),
         ),
       ),
@@ -936,8 +1015,27 @@ class _SplashScreenState extends State<SplashScreen> with WidgetsBindingObserver
   @override
   void dispose() {
     _mounted = false;
-    _controller.dispose();
     WidgetsBinding.instance.removeObserver(this);
+
+    // ✅ YENİ KOD - Güvenli dispose
+    if (_controller != null) {
+      try {
+        // Önce listener'ı kaldır
+        _controller!.removeListener(_videoListener);
+
+        // Video oynatılıyorsa durdur
+        if (_controller!.value.isInitialized) {
+          _controller!.pause();
+        }
+
+        // Dispose et
+        _controller!.dispose();
+      } catch (e) {
+        // Hata olursa sessizce geç
+      }
+      _controller = null;
+    }
+
     super.dispose();
   }
 }

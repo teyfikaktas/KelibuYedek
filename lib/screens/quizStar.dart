@@ -1,31 +1,27 @@
-
-import 'package:flutter/material.dart';
-import 'package:kelibu/Models/wordDetaik.dart';
-import 'dart:math';
 import 'dart:async';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:kelibu/api.dart';
-import 'package:kelibu/screens/home_screen_widgets/home_screen.dart';
-import 'package:kelibu/providers/language_provider.dart';
-
-import 'package:audioplayers/audioplayers.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../providers/user_provider.dart';
-import 'package:provider/provider.dart';
-import '../providers/volume_provider.dart';
-import 'package:flutter_tts/flutter_tts.dart';
-import 'package:another_flushbar/flushbar.dart';
-import 'dart:io' show Platform;
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:io';
+import 'dart:math';
 import 'dart:typed_data';
-import 'package:path_provider/path_provider.dart';
-import 'package:flutter/services.dart' show rootBundle;
+
+import 'package:another_flushbar/flushbar.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:back_button_interceptor/back_button_interceptor.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
+import 'package:flutter_tts/flutter_tts.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:kelibu/Models/wordDetaik.dart';
+import 'package:kelibu/api.dart';
+import 'package:kelibu/providers/language_provider.dart';
+import 'package:kelibu/screens/home_screen_widgets/home_screen.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import '../providers/user_provider.dart';
+import '../providers/volume_provider.dart';
 import '../variables.dart';
-
 
 class QuizCard extends StatefulWidget {
   final String question;
@@ -38,6 +34,7 @@ class QuizCard extends StatefulWidget {
     this.duration = const Duration(seconds: 1),
     required this.currentQuestionIndex, // Add this line
   }) : super(key: key);
+
   @override
   _QuizCardState createState() => _QuizCardState();
 }
@@ -50,11 +47,13 @@ class _QuizCardState extends State<QuizCard> {
   Future<void> playSound(String path) async {
     await audioPlayer.play(AssetSource(path));
   }
+
   double _calculateFontSize(String text) {
     if (text.length < 20) return 2;
     if (text.length < 100) return 2;
     return 2; // Daha uzun metinler için küçük font boyutu
   }
+
   @override
   void initState() {
     super.initState();
@@ -63,7 +62,6 @@ class _QuizCardState extends State<QuizCard> {
         _opacity = 1.0;
       });
     });
-
   }
 
   @override
@@ -106,26 +104,31 @@ class QuizStarScreen extends StatefulWidget {
     required this.classroomId, // Yeni parametre
     required this.studySetId, // Yeni parametre
   }) : super(key: key);
+
   @override
   _QuizScreenStarState createState() => _QuizScreenStarState();
 }
+
 class _QuizScreenStarState extends State<QuizStarScreen> {
   int currentQuestionIndex = 0;
   PageController _pageController = PageController();
   final ScrollController _navBarScrollController = ScrollController();
+
   // ValueNotifier değişkenleri tanımla
   ValueNotifier<bool> isRefreshOn = ValueNotifier(true);
   ValueNotifier<bool> isMuteOn = ValueNotifier(true);
   ValueNotifier<bool> isSortOn = ValueNotifier(true);
   ValueNotifier<bool> refresh_off = ValueNotifier(true);
-  ValueNotifier<bool> isTurkish = ValueNotifier(false); // Türkçe için false, İngilizce için true
+  ValueNotifier<bool> isTurkish =
+      ValueNotifier(false); // Türkçe için false, İngilizce için true
   bool _isDarkMode = false; // Dark mode durumu
 
   Map<int, bool?> questionStatuses = {};
 
   int _pausedTime = 0;
   int score = 0;
-  ValueNotifier<Color> backgroundColorNotifier = ValueNotifier(Colors.blue); // Varsayılan olarak mavi renk
+  ValueNotifier<Color> backgroundColorNotifier =
+      ValueNotifier(Colors.blue); // Varsayılan olarak mavi renk
 
   Future<void> playSoundCorrect(String path) async {
     AudioPlayer audioPlayer = AudioPlayer();
@@ -134,7 +137,8 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
     if (!kIsWeb) {
       // Mobil veya masaüstü için
       ByteData data = await rootBundle.load(path);
-      Uint8List bytes = data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
+      Uint8List bytes =
+          data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
       String dir = (await getTemporaryDirectory()).path;
       File tempFile = File('$dir/tempSound.wav');
       await tempFile.writeAsBytes(bytes, flush: true);
@@ -142,17 +146,20 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
     } else {
       // Web için
       ByteData data = await rootBundle.load(path);
-      Uint8List bytes = data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
+      Uint8List bytes =
+          data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
       // Doğrudan bellekten ses dosyasını oynat
       await audioPlayer.play(BytesSource(bytes));
     }
   }
+
   Future<void> _loadDarkModePreference() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _isDarkMode = prefs.getBool("darkMode") ?? false;
     });
   }
+
   bool showStarredOnly = false; // Yıldızlı kelimeleri gösterme durumunu tutacak
 
   void resetQuiz() {
@@ -171,14 +178,17 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
   void toggleStarredOnly() {
     setState(() {
       showStarredOnly = !showStarredOnly;
-      backgroundColorNotifier.value = showStarredOnly ? Colors.green : Colors.blue;
+      backgroundColorNotifier.value =
+          showStarredOnly ? Colors.green : Colors.blue;
       showCustomFlushbar(
           context,
-          showStarredOnly ? "Yıldızlı kelimeler modu açıldı." : "Yıldızlı kelimeler modu kapandı"
-      );
+          showStarredOnly
+              ? "Yıldızlı kelimeler modu açıldı."
+              : "Yıldızlı kelimeler modu kapandı");
       if (showStarredOnly) {
         // Yıldızlı kelimeleri filtrele ve ilk yıldızlı kelimeye git
-        var filteredQuestions = questions.where((q) => starredStatus[q.id] ?? false).toList();
+        var filteredQuestions =
+            questions.where((q) => starredStatus[q.id] ?? false).toList();
         if (filteredQuestions.isNotEmpty) {
           questions = filteredQuestions;
           resetQuiz(); // Quiz'i sıfırla
@@ -192,12 +202,15 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
       _pageController.jumpToPage(currentQuestionIndex);
     });
   }
+
   final AudioPlayer audioPlayer = AudioPlayer();
   final FlutterTts flutterTts = FlutterTts();
   bool isSpeaking = false;
+
   Future<void> playSound(String path) async {
     await audioPlayer.play(AssetSource(path));
   }
+
   late List<QuizQuestion> questions = [];
 
   Map<int, bool> starredWords = {};
@@ -207,10 +220,12 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
   Map<int, ValueNotifier<bool>> starredNotifiers = {};
   Map<int, bool> starredStatus = {};
   int userID = 2;
+
   bool myInterceptor(bool stopDefaultButtonEvent, RouteInfo info) {
     _showExitConfirmationDialog();
     return true;
   }
+
   void _showExitConfirmationDialog() {
     showDialog<bool>(
       context: context,
@@ -235,39 +250,44 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
 
   ValueNotifier<int> animatedStarredCount = ValueNotifier(0);
   Map<int, Color> optionColors = {};
+
   QuizQuestion get currentQuestion => questions[currentQuestionIndex];
   ValueNotifier<bool> isVisibilityOn = ValueNotifier(true);
   Timer? _timer; // late yerine nullable tanımlama
   int _remainingTime = 15; // Zamanlayıcı için kalan süre
   ValueNotifier<bool> get isStarredNotifier {
-    int questionId = questions[currentQuestionIndex].id; // id özelliğini ekledim
-    return starredNotifiers[questionId] ?? ValueNotifier(false); // Null-safety kontrolü
+    int questionId =
+        questions[currentQuestionIndex].id; // id özelliğini ekledim
+    return starredNotifiers[questionId] ??
+        ValueNotifier(false); // Null-safety kontrolü
   }
 
   _speak() async {
     final volumeProvider = Provider.of<VolumeProvider>(context, listen: false);
-    final langueaProvider = Provider.of<LanguageProvider>(context, listen: false);
+    final langueaProvider =
+        Provider.of<LanguageProvider>(context, listen: false);
 
     // Check if the language is not Turkish and volume is on before speaking
     if (!isSpeaking && volumeProvider.isVolumeOn && isTurkish.value) {
       isSpeaking = true;
       String wordToSpeak = questions[currentQuestionIndex].term;
-      print(wordToSpeak);
       await flutterTts.setLanguage("en-US");
       await flutterTts.awaitSpeakCompletion(true);
       await flutterTts.speak(wordToSpeak);
       isSpeaking = false;
     }
   }
+
   void _scrollToSelectedQuestion() {
-    double selectedQuestionOffset = currentQuestionIndex * 50.0; // Örnek genişlik, düzenlenmesi gerekebilir
+    double selectedQuestionOffset =
+        currentQuestionIndex * 50.0; // Örnek genişlik, düzenlenmesi gerekebilir
     _navBarScrollController.animateTo(
       selectedQuestionOffset,
-      duration: Duration(milliseconds
-          : 300),
+      duration: Duration(milliseconds: 300),
       curve: Curves.easeInOut,
     );
   }
+
   void startTimer({bool resumeFromPausedTime = false}) {
     _timer?.cancel();
     if (resumeFromPausedTime) {
@@ -290,51 +310,50 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
   void _shuffleOrSortWords() async {
     List<WordDetail> newWords;
     showCustomFlushbar(
-        context,
-        isSortOn.value ? "Liste Sıralandı." : "Liste Karıştırıldı."
-    );
+        context, isSortOn.value ? "Liste Sıralandı." : "Liste Karıştırıldı.");
     if (isSortOn.value) {
       // Sıralama modunda, kelimeleri sırala
-      newWords = List<WordDetail>.from(widget.words)..sort((a, b) => a.id.compareTo(b.id));
+      newWords = List<WordDetail>.from(widget.words)
+        ..sort((a, b) => a.id.compareTo(b.id));
     } else {
       // Karıştırma modunda, kelimeleri karıştır
       newWords = List<WordDetail>.from(widget.words)..shuffle();
     }
 
-    List<QuizQuestion> newQuestions = await generateQuizQuestions(newWords, isTurkish);
-
+    List<QuizQuestion> newQuestions =
+        await generateQuizQuestions(newWords, isTurkish);
 
     setState(() {
       questions = newQuestions;
       // Mevcut sorunun indeksini güncelle
-      currentQuestionIndex = 0; // veya karıştırılan listedeki uygun indeksi bulun
+      currentQuestionIndex =
+          0; // veya karıştırılan listedeki uygun indeksi bulun
       // PageController'ı güncel sayfaya yönlendir
       _pageController.jumpToPage(currentQuestionIndex);
     });
   }
 
-
   void _changeLang() async {
-
     List<WordDetail> newWords;
-    showCustomFlushbar(
-        context,
-        isTurkish.value ? "Türkçe Mod açıldı." : "İngilizce Mod açıldı."
-    );
+    showCustomFlushbar(context,
+        isTurkish.value ? "Türkçe Mod açıldı." : "İngilizce Mod açıldı.");
     if (isSortOn.value) {
       // Sıralama modunda, kelimeleri sırala
-      newWords = List<WordDetail>.from(widget.words)..sort((a, b) => a.id.compareTo(b.id));
+      newWords = List<WordDetail>.from(widget.words)
+        ..sort((a, b) => a.id.compareTo(b.id));
     } else {
       // Karıştırma modunda, kelimeleri karıştır
       newWords = List<WordDetail>.from(widget.words)..shuffle();
     }
 
-    List<QuizQuestion> newQuestions = await generateQuizQuestions(newWords, isTurkish);
+    List<QuizQuestion> newQuestions =
+        await generateQuizQuestions(newWords, isTurkish);
 
     setState(() {
       questions = newQuestions;
       // Mevcut sorunun indeksini güncelle
-      currentQuestionIndex = 0; // veya karıştırılan listedeki uygun indeksi bulun
+      currentQuestionIndex =
+          0; // veya karıştırılan listedeki uygun indeksi bulun
       // PageController'ı güncel sayfaya yönlendir
       _pageController.jumpToPage(currentQuestionIndex);
     });
@@ -349,16 +368,18 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
       setState(() {
         userID = userProvider.userId;
       });
-      _pageController = PageController(initialPage: -1); // Bu örnekte initialPage 0 olarak ayarlandı
+      _pageController = PageController(
+          initialPage: -1); // Bu örnekte initialPage 0 olarak ayarlandı
 
       _pageController.addListener(() {
         if (_pageController.page == currentQuestionIndex) {
           _scrollToSelectedQuestion();
         }
       });
-      UserProvider userProviderPoint = Provider.of<UserProvider>(context, listen: false);
-      print(userProviderPoint.point);
-      score = userProviderPoint.point; // Eğer çevirme başarısız olursa varsayılan olarak 0 değerini kullan
+      UserProvider userProviderPoint =
+          Provider.of<UserProvider>(context, listen: false);
+      score = userProviderPoint
+          .point; // Eğer çevirme başarısız olursa varsayılan olarak 0 değerini kullan
       _pageController.addListener(() {
         if (_pageController.page?.round() == _pageController.page) {
           _speak();
@@ -373,13 +394,12 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
   }
 
   void finishQuiz() async {
-    int finalScore = score; // Bu fonksiyon, kullanıcının toplam puanını hesaplar.
+    int finalScore =
+        score; // Bu fonksiyon, kullanıcının toplam puanını hesaplar.
     try {
-      await ApiService().updateUserPointTimePeriod(userID, finalScore,5); // API çağrısı
-      print('Puan güncellendi: $finalScore');
-    } catch (e) {
-      print('Puan güncelleme hatası: $e');
-    }
+      await ApiService()
+          .updateUserPointTimePeriod(userID, finalScore, 5); // API çağrısı
+    } catch (e) {}
     Navigator.of(context).push(MaterialPageRoute(
       builder: (context) => QuizResultsScreen(questions: questions),
     ));
@@ -387,10 +407,13 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
 
     // Quiz tamamlandığında yapılacak diğer işlemler (örneğin, sonuç ekranına yönlendirme)
   }
+
   void _initializeQuiz() async {
     // Başlangıçta kelimeler sıralı olacak
-    var sortedWords = List<WordDetail>.from(widget.words)..sort((a, b) => a.id.compareTo(b.id));
-    var generatedQuestions = await generateQuizQuestions(sortedWords,isTurkish);
+    var sortedWords = List<WordDetail>.from(widget.words)
+      ..sort((a, b) => a.id.compareTo(b.id));
+    var generatedQuestions =
+        await generateQuizQuestions(sortedWords, isTurkish);
 
     setState(() {
       questions = generatedQuestions;
@@ -402,6 +425,7 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
     starredWordCount.value = newCount; // Bu satırı ekledim
     animatedStarredCount.value = newCount; // Bu satırı ekledim
   }
+
   void _loadStarredStatus() async {
     try {
       var initialStatus = await ApiService().checkStarredBulk(
@@ -413,17 +437,14 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
         starredStatus = initialStatus;
         // Her kelime için bir ValueNotifier oluştur
         for (var word in widget.words) {
-          starredNotifiers[word.id] = ValueNotifier(initialStatus[word.id] ?? false);
-
+          starredNotifiers[word.id] =
+              ValueNotifier(initialStatus[word.id] ?? false);
         }
       });
-      print(starredNotifiers);
       _updateStarredWordCount(); // Yıldızlı kelime sayısını güncelle
-
-    } catch (e) {
-      print('Hata: $e');
-    }
+    } catch (e) {}
   }
+
   int _calculateScore() {
     // Örnek olarak sabit bir puan döndürülmüştür.
     // Gerçek bir uygulamada bu fonksiyon, kullanıcının cevaplarına göre puanı hesaplar.
@@ -449,25 +470,29 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
       }
     });
   }
+
   Future<void> _speakSentence(String sentence) async {
     await flutterTts.setLanguage("en-US");
     await flutterTts.setPitch(1.0);
     await flutterTts.speak(sentence);
   }
+
   Future<List<String>> _fetchSentenceForTerm(String term) async {
     try {
       var response = await ApiService().fetchExampleSentences(term);
       if (response.isNotEmpty) {
         // Her öğeyi String'e dönüştürüp yeni bir liste oluştur
-        return response.map<String>((item) => item['cumle'].toString()).toList();
+        return response
+            .map<String>((item) => item['cumle'].toString())
+            .toList();
       } else {
         return ["Cümle bulunamadı"];
       }
     } catch (e) {
-      print('Hata: $e');
       return ["Cümle yüklenemedi"];
     }
   }
+
   void _openBottomSheet() async {
     var currentTerm = questions[currentQuestionIndex].term;
     var sentences = await _fetchSentenceForTerm(currentTerm);
@@ -508,7 +533,8 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
                       children: [
                         Text(
                           "${currentPage + 1} / ${sentences.length}",
-                          style: const TextStyle(color: Colors.white, fontSize: 16),
+                          style: const TextStyle(
+                              color: Colors.white, fontSize: 16),
                         ),
                         Expanded(
                           child: PageView.builder(
@@ -557,13 +583,16 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
       startTimer(resumeFromPausedTime: true);
     }
   }
+
   void _showCorrectAnswerAndGoToNextQuestion() {
     var correctIndex = questions[currentQuestionIndex].correctOptionIndex;
     setState(() {
-      optionColors[correctIndex] = const Color(0xFF4CA64C); // Doğru cevabı işaretle
+      optionColors[correctIndex] =
+          const Color(0xFF4CA64C); // Doğru cevabı işaretle
     });
 
-    Future.delayed(const Duration(milliseconds: 500), () { // Yarım saniye bekle
+    Future.delayed(const Duration(milliseconds: 500), () {
+      // Yarım saniye bekle
       if (currentQuestionIndex < questions.length - 1) {
         // Eğer daha soru varsa, bir sonraki soruya geç
         setState(() {
@@ -583,12 +612,13 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
     });
   }
 
-  void _toggleStar(WordDetail word, ValueNotifier<bool> isStarredNotifier) async {
+  void _toggleStar(
+      WordDetail word, ValueNotifier<bool> isStarredNotifier) async {
     try {
       // API çağrısını yap
-      print(widget.classroomId);
-      print(widget.studySetId);
-      await ApiService().starWord(word.id, widget.classroomId, widget.studySetId, userID);
+      // ignore: avoid_print
+      await ApiService()
+          .starWord(word.id, widget.classroomId, widget.studySetId, userID);
 
       // Yıldızlanma durumunu tersine çevir ve starredStatus map'ini güncelle
       bool newStatus = !isStarredNotifier.value;
@@ -607,10 +637,9 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
         isStarredNotifier.value = true; // Yıldızı açın
       }
     } catch (e) {
-      print('Hata: $e'); // Hata durumunu işleme
+      // Hata durumunu işleme
     }
     _updateStarredWordCount();
-
   }
 
   void _goToNextQuestion() {
@@ -628,36 +657,46 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
     } else {
       finishQuiz();
     }
-  }    @override
+  }
+
+  @override
   void dispose() {
     _timer?.cancel(); // Güvenli bir şekilde iptal etme
     _navBarScrollController.dispose();
     super.dispose();
   }
+
   void resetOptionColors() {
-    optionColors = { for (var item in List.generate(4, (index) => index)) item : Colors.white };
+    optionColors = {
+      for (var item in List.generate(4, (index) => index)) item: Colors.white
+    };
   }
+
   void _answerQuestion(int selectedIndex) {
     var correctIndex = questions[currentQuestionIndex].correctOptionIndex;
     questions[currentQuestionIndex].userAnswer = selectedIndex; // Cevabı kaydet
     bool isCorrect = selectedIndex == correctIndex;
-    int penalty = 15 - _remainingTime; // Örnek: 15 saniyelik bir zamanlayıcı varsayalım
+    int penalty =
+        15 - _remainingTime; // Örnek: 15 saniyelik bir zamanlayıcı varsayalım
     if (isCorrect) {
-      print("correct");
       score += 5; // Sabit puan ekleme
-    }
-    else {
+    } else {
       // Yanlış cevap durumu, kalan süreye göre puan eksiltme
-      if (penalty <= 10) score -= 5; // 10 saniye veya daha az düşünüldüyse
-      else score -= 2; // 10 saniyeden fazla düşünüldüyse
+      if (penalty <= 10)
+        score -= 5; // 10 saniye veya daha az düşünüldüyse
+      else
+        score -= 2; // 10 saniyeden fazla düşünüldüyse
     }
     questionStatuses[currentQuestionIndex] = isCorrect;
     _updateUserScore(score);
 
     setState(() {
-      optionColors[selectedIndex] = selectedIndex == correctIndex ? const Color(0xFF4CA64C) : const Color(0xFFFF4C4C);
+      optionColors[selectedIndex] = selectedIndex == correctIndex
+          ? const Color(0xFF4CA64C)
+          : const Color(0xFFFF4C4C);
       if (selectedIndex != correctIndex) {
-        optionColors[correctIndex] = const Color(0xFF4CA64C); // Doğru cevabın rengini güncelle
+        optionColors[correctIndex] =
+            const Color(0xFF4CA64C); // Doğru cevabın rengini güncelle
       }
     });
 
@@ -684,17 +723,19 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
       }
     });
   }
+
   Future<void> _updateUserScore(int score) async {
     try {
-      UserProvider userProvider = Provider.of<UserProvider>(context, listen: false);
+      UserProvider userProvider =
+          Provider.of<UserProvider>(context, listen: false);
       int point = userProvider.point.toInt();
       userProvider.addPoint(score);
-      await ApiService().updateUserPointTimePeriod(userID, score,5);
-    } catch (e) {
-      print("Puan güncelleme hatası: $e");
-    }
+      await ApiService().updateUserPointTimePeriod(userID, score, 5);
+    } catch (e) {}
   }
-  Widget _buildOption(String option, int index, int correctIndex, int? userAnswer) {
+
+  Widget _buildOption(
+      String option, int index, int correctIndex, int? userAnswer) {
     Color bgColor;
     Color textColor = Colors.black; // Varsayılan metin rengi siyah
 
@@ -722,9 +763,12 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
           }
         },
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 300), // Animasyon süresi
-          width: width * 0.8, // Ekran genişliğinin %80'i kadar
-          height: height * 0.05, // Ekran yüksekliğinin %8'i kadar, esneklik sağlar
+          duration: const Duration(milliseconds: 300),
+          // Animasyon süresi
+          width: width * 0.8,
+          // Ekran genişliğinin %80'i kadar
+          height: height * 0.05,
+          // Ekran yüksekliğinin %8'i kadar, esneklik sağlar
           decoration: BoxDecoration(
             color: bgColor,
             borderRadius: BorderRadius.circular(8),
@@ -757,32 +801,40 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
       ),
     );
   }
+
   Widget _buildQuestionContent(QuizQuestion question) {
-    ValueNotifier<bool> isStarredNotifier = ValueNotifier<bool>(starredStatus[question.id] ?? false);
+    ValueNotifier<bool> isStarredNotifier =
+        ValueNotifier<bool>(starredStatus[question.id] ?? false);
     final colors = _isDarkMode ? darkModeColors : lightModeColors;
 
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center, // Vertically center the content
-        crossAxisAlignment: CrossAxisAlignment.center, // Horizontally center the content
+        mainAxisAlignment: MainAxisAlignment.center,
+        // Vertically center the content
+        crossAxisAlignment: CrossAxisAlignment.center,
+        // Horizontally center the content
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween, // Add this to space out elements in the Row
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            // Add this to space out elements in the Row
             children: [
               Expanded(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16.0, vertical: 8.0),
                   decoration: BoxDecoration(
                     color: colors["background"],
-                    borderRadius: BorderRadius.circular(30.0), // Rounded corners
+                    borderRadius: BorderRadius.circular(30.0),
+                    // Rounded corners
                     boxShadow: [
                       BoxShadow(
                         color: Colors.grey.withOpacity(0.5),
                         spreadRadius: 3,
                         blurRadius: 7,
-                        offset: const Offset(0, 3), // Shadow direction: down right
+                        offset:
+                            const Offset(0, 3), // Shadow direction: down right
                       ),
                     ],
                   ),
@@ -797,7 +849,6 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
                           color: colors["text"], // Açık pembe renk
                           letterSpacing: 1.2,
                         ),
-
                       ),
                     ),
                   ),
@@ -808,11 +859,13 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
           // Add check for question.image being null or empty, then show default logo or image
           _buildImage(question.image?.isEmpty ?? true ? null : question.image!),
           ListView.builder(
-            physics: NeverScrollableScrollPhysics(), // Add this to prevent scrolling inside the ListView
+            physics: NeverScrollableScrollPhysics(),
+            // Add this to prevent scrolling inside the ListView
             shrinkWrap: true,
             itemCount: question.options.length,
             itemBuilder: (context, index) {
-              return _buildOption(question.options[index], index, question.correctOptionIndex, question.userAnswer);
+              return _buildOption(question.options[index], index,
+                  question.correctOptionIndex, question.userAnswer);
             },
           ),
         ],
@@ -846,9 +899,13 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
         'assets/logo.png',
         fit: BoxFit.cover,
       ),
-      crossFadeState: isVisibilityOn.value ? CrossFadeState.showFirst : CrossFadeState.showSecond,
+      crossFadeState: isVisibilityOn.value
+          ? CrossFadeState.showFirst
+          : CrossFadeState.showSecond,
     );
-  }  Widget _buildTimer() {
+  }
+
+  Widget _buildTimer() {
     return Stack(
       alignment: Alignment.center,
       children: <Widget>[
@@ -872,7 +929,9 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
       ],
     );
   }
-  Widget _buildStarIcon(QuizQuestion question, ValueNotifier<bool> isStarredNotifier) {
+
+  Widget _buildStarIcon(
+      QuizQuestion question, ValueNotifier<bool> isStarredNotifier) {
     return ValueListenableBuilder<bool>(
       valueListenable: isStarredNotifier,
       builder: (context, isStarred, child) {
@@ -889,12 +948,14 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
             ),
           ),
           onPressed: () {
-            _toggleStar(question.wordDetail, isStarredNotifier); // question.wordDetail kullanılıyor
+            _toggleStar(question.wordDetail,
+                isStarredNotifier); // question.wordDetail kullanılıyor
           },
         );
       },
     );
   }
+
   Widget _buildScore() {
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 500),
@@ -905,6 +966,7 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
       ),
     );
   }
+
   Widget _buildScoreText() {
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 500),
@@ -919,12 +981,15 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
       ),
     );
   }
+
   int get totalCorrectAnswers {
     return questions.where((q) => q.isAnsweredCorrectly).length;
   }
 
   int get totalIncorrectAnswers {
-    return questions.where((q) => q.userAnswer != null && !q.isAnsweredCorrectly).length;
+    return questions
+        .where((q) => q.userAnswer != null && !q.isAnsweredCorrectly)
+        .length;
   }
 
   @override
@@ -936,7 +1001,8 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
     // Eğer sorular yüklenmemişse, bir yükleniyor göstergesi göster
     if (questions.isEmpty) {
       return const Scaffold(
-        backgroundColor: const Color(0xFFFEFAF6), // Arka plan rengini burada ayarlayın
+        backgroundColor: Color(0xFFFEFAF6),
+        // Arka plan rengini burada ayarlayın
 
         body: Center(child: CircularProgressIndicator()),
       );
@@ -949,253 +1015,286 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
         return true;
       } catch (e) {
         // Hata oluşursa konsola yazdır
-        print("Puan güncelleme hatası: $e");
         // Hata durumunda da kullanıcıya sayfadan çıkmasına izin ver
         return true;
       }
     }
+
     var currentQuestion = questions[currentQuestionIndex];
-    return
-      WillPopScope(
+    return WillPopScope(
         onWillPop: () async {
-      Navigator.of(context).pop(true);
-      // Sistem tarafından ek bir pop işlemi yapılmasını engellemek için false dön
-      return false;
-    },
-    child:
-      SafeArea(
-      child: Scaffold(
-        backgroundColor: colors["background"],
-        appBar: AppBar(
-          backgroundColor: colors["background"],
-          leading: IconButton(
-            icon: Icon(Icons.arrow_back_ios,color: colors["text"]),
-            onPressed: () async {
-              final shouldPop = await showDialog<bool>(
-                context: context,
-                builder: (context) => AlertDialog(
-                  titlePadding: EdgeInsets.only(top: 20.0, left: 20.0, right: 20.0, bottom: 10.0), // Başlık için padding ayarı
-                  title: Row(
-                    children: <Widget>[
-                      Image.asset('assets/logo.png', width: 40, height: 40), // Logo
-                      SizedBox(width: 16), // Logo ile metin arasında boşluk
-                      Expanded(
-                        child: Text(
-                          'Çıkmak istediğinize emin misiniz?',
-                          style: TextStyle(
-                            fontSize: 18.0, // Metin boyutu
-                            fontWeight: FontWeight.bold, // Metin kalınlığı
+          Navigator.of(context).pop(true);
+          // Sistem tarafından ek bir pop işlemi yapılmasını engellemek için false dön
+          return false;
+        },
+        child: SafeArea(
+          child: Scaffold(
+            backgroundColor: colors["background"],
+            appBar: AppBar(
+              backgroundColor: colors["background"],
+              leading: IconButton(
+                icon: Icon(Icons.arrow_back_ios, color: colors["text"]),
+                onPressed: () async {
+                  final shouldPop = await showDialog<bool>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      titlePadding: EdgeInsets.only(
+                          top: 20.0, left: 20.0, right: 20.0, bottom: 10.0),
+                      // Başlık için padding ayarı
+                      title: Row(
+                        children: <Widget>[
+                          Image.asset('assets/logo.png', width: 40, height: 40),
+                          // Logo
+                          SizedBox(width: 16),
+                          // Logo ile metin arasında boşluk
+                          Expanded(
+                            child: Text(
+                              'Çıkmak istediğinize emin misiniz?',
+                              style: TextStyle(
+                                fontSize: 18.0, // Metin boyutu
+                                fontWeight: FontWeight.bold, // Metin kalınlığı
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      content: Text(
+                          "Bu işlem geri alınamaz. Devam etmek istiyor musunuz?"),
+                      // İçerik metni
+                      actions: <Widget>[
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(false),
+                          child: Text('Hayır',
+                              style: TextStyle(color: Colors.red)),
+                        ),
+                        TextButton(
+                          onPressed: () async {
+                            try {
+                              // Puanı güncelleme veya diğer işlemleri burada yap
+                              Navigator.of(context)
+                                  .pop(true); // İşlem başarılıysa sayfayı kapat
+                            } catch (e) {
+                              Navigator.of(context)
+                                  .pop(true); // Hata olsa bile sayfayı kapat
+                            }
+                          },
+                          child: Text('Evet',
+                              style: TextStyle(color: Colors.green)),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (shouldPop ?? false) {
+                    Navigator.of(context)
+                        .pop(); // Kullanıcı 'Evet' dediyse geri dön
+                  }
+                },
+              ),
+            ),
+            body: SafeArea(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16.0, vertical: 8.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        RichText(
+                          text: TextSpan(
+                            children: [
+                              TextSpan(
+                                text: 'Puan: ',
+                                style: GoogleFonts.openSans(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: colors["text"],
+                                ),
+                              ),
+                              TextSpan(
+                                text: '$score',
+                                // Puanı doğrudan burada göster
+                                style: GoogleFonts.openSans(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: colors["text"],
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      ),
-                    ],
+                        Text.rich(
+                          TextSpan(
+                            style: GoogleFonts.openSans(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            children: [
+                              TextSpan(
+                                text: '${currentQuestionIndex + 1}',
+                                style: TextStyle(
+                                    color: colors[
+                                        "text"]), // Toplam soru sayısı siyah renkte
+                              ),
+                              TextSpan(
+                                text: ' / ${questions.length}',
+                                style: TextStyle(
+                                    color: colors[
+                                        "text"]), // Toplam soru sayısı siyah renkte
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  content: Text("Bu işlem geri alınamaz. Devam etmek istiyor musunuz?"), // İçerik metni
-                  actions: <Widget>[
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(false),
-                      child: Text('Hayır', style: TextStyle(color: Colors.red)),
-                    ),
-                    TextButton(
-                      onPressed: () async {
-                        try {
-                          // Puanı güncelleme veya diğer işlemleri burada yap
-                          Navigator.of(context).pop(true); // İşlem başarılıysa sayfayı kapat
-                        } catch (e) {
-                          print("Puan güncelleme hatası: $e");
-                          Navigator.of(context).pop(true); // Hata olsa bile sayfayı kapat
-                        }
-                      },
-                      child: Text('Evet', style: TextStyle(color: Colors.green)),
-                    ),
-                  ],
-                ),
-              );
-              if (shouldPop ?? false) {
-                Navigator.of(context).pop(); // Kullanıcı 'Evet' dediyse geri dön
-              }
-            },
-          ),
-        ),
-        body:
-        SafeArea(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    RichText(
-                      text: TextSpan(
-                        children: [
-                          TextSpan(
-                            text: 'Puan: ',
-                            style: GoogleFonts.openSans(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: colors["text"],
-                            ),
-                          ),
-                          TextSpan(
-                            text: '$score', // Puanı doğrudan burada göster
-                            style: GoogleFonts.openSans(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: colors["text"],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Text.rich(
-                      TextSpan(
-                        style: GoogleFonts.openSans(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16.0, vertical: 8.0),
+                    decoration: BoxDecoration(
+                      color: colors["buttonBackground"],
+                      borderRadius: BorderRadius.circular(30.0),
+                      // Yuvarlak köşeler
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.withOpacity(0.5),
+                          spreadRadius: 3,
+                          blurRadius: 7,
+                          offset: const Offset(0, 3),
                         ),
-                        children: [
-                          TextSpan(
-                            text: '${currentQuestionIndex + 1}',
-                            style:  TextStyle(color: colors["text"]), // Toplam soru sayısı siyah renkte
-                          ),
-                          TextSpan(
-                            text: ' / ${questions.length}',
-                            style:  TextStyle(color: colors["text"]), // Toplam soru sayısı siyah renkte
-                          ),
-                        ],
-                      ),
+                      ],
                     ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                decoration: BoxDecoration(
-                  color:  colors["buttonBackground"],
-                  borderRadius: BorderRadius.circular(30.0), // Yuvarlak köşeler
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withOpacity(0.5),
-                      spreadRadius: 3,
-                      blurRadius: 7,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: <Widget>[
-                    ValueListenableBuilder<bool>(
-                      valueListenable: isVisibilityOn, // Göster/Gizle durumu
-                      builder: (context, value, child) {
-                        return IconButton(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: <Widget>[
+                        ValueListenableBuilder<bool>(
+                          valueListenable: isVisibilityOn,
+                          // Göster/Gizle durumu
+                          builder: (context, value, child) {
+                            return IconButton(
+                              icon: Icon(
+                                value
+                                    ? Icons.visibility_off
+                                    : Icons
+                                        .visibility, // İkon durumunu ters çevir
+                                color: colors["text"],
+                              ),
+                              onPressed: () {
+                                showCustomFlushbar(
+                                    context,
+                                    isVisibilityOn.value
+                                        ? "Resim Gizleniyor."
+                                        : "Resim Gösteriliyor.");
+                                isVisibilityOn.value = !value;
+                              },
+                            );
+                          },
+                        ),
+                        ValueListenableBuilder<bool>(
+                          valueListenable: isRefreshOn, // Yenileme durumu
+                          builder: (context, value, child) {
+                            return IconButton(
+                              icon: Icon(
+                                Icons.refresh, // Aynı ikonu kullan
+                                color: value
+                                    ? colors["text"]
+                                    : Colors
+                                        .grey, // Açık ise mavi, kapalı ise gri
+                              ),
+                              onPressed: () {
+                                showCustomFlushbar(
+                                    context,
+                                    isSortOn.value
+                                        ? "Liste Sıralandı."
+                                        : "Liste Karıştırıldı.");
+                                isSortOn.value = !isSortOn.value;
+                                _shuffleOrSortWords();
+                                _timer?.cancel();
+                              },
+                            );
+                          },
+                        ),
+                        ValueListenableBuilder<bool>(
+                          valueListenable: isMuteOn, // Ses aç/kapat durumu
+                          builder: (context, value, child) {
+                            return IconButton(
+                              icon: Icon(
+                                value ? Icons.volume_up : Icons.volume_off,
+                                // İkon durumunu ters çevir
+                                color: colors["text"],
+                              ),
+                              onPressed: () {
+                                showCustomFlushbar(
+                                    context,
+                                    isMuteOn.value
+                                        ? "Seslendirme kapanıyor."
+                                        : "Seslendirme açılıyor.");
+                                isMuteOn.value = !value;
+                                final volumeProvider =
+                                    Provider.of<VolumeProvider>(context,
+                                        listen: false);
+                                volumeProvider
+                                    .toggleVolume(); // Bu örnek bir metod çağrısıdır, gerçek metod adı farklı olabilir.
+                              },
+                            );
+                          },
+                        ),
+                        IconButton(
                           icon: Icon(
-                            value ? Icons.visibility_off : Icons.visibility, // İkon durumunu ters çevir
+                            isTurkish.value
+                                ? Icons.language
+                                : Icons
+                                    .translate, // Sıralama veya karıştırma ikonu
                             color: colors["text"],
                           ),
                           onPressed: () {
+                            isTurkish.value = !isTurkish.value;
+                            _changeLang();
                             showCustomFlushbar(
                                 context,
-                                isVisibilityOn.value ? "Resim Gizleniyor." : "Resim Gösteriliyor."
-                            );
-                            isVisibilityOn.value = !value;
-                          },
-                        );
-                      },
-                    ),
-                    ValueListenableBuilder<bool>(
-                      valueListenable: isRefreshOn, // Yenileme durumu
-                      builder: (context, value, child) {
-                        return IconButton(
-                          icon: Icon(
-                            Icons.refresh, // Aynı ikonu kullan
-                            color: value ?                            colors["text"] : Colors.grey, // Açık ise mavi, kapalı ise gri
-                          ),
-                          onPressed: () {
-                            showCustomFlushbar(
-                                context,
-                                isSortOn.value ? "Liste Sıralandı." : "Liste Karıştırıldı."
-                            );
-                            isSortOn.value = !isSortOn.value;
-                            _shuffleOrSortWords();
+                                isTurkish.value
+                                    ? "Dil Türkçe oldu."
+                                    : "Dil İngilizce oldu..");
                             _timer?.cancel();
+                            startTimer();
                           },
-                        );
-                      },
-                    ),
-                    ValueListenableBuilder<bool>(
-                      valueListenable: isMuteOn, // Ses aç/kapat durumu
-                      builder: (context, value, child) {
-                        return IconButton(
-                          icon: Icon(
-                            value ? Icons.volume_up : Icons.volume_off, // İkon durumunu ters çevir
-                            color: colors["text"],
-                          ),
+                        ),
+                        IconButton(
+                          icon: Icon(Icons.menu, color: colors["text"]),
+                          onPressed: _openBottomSheet,
+                        ),
+                        IconButton(
+                          icon: Icon(Icons.hearing, color: colors["text"]),
                           onPressed: () {
-                            showCustomFlushbar(
-                                context,
-                                isMuteOn.value ? "Seslendirme kapanıyor." : "Seslendirme açılıyor."
-                            );
-                            isMuteOn.value = !value;
-                            final volumeProvider = Provider.of<VolumeProvider>(context, listen: false);
-                            volumeProvider.toggleVolume(); // Bu örnek bir metod çağrısıdır, gerçek metod adı farklı olabilir.
+                            _speak();
                           },
-                        );
-                      },
-                    ),
-                    IconButton(
-                      icon: Icon(
-                        isTurkish.value ? Icons.language : Icons.translate, // Sıralama veya karıştırma ikonu
-                        color:                           colors["text"] ,
-                    ),
-                      onPressed: () {
-                        isTurkish.value = !isTurkish.value;
-                        _changeLang();
-                        showCustomFlushbar(
-                            context,
-                            isTurkish.value ? "Dil Türkçe oldu." : "Dil İngilizce oldu.."
-                        );
-                        _timer?.cancel();
-                        startTimer();
-                      },
-                    ),
-                    IconButton(
-                        icon:  Icon(Icons.menu, color:   colors["text"] ),
-                      onPressed: _openBottomSheet,
-                    ),
-                    IconButton(
-                      icon:  Icon(Icons.hearing, color:   colors["text"]                      ),
-                      onPressed: () {
-                        _speak();
-                      },
-                    ),
+                        ),
 
-                    // Kulak ikonu
-                  ],
-                ),
+                        // Kulak ikonu
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: PageView.builder(
+                      controller: _pageController,
+                      physics: const NeverScrollableScrollPhysics(),
+                      // Kullanıcı kaydırmayı önle
+                      itemCount: questions.length,
+                      itemBuilder: (context, index) {
+                        return _buildQuestionContent(questions[index]);
+                      },
+                    ),
+                  ),
+                  _buildQuestionNavigationBar(),
+                ],
               ),
-              Expanded(
-                child: PageView.builder(
-                  controller: _pageController,
-                  physics: const NeverScrollableScrollPhysics(), // Kullanıcı kaydırmayı önle
-                  itemCount: questions.length,
-                  itemBuilder: (context, index) {
-                    return _buildQuestionContent(questions[index]);
-                  },
-
-                ),
-
-              ),
-              _buildQuestionNavigationBar(),
-            ],
+            ),
           ),
-        ),
-      ),
-    ));
+        ));
   }
+
   Widget _buildQuestionNavigationBar() {
     return SizedBox(
       height: 50, // Navigation bar's height
@@ -1217,7 +1316,8 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
           }
 
           // Determine text color based on background color
-          Color textColor = bgColor == Colors.white ? Colors.black : Colors.white;
+          Color textColor =
+              bgColor == Colors.white ? Colors.black : Colors.white;
 
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4.0),
@@ -1230,8 +1330,10 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
                 );
               },
               child: AnimatedContainer(
-                duration: const Duration(milliseconds: 300), // Animation duration
-                width: 50, // Box width
+                duration: const Duration(milliseconds: 300),
+                // Animation duration
+                width: 50,
+                // Box width
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: bgColor,
@@ -1249,6 +1351,7 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
       ),
     );
   }
+
   void showCustomFlushbar(BuildContext context, String message) {
     Flushbar(
       message: message,
@@ -1273,7 +1376,6 @@ class _QuizScreenStarState extends State<QuizStarScreen> {
       reverseAnimationCurve: Curves.easeInOutCubic,
     ).show(context);
   }
-
 }
 
 class QuizQuestion {
@@ -1296,37 +1398,44 @@ class QuizQuestion {
     this.userAnswer,
     required this.wordDetail, // Yapıcıya eklendi
     required this.correctAnswer, // Yapıcıya eklendi
-
   });
-  bool get isAnsweredCorrectly => userAnswer == correctOptionIndex;
 
+  bool get isAnsweredCorrectly => userAnswer == correctOptionIndex;
 }
 
-Future<List<QuizQuestion>> generateQuizQuestions(List<WordDetail> words, ValueNotifier<bool> isLanguageTurkish) async {
+Future<List<QuizQuestion>> generateQuizQuestions(
+    List<WordDetail> words, ValueNotifier<bool> isLanguageTurkish) async {
   var random = Random();
   var questions = <QuizQuestion>[];
 
   for (var word in words) {
-    Set<String> options = isLanguageTurkish.value ? {word.meaning} : {word.word};
+    Set<String> options =
+        isLanguageTurkish.value ? {word.meaning} : {word.word};
     while (options.length < 4) {
       // Eğer Türkçe ise, anlamlardan rastgele seç, değilse kelimelerden rastgele seç
       var randomWord = words[random.nextInt(words.length)];
-      options.add(isLanguageTurkish.value ? randomWord.meaning : randomWord.word);
+      options
+          .add(isLanguageTurkish.value ? randomWord.meaning : randomWord.word);
     }
 
     var shuffledOptions = options.toList()..shuffle();
     // Doğru seçeneğin index'ini bul
-    int correctIndex = isLanguageTurkish.value ? shuffledOptions.indexOf(word.meaning) : shuffledOptions.indexOf(word.word);
+    int correctIndex = isLanguageTurkish.value
+        ? shuffledOptions.indexOf(word.meaning)
+        : shuffledOptions.indexOf(word.word);
 
     // Soruları ve seçenekleri ayarla
     questions.add(QuizQuestion(
       id: word.id,
-      term: isLanguageTurkish.value ? word.word : word.meaning, // Eğer Türkçe ise kelimeyi, değilse anlamı sor
+      term: isLanguageTurkish.value ? word.word : word.meaning,
+      // Eğer Türkçe ise kelimeyi, değilse anlamı sor
       options: shuffledOptions,
       correctOptionIndex: correctIndex,
       image: word.image,
       wordDetail: word,
-      correctAnswer: isLanguageTurkish.value ? word.meaning : word.word, // Eğer Türkçe ise doğru cevap anlam, değilse kelime
+      correctAnswer: isLanguageTurkish.value
+          ? word.meaning
+          : word.word, // Eğer Türkçe ise doğru cevap anlam, değilse kelime
     ));
   }
 
@@ -1346,14 +1455,18 @@ class QuizResultsScreen extends StatelessWidget {
     return SafeArea(
       child: Scaffold(
         appBar: AppBar(
-          title: Text('Quiz Sonuçları', style: GoogleFonts.nunito(fontSize: 20, fontWeight: FontWeight.bold)),
+          title: Text('Quiz Sonuçları',
+              style: GoogleFonts.nunito(
+                  fontSize: 20, fontWeight: FontWeight.bold)),
           actions: [
             IconButton(
               icon: Icon(Icons.home),
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => HomeScreen()), // 'MainScreen' ana sayfa widget'ınızın adıdır.
+                  MaterialPageRoute(
+                      builder: (context) =>
+                          HomeScreen()), // 'MainScreen' ana sayfa widget'ınızın adıdır.
                 );
               },
             )
@@ -1366,9 +1479,17 @@ class QuizResultsScreen extends StatelessWidget {
                 padding: EdgeInsets.all(16.0),
                 child: Column(
                   children: [
-                    Text('Doğru Cevap Sayısı: $correctAnswers', style: GoogleFonts.nunito(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green)),
+                    Text('Doğru Cevap Sayısı: $correctAnswers',
+                        style: GoogleFonts.nunito(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green)),
                     SizedBox(height: 8), // Boşluk eklendi
-                    Text('Yanlış Cevap Sayısı: $incorrectAnswers', style: GoogleFonts.nunito(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.red)),
+                    Text('Yanlış Cevap Sayısı: $incorrectAnswers',
+                        style: GoogleFonts.nunito(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.red)),
                   ],
                 ),
               ),
@@ -1384,13 +1505,20 @@ class QuizResultsScreen extends StatelessWidget {
                     margin: EdgeInsets.symmetric(vertical: 4, horizontal: 8),
                     child: ListTile(
                       leading: CircleAvatar(
-                        child: Text('${index + 1}', style: GoogleFonts.nunito(color: Colors.white)),
+                        child: Text('${index + 1}',
+                            style: GoogleFonts.nunito(color: Colors.white)),
                         backgroundColor: isCorrect ? Colors.green : Colors.red,
                       ),
-                      title: Text(question.term, style: GoogleFonts.nunito(fontWeight: FontWeight.bold)),
-                      subtitle: Text('Doğru Cevap: ${question.options[question.correctOptionIndex]}', style: GoogleFonts.nunito()),
+                      title: Text(question.term,
+                          style:
+                              GoogleFonts.nunito(fontWeight: FontWeight.bold)),
+                      subtitle: Text(
+                          'Doğru Cevap: ${question.options[question.correctOptionIndex]}',
+                          style: GoogleFonts.nunito()),
                       trailing: Icon(
-                        isCorrect ? Icons.check_circle_outline : Icons.highlight_off,
+                        isCorrect
+                            ? Icons.check_circle_outline
+                            : Icons.highlight_off,
                         color: isCorrect ? Colors.green : Colors.red,
                       ),
                     ),
@@ -1404,4 +1532,3 @@ class QuizResultsScreen extends StatelessWidget {
     );
   }
 }
-

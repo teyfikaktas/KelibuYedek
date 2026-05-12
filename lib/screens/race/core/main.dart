@@ -4,6 +4,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
 import 'package:kelibu/screens/race/core/services/RoomService.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../../../providers/user_provider.dart';
 import '../models/room.dart';
 
@@ -20,8 +21,11 @@ class MainRaceController extends GetxController {
   final generatedRoomCode = ''.obs;
   final joinRoomCode = ''.obs;
 
-  MainRaceController() : roomService = RoomService(Supabase.instance.client,  Get.find<UserProvider>(),
-  );
+  MainRaceController()
+      : roomService = RoomService(
+          Supabase.instance.client,
+          Get.find<UserProvider>(),
+        );
 
   final List<Map<String, dynamic>> categories = [
     {
@@ -90,12 +94,12 @@ class MainRaceController extends GetxController {
         userId: userId,
         playerCount: 4,
       );
-      print('Navigating to waiting room with roomId: ${room.id}');
 
       Get.back(); // Dialog'u kapat
-      Get.toNamed('/waiting-room/${room.id}'); // room.id ile yönlendirme (örneğin, /waiting-room/33)
+      Get.toNamed(
+          '/waiting-room/${room.id}'); // room.id ile yönlendirme (örneğin, /waiting-room/33)
     } catch (e) {
-      print('Oda oluşturma hatası: $e'); // Konsola yazdır
+      // Konsola yazdır
       Get.snackbar(
         'Hata',
         'Oda oluşturulurken bir hata oluştu',
@@ -106,12 +110,14 @@ class MainRaceController extends GetxController {
       isLoading.value = false;
     }
   }
+
   @override
   void onInit() {
     super.onInit();
     // Uygulama açıldığında aktif yarışları kontrol et
     checkForActiveRaces();
   }
+
   Future<List<Room>> getActiveRaces() async {
     try {
       // Oyuncunun ID'sini al
@@ -135,7 +141,6 @@ class MainRaceController extends GetxController {
       // Oda nesnelerine dönüştür
       return result.map((room) => Room.fromJson(room)).toList();
     } catch (e) {
-      print('getActiveRaces hatası: $e');
       return [];
     }
   }
@@ -166,7 +171,8 @@ class MainRaceController extends GetxController {
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
                     color: Colors.grey[900],
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                    borderRadius:
+                        const BorderRadius.vertical(top: Radius.circular(20)),
                   ),
                   child: Row(
                     children: [
@@ -214,7 +220,8 @@ class MainRaceController extends GetxController {
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
                     color: Colors.grey[900],
-                    borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
+                    borderRadius: const BorderRadius.vertical(
+                        bottom: Radius.circular(20)),
                   ),
                   child: Row(
                     children: [
@@ -270,6 +277,7 @@ class MainRaceController extends GetxController {
       );
     }
   }
+
   Future<void> joinRoom() async {
     if (joinRoomCode.value.isEmpty) {
       Get.snackbar(
@@ -285,26 +293,19 @@ class MainRaceController extends GetxController {
       isJoiningRoom.value = true;
       Room? room;
 
-      print('Joining room with input: ${joinRoomCode.value}');
       final isNumeric = int.tryParse(joinRoomCode.value) != null;
-      print('Input is numeric: $isNumeric');
       if (isNumeric) {
         // Oda ID’si ile arat ve oyuncuyu odaya ekle
         final roomId = int.parse(joinRoomCode.value);
-        print('Attempting to join room by ID: $roomId');
         room = await roomService.getRoomById(roomId);
-        print('Calling joinRoomById with roomId: $roomId');
-        await roomService.joinRoomById(roomId);  // Oyuncuyu odaya ekle
+        await roomService.joinRoomById(roomId); // Oyuncuyu odaya ekle
       } else {
         // Oda Kodu ile arat ve oyuncuyu odaya ekle
-        print('Attempting to join room by code: ${joinRoomCode.value}');
         room = await roomService.getRoomByCode(joinRoomCode.value);
-        print('Calling joinRoom with roomCode: ${joinRoomCode.value}');
-        await roomService.joinRoom(joinRoomCode.value);  // Oyuncuyu odaya ekle
+        await roomService.joinRoom(joinRoomCode.value); // Oyuncuyu odaya ekle
       }
 
       if (room != null) {
-        print('Successfully found room with ID: ${room.id}');
         Get.back(); // Dialog'u kapat
         Get.toNamed('/waiting-room/${room.id}'); // room.id ile yönlendirme
       } else {
@@ -316,7 +317,6 @@ class MainRaceController extends GetxController {
         );
       }
     } catch (e) {
-      print('Odaya girilirken hata: $e');
       Get.snackbar(
         'Hata',
         'Odaya girilirken bir hata oluştu: $e',
@@ -327,6 +327,7 @@ class MainRaceController extends GetxController {
       isJoiningRoom.value = false;
     }
   }
+
   void showCreateRoomDialog() {
     generatedRoomCode.value = 'RACE${DateTime.now().millisecondsSinceEpoch}';
     Get.dialog(
@@ -512,18 +513,19 @@ class MainRaceController extends GetxController {
               ),
               const SizedBox(width: 8),
               Obx(() => Text(
-                generatedRoomCode.value,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1,
-                ),
-              )),
+                    generatedRoomCode.value,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1,
+                    ),
+                  )),
               const Spacer(),
               IconButton(
                 onPressed: () {
-                  generatedRoomCode.value = 'RACE${DateTime.now().millisecondsSinceEpoch}';
+                  generatedRoomCode.value =
+                      'RACE${DateTime.now().millisecondsSinceEpoch}';
                 },
                 icon: const FaIcon(
                   FontAwesomeIcons.arrowsRotate,
@@ -559,47 +561,47 @@ class MainRaceController extends GetxController {
             itemBuilder: (context, index) {
               final category = categories[index];
               return Obx(() => GestureDetector(
-                onTap: () => selectedCategory.value = category['id'],
-                child: Container(
-                  width: 80,
-                  margin: const EdgeInsets.only(right: 12),
-                  decoration: BoxDecoration(
-                    color: selectedCategory.value == category['id']
-                        ? category['color'].withOpacity(0.2)
-                        : Colors.grey[900],
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: selectedCategory.value == category['id']
-                          ? category['color']
-                          : Colors.grey[800]!,
-                    ),
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      FaIcon(
-                        category['icon'],
+                    onTap: () => selectedCategory.value = category['id'],
+                    child: Container(
+                      width: 80,
+                      margin: const EdgeInsets.only(right: 12),
+                      decoration: BoxDecoration(
                         color: selectedCategory.value == category['id']
-                            ? category['color']
-                            : Colors.grey,
-                        size: 24,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        category['name'],
-                        style: TextStyle(
+                            ? category['color'].withOpacity(0.2)
+                            : Colors.grey[900],
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
                           color: selectedCategory.value == category['id']
-                              ? Colors.white
-                              : Colors.grey,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
+                              ? category['color']
+                              : Colors.grey[800]!,
                         ),
-                        textAlign: TextAlign.center,
                       ),
-                    ],
-                  ),
-                ),
-              ));
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          FaIcon(
+                            category['icon'],
+                            color: selectedCategory.value == category['id']
+                                ? category['color']
+                                : Colors.grey,
+                            size: 24,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            category['name'],
+                            style: TextStyle(
+                              color: selectedCategory.value == category['id']
+                                  ? Colors.white
+                                  : Colors.grey,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ));
             },
           ),
         ),
@@ -633,23 +635,23 @@ class MainRaceController extends GetxController {
                   ),
                 ),
                 child: Obx(() => DropdownButton<int>(
-                  value: selectedDuration.value,
-                  dropdownColor: Colors.grey[900],
-                  style: const TextStyle(color: Colors.white),
-                  icon: const FaIcon(
-                    FontAwesomeIcons.chevronDown,
-                    color: Colors.grey,
-                    size: 16,
-                  ),
-                  underline: const SizedBox(),
-                  items: [30, 45, 60, 90, 120]
-                      .map((duration) => DropdownMenuItem(
-                    value: duration,
-                    child: Text('$duration saniye'),
-                  ))
-                      .toList(),
-                  onChanged: (value) => selectedDuration.value = value!,
-                )),
+                      value: selectedDuration.value,
+                      dropdownColor: Colors.grey[900],
+                      style: const TextStyle(color: Colors.white),
+                      icon: const FaIcon(
+                        FontAwesomeIcons.chevronDown,
+                        color: Colors.grey,
+                        size: 16,
+                      ),
+                      underline: const SizedBox(),
+                      items: [30, 45, 60, 90, 120]
+                          .map((duration) => DropdownMenuItem(
+                                value: duration,
+                                child: Text('$duration saniye'),
+                              ))
+                          .toList(),
+                      onChanged: (value) => selectedDuration.value = value!,
+                    )),
               ),
             ],
           ),
@@ -669,44 +671,45 @@ class MainRaceController extends GetxController {
               ),
               const SizedBox(height: 8),
               Obx(() => Container(
-                decoration: BoxDecoration(
-                  color: Colors.grey[900],
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: Colors.grey[800]!,
-                  ),
-                ),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: () => isJokerEnabled.toggle(),
-                    borderRadius: BorderRadius.circular(12),
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          FaIcon(
-                            isJokerEnabled.value
-                                ? FontAwesomeIcons.toggleOn
-                                : FontAwesomeIcons.toggleOff,
-                            color: isJokerEnabled.value
-                                ? Colors.green
-                                : Colors.grey,
-                            size: 24,
-                          ),
-                        ],
+                    decoration: BoxDecoration(
+                      color: Colors.grey[900],
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Colors.grey[800]!,
                       ),
                     ),
-                  ),
-                ),
-              )),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () => isJokerEnabled.toggle(),
+                        borderRadius: BorderRadius.circular(12),
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              FaIcon(
+                                isJokerEnabled.value
+                                    ? FontAwesomeIcons.toggleOn
+                                    : FontAwesomeIcons.toggleOff,
+                                color: isJokerEnabled.value
+                                    ? Colors.green
+                                    : Colors.grey,
+                                size: 24,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  )),
             ],
           ),
         ),
       ],
     );
   }
+
   // Önceki kodun devamı...
 
   Widget _buildDialogActions(
@@ -808,7 +811,8 @@ class MainRaceScreen extends GetView<MainRaceController> {
         IconButton(
           icon: Stack(
             children: [
-              const FaIcon(FontAwesomeIcons.bell, color: Colors.white, size: 22),
+              const FaIcon(FontAwesomeIcons.bell,
+                  color: Colors.white, size: 22),
               Positioned(
                 right: 0,
                 top: 0,
@@ -1032,132 +1036,136 @@ class MainRaceScreen extends GetView<MainRaceController> {
       padding: const EdgeInsets.all(16),
       mainAxisSpacing: 16,
       crossAxisSpacing: 16,
-      children: features.map((feature) => _buildFeatureCard(
-        feature['title'] as String,
-        feature['icon'] as IconData,
-        feature['color'] as Color,
-        onTap: feature['onTap'] as Function()?,
-        isComingSoon: feature['isComingSoon'] as bool,
-      )).toList(),
+      children: features
+          .map((feature) => _buildFeatureCard(
+                feature['title'] as String,
+                feature['icon'] as IconData,
+                feature['color'] as Color,
+                onTap: feature['onTap'] as Function()?,
+                isComingSoon: feature['isComingSoon'] as bool,
+              ))
+          .toList(),
     );
   }
 
   Widget _buildFeatureCard(
-      String title,
-      IconData icon,
-      Color color, {
-        VoidCallback? onTap,
-        bool isComingSoon = false,
-      }) {
+    String title,
+    IconData icon,
+    Color color, {
+    VoidCallback? onTap,
+    bool isComingSoon = false,
+  }) {
     return Obx(() => Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF242424),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: color.withOpacity(0.3),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+          decoration: BoxDecoration(
+            color: const Color(0xFF242424),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: color.withOpacity(0.3),
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.2),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: controller.isLoading.value ? null : (isComingSoon ? null : onTap),
-          borderRadius: BorderRadius.circular(16),
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: controller.isLoading.value
+                  ? null
+                  : (isComingSoon ? null : onTap),
+              borderRadius: BorderRadius.circular(16),
+              child: Stack(
+                alignment: Alignment.center,
                 children: [
-                  Container(
-                    width: 64,
-                    height: 64,
-                    decoration: BoxDecoration(
-                      color: color.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Center(
-                      child: FaIcon(
-                        icon,
-                        size: 28,
-                        color: color,
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 64,
+                        height: 64,
+                        decoration: BoxDecoration(
+                          color: color.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: FaIcon(
+                            icon,
+                            size: 28,
+                            color: color,
+                          ),
+                        ),
                       ),
-                    ),
+                      const SizedBox(height: 16),
+                      Text(
+                        title,
+                        style: TextStyle(
+                          color: Colors.grey[300],
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      if (controller.isLoading.value && title == 'Oda Kur')
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(color),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
-                  const SizedBox(height: 16),
-                  Text(
-                    title,
-                    style: TextStyle(
-                      color: Colors.grey[300],
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  if (controller.isLoading.value && title == 'Oda Kur')
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(color),
+                  if (isComingSoon)
+                    Positioned(
+                      top: 12,
+                      right: 12,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black87,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Colors.grey[850]!,
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const FaIcon(
+                              FontAwesomeIcons.clock,
+                              size: 10,
+                              color: Colors.grey,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Yakında',
+                              style: TextStyle(
+                                color: Colors.grey[400],
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
                 ],
               ),
-              if (isComingSoon)
-                Positioned(
-                  top: 12,
-                  right: 12,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.black87,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: Colors.grey[850]!,
-                        width: 1,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const FaIcon(
-                          FontAwesomeIcons.clock,
-                          size: 10,
-                          color: Colors.grey,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Yakında',
-                          style: TextStyle(
-                            color: Colors.grey[400],
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-            ],
+            ),
           ),
-        ),
-      ),
-    ));
+        ));
   }
 
   Widget _buildBottomNav() {
@@ -1180,7 +1188,7 @@ class MainRaceScreen extends GetView<MainRaceController> {
       ),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       child: Obx(
-            () => Row(
+        () => Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: items.asMap().entries.map((entry) {
             final index = entry.key;
@@ -1199,33 +1207,34 @@ class MainRaceScreen extends GetView<MainRaceController> {
   Widget _buildBottomNavItem(IconData icon, String label, int index) {
     final isSelected = controller.selectedIndex.value == index;
     return InkWell(
-        onTap: () => controller.changeTab(index),
-        child: Container(
+      onTap: () => controller.changeTab(index),
+      child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-    decoration: BoxDecoration(
-    color: isSelected ? Colors.green.withOpacity(0.1) : Colors.transparent,
-    borderRadius: BorderRadius.circular(12),
-    ),
-    child: Column(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-    FaIcon(
-    icon,
-    size: 20,
-    color: isSelected ? Colors.green : Colors.grey[600],
-    ),
-      const SizedBox(height: 4),
-      Text(
-        label,
-        style: TextStyle(
-          color: isSelected ? Colors.green : Colors.grey[600],
-          fontSize: 12,
-          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+        decoration: BoxDecoration(
+          color:
+              isSelected ? Colors.green.withOpacity(0.1) : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            FaIcon(
+              icon,
+              size: 20,
+              color: isSelected ? Colors.green : Colors.grey[600],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? Colors.green : Colors.grey[600],
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ],
         ),
       ),
-    ],
-    ),
-        ),
     );
   }
 }

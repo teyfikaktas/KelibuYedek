@@ -1,19 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:kelibu/Models/product.dart';
-import 'package:kelibu/screens/WordListScreen.dart';
-import 'package:kelibu/api.dart';
-import 'package:kelibu/Models/category.dart';
-import 'package:kelibu/screens/loadingIndicator.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:provider/provider.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:kelibu/Models/product.dart';
+import 'package:kelibu/api.dart';
+import 'package:kelibu/screens/WordListScreen.dart';
+import 'package:kelibu/screens/loadingIndicator.dart';
+import 'package:kelibu/screens/personelcollection/personelcollenction.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../providers/sub_provider.dart';
-import '../providers/user_provider.dart';
 import 'game_mod.dart';
 import 'market_store.dart';
 
@@ -25,24 +24,34 @@ class WordSetsPage extends StatefulWidget {
 }
 
 class _WordSetsPageState extends State<WordSetsPage> {
-  List<Product>? _products;
-  List<Product>? _filteredProducts;
-  bool _isDarkMode = false;
-  bool _isFreeMode = false;
-  bool _isSearching = false;
-  TextEditingController _searchController = TextEditingController();
-  FocusNode _searchFocusNode = FocusNode();
+  // ✅ Tüm state'ler artık Rx
+  final RxList<Product> _products = <Product>[].obs;
+  final RxList<Product> _filteredProducts = <Product>[].obs;
+  final RxBool _isDarkMode = false.obs;
+  final RxBool _isFreeMode = false.obs;
+  final RxBool _isSearching = false.obs;
+  final RxBool _isLoading = false.obs;
+  final RxMap<int, bool> _pinnedProducts = <int, bool>{}.obs;
+  final RxInt _searchHistoryCount = 0.obs;
+
+  // Non-reactive
+  final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
   final _storage = GetStorage();
-  RxMap<int, bool> _pinnedProducts = RxMap<int, bool>({});
-  bool _isLoading = false;
   final ApiService _apiService = ApiService();
+
   @override
   void initState() {
     super.initState();
     _loadDarkModePreference();
-    _fetchProducts();
     _checkFreeMode();
-    _loadPinnedProducts();
+    _initializeData();
+    _loadSearchHistoryCount();
+  }
+
+  Future<void> _initializeData() async {
+    await _fetchProducts();
+    await _loadPinnedProducts();
   }
 
   @override
@@ -52,18 +61,44 @@ class _WordSetsPageState extends State<WordSetsPage> {
     super.dispose();
   }
 
-  void _loadPinnedProducts() {
-    final pinnedList = _storage.read<List>('pinnedProducts') ?? [];
-    _pinnedProducts.value = Map.fromEntries(
-      pinnedList.map((id) => MapEntry(id as int, true)),
-    );
+  Future<void> _loadSearchHistoryCount() async {
+    final prefs = await SharedPreferences.getInstance();
+    List<String> searchHistory = prefs.getStringList('search_history') ?? [];
+    _searchHistoryCount.value = searchHistory.length;
   }
-// WordSetsPage sınıfına bu method'u ekleyin
 
-// WordSetsPage'deki navigateToGameModeFromSearchHistory method'unu bu şekilde güncelleyin
+  Future<void> _loadPinnedProducts() async {
+    try {
+      final pinnedSets = await _apiService.getPinnedSets();
+      Map<int, bool> pinnedMap = {};
+
+      for (var pinnedSet in pinnedSets) {
+        final wordSetId = pinnedSet['word_set_id'] ?? pinnedSet['id'];
+        final product = _products.firstWhereOrNull(
+              (p) {
+            return p.classroom?.id == wordSetId;
+          },
+        );
+        if (product?.id != null) {
+          pinnedMap[product!.id!] = true;
+        }
+      }
+
+      _pinnedProducts.value = pinnedMap;
+
+      await _storage.write(
+        'pinnedProducts',
+        _pinnedProducts.keys.toList(),
+      );
+    } catch (e) {
+      final pinnedList = _storage.read<List>('pinnedProducts') ?? [];
+      _pinnedProducts.value = Map.fromEntries(
+        pinnedList.map((id) => MapEntry(id as int, true)),
+      );
+    }
+  }
 
   Future<void> navigateToGameModeFromSearchHistory() async {
-    // Loading dialog göster
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -78,16 +113,13 @@ class _WordSetsPageState extends State<WordSetsPage> {
     );
 
     try {
-      // Arama geçmişindeki kelimelerin ID'lerini al
       List<int> searchHistoryIds = await _getSearchHistoryIds();
 
-      // Dialog'u kapat
       if (Navigator.canPop(context)) {
         Navigator.of(context).pop();
       }
 
       if (searchHistoryIds.isEmpty) {
-        // Eğer arama geçmişi boşsa kullanıcıyı bilgilendir
         Get.snackbar(
           "",
           "",
@@ -127,27 +159,23 @@ class _WordSetsPageState extends State<WordSetsPage> {
         return;
       }
 
-      // GameModeScreen'e git - List<int>'i String'e çevir
       final result = await Navigator.of(context).push(
         MaterialPageRoute(
           builder: (context) => GameModeScreen(
-            studySetName: searchHistoryIds.join(','), // ID'leri virgülle ayırarak String yap
-            classroomId: 1, // Sabit değer
-            studySetId: 1,  // Sabit değer
+            studySetName: searchHistoryIds.join(','),
+            classroomId: 1,
+            studySetId: 1,
           ),
         ),
       );
 
       if (result != null) {
-        print('GameMode\'dan geri dönüldü');
-        // Gerekirse sayfa yenileme işlemleri burada yapılabilir
+        // Gerekirse sayfa yenileme işlemleri
       }
     } catch (e) {
-      // Dialog'u güvenli şekilde kapat
       if (Navigator.canPop(context)) {
         Navigator.of(context).pop();
       }
-      print('Hata: $e');
 
       Get.snackbar(
         "",
@@ -187,7 +215,7 @@ class _WordSetsPageState extends State<WordSetsPage> {
       );
     }
   }
-// Arama geçmişindeki kelimelerin ID'lerini al
+
   Future<List<int>> _getSearchHistoryIds() async {
     final prefs = await SharedPreferences.getInstance();
     List<String> searchHistory = prefs.getStringList('search_history') ?? [];
@@ -201,149 +229,119 @@ class _WordSetsPageState extends State<WordSetsPage> {
         if (searchResult != null) {
           wordIds.add(searchResult.id);
         }
-      } catch (e) {
-        print('Kelime ID alınırken hata: $searchTerm - $e');
-      }
+      } catch (e) {}
     }
 
     return wordIds;
   }
 
-// Arama geçmişindeki kelime sayısını al
-  Future<int> _getSearchHistoryCount() async {
-    final prefs = await SharedPreferences.getInstance();
-    List<String> searchHistory = prefs.getStringList('search_history') ?? [];
-    return searchHistory.length;
-  }
   Future<void> _togglePin(int productId) async {
     HapticFeedback.mediumImpact();
 
-    if (_pinnedProducts.containsKey(productId)) {
-      _pinnedProducts.remove(productId);
-      Get.snackbar(
-        "", // başlık boş bırakıyoruz çünkü custom title widget kullanacağız
-        "", // mesaj boş bırakıyoruz çünkü custom message widget kullanacağız
-        titleText: Container(), // başlığı gizle
-        messageText: Row(
-          children: [
-            Container(
-              padding: EdgeInsets.all(8.sp),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(
-                Icons.push_pin_outlined,
-                color: Colors.white,
-                size: 20.sp,
-              ),
-            ),
-            SizedBox(width: 12.w),
-            Text(
-              'Sabitleme kaldırıldı',
-              style: GoogleFonts.nunito(
-                color: Colors.white,
-                fontSize: 16.sp,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: Color(0xFF58CC02),
-        borderRadius: 16,
-        duration: Duration(seconds: 2),
-        animationDuration: Duration(milliseconds: 500),
-        snackPosition: SnackPosition.TOP,
-        margin: EdgeInsets.all(16),
-        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-        barBlur: 5,
-        overlayBlur: 0.5,
-        isDismissible: true,
-        dismissDirection: DismissDirection.horizontal,
-        forwardAnimationCurve: Curves.easeOutBack,
-        reverseAnimationCurve: Curves.easeInBack,
-      );
-    } else {
-      _pinnedProducts[productId] = true;
-      Get.snackbar(
-        "",
-        "",
-        titleText: Container(),
-        messageText: Row(
-          children: [
-            Container(
-              padding: EdgeInsets.all(8.sp),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(
-                Icons.push_pin,
-                color: Colors.white,
-                size: 20.sp,
-              ),
-            ),
-            SizedBox(width: 12.w),
-            Text(
-              'Liste başına sabitlendi',
-              style: GoogleFonts.nunito(
-                color: Colors.white,
-                fontSize: 16.sp,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: Color(0xFF1CB0F6),
-        borderRadius: 16,
-        duration: Duration(seconds: 2),
-        animationDuration: Duration(milliseconds: 500),
-        snackPosition: SnackPosition.TOP,
-        margin: EdgeInsets.all(16),
-        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-        barBlur: 5,
-        overlayBlur: 0.5,
-        isDismissible: true,
-        dismissDirection: DismissDirection.horizontal,
-        forwardAnimationCurve: Curves.easeOutBack,
-        reverseAnimationCurve: Curves.easeInBack,
-      );
+    final product = _products.firstWhereOrNull((p) => p.id == productId);
+    final wordSetId = product?.classroom?.id;
+
+    if (wordSetId == null) {
+      return;
     }
 
-    await _storage.write(
-      'pinnedProducts',
-      _pinnedProducts.keys.toList(),
+    try {
+      if (_pinnedProducts.containsKey(productId)) {
+        await _apiService.unpinWordSet(wordSetId);
+        _pinnedProducts.remove(productId);
+
+        _showSnackbar(
+          icon: Icons.push_pin_outlined,
+          message: 'Sabitleme kaldırıldı',
+          color: Colors.green,
+        );
+      } else {
+        await _apiService.pinWordSet(wordSetId);
+        _pinnedProducts[productId] = true;
+
+        _showSnackbar(
+          icon: Icons.push_pin,
+          message: 'Liste başına sabitlendi',
+          color: Color(0xFF1CB0F6),
+        );
+      }
+
+      await _storage.write(
+        'pinnedProducts',
+        _pinnedProducts.keys.toList(),
+      );
+    } on ApiException catch (e) {
+      _showSnackbar(
+        icon: Icons.error_outline,
+        message: e.message,
+        color: Colors.red,
+      );
+    } catch (e) {
+      _showSnackbar(
+        icon: Icons.error_outline,
+        message: 'Bir hata oluştu',
+        color: Colors.red,
+      );
+    }
+  }
+
+  void _showSnackbar({
+    required IconData icon,
+    required String message,
+    required Color color,
+  }) {
+    final snackBar = SnackBar(
+      elevation: 0,
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: color,
+      margin: EdgeInsets.all(16),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      content: Row(
+        children: [
+          Icon(icon, color: Colors.white, size: 24.sp),
+          SizedBox(width: 12.w),
+          Expanded(
+            child: Text(
+              message,
+              style: GoogleFonts.nunito(
+                color: Colors.white,
+                fontSize: 16.sp,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(snackBar);
   }
 
   Future<void> _loadDarkModePreference() async {
     final prefs = await SharedPreferences.getInstance();
-    setState(() => _isDarkMode = prefs.getBool("darkMode") ?? false);
+    _isDarkMode.value = prefs.getBool("darkMode") ?? false;
   }
 
   Future<void> _fetchProducts() async {
-    if (_isLoading) return; // Çift istek göndermemek için
+    if (_isLoading.value) return;
 
-    setState(() {
-      _isLoading = true;
-    });
+    _isLoading.value = true;
 
     try {
       final products = await _apiService.fetchActiveProducts();
 
       if (mounted) {
-        setState(() {
-          _products = products;
-          _filteredProducts = products;
-          _isLoading = false;
-        });
+        _products.value = products;
+        _filteredProducts.value = products;
       }
     } catch (error) {
-      print("API Error: $error");
+    } finally {
       if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
+        _isLoading.value = false;
       }
     }
   }
@@ -351,68 +349,74 @@ class _WordSetsPageState extends State<WordSetsPage> {
   Future<void> _checkFreeMode() async {
     try {
       final isFree = await ApiService().checkFreeMode();
-      setState(() => _isFreeMode = isFree);
-    } catch (error) {
-      print("Free Mode Error: $error");
-    }
+      _isFreeMode.value = isFree;
+    } catch (error) {}
   }
 
   void _onSearchChanged(String query) {
     if (query.isEmpty) {
-      setState(() {
-        _filteredProducts = _products;
-      });
+      _filteredProducts.value = _products.toList();
       return;
     }
 
-    setState(() {
-      _filteredProducts = _products?.where((product) {
-        final title = product.classroom?.title?.toLowerCase() ?? '';
-        return title.contains(query.toLowerCase());
-      }).toList();
-    });
+    _filteredProducts.value = _products.where((product) {
+      final title = product.classroom?.title?.toLowerCase() ?? '';
+      return title.contains(query.toLowerCase());
+    }).toList();
   }
 
   List<Product> _getSortedProducts() {
-    final currentProducts = (_filteredProducts ?? _products ?? []);
-    return List.from(currentProducts)..sort((a, b) {
-      final aPinned = _pinnedProducts[a.id ?? 0] ?? false;
-      final bPinned = _pinnedProducts[b.id ?? 0] ?? false;
-      if (aPinned && !bPinned) return -1;
-      if (!aPinned && bPinned) return 1;
-      return 0;
-    });
+    final currentProducts = _filteredProducts.isNotEmpty ? _filteredProducts : _products;
+    return List<Product>.from(currentProducts)
+      ..sort((a, b) {
+        final aPinned = _pinnedProducts[a.id ?? 0] ?? false;
+        final bPinned = _pinnedProducts[b.id ?? 0] ?? false;
+        if (aPinned && !bPinned) return -1;
+        if (!aPinned && bPinned) return 1;
+        return 0;
+      });
+  }
+
+  void _toggleSearch() {
+    if (_isSearching.value) {
+      _searchController.clear();
+      _filteredProducts.value = _products.toList();
+    }
+    _isSearching.value = !_isSearching.value;
+    if (_isSearching.value) {
+      _searchFocusNode.requestFocus();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final bool isVip = Provider.of<SubscriptionProvider>(context).isVip;
 
-    return Scaffold(
+    return Obx(() => Scaffold(
       appBar: AppBar(
-        backgroundColor: _isDarkMode ? Colors.grey[900] : Colors.white,
+        backgroundColor: _isDarkMode.value ? Colors.grey[900] : Colors.white,
         elevation: 2,
         surfaceTintColor: Colors.transparent,
         shadowColor: Colors.black26,
         iconTheme: IconThemeData(
-          color: _isDarkMode ? Colors.white : Colors.black87,
+          color: _isDarkMode.value ? Colors.white : Colors.black87,
           size: 26.sp,
         ),
         titleSpacing: 0,
         leadingWidth: 50.w,
-        title: _isSearching
+        title: _isSearching.value
             ? TextField(
           controller: _searchController,
           focusNode: _searchFocusNode,
           style: GoogleFonts.nunito(
-            color: _isDarkMode ? Colors.white : Colors.black87,
+            color: _isDarkMode.value ? Colors.white : Colors.black87,
             fontSize: 18.sp,
             fontWeight: FontWeight.w500,
           ),
           decoration: InputDecoration(
             hintText: 'Set ara...',
             hintStyle: GoogleFonts.nunito(
-              color: _isDarkMode ? Colors.white70 : Colors.black54,
+              color: _isDarkMode.value ? Colors.white70 : Colors.black54,
               fontSize: 18.sp,
             ),
             border: InputBorder.none,
@@ -438,7 +442,7 @@ class _WordSetsPageState extends State<WordSetsPage> {
                   style: GoogleFonts.nunito(
                     fontSize: 22.sp,
                     fontWeight: FontWeight.bold,
-                    color: _isDarkMode ? Colors.white : Colors.black87,
+                    color: _isDarkMode.value ? Colors.white : Colors.black87,
                   ),
                 ),
               ],
@@ -448,67 +452,55 @@ class _WordSetsPageState extends State<WordSetsPage> {
         actions: [
           IconButton(
             icon: Icon(
-              _isSearching ? Icons.close : Icons.search,
-              color: _isDarkMode ? Colors.white : Colors.black87,
+              _isSearching.value ? Icons.close : Icons.search,
+              color: _isDarkMode.value ? Colors.white : Colors.black87,
               size: 26.sp,
             ),
-            onPressed: () {
-              setState(() {
-                if (_isSearching) {
-                  _searchController.clear();
-                  _filteredProducts = _products;
-                }
-                _isSearching = !_isSearching;
-                if (_isSearching) {
-                  _searchFocusNode.requestFocus();
-                }
-              });
-            },
+            onPressed: _toggleSearch,
           ),
           SizedBox(width: 12.w),
         ],
       ),
       body: Container(
-        color: _isDarkMode ? Colors.grey[850] : Colors.white,
+        color: _isDarkMode.value ? Colors.grey[850] : Colors.white,
         child: Column(
           children: [
             _buildProBanner(isVip),
             Expanded(
-              child: _products == null
+              child: _isLoading.value && _products.isEmpty
                   ? Center(child: LogoLoadingIndicator())
-                  : Obx(() => ListView.builder(
+                  : ListView.builder(
                 padding: EdgeInsets.symmetric(vertical: 8.h),
-                itemCount: _getSortedProducts().length + 2, // +1 son arananlar kartı için
+                itemCount: _getSortedProducts().length + 2,
                 itemBuilder: (context, index) {
-                  // İlk öğe olarak son arananlar kartını göster
                   if (index == 0) {
                     return _buildRecentSearchesCard();
                   }
                   if (index == 1) {
-                    return _buildPersonalCollectionCard(); // Yeni kart
+                    return _buildPersonalCollectionCard();
                   }
-                  // Diğer öğeler için gerçek index 1 azalmalı
                   return _buildProductItem(
-                    _getSortedProducts()[index - 1],
-                    index - 1,
+                    _getSortedProducts()[index - 2],
+                    index - 2,
                     isVip,
                   );
                 },
-              )),
+              ),
             ),
           ],
         ),
       ),
-    );
+    ));
   }
+
   Widget _buildPersonalCollectionCard() {
     return Container(
-      height: 100.h,
+      height: 75.h,
       margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            Color(0xFF6366F1), // Modern indigo
+            Color(0xFF6366F1),
             Color(0xFF4F46E5),
           ],
           begin: Alignment.topLeft,
@@ -527,7 +519,12 @@ class _WordSetsPageState extends State<WordSetsPage> {
         color: Colors.transparent,
         child: InkWell(
           onTap: () {
-            // Kişisel koleksiyon sayfasına git
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => PersonalCollectionPage(),
+              ),
+            );
           },
           borderRadius: BorderRadius.circular(16),
           child: Stack(
@@ -565,22 +562,6 @@ class _WordSetsPageState extends State<WordSetsPage> {
                             ),
                           ),
                         ),
-                        // "YAKINDA" rozeti
-                        Container(
-                          padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
-                          decoration: BoxDecoration(
-                            color: Colors.amber,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            'YAKINDA',
-                            style: GoogleFonts.nunito(
-                              fontSize: 10.sp,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
                       ],
                     ),
                     Text(
@@ -600,8 +581,9 @@ class _WordSetsPageState extends State<WordSetsPage> {
       ),
     );
   }
+
   Widget _buildProBanner(bool isVip) {
-    if (!isVip && !_isFreeMode) {
+    if (!isVip && !_isFreeMode.value) {
       return Container(
         margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
         padding: EdgeInsets.all(16.sp),
@@ -708,7 +690,7 @@ class _WordSetsPageState extends State<WordSetsPage> {
     ];
     final color = colors[index % colors.length];
     final icon = icons[index % icons.length];
-    final isUnlocked = _isFreeMode || isVip || product.id == 46 || product.id == 41;
+    final isUnlocked = _isFreeMode.value || isVip || product.id == 46 || product.id == 41;
     final isPinned = _pinnedProducts[product.id ?? 0] ?? false;
 
     return Container(
@@ -741,8 +723,7 @@ class _WordSetsPageState extends State<WordSetsPage> {
             MaterialPageRoute(
               builder: (context) => WordListScreen(
                 categoryId: product.classroom?.id ?? 0,
-                categoryName:
-                product.classroom?.title ?? 'Varsayılan Başlık',
+                categoryName: product.classroom?.title ?? 'Varsayılan Başlık',
               ),
             ),
           )
@@ -822,11 +803,7 @@ class _WordSetsPageState extends State<WordSetsPage> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(
-                            Icons.lock,
-                            color: Colors.white,
-                            size: 24.sp
-                        ),
+                        Icon(Icons.lock, color: Colors.white, size: 24.sp),
                         SizedBox(width: 8.w),
                         Text(
                           'Premium',
@@ -846,156 +823,150 @@ class _WordSetsPageState extends State<WordSetsPage> {
       ),
     );
   }
-// WordSetsPage'deki _buildRecentSearchesCard method'unu bu şekilde güncelleyin
 
   Widget _buildRecentSearchesCard() {
-    return FutureBuilder<int>(
-      future: _getSearchHistoryCount(),
-      builder: (context, snapshot) {
-        final searchCount = snapshot.data ?? 0;
+    final searchCount = _searchHistoryCount.value;
 
-        return Container(
-          height: 100.h,
-          margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                Color(0xFF9C27B0),
-                Color(0xFF7B1FA2),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Color(0xFF9C27B0).withOpacity(0.3),
-                blurRadius: 8,
-                offset: Offset(0, 4),
-              )
-            ],
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: searchCount > 0
-                  ? () => navigateToGameModeFromSearchHistory()
-                  : () {
-                Get.snackbar(
-                  "",
-                  "",
-                  titleText: Container(),
-                  messageText: Row(
-                    children: [
-                      Container(
-                        padding: EdgeInsets.all(8.sp),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Icon(
-                          Icons.search,
-                          color: Colors.white,
-                          size: 20.sp,
-                        ),
-                      ),
-                      SizedBox(width: 12.w),
-                      Text(
-                        'Önce sözlükten kelime arayın',
-                        style: GoogleFonts.nunito(
-                          color: Colors.white,
-                          fontSize: 16.sp,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                  backgroundColor: Color(0xFF9C27B0),
-                  borderRadius: 16,
-                  duration: Duration(seconds: 2),
-                  snackPosition: SnackPosition.TOP,
-                  margin: EdgeInsets.all(16),
-                  padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-                );
-              },
-              borderRadius: BorderRadius.circular(16),
-              child: Stack(
+    return Container(
+      height: 100.h,
+      margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Color(0xFF9C27B0),
+            Color(0xFF7B1FA2),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0xFF9C27B0).withOpacity(0.3),
+            blurRadius: 8,
+            offset: Offset(0, 4),
+          )
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: searchCount > 0
+              ? () => navigateToGameModeFromSearchHistory()
+              : () {
+            Get.snackbar(
+              "",
+              "",
+              titleText: Container(),
+              messageText: Row(
                 children: [
-                  Positioned(
-                    right: -20,
-                    bottom: -20,
-                    child: Icon(
-                      Icons.history,
-                      size: 80.sp,
+                  Container(
+                    padding: EdgeInsets.all(8.sp),
+                    decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      Icons.search,
+                      color: Colors.white,
+                      size: 20.sp,
                     ),
                   ),
-                  Padding(
-                    padding: EdgeInsets.all(16.sp),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              searchCount > 0 ? Icons.star : Icons.search,
-                              color: searchCount > 0 ? Colors.amber : Colors.white70,
-                              size: 24.sp,
-                            ),
-                            SizedBox(width: 8.w),
-                            Expanded(
-                              child: Text(
-                                'Son Aradığım Kelimeler',
-                                style: GoogleFonts.nunito(
-                                  fontSize: 18.sp,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                        SizedBox(height: 12.h),
-                        Row(
-                          children: [
-                            Container(
-                              padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.2),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                '$searchCount kelime',
-                                style: GoogleFonts.nunito(
-                                  fontSize: 14.sp,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                            Spacer(),
-                            Text(
-                              searchCount > 0 ? 'Oyna!' : 'Henüz yok',
-                              style: GoogleFonts.nunito(
-                                fontSize: 14.sp,
-                                fontWeight: FontWeight.w600,
-                                color: searchCount > 0 ? Colors.white : Colors.white70,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
+                  SizedBox(width: 12.w),
+                  Text(
+                    'Önce sözlükten kelime arayın',
+                    style: GoogleFonts.nunito(
+                      color: Colors.white,
+                      fontSize: 16.sp,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],
               ),
-            ),
+              backgroundColor: Color(0xFF9C27B0),
+              borderRadius: 16,
+              duration: Duration(seconds: 2),
+              snackPosition: SnackPosition.TOP,
+              margin: EdgeInsets.all(16),
+              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+            );
+          },
+          borderRadius: BorderRadius.circular(16),
+          child: Stack(
+            children: [
+              Positioned(
+                right: -20,
+                bottom: -20,
+                child: Icon(
+                  Icons.history,
+                  size: 80.sp,
+                  color: Colors.white.withOpacity(0.2),
+                ),
+              ),
+              Padding(
+                padding: EdgeInsets.all(16.sp),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          searchCount > 0 ? Icons.star : Icons.search,
+                          color: searchCount > 0 ? Colors.amber : Colors.white70,
+                          size: 24.sp,
+                        ),
+                        SizedBox(width: 8.w),
+                        Expanded(
+                          child: Text(
+                            'Son Aradığım Kelimeler',
+                            style: GoogleFonts.nunito(
+                              fontSize: 18.sp,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 12.h),
+                    Row(
+                      children: [
+                        Container(
+                          padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            '$searchCount kelime',
+                            style: GoogleFonts.nunito(
+                              fontSize: 14.sp,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                        Spacer(),
+                        Text(
+                          searchCount > 0 ? 'Oyna!' : 'Henüz yok',
+                          style: GoogleFonts.nunito(
+                            fontSize: 14.sp,
+                            fontWeight: FontWeight.w600,
+                            color: searchCount > 0 ? Colors.white : Colors.white70,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }

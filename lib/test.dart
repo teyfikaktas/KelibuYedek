@@ -1,9 +1,7 @@
-import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'dart:convert';
 
-import 'package:kelibu/api.dart';
-import 'package:kelibu/shared_preferences/shared_preferences.dart';
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 
 void main() {
   runApp(const MyApp());
@@ -71,12 +69,6 @@ class _MyHomePageState extends State<MyHomePage> {
     } else {
       // Hata işleme
     }
-  }
-
-  void _incrementCounter() {
-    setState(() {
-      _counter++;
-    });
   }
 
   @override
@@ -153,7 +145,8 @@ class _MyHomePageState extends State<MyHomePage> {
             ),
           ),
           ElevatedButton(
-            onPressed: () => login(_usernameController.text, _passwordController.text),
+            onPressed: () =>
+                login(_usernameController.text, _passwordController.text),
             child: const Text('Giriş Yap'),
           ),
         ],

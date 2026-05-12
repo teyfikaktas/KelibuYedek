@@ -1,18 +1,21 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
-import 'dart:convert';
 import 'package:kelibu/providers/user_provider.dart';
-import 'package:provider/provider.dart';
 import 'package:kelibu/variables.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class SelfEnglishBetaApplicationPage extends StatefulWidget {
   @override
-  _SelfEnglishBetaApplicationPageState createState() => _SelfEnglishBetaApplicationPageState();
+  _SelfEnglishBetaApplicationPageState createState() =>
+      _SelfEnglishBetaApplicationPageState();
 }
 
-class _SelfEnglishBetaApplicationPageState extends State<SelfEnglishBetaApplicationPage> {
+class _SelfEnglishBetaApplicationPageState
+    extends State<SelfEnglishBetaApplicationPage> {
   final _formKey = GlobalKey<FormState>();
   String _name = '';
   String _email = '';
@@ -54,7 +57,6 @@ class _SelfEnglishBetaApplicationPageState extends State<SelfEnglishBetaApplicat
         SnackBar(content: Text('Başvurunuz için teşekkür ederiz.')),
       );
     } else {
-      print('Başvuru gönderilirken bir hata oluştu: ${response.body}');
     }
   }
 

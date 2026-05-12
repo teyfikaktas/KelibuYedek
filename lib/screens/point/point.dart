@@ -1,6 +1,7 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'dart:math' as math;
 
 class PointsDisplay extends StatelessWidget {
   final int points;
@@ -16,8 +17,11 @@ class PointsDisplay extends StatelessWidget {
   Duration _calculateDuration(int points) {
     const int baseDuration = 500;
     const int maxDuration = 2000;
-    final double factor = (math.log(points + 1) / math.log(10000)).clamp(0.0, 1.0);
-    return Duration(milliseconds: (baseDuration + factor * (maxDuration - baseDuration)).round());
+    final double factor =
+        (math.log(points + 1) / math.log(10000)).clamp(0.0, 1.0);
+    return Duration(
+        milliseconds:
+            (baseDuration + factor * (maxDuration - baseDuration)).round());
   }
 
   @override
@@ -25,10 +29,13 @@ class PointsDisplay extends StatelessWidget {
     final animationDuration = _calculateDuration(points);
 
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 2.h), // Reduced even further
+      padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 2.h),
+      // Reduced even further
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.blue.shade200, width: 0.5), // Reduced even further
-        borderRadius: BorderRadius.circular(16.r), // Reduced even further
+        border: Border.all(color: Colors.blue.shade200, width: 0.5),
+        // Reduced even further
+        borderRadius: BorderRadius.circular(16.r),
+        // Reduced even further
         gradient: LinearGradient(
           colors: [Colors.blue.shade50, Colors.white],
           begin: Alignment.topLeft,
@@ -70,7 +77,8 @@ class PointsDisplay extends StatelessWidget {
                 ),
               ),
             ),
-            SizedBox(width: 2.w), // Reduced significantly to bring logo and text closer
+            SizedBox(width: 2.w),
+            // Reduced significantly to bring logo and text closer
             TweenAnimationBuilder<int>(
               tween: IntTween(begin: 0, end: points),
               duration: animationDuration,

@@ -37,21 +37,16 @@ class Room {
         gameStatus: json['game_status'] as String? ?? 'waiting',
       );
     } catch (e) {
-      print('Room parse error detail: $e');
       rethrow;
     }
   }
 
   // Odanın oynanabilir durumda olup olmadığını kontrol eden getter
-  bool get isPlayable =>
-      status != 'closed' &&
-          gameStatus == 'waiting';
+  bool get isPlayable => status != 'closed' && gameStatus == 'waiting';
 
   // Oyunun başlayıp başlamadığını kontrol eden getter
-  bool get isGameStarted =>
-      gameStatus == 'in_progress';
+  bool get isGameStarted => gameStatus == 'in_progress';
 
   // Oyunun bitip bitmediğini kontrol eden getter
-  bool get isGameFinished =>
-      gameStatus == 'finished';
+  bool get isGameFinished => gameStatus == 'finished';
 }

@@ -1,12 +1,13 @@
 import 'dart:convert';
+
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'login_screen.dart';
-import 'package:http/http.dart' as http;
-import 'package:kelibu/variables.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:http/http.dart' as http;
 import 'package:kelibu/screens/sdk/customShowDialog.dart';
+import 'package:kelibu/variables.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'login_screen.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   @override
@@ -37,19 +38,22 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   Future<void> _loadBrainQuotes() async {
     try {
-      String data = await DefaultAssetBundle.of(context).loadString('assets/brain.json');
+      String data =
+          await DefaultAssetBundle.of(context).loadString('assets/brain.json');
       List<dynamic> jsonResult = json.decode(data);
       setState(() {
-        _brainQuotes = jsonResult.map((item) => item['quote'].toString()).toList();
+        _brainQuotes =
+            jsonResult.map((item) => item['quote'].toString()).toList();
       });
     } catch (e) {
-      print('Brain quotes yüklenirken hata oluştu: $e');
       // Hata durumunda gerekli önlemleri alabilirsiniz
     }
   }
 
   String? validateEmail(String? value) {
-    if (value == null || value.isEmpty || !RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+    if (value == null ||
+        value.isEmpty ||
+        !RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
       return 'Lütfen geçerli bir e-posta adresi giriniz';
     }
     return null;
@@ -78,21 +82,21 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         });
 
         final responseData = json.decode(response.body);
-        print('API Response: $responseData');
-
         if (response.statusCode == 200) {
           // Dialog'u göstermek ve tamamlanmasını beklemek için await kullanıyoruz
-          await showCustomDialog(context, 'Başarılı', 'Yeni şifre E-posta adresinize başarıyla gönderildi. E-posta istenmeyen klasörüne düşebilir. Kontrol etmeyi unutmayın!');
+          await showCustomDialog(context, 'Başarılı',
+              'Yeni şifre E-posta adresinize başarıyla gönderildi. E-posta istenmeyen klasörüne düşebilir. Kontrol etmeyi unutmayın!');
 
           // Tüm önceki sayfaları kaldırarak LoginScreen'e yönlendirme
           Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(builder: (context) => LoginScreen()),
-                (Route<dynamic> route) => false,
+            (Route<dynamic> route) => false,
           );
         } else {
           // Hata durumunda dialog gösterme
-          await showCustomDialog(context, 'Hata', responseData['message'] ?? 'Bilinmeyen bir hata oluştu.');
+          await showCustomDialog(context, 'Hata',
+              responseData['message'] ?? 'Bilinmeyen bir hata oluştu.');
         }
       } catch (e) {
         setState(() {
@@ -108,7 +112,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     }
   }
 
-  Widget _buildTextField(TextEditingController controller, String label, {bool isEmail = false}) {
+  Widget _buildTextField(TextEditingController controller, String label,
+      {bool isEmail = false}) {
     return Container(
       margin: EdgeInsets.only(bottom: 15),
       decoration: BoxDecoration(
@@ -127,13 +132,16 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         controller: controller,
         decoration: InputDecoration(
           labelText: label,
-          labelStyle: TextStyle(color: _isDarkMode ? Colors.white70 : Colors.grey),
-          prefixIcon: Icon(isEmail ? Icons.email : Icons.phone, color: _isDarkMode ? Colors.white70 : Colors.grey),
+          labelStyle:
+              TextStyle(color: _isDarkMode ? Colors.white70 : Colors.grey),
+          prefixIcon: Icon(isEmail ? Icons.email : Icons.phone,
+              color: _isDarkMode ? Colors.white70 : Colors.grey),
           border: InputBorder.none,
           contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 15),
         ),
         style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black),
-        keyboardType: isEmail ? TextInputType.emailAddress : TextInputType.phone,
+        keyboardType:
+            isEmail ? TextInputType.emailAddress : TextInputType.phone,
         validator: isEmail ? validateEmail : null,
       ),
     );
@@ -148,12 +156,12 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         onPressed: onPressed,
         child: _isLoading
             ? CircularProgressIndicator(
-          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-        )
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              )
             : Text(
-          text,
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-        ),
+                text,
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
         style: ElevatedButton.styleFrom(
           backgroundColor: color,
           foregroundColor: Colors.white,
@@ -172,7 +180,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       backgroundColor: _isDarkMode ? Colors.grey[900] : Colors.white,
       appBar: AppBar(
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: _isDarkMode ? Colors.white : Colors.black),
+          icon: Icon(Icons.arrow_back,
+              color: _isDarkMode ? Colors.white : Colors.black),
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
@@ -244,9 +253,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   key: _emailFormKey,
                   child: Column(
                     children: [
-                      _buildTextField(_emailController, 'E-posta Adresi', isEmail: true),
+                      _buildTextField(_emailController, 'E-posta Adresi',
+                          isEmail: true),
                       SizedBox(height: 10),
-                      _buildSendButton('Şifremi Gönder', Colors.blue, sendNewPassword),
+                      _buildSendButton(
+                          'Şifremi Gönder', Colors.blue, sendNewPassword),
                     ],
                   ),
                 ),
@@ -258,7 +269,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   Navigator.pushAndRemoveUntil(
                     context,
                     MaterialPageRoute(builder: (context) => LoginScreen()),
-                        (Route<dynamic> route) => false,
+                    (Route<dynamic> route) => false,
                   );
                 },
                 child: Text(
@@ -270,7 +281,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               // Alıntı
               if (_brainQuotes.isNotEmpty)
                 Text(
-                  _brainQuotes[DateTime.now().millisecond % _brainQuotes.length],
+                  _brainQuotes[
+                      DateTime.now().millisecond % _brainQuotes.length],
                   style: TextStyle(
                     fontSize: 14,
                     fontStyle: FontStyle.italic,

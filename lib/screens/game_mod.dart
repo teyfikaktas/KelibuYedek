@@ -1,31 +1,33 @@
-import 'package:flame/game.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_spinkit/flutter_spinkit.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:get/get.dart';
+import 'package:google_fonts/google_fonts.dart'; // Google Fonts paketini import edin.
 import 'package:kelibu/Models/wordDetaik.dart'; // WordDetail modelinizin importu
 import 'package:kelibu/api.dart';
-import 'package:kelibu/screens/flash_card.dart'; // FlashCardScreen sayfasının importu
-import 'package:kelibu/screens/classic_kelibu.dart'; // FlashCardScreen sayfasının importu
 import 'package:kelibu/providers/user_provider.dart'; // UserProvider importu
+import 'package:kelibu/screens/classic_kelibu.dart'; // FlashCardScreen sayfasının importu
+import 'package:kelibu/screens/flash_card.dart'; // FlashCardScreen sayfasının importu
+import 'package:kelibu/screens/personelcollection/personelcollenction.dart';
+import 'package:kelibu/screens/quiz.dart';
 import 'package:kelibu/screens/video_player.dart';
 import 'package:provider/provider.dart';
-import 'package:kelibu/screens/quiz.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../event.dart';
 import '../event_bus.dart';
 import '../globalDart/urls.dart';
 import '../shared_preferences/shared_preferences.dart';
 import '../variables.dart';
 import '../widgets/match_mode_widget.dart';
+import 'games/WordQuizScreen.dart';
 import 'games/strach.dart';
-import 'loadingIndicator.dart';
-import 'study_screen.dart'; // StudyScreen'i içe aktar
 import 'listen_write.dart'; // StudyScreen'i içe aktar
-import 'package:flutter_tts/flutter_tts.dart';
-import 'package:flutter_spinkit/flutter_spinkit.dart';
-import 'package:google_fonts/google_fonts.dart'; // Google Fonts paketini import edin.
+import 'study_screen.dart'; // StudyScreen'i içe aktar
 
 class CustomLoadingIndicator extends StatelessWidget {
   @override
@@ -117,7 +119,8 @@ class _GameModeScreenState extends State<GameModeScreen>
   List<WordDetail> _filteredWords = [];
   int _starredWordCount = 0;
   int _selectedMatchOption = 0;
-
+  List<PersonalCollection> _userSets = [];
+  bool _isLoadingSets = false;
 
   @override
   void initState() {
@@ -128,10 +131,362 @@ class _GameModeScreenState extends State<GameModeScreen>
         _initializeData(); // wordsFuture'ı burada başlatıyoruz.
     ApiService().logSetEntry('Oyun Modları', 'Oyun modlarına', '');
     _searchController.addListener(_filterWords);
-
+    _loadUserSets();
     appEventBus.on<StarredWordsChangedEvent>().listen((event) async {
       await updateStarredWords();
     });
+  }
+
+  Future<void> _loadUserSets() async {
+    setState(() {
+      _isLoadingSets = true;
+    });
+
+    try {
+      final apiService = ApiService();
+      final collections = await apiService.getMyWordSets();
+
+      setState(() {
+        _userSets = collections
+            .map((json) => PersonalCollection(
+                  id: json['id'],
+                  name: json['set_name'],
+                  icon: Icons.collections_bookmark,
+                  isShared: json['is_public'] ?? false,
+                  wordCount: json['word_count'] ?? 0,
+                  createdAt: DateTime.parse(json['created_at']),
+                ))
+            .toList();
+        _isLoadingSets = false;
+      });
+    } catch (e) {
+      setState(() {
+        _userSets = [];
+        _isLoadingSets = false;
+      });
+    }
+  }
+
+  Future<void> _addWordToUserSet(int setId, int wordId, String setName) async {
+    try {
+      final apiService = ApiService();
+      await apiService.addWordToSet(
+        wordSetId: setId,
+        wordId: wordId,
+      );
+
+      Get.snackbar(
+        "",
+        "",
+        titleText: Container(),
+        messageText: Row(
+          children: [
+            Container(
+              padding: EdgeInsets.all(8.sp),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                Icons.check_circle,
+                color: Colors.white,
+                size: 20.sp,
+              ),
+            ),
+            SizedBox(width: 12.w),
+            Expanded(
+              child: Text(
+                'Kelime "$setName" setine eklendi! 🎉',
+                style: GoogleFonts.nunito(
+                  color: Colors.white,
+                  fontSize: 16.sp,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: Color(0xFF58CC02),
+        borderRadius: 16,
+        duration: Duration(seconds: 2),
+        snackPosition: SnackPosition.TOP,
+        margin: EdgeInsets.all(16),
+        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+      );
+
+      // Setleri yenile
+      await _loadUserSets();
+    } on ApiException catch (e) {
+      Get.snackbar(
+        "",
+        "",
+        titleText: Container(),
+        messageText: Text(
+          e.message,
+          style: GoogleFonts.nunito(
+            color: Colors.white,
+            fontSize: 16.sp,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        backgroundColor: Colors.red,
+        borderRadius: 16,
+        duration: Duration(seconds: 2),
+        snackPosition: SnackPosition.TOP,
+        margin: EdgeInsets.all(16),
+      );
+    } catch (e) {
+      Get.snackbar(
+        "",
+        "",
+        titleText: Container(),
+        messageText: Text(
+          'Kelime eklenirken hata oluştu',
+          style: GoogleFonts.nunito(
+            color: Colors.white,
+            fontSize: 16.sp,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        backgroundColor: Colors.red,
+        borderRadius: 16,
+        duration: Duration(seconds: 2),
+        snackPosition: SnackPosition.TOP,
+        margin: EdgeInsets.all(16),
+      );
+    }
+  }
+
+// Modal açan fonksiyon:
+  void _showAddToSetModal(WordDetail word) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.7,
+        decoration: BoxDecoration(
+          color: _isDarkMode ? Colors.grey[850] : Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          children: [
+            // Handle
+            Container(
+              margin: EdgeInsets.only(top: 12.h, bottom: 8.h),
+              width: 40.w,
+              height: 4.h,
+              decoration: BoxDecoration(
+                color: _isDarkMode ? Colors.white24 : Colors.black12,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+
+            // Header
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 16.h),
+              child: Row(
+                children: [
+                  Container(
+                    padding: EdgeInsets.all(12.sp),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Color(0xFF58CC02), Color(0xFF4CAF50)],
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      Icons.add_circle_outline,
+                      color: Colors.white,
+                      size: 24.sp,
+                    ),
+                  ),
+                  SizedBox(width: 12.w),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Sete Ekle',
+                          style: GoogleFonts.nunito(
+                            fontSize: 20.sp,
+                            fontWeight: FontWeight.bold,
+                            color: _isDarkMode ? Colors.white : Colors.black87,
+                          ),
+                        ),
+                        Text(
+                          '"${word.word}" kelimesini ekle',
+                          style: GoogleFonts.nunito(
+                            fontSize: 14.sp,
+                            color:
+                                _isDarkMode ? Colors.white70 : Colors.black54,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: Icon(
+                      Icons.close,
+                      color: _isDarkMode ? Colors.white70 : Colors.black54,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            Divider(height: 1),
+
+            // Setler listesi
+            Expanded(
+              child: _isLoadingSets
+                  ? Center(
+                      child: CircularProgressIndicator(
+                        color: Color(0xFF58CC02),
+                      ),
+                    )
+                  : _userSets.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.collections_bookmark,
+                                size: 64.sp,
+                                color: _isDarkMode
+                                    ? Colors.white24
+                                    : Colors.black12,
+                              ),
+                              SizedBox(height: 16.h),
+                              Text(
+                                'Henüz setiniz yok',
+                                style: GoogleFonts.nunito(
+                                  fontSize: 18.sp,
+                                  fontWeight: FontWeight.bold,
+                                  color: _isDarkMode
+                                      ? Colors.white70
+                                      : Colors.black54,
+                                ),
+                              ),
+                              SizedBox(height: 8.h),
+                              Text(
+                                'Önce bir set oluşturun',
+                                style: GoogleFonts.nunito(
+                                  fontSize: 14.sp,
+                                  color: _isDarkMode
+                                      ? Colors.white54
+                                      : Colors.black38,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : ListView.builder(
+                          padding: EdgeInsets.all(16.sp),
+                          itemCount: _userSets.length,
+                          itemBuilder: (context, index) {
+                            final set = _userSets[index];
+                            final colors = [
+                              [Color(0xFF58CC02), Color(0xFF4CAF50)],
+                              [Color(0xFF1CB0F6), Color(0xFF0EA5E9)],
+                              [Color(0xFFFFC800), Color(0xFFFF9600)],
+                              [Color(0xFF9C27B0), Color(0xFF8E24AA)],
+                              [Color(0xFFE91E63), Color(0xFFC2185B)],
+                            ];
+                            final colorPair =
+                                colors[set.id.hashCode % colors.length];
+
+                            return Container(
+                              margin: EdgeInsets.only(bottom: 12.h),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: colorPair,
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                borderRadius: BorderRadius.circular(16),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: colorPair[0].withOpacity(0.3),
+                                    blurRadius: 8,
+                                    offset: Offset(0, 4),
+                                  )
+                                ],
+                              ),
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: () {
+                                    Navigator.pop(context);
+                                    _addWordToUserSet(
+                                        set.id, word.id, set.name);
+                                  },
+                                  borderRadius: BorderRadius.circular(16),
+                                  child: Padding(
+                                    padding: EdgeInsets.all(16.sp),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          padding: EdgeInsets.all(12.sp),
+                                          decoration: BoxDecoration(
+                                            color:
+                                                Colors.white.withOpacity(0.2),
+                                            borderRadius:
+                                                BorderRadius.circular(12),
+                                          ),
+                                          child: Icon(
+                                            Icons.collections_bookmark,
+                                            color: Colors.white,
+                                            size: 24.sp,
+                                          ),
+                                        ),
+                                        SizedBox(width: 16.w),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                set.name,
+                                                style: GoogleFonts.nunito(
+                                                  fontSize: 18.sp,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.white,
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                              SizedBox(height: 4.h),
+                                              Text(
+                                                '${set.wordCount} kelime',
+                                                style: GoogleFonts.nunito(
+                                                  fontSize: 14.sp,
+                                                  color: Colors.white
+                                                      .withOpacity(0.9),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        Icon(
+                                          Icons.add_circle,
+                                          color: Colors.white,
+                                          size: 28.sp,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _initializeData() async {
@@ -161,7 +516,6 @@ class _GameModeScreenState extends State<GameModeScreen>
   Future<void> initializeStarredNotifiers() async {
     String processedString =
         widget.studySetName.replaceAll('[', '').replaceAll(']', '');
-print(widget.studySetName);
     List<String> stringIds = processedString
         .split(',')
         .map((id) => id.trim())
@@ -199,6 +553,424 @@ print(widget.studySetName);
     });
   }
 
+  Widget _buildActionCard({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color activeColor,
+    required VoidCallback onTap,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Container(
+        decoration: BoxDecoration(
+          color: _isDarkMode ? Colors.grey[800] : Colors.grey[200],
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(2),
+          child: Container(
+            decoration: BoxDecoration(
+              color: _isDarkMode ? Colors.grey[850] : Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: onTap,
+                borderRadius: BorderRadius.circular(14),
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              activeColor,
+                              activeColor.withOpacity(0.7),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(
+                          icon,
+                          color: Colors.white,
+                          size: 24,
+                        ),
+                      ),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              title,
+                              style: GoogleFonts.inter(
+                                fontSize: getResponsiveFontSize(context, 16),
+                                fontWeight: FontWeight.w600,
+                                color:
+                                    _isDarkMode ? Colors.white : Colors.black87,
+                              ),
+                            ),
+                            SizedBox(height: 2),
+                            Text(
+                              subtitle,
+                              style: GoogleFonts.inter(
+                                fontSize: getResponsiveFontSize(context, 13),
+                                color: _isDarkMode
+                                    ? Colors.white60
+                                    : Colors.black45,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(
+                        Icons.arrow_forward_ios,
+                        size: 18,
+                        color: _isDarkMode ? Colors.white54 : Colors.black38,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+// Toplu ekleme için modal:
+  void _showBulkAddToSetModal() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.7,
+        decoration: BoxDecoration(
+          color: _isDarkMode ? Colors.grey[850] : Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          children: [
+            // Handle
+            Container(
+              margin: EdgeInsets.only(top: 12.h, bottom: 8.h),
+              width: 40.w,
+              height: 4.h,
+              decoration: BoxDecoration(
+                color: _isDarkMode ? Colors.white24 : Colors.black12,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+
+            // Header
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 16.h),
+              child: Row(
+                children: [
+                  Container(
+                    padding: EdgeInsets.all(12.sp),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Color(0xFF58CC02), Color(0xFF4CAF50)],
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      Icons.library_add,
+                      color: Colors.white,
+                      size: 24.sp,
+                    ),
+                  ),
+                  SizedBox(width: 12.w),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Sete Ekle',
+                          style: GoogleFonts.nunito(
+                            fontSize: 20.sp,
+                            fontWeight: FontWeight.bold,
+                            color: _isDarkMode ? Colors.white : Colors.black87,
+                          ),
+                        ),
+                        Text(
+                          '${words.length} kelimeyi başka sete ekle',
+                          style: GoogleFonts.nunito(
+                            fontSize: 14.sp,
+                            color:
+                                _isDarkMode ? Colors.white70 : Colors.black54,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: Icon(
+                      Icons.close,
+                      color: _isDarkMode ? Colors.white70 : Colors.black54,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            Divider(height: 1),
+
+            // Setler listesi
+            Expanded(
+              child: _isLoadingSets
+                  ? Center(
+                      child: CircularProgressIndicator(
+                        color: Color(0xFF58CC02),
+                      ),
+                    )
+                  : _userSets.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.collections_bookmark,
+                                size: 64.sp,
+                                color: _isDarkMode
+                                    ? Colors.white24
+                                    : Colors.black12,
+                              ),
+                              SizedBox(height: 16.h),
+                              Text(
+                                'Henüz setiniz yok',
+                                style: GoogleFonts.nunito(
+                                  fontSize: 18.sp,
+                                  fontWeight: FontWeight.bold,
+                                  color: _isDarkMode
+                                      ? Colors.white70
+                                      : Colors.black54,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : ListView.builder(
+                          padding: EdgeInsets.all(16.sp),
+                          itemCount: _userSets.length,
+                          itemBuilder: (context, index) {
+                            final set = _userSets[index];
+
+                            // Mevcut seti filtrele
+                            if (set.id == widget.studySetId) {
+                              return SizedBox.shrink();
+                            }
+
+                            final colors = [
+                              [Color(0xFF58CC02), Color(0xFF4CAF50)],
+                              [Color(0xFF1CB0F6), Color(0xFF0EA5E9)],
+                              [Color(0xFFFFC800), Color(0xFFFF9600)],
+                              [Color(0xFF9C27B0), Color(0xFF8E24AA)],
+                              [Color(0xFFE91E63), Color(0xFFC2185B)],
+                            ];
+                            final colorPair =
+                                colors[set.id.hashCode % colors.length];
+
+                            return Container(
+                              margin: EdgeInsets.only(bottom: 12.h),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: colorPair,
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                borderRadius: BorderRadius.circular(16),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: colorPair[0].withOpacity(0.3),
+                                    blurRadius: 8,
+                                    offset: Offset(0, 4),
+                                  )
+                                ],
+                              ),
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: () async {
+                                    Navigator.pop(context);
+                                    await _addAllWordsToSet(set.id, set.name);
+                                  },
+                                  borderRadius: BorderRadius.circular(16),
+                                  child: Padding(
+                                    padding: EdgeInsets.all(16.sp),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          padding: EdgeInsets.all(12.sp),
+                                          decoration: BoxDecoration(
+                                            color:
+                                                Colors.white.withOpacity(0.2),
+                                            borderRadius:
+                                                BorderRadius.circular(12),
+                                          ),
+                                          child: Icon(
+                                            Icons.collections_bookmark,
+                                            color: Colors.white,
+                                            size: 24.sp,
+                                          ),
+                                        ),
+                                        SizedBox(width: 16.w),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                set.name,
+                                                style: GoogleFonts.nunito(
+                                                  fontSize: 18.sp,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.white,
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                              SizedBox(height: 4.h),
+                                              Text(
+                                                '${set.wordCount} kelime',
+                                                style: GoogleFonts.nunito(
+                                                  fontSize: 14.sp,
+                                                  color: Colors.white
+                                                      .withOpacity(0.9),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        Icon(
+                                          Icons.add_circle,
+                                          color: Colors.white,
+                                          size: 28.sp,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _addAllWordsToSet(int setId, String setName) async {
+    int successCount = 0;
+    int errorCount = 0;
+
+    // Progress dialog göster
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Center(
+        child: Container(
+          padding: EdgeInsets.all(24.sp),
+          margin: EdgeInsets.symmetric(horizontal: 40.w),
+          decoration: BoxDecoration(
+            color: _isDarkMode ? Colors.grey[850] : Colors.white,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(color: Color(0xFF58CC02)),
+              SizedBox(height: 16.h),
+              Text(
+                'Kelimeler ekleniyor...',
+                style: GoogleFonts.nunito(
+                  fontSize: 16.sp,
+                  fontWeight: FontWeight.w600,
+                  color: _isDarkMode ? Colors.white : Colors.black87,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    for (var word in words) {
+      try {
+        await ApiService().addWordToSet(
+          wordSetId: setId,
+          wordId: word.id,
+        );
+        successCount++;
+      } catch (e) {
+        errorCount++;
+      }
+    }
+
+    Navigator.pop(context); // Progress dialog'u kapat
+
+    // Sonuç mesajı
+    Get.snackbar(
+      "",
+      "",
+      titleText: Container(),
+      messageText: Row(
+        children: [
+          Container(
+            padding: EdgeInsets.all(8.sp),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              errorCount == 0 ? Icons.check_circle : Icons.info,
+              color: Colors.white,
+              size: 20.sp,
+            ),
+          ),
+          SizedBox(width: 12.w),
+          Expanded(
+            child: Text(
+              errorCount == 0
+                  ? '$successCount kelime "$setName" setine eklendi! 🎉'
+                  : '$successCount kelime eklendi, $errorCount kelime eklenemedi',
+              style: GoogleFonts.nunito(
+                color: Colors.white,
+                fontSize: 16.sp,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+      backgroundColor: errorCount == 0 ? Color(0xFF58CC02) : Colors.orange,
+      borderRadius: 16,
+      duration: Duration(seconds: 3),
+      snackPosition: SnackPosition.TOP,
+      margin: EdgeInsets.all(16),
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+    );
+
+    await _loadUserSets();
+  }
+
   Future<void> _speak(String text) async {
     await flutterTts.setLanguage("en-US");
     await flutterTts.awaitSpeakCompletion(true);
@@ -234,13 +1006,13 @@ print(widget.studySetName);
                   end: Alignment.bottomRight,
                   colors: _isDarkMode
                       ? [
-                    Colors.deepPurple.shade900,
-                    Colors.deepPurple.shade800,
-                  ]
+                          Colors.deepPurple.shade900,
+                          Colors.deepPurple.shade800,
+                        ]
                       : [
-                    Colors.deepPurple.shade400,
-                    Colors.deepPurple.shade600,
-                  ],
+                          Colors.deepPurple.shade400,
+                          Colors.deepPurple.shade600,
+                        ],
                 ),
                 boxShadow: [
                   BoxShadow(
@@ -254,7 +1026,7 @@ print(widget.studySetName);
             title: Row(
               children: [
                 Icon(
-                  Icons.extension,  // veya başka bir oyun ikonu
+                  Icons.extension, // veya başka bir oyun ikonu
                   color: Colors.white,
                   size: 32,
                 ),
@@ -282,12 +1054,13 @@ print(widget.studySetName);
               _buildRoundedIconButton(
                 Icons.slow_motion_video_sharp,
                 Colors.green.withOpacity(0.9),
-                    () {
+                () {
                   HapticFeedback.mediumImpact();
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => VideoPlayerScreen(videoUrl: AppUrls.gamescreen),
+                      builder: (context) =>
+                          VideoPlayerScreen(videoUrl: AppUrls.gamescreen),
                     ),
                   );
                 },
@@ -363,20 +1136,37 @@ print(widget.studySetName);
                     ),
                   ),
                 ),
-                SliverToBoxAdapter(
-                  child: MatchModeWidget(
-                    words: words,
-                    classroomId: widget.classroomId,
-                    studySetId: widget.studySetId,
-                    isDarkMode: _isDarkMode,
-                    isStarredMode: false,
+                SliverGrid(
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: gridCount,
+                    childAspectRatio: aspectRatio,
                   ),
-                ),
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: InkWell(
-                      onTap: () {
+                  delegate: SliverChildListDelegate([
+                    _buildGameModeTile(
+                      context,
+                      "Eşleştir",
+                      Colors.indigo,
+                      Icons.compare_arrows,
+                      TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                          () {
+                        showMatchModeDialog(context, _isDarkMode);
+                      },
+                    ),
+                    _buildGameModeTile(
+                      context,
+                      "Klasik Kelibu",
+                      Colors.deepPurple,
+                      Icons.gamepad,
+                      TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                          () {
                         Navigator.of(context).push(
                           MaterialPageRoute(
                             builder: (context) => KelimeOyunu(
@@ -385,100 +1175,10 @@ print(widget.studySetName);
                               studySetId: widget.studySetId,
                             ),
                           ),
-                        );  // Navigator.push için kapanış parantezi
+                        );
                       },
-                      child: Hero(
-                        tag: "Klasik Kelibu",
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              vertical: 12, horizontal: 16),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: _isDarkMode
-                                  ? [
-                                      Colors.deepPurple.shade800,
-                                      Colors.deepPurple.shade900
-                                    ]
-                                  : [
-                                      Colors.deepPurple.shade400,
-                                      Colors.deepPurple.shade700
-                                    ],
-                            ),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Container(
-                            padding: EdgeInsets.symmetric(
-                                vertical: 16, horizontal: 20),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [
-                                  _isDarkMode
-                                      ? Colors.deepPurple.shade700
-                                      : Colors.deepPurple.shade400,
-                                  _isDarkMode
-                                      ? Colors.deepPurple.shade900
-                                      : Colors.deepPurple.shade600,
-                                ],
-                              ),
-                              borderRadius: BorderRadius.circular(16),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.deepPurple
-                                      .withOpacity(_isDarkMode ? 0.3 : 0.4),
-                                  blurRadius: 10,
-                                  offset: Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: Row(
-                              children: [
-                                Container(
-                                  padding: EdgeInsets.all(10),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.2),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Icon(Icons.gamepad,
-                                      color: Colors.white, size: 28),
-                                ),
-                                SizedBox(width: 16),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        "Klasik Kelibu",
-                                        style: GoogleFonts.poppins(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: getResponsiveFontSize(
-                                              context, 20),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Container(
-                                  padding: EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.2),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Icon(Icons.arrow_forward,
-                                      color: Colors.white, size: 24),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
                     ),
-                  ),
+                  ]),
                 ),
                 SliverGrid(
                   gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
@@ -627,6 +1327,10 @@ print(widget.studySetName);
                     ),
                   ]),
                 ),
+
+                SliverToBoxAdapter(
+                  child: _buildQuestionPanel(colors),
+                ),
                 SliverToBoxAdapter(
                   child: Column(
                     children: [
@@ -647,10 +1351,24 @@ print(widget.studySetName);
                   ),
                 ),
 
-                SliverToBoxAdapter(
-                  child: _buildDuolingoStyleStarredWordsIndicator(),
-                ),
-                // SliverGrid'den sonra ve diğer SliverToBoxAdapter'lerden önce ekleyin
+                if (widget.classroomId != -2 && widget.studySetId != -2)
+                  SliverToBoxAdapter(
+                    child: _buildActionCard(
+                      icon: Icons.add_to_photos,
+                      title: "Tüm Kelimeleri Sete Ekle",
+                      subtitle: "",
+                      activeColor: Color(0xFF58CC02),
+                      onTap: () {
+                        if (words.isNotEmpty) {
+                          _showBulkAddToSetModal();
+                        }
+                      },
+                    ),
+                  ),
+                if (widget.classroomId != -2 && widget.studySetId != -2)
+                  SliverToBoxAdapter(
+                    child: _buildDuolingoStyleStarredWordsIndicator(),
+                  ),
                 SliverList(
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
@@ -756,45 +1474,64 @@ print(widget.studySetName);
                                                     ],
                                                   ),
                                                 ),
-                                                // Yıldız Butonu
-                                                IconButton(
-                                                  icon: AnimatedSwitcher(
-                                                    duration: Duration(
-                                                        milliseconds: 300),
-                                                    transitionBuilder:
-                                                        (child, animation) {
-                                                      return ScaleTransition(
-                                                          scale: animation,
-                                                          child: child);
-                                                    },
-                                                    child: Icon(
-                                                      isStarred
-                                                          ? Icons.star
-                                                          : Icons.star_border,
-                                                      key: ValueKey<bool>(
-                                                          isStarred),
-                                                      color: isStarred
-                                                          ? (_isDarkMode
-                                                              ? Colors.amber
-                                                                  .shade300
-                                                              : Colors.amber
-                                                                  .shade600)
-                                                          : (_isDarkMode
-                                                              ? Colors
-                                                                  .grey.shade400
-                                                              : Colors.grey
-                                                                  .shade600),
+                                                if (widget.classroomId != -2 &&
+                                                    widget.studySetId != -2)
+                                                  IconButton(
+                                                    icon: Icon(
+                                                      Icons.add_circle_outline,
+                                                      color: _isDarkMode
+                                                          ? Color(0xFF58CC02)
+                                                              .withOpacity(0.8)
+                                                          : Color(0xFF58CC02),
                                                     ),
+                                                    onPressed: () {
+                                                      HapticFeedback
+                                                          .lightImpact();
+                                                      _showAddToSetModal(word);
+                                                    },
                                                   ),
-                                                  onPressed: () async {
-                                                    setState(() {
-                                                      starredWords[word.id] =
-                                                          !isStarred;
-                                                    });
-                                                    await toggleStar(
-                                                        word.id, isStarred);
-                                                  },
-                                                ),
+
+                                                // Yıldız Butonu
+                                                if (widget.classroomId != -2 &&
+                                                    widget.studySetId != -2)
+                                                  IconButton(
+                                                    icon: AnimatedSwitcher(
+                                                      duration: Duration(
+                                                          milliseconds: 300),
+                                                      transitionBuilder:
+                                                          (child, animation) {
+                                                        return ScaleTransition(
+                                                            scale: animation,
+                                                            child: child);
+                                                      },
+                                                      child: Icon(
+                                                        isStarred
+                                                            ? Icons.star
+                                                            : Icons.star_border,
+                                                        key: ValueKey<bool>(
+                                                            isStarred),
+                                                        color: isStarred
+                                                            ? (_isDarkMode
+                                                                ? Colors.amber
+                                                                    .shade300
+                                                                : Colors.amber
+                                                                    .shade600)
+                                                            : (_isDarkMode
+                                                                ? Colors.grey
+                                                                    .shade400
+                                                                : Colors.grey
+                                                                    .shade600),
+                                                      ),
+                                                    ),
+                                                    onPressed: () async {
+                                                      setState(() {
+                                                        starredWords[word.id] =
+                                                            !isStarred;
+                                                      });
+                                                      await toggleStar(
+                                                          word.id, isStarred);
+                                                    },
+                                                  ),
                                                 // Ses Butonu
                                                 IconButton(
                                                   icon: Icon(
@@ -845,16 +1582,131 @@ print(widget.studySetName);
                     childCount: _filteredWords.length,
                   ),
                 ),
-
               ],
             );
           }
         },
       ),
     );
-
   }
-
+  Widget _buildQuestionPanel(Map<String, Color?> colors) {
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+            decoration: BoxDecoration(
+              color: Color(0xFF5865F2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Container(
+              padding: EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+              decoration: BoxDecoration(
+                color: Color(0xFF5865F2),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Color(0xFF5865F2).withOpacity(_isDarkMode ? 0.3 : 0.4),
+                    blurRadius: 10,
+                    offset: Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => QuizSettingsScreen(
+                        wordIds: _parseWordIds(widget.studySetName),
+                      ),
+                    ),
+                  );
+                },
+                child: Row(
+                  children: [
+                    Container(
+                      padding: EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.psychology_outlined,
+                          color: Colors.white, size: 28),
+                    ),
+                    SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "Test yourself!",
+                            style: GoogleFonts.poppins(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: getResponsiveFontSize(context, 20),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.arrow_forward,
+                          color: Colors.white, size: 24),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          // YENİ badge
+          Positioned(
+            top: -4,
+            right: 16,
+            child: Container(
+              padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: Color(0xFFFF3B30),
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: [
+                  BoxShadow(
+                    color: Color(0xFFFF3B30).withOpacity(0.4),
+                    blurRadius: 6,
+                    offset: Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Text(
+                "YENİ",
+                style: GoogleFonts.poppins(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 11,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  List<int> _parseWordIds(String wordIdsString) {
+    if (wordIdsString.isEmpty) return [];
+    return wordIdsString
+        .split(',')
+        .map((s) => int.tryParse(s.trim()))
+        .where((id) => id != null)
+        .cast<int>()
+        .toList();
+  }
   Widget _buildSettingsCard({
     required IconData icon,
     required String title,
@@ -1067,7 +1919,6 @@ print(widget.studySetName);
           child: InkWell(
             onTap: onTap ??
                 () {
-                  print('$title tıklandı');
                 },
             borderRadius: BorderRadius.circular(16),
             child: Container(
@@ -1156,20 +2007,20 @@ print(widget.studySetName);
   }
 
   Widget _buildModernModeOption(
-      BuildContext context,
-      String title,
-      String description,
-      int index,
-      int selectedIndex,
-      Color gradientStart,
-      Color gradientEnd,
-      IconData icon,
-      bool isDarkMode,
-      Color cardColor,
-      Color textColor,
-      Color subtitleColor,
-      Function(int) onTap,
-      ) {
+    BuildContext context,
+    String title,
+    String description,
+    int index,
+    int selectedIndex,
+    Color gradientStart,
+    Color gradientEnd,
+    IconData icon,
+    bool isDarkMode,
+    Color cardColor,
+    Color textColor,
+    Color subtitleColor,
+    Function(int) onTap,
+  ) {
     final bool isSelected = index == selectedIndex;
 
     return GestureDetector(
@@ -1180,21 +2031,21 @@ print(widget.studySetName);
         decoration: BoxDecoration(
           gradient: isSelected
               ? LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [gradientStart, gradientEnd],
-          )
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [gradientStart, gradientEnd],
+                )
               : null,
           color: isSelected ? null : cardColor,
           borderRadius: BorderRadius.circular(20),
           boxShadow: isSelected
               ? [
-            BoxShadow(
-              color: gradientStart.withOpacity(0.3),
-              blurRadius: 10,
-              offset: Offset(0, 4),
-            )
-          ]
+                  BoxShadow(
+                    color: gradientStart.withOpacity(0.3),
+                    blurRadius: 10,
+                    offset: Offset(0, 4),
+                  )
+                ]
               : [],
         ),
         padding: EdgeInsets.all(16),
@@ -1235,7 +2086,9 @@ print(widget.studySetName);
                     description,
                     style: GoogleFonts.poppins(
                       fontSize: 13,
-                      color: isSelected ? Colors.white.withOpacity(0.8) : subtitleColor,
+                      color: isSelected
+                          ? Colors.white.withOpacity(0.8)
+                          : subtitleColor,
                     ),
                   ),
                 ],
@@ -1251,18 +2104,19 @@ print(widget.studySetName);
                 border: isSelected
                     ? null
                     : Border.all(
-                  color: isDarkMode ? Colors.grey[700]! : Colors.grey[300]!,
-                  width: 2,
-                ),
+                        color:
+                            isDarkMode ? Colors.grey[700]! : Colors.grey[300]!,
+                        width: 2,
+                      ),
               ),
               child: isSelected
                   ? Center(
-                child: Icon(
-                  Icons.check,
-                  color: gradientEnd,
-                  size: 14,
-                ),
-              )
+                      child: Icon(
+                        Icons.check,
+                        color: gradientEnd,
+                        size: 14,
+                      ),
+                    )
                   : null,
             ),
           ],
@@ -1270,6 +2124,7 @@ print(widget.studySetName);
       ),
     );
   }
+
 // Süre seçim kısmını üste alma ve puan çarpanlarını ekleme
   void showMatchModeDialog(BuildContext context, bool isDarkMode) {
     int selectedOption = 0;
@@ -1279,14 +2134,17 @@ print(widget.studySetName);
     final Color primaryColor = Colors.deepPurple;
     final Color backgroundColor = isDarkMode ? Color(0xFF1E1E2C) : Colors.white;
     final Color textColor = isDarkMode ? Colors.white : Color(0xFF2D3142);
-    final Color subtitleColor = isDarkMode ? Colors.grey[400]! : Color(0xFF9DA3B0);
-    final Color dividerColor = isDarkMode ? Color(0xFF2A2A40) : Color(0xFFF0F0F5);
+    final Color subtitleColor =
+        isDarkMode ? Colors.grey[400]! : Color(0xFF9DA3B0);
+    final Color dividerColor =
+        isDarkMode ? Color(0xFF2A2A40) : Color(0xFFF0F0F5);
     final Color cardColor = isDarkMode ? Color(0xFF272838) : Color(0xFFF8F9FC);
 
     final List<Map<String, dynamic>> modes = [
       {
         'title': 'İngilizce - Türkçe',
-        'description': 'İngilizce kelimeleri Türkçe karşılıklarıyla eşleştirin.',
+        'description':
+            'İngilizce kelimeleri Türkçe karşılıklarıyla eşleştirin.',
         'icon': Icons.language,
         'gradient': [Color(0xFF36D1DC), Color(0xFF5B86E5)],
         'matchType': MatchType.englishTurkish,
@@ -1336,7 +2194,8 @@ print(widget.studySetName);
                     children: [
                       // Header
                       Container(
-                        padding: EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 24, vertical: 20),
                         child: Column(
                           children: [
                             Row(
@@ -1370,7 +2229,9 @@ print(widget.studySetName);
                                   child: Container(
                                     padding: EdgeInsets.all(8),
                                     decoration: BoxDecoration(
-                                      color: isDarkMode ? Color(0xFF272838) : Color(0xFFF5F5F7),
+                                      color: isDarkMode
+                                          ? Color(0xFF272838)
+                                          : Color(0xFFF5F5F7),
                                       shape: BoxShape.circle,
                                     ),
                                     child: Icon(
@@ -1405,7 +2266,8 @@ print(widget.studySetName);
                           maxHeight: MediaQuery.of(context).size.height * 0.6,
                         ),
                         child: SingleChildScrollView(
-                          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 20, vertical: 16),
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
@@ -1416,7 +2278,7 @@ print(widget.studySetName);
                                 isDarkMode,
                                 primaryColor,
                                 textColor,
-                                    (TimeSelection time) {
+                                (TimeSelection time) {
                                   setState(() {
                                     selectedTime = time;
                                     HapticFeedback.mediumImpact();
@@ -1432,9 +2294,10 @@ print(widget.studySetName);
                                 primaryColor,
                                 textColor,
                                 _isDifficultyExpanded,
-                                    () {
+                                () {
                                   setState(() {
-                                    _isDifficultyExpanded = !_isDifficultyExpanded;
+                                    _isDifficultyExpanded =
+                                        !_isDifficultyExpanded;
                                   });
                                   HapticFeedback.lightImpact();
                                 },
@@ -1456,7 +2319,8 @@ print(widget.studySetName);
                               // Mod seçenekleri
                               for (int i = 0; i < modes.length; i++)
                                 Padding(
-                                  padding: EdgeInsets.only(bottom: i < modes.length - 1 ? 12 : 0),
+                                  padding: EdgeInsets.only(
+                                      bottom: i < modes.length - 1 ? 12 : 0),
                                   child: _buildModernModeOption(
                                     context,
                                     modes[i]['title'],
@@ -1470,7 +2334,7 @@ print(widget.studySetName);
                                     cardColor,
                                     textColor,
                                     subtitleColor,
-                                        (index) {
+                                    (index) {
                                       setState(() {
                                         selectedOption = index;
                                         HapticFeedback.mediumImpact();
@@ -1491,7 +2355,8 @@ print(widget.studySetName);
 
                       // Actions
                       Container(
-                        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                         child: Column(
                           children: [
                             // Nasıl Oynanır butonu
@@ -1515,8 +2380,10 @@ print(widget.studySetName);
                                   ),
                                 ),
                                 style: TextButton.styleFrom(
-                                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                  backgroundColor: primaryColor.withOpacity(0.1),
+                                  padding: EdgeInsets.symmetric(
+                                      horizontal: 16, vertical: 12),
+                                  backgroundColor:
+                                      primaryColor.withOpacity(0.1),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
@@ -1533,7 +2400,8 @@ print(widget.studySetName);
                                     Navigator.of(context).pop();
                                   },
                                   style: TextButton.styleFrom(
-                                    padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                    padding: EdgeInsets.symmetric(
+                                        horizontal: 20, vertical: 12),
                                   ),
                                   child: Text(
                                     "İptal",
@@ -1555,7 +2423,8 @@ print(widget.studySetName);
                                         builder: (BuildContext context) {
                                           return AlertDialog(
                                             shape: RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.circular(20),
+                                              borderRadius:
+                                                  BorderRadius.circular(20),
                                             ),
                                             title: Text(
                                               'Yeterli Kelime Yok',
@@ -1606,7 +2475,9 @@ print(widget.studySetName);
                                     }
 
                                     // ✅ YENİ: Süre seçimine göre zorluk seviyesi belirle
-                                    DifficultyLevel selectedDifficulty = getDifficultyFromTimeSelection(selectedTime);
+                                    DifficultyLevel selectedDifficulty =
+                                        getDifficultyFromTimeSelection(
+                                            selectedTime);
 
                                     // Seçili moda göre MatchingGame'i başlat
                                     Navigator.of(context).push(
@@ -1615,10 +2486,13 @@ print(widget.studySetName);
                                           words: words,
                                           classroomId: widget.classroomId,
                                           studySetId: widget.studySetId,
-                                          matchType: modes[selectedOption]['matchType'],
-                                          difficulty: selectedDifficulty, // ✅ YENİ: Otomatik zorluk
+                                          matchType: modes[selectedOption]
+                                              ['matchType'],
+                                          difficulty: selectedDifficulty,
+                                          // ✅ YENİ: Otomatik zorluk
                                           timeSelection: selectedTime,
-                                          customTimeValue: "120", // Geriye uyumluluk için
+                                          customTimeValue:
+                                              "120", // Geriye uyumluluk için
                                         ),
                                       ),
                                     );
@@ -1626,7 +2500,8 @@ print(widget.studySetName);
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: primaryColor,
                                     foregroundColor: Colors.white,
-                                    padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                    padding: EdgeInsets.symmetric(
+                                        horizontal: 24, vertical: 12),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(12),
                                     ),
@@ -1655,10 +2530,13 @@ print(widget.studySetName);
       },
     );
   }
+
   void _showHowToPlayPanel(BuildContext context, bool isDarkMode) {
     final Color backgroundColor = isDarkMode ? Color(0xFF1E1E2C) : Colors.white;
     final Color textColor = isDarkMode ? Colors.white : Color(0xFF2D3142);
-    final Color subtitleColor = isDarkMode ? Colors.grey[300]! : Color(0xFF555A6B); // Daha açık ve okunabilir renkler
+    final Color subtitleColor = isDarkMode
+        ? Colors.grey[300]!
+        : Color(0xFF555A6B); // Daha açık ve okunabilir renkler
     final Color accentColor = Colors.purple[600]!; // Biraz daha açık mor
     final Color cardColor = isDarkMode ? Color(0xFF272838) : Color(0xFFF8F9FC);
 
@@ -1759,7 +2637,8 @@ print(widget.studySetName);
                         "Puanlama Sistemi",
                         "Her doğru eşleşme için puanlar kazanırsınız. Seri halinde doğru eşleşmeler yapmak, puan çarpanınızı artırır!",
                         Icons.stars,
-                        Colors.amber[600]!, // Daha okunabilir amber tonu
+                        Colors.amber[600]!,
+                        // Daha okunabilir amber tonu
                         isDarkMode,
                         cardColor,
                         textColor,
@@ -1829,7 +2708,8 @@ print(widget.studySetName);
                         "Seri Bonusu",
                         "Arka arkaya doğru eşleşmeler yaptığınızda kazanırsınız. Kombo sayısı arttıkça, bonus puanlar da artar!",
                         Icons.whatshot,
-                        Colors.deepOrange[400]!, // Daha okunabilir turuncu
+                        Colors.deepOrange[400]!,
+                        // Daha okunabilir turuncu
                         isDarkMode,
                         cardColor,
                         textColor,
@@ -1838,8 +2718,10 @@ print(widget.studySetName);
                       _buildBonusCard(
                         "Seri Kurtarma Jokeri",
                         "10 seri yaptığınızda 1 adet seri kurtarma jokeri kazanırsınız! Hatalı bir eşleşme yaptığınızda, jokeri kullanma seçeneği sunulur. Jokeri kullanmayı seçerseniz, seriniz bozulmaz ve devam eder. Oyun boyunca sadece 1 kez kullanabilirsiniz, ne zaman kullanacağınıza dikkat edin!",
-                        Icons.auto_awesome,  // Joker için parlak yıldız ikonu
-                        Colors.amber[500]!,  // Altın rengi
+                        Icons.auto_awesome,
+                        // Joker için parlak yıldız ikonu
+                        Colors.amber[500]!,
+                        // Altın rengi
                         isDarkMode,
                         cardColor,
                         textColor,
@@ -1872,7 +2754,8 @@ print(widget.studySetName);
                         "Mükemmel Tur",
                         "Hiç hata yapmadan tüm eşleşmeleri bulursanız, özel bir 'Mükemmel Tur' bonusu kazanırsınız!",
                         Icons.workspace_premium,
-                        Colors.amber[500]!, // Daha okunabilir amber
+                        Colors.amber[500]!,
+                        // Daha okunabilir amber
                         isDarkMode,
                         cardColor,
                         textColor,
@@ -1884,7 +2767,8 @@ print(widget.studySetName);
                         "Zorluk Bonusu",
                         "Daha zor seviyelerde oynarsanız, puan çarpanınız artar! Kolay: 0.8x, Orta: 1.0x, Zor: 1.2x",
                         Icons.trending_up,
-                        Colors.green[500]!, // Standart yeşil
+                        Colors.green[500]!,
+                        // Standart yeşil
                         isDarkMode,
                         cardColor,
                         textColor,
@@ -1896,7 +2780,8 @@ print(widget.studySetName);
                         "Oyun Bitirme Bonusu",
                         "Tüm turları tamamlayıp oyunu bitirdiğinizde büyük bir bonus kazanırsınız! Zorluk seviyesine göre 150-300 arası bonus puan!",
                         Icons.celebration,
-                        Colors.purple[500]!, // Standart mor
+                        Colors.purple[500]!,
+                        // Standart mor
                         isDarkMode,
                         cardColor,
                         textColor,
@@ -1908,17 +2793,24 @@ print(widget.studySetName);
                         margin: EdgeInsets.only(top: 24, bottom: 16),
                         padding: EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: isDarkMode ? Color(0xFF2A2D4A) : Colors.blue[50], // Koyu modda koyu mavi tonları
+                          color: isDarkMode
+                              ? Color(0xFF2A2D4A)
+                              : Colors.blue[50], // Koyu modda koyu mavi tonları
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: isDarkMode ? Colors.blue[800]! : Colors.blue[200]!),
+                          border: Border.all(
+                              color: isDarkMode
+                                  ? Colors.blue[800]!
+                                  : Colors.blue[200]!),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
                               children: [
-                                Icon(Icons.lightbulb,
-                                  color: Colors.amber[500]!, // Her zaman okunabilir amber
+                                Icon(
+                                  Icons.lightbulb,
+                                  color: Colors.amber[
+                                      500]!, // Her zaman okunabilir amber
                                 ),
                                 SizedBox(width: 8),
                                 Text(
@@ -1926,20 +2818,39 @@ print(widget.studySetName);
                                   style: GoogleFonts.poppins(
                                     fontSize: 18,
                                     fontWeight: FontWeight.bold,
-                                    color: isDarkMode ? Colors.white : Colors.black87, // Koyu modda beyaz yazı
+                                    color: isDarkMode
+                                        ? Colors.white
+                                        : Colors
+                                            .black87, // Koyu modda beyaz yazı
                                   ),
                                 ),
                               ],
                             ),
                             SizedBox(height: 8),
-                            _buildTipItem("Hızlı olmak için kelime anlamlarını önceden çalışın!", isDarkMode),
-                            _buildTipItem("10 seri yapmak için sabırlı olun ve jokeri stratejik bir zamanda kullanın. Yüksek seriler oluştururken jokeri saklamak daha değerli olabilir!", isDarkMode),
-                            _buildTipItem("Zor modda maksimum puan için, önce kelimeleri iyi ezberleyin, sonra hiç hata yapmadan ve çok hızlı şekilde eşleştirmeleri tamamlayın!", isDarkMode),
-                            _buildTipItem("Tek uzun seri yapmak, birden fazla kısa seriden çok daha değerli! Tutarlılık bonusu için 10+ seri hedefleyin.", isDarkMode),
-                            _buildTipItem("Joker'i stratejik kullanın: 5+ seriniz varken hata yaparsanız kullanın, 1-4 seride harcamayın!", isDarkMode),
-                            _buildTipItem("Mükemmel tur bonusları için özellikle dikkatli olun.", isDarkMode),
-                            _buildTipItem("Seri yapmak için konsantre olun, bir hata yaparsanız seri sıfırlanır.", isDarkMode),
-                            _buildTipItem("Zorluk seviyesi, puanlarınızı doğrudan etkiler. Kendinize güveniyorsanız, Zor modunu deneyin!", isDarkMode),
+                            _buildTipItem(
+                                "Hızlı olmak için kelime anlamlarını önceden çalışın!",
+                                isDarkMode),
+                            _buildTipItem(
+                                "10 seri yapmak için sabırlı olun ve jokeri stratejik bir zamanda kullanın. Yüksek seriler oluştururken jokeri saklamak daha değerli olabilir!",
+                                isDarkMode),
+                            _buildTipItem(
+                                "Zor modda maksimum puan için, önce kelimeleri iyi ezberleyin, sonra hiç hata yapmadan ve çok hızlı şekilde eşleştirmeleri tamamlayın!",
+                                isDarkMode),
+                            _buildTipItem(
+                                "Tek uzun seri yapmak, birden fazla kısa seriden çok daha değerli! Tutarlılık bonusu için 10+ seri hedefleyin.",
+                                isDarkMode),
+                            _buildTipItem(
+                                "Joker'i stratejik kullanın: 5+ seriniz varken hata yaparsanız kullanın, 1-4 seride harcamayın!",
+                                isDarkMode),
+                            _buildTipItem(
+                                "Mükemmel tur bonusları için özellikle dikkatli olun.",
+                                isDarkMode),
+                            _buildTipItem(
+                                "Seri yapmak için konsantre olun, bir hata yaparsanız seri sıfırlanır.",
+                                isDarkMode),
+                            _buildTipItem(
+                                "Zorluk seviyesi, puanlarınızı doğrudan etkiler. Kendinize güveniyorsanız, Zor modunu deneyin!",
+                                isDarkMode),
                           ],
                         ),
                       ),
@@ -1967,7 +2878,8 @@ print(widget.studySetName);
                     style: GoogleFonts.poppins(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white, // Ayrıca Text widget'ına da beyaz renk veriyoruz
+                      color: Colors
+                          .white, // Ayrıca Text widget'ına da beyaz renk veriyoruz
                     ),
                   ),
                 ),
@@ -1986,17 +2898,22 @@ print(widget.studySetName);
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("• ", style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: isDarkMode ? Colors.white : Colors.black87, // Koyu modda beyaz yazı
-          )),
+          Text("• ",
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: isDarkMode
+                    ? Colors.white
+                    : Colors.black87, // Koyu modda beyaz yazı
+              )),
           Expanded(
             child: Text(
               tip,
               style: GoogleFonts.poppins(
                 fontSize: 14,
-                color: isDarkMode ? Colors.white : Colors.black87, // Koyu modda beyaz yazı
+                color: isDarkMode
+                    ? Colors.white
+                    : Colors.black87, // Koyu modda beyaz yazı
               ),
             ),
           ),
@@ -2006,15 +2923,8 @@ print(widget.studySetName);
   }
 
 // Nasıl oynanır bölümü widget'ı
-  Widget _buildHowToPlaySection(
-      String title,
-      String description,
-      IconData icon,
-      Color iconColor,
-      bool isDarkMode,
-      Color cardColor,
-      Color textColor
-      ) {
+  Widget _buildHowToPlaySection(String title, String description, IconData icon,
+      Color iconColor, bool isDarkMode, Color cardColor, Color textColor) {
     return Container(
       margin: EdgeInsets.only(bottom: 20),
       padding: EdgeInsets.all(16),
@@ -2065,7 +2975,9 @@ print(widget.studySetName);
             style: GoogleFonts.poppins(
               fontSize: 14,
               height: 1.5,
-              color: isDarkMode ? Colors.white.withOpacity(0.9) : Colors.black87, // Koyu modda daha açık beyaz
+              color: isDarkMode
+                  ? Colors.white.withOpacity(0.9)
+                  : Colors.black87, // Koyu modda daha açık beyaz
             ),
           ),
         ],
@@ -2075,15 +2987,15 @@ print(widget.studySetName);
 
 // Bonus kartı widget'ı
   Widget _buildBonusCard(
-      String title,
-      String description,
-      IconData icon,
-      Color color,
-      bool isDarkMode,
-      Color cardColor,
-      Color textColor,
-      Color subtitleColor,
-      ) {
+    String title,
+    String description,
+    IconData icon,
+    Color color,
+    bool isDarkMode,
+    Color cardColor,
+    Color textColor,
+    Color subtitleColor,
+  ) {
     return Container(
       margin: EdgeInsets.only(bottom: 12),
       padding: EdgeInsets.all(16),
@@ -2134,7 +3046,9 @@ print(widget.studySetName);
                   description,
                   style: GoogleFonts.poppins(
                     fontSize: 14,
-                    color: isDarkMode ? Colors.white.withOpacity(0.85) : subtitleColor, // Koyu modda daha açık beyaz
+                    color: isDarkMode
+                        ? Colors.white.withOpacity(0.85)
+                        : subtitleColor, // Koyu modda daha açık beyaz
                   ),
                 ),
               ],
@@ -2144,15 +3058,16 @@ print(widget.studySetName);
       ),
     );
   }
+
 // 1. Süre seçimine göre zorluk seviyesi belirleme fonksiyonu
   DifficultyLevel getDifficultyFromTimeSelection(TimeSelection timeSelection) {
     switch (timeSelection) {
       case TimeSelection.short:
-        return DifficultyLevel.hard;   // 60 sn = Zor (1.2x çarpan)
+        return DifficultyLevel.hard; // 60 sn = Zor (1.2x çarpan)
       case TimeSelection.medium:
         return DifficultyLevel.medium; // 120 sn = Orta (1.0x çarpan)
       case TimeSelection.long:
-        return DifficultyLevel.easy;   // 180 sn = Kolay (0.8x çarpan)
+        return DifficultyLevel.easy; // 180 sn = Kolay (0.8x çarpan)
       case TimeSelection.custom:
         return DifficultyLevel.medium; // Özel süre = Orta (varsayılan)
     }
@@ -2161,23 +3076,29 @@ print(widget.studySetName);
 // İpucu maddesi widget'ı
 // Süre seçim widget'ı
   Widget _buildTimeOption(
-      BuildContext context,
-      String time,
-      String label,
-      TimeSelection option,
-      TimeSelection selectedOption,
-      bool isDarkMode,
-      Color primaryColor,
-      Function(TimeSelection) onSelect,
-      ) {
+    BuildContext context,
+    String time,
+    String label,
+    TimeSelection option,
+    TimeSelection selectedOption,
+    bool isDarkMode,
+    Color primaryColor,
+    Function(TimeSelection) onSelect,
+  ) {
     bool isSelected = selectedOption == option;
 
     // ✅ YENİ: Süre seçimine göre zorluk ve çarpan hesapla
     DifficultyLevel difficulty = getDifficultyFromTimeSelection(option);
-    String multiplier = difficulty == DifficultyLevel.easy ? "0.8x" :
-    difficulty == DifficultyLevel.medium ? "1.0x" : "1.2x";
-    Color multiplierColor = difficulty == DifficultyLevel.easy ? Colors.green :
-    difficulty == DifficultyLevel.medium ? Colors.blue : Colors.red;
+    String multiplier = difficulty == DifficultyLevel.easy
+        ? "0.8x"
+        : difficulty == DifficultyLevel.medium
+            ? "1.0x"
+            : "1.2x";
+    Color multiplierColor = difficulty == DifficultyLevel.easy
+        ? Colors.green
+        : difficulty == DifficultyLevel.medium
+            ? Colors.blue
+            : Colors.red;
 
     return GestureDetector(
       onTap: () => onSelect(option),
@@ -2187,22 +3108,30 @@ print(widget.studySetName);
         decoration: BoxDecoration(
           color: isSelected
               ? primaryColor
-              : isDarkMode ? Colors.grey[800] : Colors.grey[200],
+              : isDarkMode
+                  ? Colors.grey[800]
+                  : Colors.grey[200],
           borderRadius: BorderRadius.circular(12),
-          boxShadow: isSelected ? [
-            BoxShadow(
-              color: primaryColor.withOpacity(0.4),
-              blurRadius: 8,
-              offset: Offset(0, 2),
-            )
-          ] : [],
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: primaryColor.withOpacity(0.4),
+                    blurRadius: 8,
+                    offset: Offset(0, 2),
+                  )
+                ]
+              : [],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               Icons.timer,
-              color: isSelected ? Colors.white : isDarkMode ? Colors.grey[400] : Colors.grey[700],
+              color: isSelected
+                  ? Colors.white
+                  : isDarkMode
+                      ? Colors.grey[400]
+                      : Colors.grey[700],
               size: 22,
             ),
             SizedBox(height: 4),
@@ -2211,14 +3140,22 @@ print(widget.studySetName);
               style: GoogleFonts.poppins(
                 fontSize: 14,
                 fontWeight: FontWeight.bold,
-                color: isSelected ? Colors.white : isDarkMode ? Colors.grey[300] : Colors.grey[800],
+                color: isSelected
+                    ? Colors.white
+                    : isDarkMode
+                        ? Colors.grey[300]
+                        : Colors.grey[800],
               ),
             ),
             Text(
               label,
               style: GoogleFonts.poppins(
                 fontSize: 11,
-                color: isSelected ? Colors.white.withOpacity(0.8) : isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                color: isSelected
+                    ? Colors.white.withOpacity(0.8)
+                    : isDarkMode
+                        ? Colors.grey[400]
+                        : Colors.grey[600],
               ),
             ),
             // ✅ YENİ: Çarpan bilgisi
@@ -2236,9 +3173,7 @@ print(widget.studySetName);
                 style: GoogleFonts.poppins(
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
-                  color: isSelected
-                      ? Colors.white
-                      : multiplierColor,
+                  color: isSelected ? Colors.white : multiplierColor,
                 ),
               ),
             ),
@@ -2247,14 +3182,15 @@ print(widget.studySetName);
       ),
     );
   }
+
   Widget _buildTimeSelectionSection(
-      BuildContext context,
-      TimeSelection selectedTime,
-      bool isDarkMode,
-      Color primaryColor,
-      Color textColor,
-      Function(TimeSelection) onTimeSelect,
-      ) {
+    BuildContext context,
+    TimeSelection selectedTime,
+    bool isDarkMode,
+    Color primaryColor,
+    Color textColor,
+    Function(TimeSelection) onTimeSelect,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2322,24 +3258,38 @@ print(widget.studySetName);
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: primaryColor.withOpacity(0.3)),
           ),
-          child: _buildSelectedDifficultyInfo(selectedTime, isDarkMode, textColor),
+          child:
+              _buildSelectedDifficultyInfo(selectedTime, isDarkMode, textColor),
         ),
       ],
     );
   }
-  Widget _buildSelectedDifficultyInfo(TimeSelection selectedTime, bool isDarkMode, Color textColor) {
+
+  Widget _buildSelectedDifficultyInfo(
+      TimeSelection selectedTime, bool isDarkMode, Color textColor) {
     DifficultyLevel difficulty = getDifficultyFromTimeSelection(selectedTime);
 
-    String difficultyText = difficulty == DifficultyLevel.easy ? "Kolay" :
-    difficulty == DifficultyLevel.medium ? "Orta" : "Zor";
-    String multiplier = difficulty == DifficultyLevel.easy ? "0.8x" :
-    difficulty == DifficultyLevel.medium ? "1.0x" : "1.2x";
-    String description = difficulty == DifficultyLevel.easy ? "Daha fazla süre, daha az çarpan" :
-    difficulty == DifficultyLevel.medium ? "Dengeli süre ve çarpan" :
-    "Daha az süre, daha yüksek çarpan!";
+    String difficultyText = difficulty == DifficultyLevel.easy
+        ? "Kolay"
+        : difficulty == DifficultyLevel.medium
+            ? "Orta"
+            : "Zor";
+    String multiplier = difficulty == DifficultyLevel.easy
+        ? "0.8x"
+        : difficulty == DifficultyLevel.medium
+            ? "1.0x"
+            : "1.2x";
+    String description = difficulty == DifficultyLevel.easy
+        ? "Daha fazla süre, daha az çarpan"
+        : difficulty == DifficultyLevel.medium
+            ? "Dengeli süre ve çarpan"
+            : "Daha az süre, daha yüksek çarpan!";
 
-    Color difficultyColor = difficulty == DifficultyLevel.easy ? Colors.green :
-    difficulty == DifficultyLevel.medium ? Colors.blue : Colors.red;
+    Color difficultyColor = difficulty == DifficultyLevel.easy
+        ? Colors.green
+        : difficulty == DifficultyLevel.medium
+            ? Colors.blue
+            : Colors.red;
 
     return Row(
       children: [
@@ -2350,9 +3300,11 @@ print(widget.studySetName);
             shape: BoxShape.circle,
           ),
           child: Icon(
-            difficulty == DifficultyLevel.easy ? Icons.sentiment_satisfied :
-            difficulty == DifficultyLevel.medium ? Icons.sentiment_neutral :
-            Icons.local_fire_department,
+            difficulty == DifficultyLevel.easy
+                ? Icons.sentiment_satisfied
+                : difficulty == DifficultyLevel.medium
+                    ? Icons.sentiment_neutral
+                    : Icons.local_fire_department,
             color: difficultyColor,
             size: 20,
           ),
@@ -2404,16 +3356,18 @@ print(widget.studySetName);
       ],
     );
   }
+
   Widget _buildDynamicMultiplierSection(
-      BuildContext context,
-      TimeSelection selectedTime,
-      bool isDarkMode,
-      Color primaryColor,
-      Color textColor,
-      bool isExpanded,
-      Function() onToggle,
-      ) {
-    DifficultyLevel currentDifficulty = getDifficultyFromTimeSelection(selectedTime);
+    BuildContext context,
+    TimeSelection selectedTime,
+    bool isDarkMode,
+    Color primaryColor,
+    Color textColor,
+    bool isExpanded,
+    Function() onToggle,
+  ) {
+    DifficultyLevel currentDifficulty =
+        getDifficultyFromTimeSelection(selectedTime);
 
     return Container(
       margin: EdgeInsets.only(top: 24, bottom: 16),
@@ -2448,7 +3402,8 @@ print(widget.studySetName);
                   Container(
                     padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: _getDifficultyColor(currentDifficulty).withOpacity(0.2),
+                      color: _getDifficultyColor(currentDifficulty)
+                          .withOpacity(0.2),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
@@ -2485,27 +3440,39 @@ print(widget.studySetName);
               opacity: isExpanded ? 1.0 : 0.0,
               child: isExpanded
                   ? Container(
-                padding: EdgeInsets.only(left: 16, right: 16, bottom: 16),
-                child: Column(
-                  children: [
-                    Divider(
-                      color: primaryColor.withOpacity(0.3),
-                      thickness: 1,
-                    ),
-                    SizedBox(height: 8),
+                      padding: EdgeInsets.only(left: 16, right: 16, bottom: 16),
+                      child: Column(
+                        children: [
+                          Divider(
+                            color: primaryColor.withOpacity(0.3),
+                            thickness: 1,
+                          ),
+                          SizedBox(height: 8),
 
-                    // Zorluk çarpanları - mevcut seçimi vurgula
-                    _buildMultiplierRow("Kolay (180 sn)", "x0.8", Colors.green,
-                        currentDifficulty == DifficultyLevel.easy, textColor),
-                    SizedBox(height: 8),
-                    _buildMultiplierRow("Orta (120 sn)", "x1.0", Colors.blue,
-                        currentDifficulty == DifficultyLevel.medium, textColor),
-                    SizedBox(height: 8),
-                    _buildMultiplierRow("Zor (60 sn)", "x1.2", Colors.red,
-                        currentDifficulty == DifficultyLevel.hard, textColor),
-                  ],
-                ),
-              )
+                          // Zorluk çarpanları - mevcut seçimi vurgula
+                          _buildMultiplierRow(
+                              "Kolay (180 sn)",
+                              "x0.8",
+                              Colors.green,
+                              currentDifficulty == DifficultyLevel.easy,
+                              textColor),
+                          SizedBox(height: 8),
+                          _buildMultiplierRow(
+                              "Orta (120 sn)",
+                              "x1.0",
+                              Colors.blue,
+                              currentDifficulty == DifficultyLevel.medium,
+                              textColor),
+                          SizedBox(height: 8),
+                          _buildMultiplierRow(
+                              "Zor (60 sn)",
+                              "x1.2",
+                              Colors.red,
+                              currentDifficulty == DifficultyLevel.hard,
+                              textColor),
+                        ],
+                      ),
+                    )
                   : SizedBox.shrink(),
             ),
           ),
@@ -2517,21 +3484,28 @@ print(widget.studySetName);
 // 7. Yardımcı fonksiyonlar
   Color _getDifficultyColor(DifficultyLevel difficulty) {
     switch (difficulty) {
-      case DifficultyLevel.easy: return Colors.green;
-      case DifficultyLevel.medium: return Colors.blue;
-      case DifficultyLevel.hard: return Colors.red;
+      case DifficultyLevel.easy:
+        return Colors.green;
+      case DifficultyLevel.medium:
+        return Colors.blue;
+      case DifficultyLevel.hard:
+        return Colors.red;
     }
   }
 
   String _getMultiplierText(DifficultyLevel difficulty) {
     switch (difficulty) {
-      case DifficultyLevel.easy: return "x0.8";
-      case DifficultyLevel.medium: return "x1.0";
-      case DifficultyLevel.hard: return "x1.2";
+      case DifficultyLevel.easy:
+        return "x0.8";
+      case DifficultyLevel.medium:
+        return "x1.0";
+      case DifficultyLevel.hard:
+        return "x1.2";
     }
   }
 
-  Widget _buildMultiplierRow(String label, String multiplier, Color color, bool isSelected, Color textColor) {
+  Widget _buildMultiplierRow(String label, String multiplier, Color color,
+      bool isSelected, Color textColor) {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
@@ -2544,8 +3518,7 @@ print(widget.studySetName);
         children: [
           Row(
             children: [
-              if (isSelected)
-                Icon(Icons.check_circle, color: color, size: 16),
+              if (isSelected) Icon(Icons.check_circle, color: color, size: 16),
               if (isSelected) SizedBox(width: 4),
               Text(
                 label,
@@ -2576,6 +3549,7 @@ print(widget.studySetName);
       ),
     );
   }
+
 // Mod seçenek kartı
   Widget _buildModeOption(
       BuildContext context,
@@ -2598,7 +3572,11 @@ print(widget.studySetName);
               : (isDarkMode ? Colors.grey[800] : Colors.grey[100]),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? color : isDarkMode ? Colors.grey[700]! : Colors.grey[300]!,
+            color: isSelected
+                ? color
+                : isDarkMode
+                    ? Colors.grey[700]!
+                    : Colors.grey[300]!,
             width: isSelected ? 2 : 1,
           ),
         ),
@@ -2609,12 +3587,18 @@ print(widget.studySetName);
             Container(
               padding: EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: isSelected ? color.withOpacity(0.2) : (isDarkMode ? Colors.grey[700] : Colors.white),
+                color: isSelected
+                    ? color.withOpacity(0.2)
+                    : (isDarkMode ? Colors.grey[700] : Colors.white),
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 icon,
-                color: isSelected ? color : isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                color: isSelected
+                    ? color
+                    : isDarkMode
+                        ? Colors.grey[400]
+                        : Colors.grey[600],
                 size: 22,
               ),
             ),
@@ -2629,10 +3613,13 @@ print(widget.studySetName);
                     title,
                     style: GoogleFonts.poppins(
                       fontSize: 16,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      fontWeight:
+                          isSelected ? FontWeight.bold : FontWeight.normal,
                       color: isSelected
                           ? color
-                          : isDarkMode ? Colors.white : Colors.black87,
+                          : isDarkMode
+                              ? Colors.white
+                              : Colors.black87,
                     ),
                   ),
                   SizedBox(height: 2),
@@ -2657,16 +3644,20 @@ print(widget.studySetName);
                 shape: BoxShape.circle,
                 color: isSelected ? color : Colors.transparent,
                 border: Border.all(
-                  color: isSelected ? color : isDarkMode ? Colors.grey[600]! : Colors.grey[400]!,
+                  color: isSelected
+                      ? color
+                      : isDarkMode
+                          ? Colors.grey[600]!
+                          : Colors.grey[400]!,
                   width: 1.5,
                 ),
               ),
               child: isSelected
                   ? Icon(
-                Icons.check,
-                color: Colors.white,
-                size: 16,
-              )
+                      Icons.check,
+                      color: Colors.white,
+                      size: 16,
+                    )
                   : null,
             ),
           ],

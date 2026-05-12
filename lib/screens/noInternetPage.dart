@@ -1,16 +1,15 @@
+import 'dart:async';
+
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
-import 'dart:async';
-import 'dart:math';
-
-import 'package:kelibu/main.dart';
 
 class NoInternetPage extends StatefulWidget {
   @override
   _NoInternetPageState createState() => _NoInternetPageState();
 }
 
-class _NoInternetPageState extends State<NoInternetPage> with TickerProviderStateMixin {
+class _NoInternetPageState extends State<NoInternetPage>
+    with TickerProviderStateMixin {
   late AnimationController _controller;
   late AnimationController _gameController;
   late AnimationController _successController;
@@ -144,8 +143,8 @@ class _NoInternetPageState extends State<NoInternetPage> with TickerProviderStat
       vsync: this,
       duration: Duration(milliseconds: 1000),
     );
-
   }
+
   void _startInternetCheck() {
     Timer.periodic(Duration(seconds: 5), (timer) {
       _checkInternetConnection();
@@ -166,6 +165,7 @@ class _NoInternetPageState extends State<NoInternetPage> with TickerProviderStat
       }
     }
   }
+
   void _showConnectionRestoredDialog() {
     if (_showGame) {
       showDialog(
@@ -173,7 +173,8 @@ class _NoInternetPageState extends State<NoInternetPage> with TickerProviderStat
         builder: (BuildContext context) {
           return AlertDialog(
             title: Text('İnternet Bağlantısı Geri Geldi'),
-            content: Text('Ana sayfaya dönmek istiyor musunuz? Mevcut oyun ilerlemesi kaydedilmeyecek.'),
+            content: Text(
+                'Ana sayfaya dönmek istiyor musunuz? Mevcut oyun ilerlemesi kaydedilmeyecek.'),
             actions: <Widget>[
               TextButton(
                 child: Text('Oyuna Devam Et'),
@@ -197,11 +198,11 @@ class _NoInternetPageState extends State<NoInternetPage> with TickerProviderStat
       Navigator.of(context).pop();
     }
   }
+
   void _navigateBack() {
     // Oyun modunu kapatmadan direkt olarak ana sayfaya dön
     Navigator.of(context).pop();
   }
-
 
   void _startNewRound() {
     if (_round < _totalRounds) {
@@ -214,7 +215,8 @@ class _NoInternetPageState extends State<NoInternetPage> with TickerProviderStat
 
         var words = _wordPairs.keys.toList()..shuffle();
         _englishWords = words.sublist(0, 5);
-        _turkishMeanings = _englishWords.map((word) => _wordPairs[word]!).toList()..shuffle();
+        _turkishMeanings =
+            _englishWords.map((word) => _wordPairs[word]!).toList()..shuffle();
 
         _gameController.reset();
         _gameController.forward();
@@ -225,7 +227,8 @@ class _NoInternetPageState extends State<NoInternetPage> with TickerProviderStat
   }
 
   void _checkMatch(int englishIndex, int turkishIndex) {
-    if (_wordPairs[_englishWords[englishIndex]] == _turkishMeanings[turkishIndex]) {
+    if (_wordPairs[_englishWords[englishIndex]] ==
+        _turkishMeanings[turkishIndex]) {
       setState(() {
         _matched[englishIndex] = true;
         _score++;
@@ -256,8 +259,8 @@ class _NoInternetPageState extends State<NoInternetPage> with TickerProviderStat
               SizedBox(height: 20),
               Text(
                 'Hala internet bağlantına ulaşamamak bizi üzdü. Belki de sorun bizdedir? 🤔\n\n'
-                    'Destek için kelibu.net adresine bir e-posta gönderebilirsin. Belki de internet '
-                    'bağlantımızı çalan uzaylıları birlikte yakalayabiliriz! 👽🕵️‍♀️',
+                'Destek için kelibu.net adresine bir e-posta gönderebilirsin. Belki de internet '
+                'bağlantımızı çalan uzaylıları birlikte yakalayabiliriz! 👽🕵️‍♀️',
                 style: TextStyle(fontSize: 16),
                 textAlign: TextAlign.center,
               ),
@@ -323,7 +326,8 @@ class _NoInternetPageState extends State<NoInternetPage> with TickerProviderStat
         SizedBox(height: 30),
         Text(
           'Hay aksi! İnternet uçtu gitti! 🚀',
-          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
+          style: TextStyle(
+              fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
         ),
         SizedBox(height: 20),
         Padding(
@@ -356,7 +360,8 @@ class _NoInternetPageState extends State<NoInternetPage> with TickerProviderStat
         children: <Widget>[
           Text(
             'Kelime Eşleştirme Oyunu',
-            style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white),
+            style: TextStyle(
+                fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white),
           ),
           SizedBox(height: 20),
           Container(
@@ -373,7 +378,10 @@ class _NoInternetPageState extends State<NoInternetPage> with TickerProviderStat
                 ),
                 Text(
                   'Skor: $_score',
-                  style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.white),
+                  style: TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white),
                 ),
               ],
             ),
@@ -390,20 +398,28 @@ class _NoInternetPageState extends State<NoInternetPage> with TickerProviderStat
                     animation: _successController,
                     builder: (context, child) {
                       return Transform.scale(
-                        scale: _matched[idx] ? 1 + (_successController.value * 0.2) : 1.0,
+                        scale: _matched[idx]
+                            ? 1 + (_successController.value * 0.2)
+                            : 1.0,
                         child: child,
                       );
                     },
                     child: ElevatedButton(
                       child: Text(word, style: TextStyle(fontSize: 18)),
-                      onPressed: _matched[idx] ? null : () {
-                        setState(() {
-                          _selectedEnglishIndex = idx;
-                        });
-                      },
+                      onPressed: _matched[idx]
+                          ? null
+                          : () {
+                              setState(() {
+                                _selectedEnglishIndex = idx;
+                              });
+                            },
                       style: ElevatedButton.styleFrom(
-                        foregroundColor: Color(0xFF58CC02), backgroundColor: _selectedEnglishIndex == idx ? Colors.yellow : Colors.white,
-                        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                        foregroundColor: Color(0xFF58CC02),
+                        backgroundColor: _selectedEnglishIndex == idx
+                            ? Colors.yellow
+                            : Colors.white,
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(20),
                         ),
@@ -416,12 +432,16 @@ class _NoInternetPageState extends State<NoInternetPage> with TickerProviderStat
                   String meaning = entry.value;
                   return ElevatedButton(
                     child: Text(meaning, style: TextStyle(fontSize: 18)),
-                    onPressed: _selectedEnglishIndex == null ? null : () {
-                      _checkMatch(_selectedEnglishIndex!, idx);
-                    },
+                    onPressed: _selectedEnglishIndex == null
+                        ? null
+                        : () {
+                            _checkMatch(_selectedEnglishIndex!, idx);
+                          },
                     style: ElevatedButton.styleFrom(
-                      foregroundColor: Color(0xFF58CC02), backgroundColor: Colors.white,
-                      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                      foregroundColor: Color(0xFF58CC02),
+                      backgroundColor: Colors.white,
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(20),
                       ),

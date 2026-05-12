@@ -43,8 +43,10 @@ class _FlashCardScreenState extends State<FlashCardScreen> {
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 500),
             curve: Curves.easeInOut,
-            width: 300, // Genişlik arttırıldı
-            height: 400, // Yükseklik arttırıldı
+            width: 300,
+            // Genişlik arttırıldı
+            height: 400,
+            // Yükseklik arttırıldı
             decoration: BoxDecoration(
               color: _isFlipped ? Colors.orange : Colors.yellow,
               borderRadius: BorderRadius.circular(15),
@@ -61,27 +63,30 @@ class _FlashCardScreenState extends State<FlashCardScreen> {
             child: Center(
               child: _isFlipped
                   ? Transform(
-                alignment: Alignment.center,
-                transform: Matrix4.rotationY(3.14159),
-                child: const Text(
-                  'ELMA',
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                ),
-              )
+                      alignment: Alignment.center,
+                      transform: Matrix4.rotationY(3.14159),
+                      child: const Text(
+                        'ELMA',
+                        style: TextStyle(
+                            fontSize: 24, fontWeight: FontWeight.bold),
+                      ),
+                    )
                   : const Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    'APPLE',
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                  ),
-                  SizedBox(height: 10),
-                  Text(
-                    'Noun',
-                    style: TextStyle(fontSize: 18, fontStyle: FontStyle.italic),
-                  ),
-                ],
-              ),
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'APPLE',
+                          style: TextStyle(
+                              fontSize: 24, fontWeight: FontWeight.bold),
+                        ),
+                        SizedBox(height: 10),
+                        Text(
+                          'Noun',
+                          style: TextStyle(
+                              fontSize: 18, fontStyle: FontStyle.italic),
+                        ),
+                      ],
+                    ),
             ),
           ),
         ),

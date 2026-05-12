@@ -1,24 +1,24 @@
-import 'dart:math';
-import 'package:auto_size_text/auto_size_text.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'dart:async';
+import 'dart:math';
+
+import 'package:auto_size_text/auto_size_text.dart';
+import 'package:back_button_interceptor/back_button_interceptor.dart';
+import 'package:confetti/confetti.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_dialogs/flutter_dialogs.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import 'package:kelibu/Models/wordDetaik.dart';
 import 'package:kelibu/api.dart';
+import 'package:kelibu/providers/volume_provider.dart';
 import 'package:kelibu/screens/video_player.dart';
+import 'package:percent_indicator/circular_percent_indicator.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../globalDart/urls.dart';
 import '../providers/user_provider.dart';
-import 'package:provider/provider.dart';
-import 'package:percent_indicator/circular_percent_indicator.dart';
-import 'package:flutter_dialogs/flutter_dialogs.dart';
-import 'package:flutter_tts/flutter_tts.dart';
-import 'package:confetti/confetti.dart';
-import 'package:kelibu/providers/volume_provider.dart';
-import 'package:back_button_interceptor/back_button_interceptor.dart';
-
 import '../shared_preferences/shared_preferences.dart';
-import '../variables.dart';
 
 class WordData {
   final int id;
@@ -35,13 +35,19 @@ class KelimeOyunu extends StatefulWidget {
   bool isStarredMode = false;
   List<WordDetail> starredWords = [];
 
-  KelimeOyunu({Key? key, required this.classroomId, required this.studySetId, required this.words}) : super(key: key);
+  KelimeOyunu(
+      {Key? key,
+      required this.classroomId,
+      required this.studySetId,
+      required this.words})
+      : super(key: key);
 
   @override
   _KelimeOyunuState createState() => _KelimeOyunuState();
 }
 
-class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin, WidgetsBindingObserver {
+class _KelimeOyunuState extends State<KelimeOyunu>
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   late ConfettiController _confettiController;
   double kalanZamanSaniye = 15;
   int totalWordsCount = 0;
@@ -59,6 +65,7 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
 
   late Color defaultOptionColor;
   late Map<int, Color> optionColors;
+
   Color rastgeleAcikRenkUret() {
     final rand = Random();
     final r = 200 + rand.nextInt(12);
@@ -66,6 +73,7 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
     final b = 200 + rand.nextInt(12);
     return Color.fromRGBO(r, g, b, 1);
   }
+
   ValueNotifier<int> starredWordCount = ValueNotifier(0);
 
   String aktifKelime = '';
@@ -83,6 +91,7 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
   late AnimationController _learnedWordsAnimationController;
   late Animation<Offset> _slideAnimation;
   Map<String, Color> secenekRenkleri = {};
+
   bool myInterceptor(bool stopDefaultButtonEvent, RouteInfo info) {
     _showExitConfirmationDialog();
     return true;
@@ -92,19 +101,25 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
     showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Çıkmak istediğinize emin misiniz?', style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black)),
-        content: Text("Bu işlem geri alınamaz.", style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black)),
+        title: Text('Çıkmak istediğinize emin misiniz?',
+            style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black)),
+        content: Text("Bu işlem geri alınamaz.",
+            style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black)),
         backgroundColor: _isDarkMode ? Colors.black : Colors.white,
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: Text('Hayır', style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black)),
+            child: Text('Hayır',
+                style: TextStyle(
+                    color: _isDarkMode ? Colors.white : Colors.black)),
           ),
           TextButton(
             onPressed: () {
               Navigator.of(context).pop(true);
             },
-            child: Text('Evet', style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black)),
+            child: Text('Evet',
+                style: TextStyle(
+                    color: _isDarkMode ? Colors.white : Colors.black)),
           ),
         ],
       ),
@@ -115,7 +130,8 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
     final service = StarredWordsService();
     List<int> wordIds = widget.words.map((e) => e.id).toList();
     try {
-      Set<int> starredWordsSet = await service.loadStarredWords(widget.classroomId, widget.studySetId);
+      Set<int> starredWordsSet =
+          await service.loadStarredWords(widget.classroomId, widget.studySetId);
       List<WordDetail> tempStarredWords = [];
       wordIds.forEach((id) {
         if (starredWordsSet.contains(id)) {
@@ -131,7 +147,6 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
         starredWords = tempStarredWords;
       });
     } catch (e) {
-      print("Yıldızlı kelimeler alınırken hata: $e");
     }
   }
 
@@ -169,7 +184,8 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
       curve: Curves.easeOut,
     ));
 
-    _confettiController = ConfettiController(duration: const Duration(seconds: 2));
+    _confettiController =
+        ConfettiController(duration: const Duration(seconds: 2));
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 200),
       vsync: this,
@@ -178,7 +194,8 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
       duration: const Duration(milliseconds: 500),
       vsync: this,
     );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.9).animate(_animationController);
+    _scaleAnimation =
+        Tween<double>(begin: 1.0, end: 0.9).animate(_animationController);
     _slideAnimation = Tween<Offset>(
       begin: const Offset(0, -1),
       end: Offset.zero,
@@ -187,8 +204,8 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
       curve: Curves.easeOut,
     ));
 
-    UserProvider userProviderPoint = Provider.of<UserProvider>(context, listen: false);
-    print(userProviderPoint.point);
+    UserProvider userProviderPoint =
+        Provider.of<UserProvider>(context, listen: false);
     score = userProviderPoint.point;
     ValueNotifier<int> starredWordCount = ValueNotifier(0);
 
@@ -211,9 +228,11 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
     secenekleriYenile();
     totalWordsCount = widget.words.length;
   }
+
   Future<void> _loadStarredStatusAsync() async {
     final service = StarredWordsService();
-    final starredWordIds = await service.loadStarredWords(widget.classroomId, widget.studySetId);
+    final starredWordIds =
+        await service.loadStarredWords(widget.classroomId, widget.studySetId);
 
     setState(() {
       int count = 0;
@@ -245,7 +264,10 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
               ),
               child: Text(
                 scoreText,
-                style: TextStyle(fontSize: 24.0, color: animationColor, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                    fontSize: 24.0,
+                    color: animationColor,
+                    fontWeight: FontWeight.bold),
               ),
             ),
           ),
@@ -286,7 +308,10 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
               child: Text(
                 scoreText,
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 24.0, color: Colors.white, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                    fontSize: 24.0,
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold),
               ),
             ),
           ),
@@ -378,7 +403,8 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
       barrierDismissible: false,
       builder: (BuildContext dialogContext) {
         return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.0)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.0)),
           child: Container(
             padding: EdgeInsets.all(20),
             decoration: BoxDecoration(
@@ -397,7 +423,10 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
                 SizedBox(height: 10),
                 Text(
                   "Tebrikler!",
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
+                  style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white),
                 ),
                 SizedBox(height: 15),
                 Text(
@@ -408,10 +437,12 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
                 SizedBox(height: 20),
                 ElevatedButton.icon(
                   icon: Icon(Icons.home, color: Colors.white),
-                  label: Text("Ana Sayfa", style: TextStyle(color: Colors.white)),
+                  label:
+                      Text("Ana Sayfa", style: TextStyle(color: Colors.white)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blue,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30)),
                     padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                     textStyle: TextStyle(fontSize: 16),
                   ),
@@ -435,8 +466,10 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
 
   bool isStarredMode = false;
   List<WordDetail> starredWords = [];
+
   void checkCompletionAndShowDialog() {
-    int remainingWords = isStarredMode ? starredWords.length : widget.words.length;
+    int remainingWords =
+        isStarredMode ? starredWords.length : widget.words.length;
     if (tamamlananKelimeler.length > totalWordsCount) {
       showCompletionDialog();
     }
@@ -444,16 +477,21 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
 
   void secenekleriYenile() {
     setState(() {
-      print(tamamlananKelimeler.length);
-      List<WordDetail> currentWords = isStarredMode ? starredWords : widget.words;
-      List<WordDetail> filteredWords = currentWords.where((word) => !tamamlananKelimeler.contains(word.word)).toList();
+      List<WordDetail> currentWords =
+          isStarredMode ? starredWords : widget.words;
+      List<WordDetail> filteredWords = currentWords
+          .where((word) => !tamamlananKelimeler.contains(word.word))
+          .toList();
       if (filteredWords.isNotEmpty) {
-        aktifKelime = filteredWords[Random().nextInt(filteredWords.length)].word;
-        List<String> tumSecenekler = filteredWords.map((e) => e.meaning).toList()..shuffle();
+        aktifKelime =
+            filteredWords[Random().nextInt(filteredWords.length)].word;
+        List<String> tumSecenekler =
+            filteredWords.map((e) => e.meaning).toList()..shuffle();
         int listSize = tumSecenekler.length;
         secenekler = tumSecenekler.sublist(0, min(8, listSize));
         if (!secenekler.contains(kelimeler[aktifKelime])) {
-          secenekler[Random().nextInt(secenekler.length)] = kelimeler[aktifKelime]!;
+          secenekler[Random().nextInt(secenekler.length)] =
+              kelimeler[aktifKelime]!;
         }
         secenekler.shuffle();
         optionColors.clear();
@@ -468,7 +506,9 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
       } else {
         _showCompletionMessage();
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(isStarredMode ? 'Yıldızlı kelime kalmadı!' : 'Tüm kelimeler soruldu!'),
+          content: Text(isStarredMode
+              ? 'Yıldızlı kelime kalmadı!'
+              : 'Tüm kelimeler soruldu!'),
         ));
       }
     });
@@ -480,19 +520,27 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
       barrierDismissible: false,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text("Tebrikler!", style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black)),
-          content: Text("Tüm kelimeleri başarıyla tamamladınız.", style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black)),
+          title: Text("Tebrikler!",
+              style:
+                  TextStyle(color: _isDarkMode ? Colors.white : Colors.black)),
+          content: Text("Tüm kelimeleri başarıyla tamamladınız.",
+              style:
+                  TextStyle(color: _isDarkMode ? Colors.white : Colors.black)),
           backgroundColor: _isDarkMode ? Colors.black : Colors.white,
           actions: <Widget>[
             TextButton(
-              child: Text("Tekrar Oyna", style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black)),
+              child: Text("Tekrar Oyna",
+                  style: TextStyle(
+                      color: _isDarkMode ? Colors.white : Colors.black)),
               onPressed: () {
                 Navigator.of(context).pop();
                 _restartGame();
               },
             ),
             TextButton(
-              child: Text("Bir Önceki Sayfaya Dön", style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black)),
+              child: Text("Bir Önceki Sayfaya Dön",
+                  style: TextStyle(
+                      color: _isDarkMode ? Colors.white : Colors.black)),
               onPressed: () {
                 Navigator.of(context).pop();
                 Navigator.of(context).pop();
@@ -532,6 +580,7 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
       _isDarkMode = !_isDarkMode;
     });
   }
+
   Future<void> _loadDarkModePreference() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
@@ -607,16 +656,20 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
               ),
             ),
           ),
-          _buildRoundedIconButton(Icons.slow_motion_video_sharp, Colors.green, () {
+          _buildRoundedIconButton(Icons.slow_motion_video_sharp, Colors.green,
+              () {
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => VideoPlayerScreen(videoUrl: AppUrls.classickelibu)),
+              MaterialPageRoute(
+                  builder: (context) =>
+                      VideoPlayerScreen(videoUrl: AppUrls.classickelibu)),
             );
           }),
         ],
       ),
     );
   }
+
   Widget _buildRoundedIconButton(
       IconData icon, Color color, VoidCallback onPressed) {
     return Padding(
@@ -631,6 +684,7 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
       ),
     );
   }
+
   Widget _buildBody(BoxConstraints constraints) {
     return Column(
       children: [
@@ -641,6 +695,7 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
       ],
     );
   }
+
   Widget buildScoreAndTimer() {
     return Container(
       margin: EdgeInsets.all(16.0),
@@ -680,7 +735,8 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
             color: _isDarkMode ? Colors.white : Colors.teal,
           ),
           style: ElevatedButton.styleFrom(
-            backgroundColor: _isDarkMode ? Colors.grey[700] : Colors.teal.withOpacity(0.1),
+            backgroundColor:
+                _isDarkMode ? Colors.grey[700] : Colors.teal.withOpacity(0.1),
             shape: CircleBorder(),
             padding: EdgeInsets.all(12),
             elevation: 0,
@@ -719,6 +775,7 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
       ),
     );
   }
+
   Widget _buildTimerDisplay() {
     return Container(
       padding: EdgeInsets.all(8),
@@ -741,10 +798,12 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
         ),
         circularStrokeCap: CircularStrokeCap.round,
         progressColor: _isDarkMode ? Colors.white : Colors.teal,
-        backgroundColor: _isDarkMode ? Colors.grey[600]! : Colors.teal.withOpacity(0.2),
+        backgroundColor:
+            _isDarkMode ? Colors.grey[600]! : Colors.teal.withOpacity(0.2),
       ),
     );
   }
+
   Widget _buildStarredModeToggle() {
     return IconButton(
       icon: Icon(isStarredMode ? Icons.star : Icons.star_border),
@@ -754,12 +813,15 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
         }
         setState(() {
           isStarredMode = !isStarredMode;
-          totalWordsCount = isStarredMode ? starredWords.length : widget.words.length;
+          totalWordsCount =
+              isStarredMode ? starredWords.length : widget.words.length;
           if (isStarredMode && starredWords.isEmpty) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('En az 1 yıldızlı kelimeniz olması gerekmektedir.'),
-                backgroundColor: _isDarkMode ? Colors.grey[700] : Colors.grey[300],
+                content:
+                    Text('En az 1 yıldızlı kelimeniz olması gerekmektedir.'),
+                backgroundColor:
+                    _isDarkMode ? Colors.grey[700] : Colors.grey[300],
               ),
             );
             isStarredMode = false;
@@ -771,6 +833,7 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
       color: _isDarkMode ? Colors.white : Colors.black,
     );
   }
+
   Widget _buildWordGrid(BoxConstraints constraints) {
     return Expanded(
       child: GridView.builder(
@@ -792,6 +855,7 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
       ),
     );
   }
+
   Widget _buildCenterCard() {
     return Card(
       color: centerCardColor,
@@ -871,6 +935,7 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
       ),
     );
   }
+
   Widget _buildConfetti() {
     return Align(
       alignment: Alignment.topCenter,
@@ -895,24 +960,28 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
           children: <Widget>[
             TextButton(
               onPressed: () => showLearnedWordsModal(context),
-              child: Text('Öğrenilen Kelimeleri Göster',
+              child: Text(
+                'Öğrenilen Kelimeleri Göster',
                 style: TextStyle(color: Colors.white),
               ),
             ),
             Text(
               '${tamamlananKelimeler.length} / $totalWordsCount',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              style:
+                  TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
             ),
           ],
         ),
       ),
     );
   }
+
   void showModal(BuildContext context) {
     showPlatformDialog(
       context: context,
       builder: (BuildContext dialogContext) => BasicDialogAlert(
-        title: Text("Ayarlar", style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black)),
+        title: Text("Ayarlar",
+            style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -950,7 +1019,9 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
         ),
         actions: <Widget>[
           BasicDialogAction(
-            title: Text("Kapat", style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black)),
+            title: Text("Kapat",
+                style: TextStyle(
+                    color: _isDarkMode ? Colors.white : Colors.black)),
             onPressed: () {
               Navigator.pop(dialogContext);
             },
@@ -970,10 +1041,15 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
           padding: EdgeInsets.all(8),
           height: MediaQuery.of(context).size.height * 0.5,
           child: ListView(
-            children: tamamlananKelimeler.map((kelime) => ListTile(
-              title: Text(kelime, style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black)),
-              trailing: Icon(Icons.check, color: Colors.green),
-            )).toList(),
+            children: tamamlananKelimeler
+                .map((kelime) => ListTile(
+                      title: Text(kelime,
+                          style: TextStyle(
+                              color:
+                                  _isDarkMode ? Colors.white : Colors.black)),
+                      trailing: Icon(Icons.check, color: Colors.green),
+                    ))
+                .toList(),
           ),
         );
       },
@@ -992,7 +1068,8 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
     setState(() {
       _isOptionSelectable = false;
       if (isCorrect) {
-        kelimeDogruSayac[aktifKelime] = (kelimeDogruSayac[aktifKelime] ?? 0) + 1;
+        kelimeDogruSayac[aktifKelime] =
+            (kelimeDogruSayac[aktifKelime] ?? 0) + 1;
         int newScore = score + pointChange;
         optionColors[index] = correctOptionColor;
         if (kelimeDogruSayac[aktifKelime]! >= 3) {
@@ -1002,7 +1079,7 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
           }
           _confettiController.play();
           showScoreTextAnimation(aktifKelime);
-          newScore += 30;  // Bonus puan
+          newScore += 30; // Bonus puan
         }
         _updateUserScore(newScore, pointChange);
       } else {
@@ -1024,23 +1101,26 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
       });
     });
   }
+
   Future<void> _updateUserScore(int newScore, int pointChange) async {
     try {
-      UserProvider userProvider = Provider.of<UserProvider>(context, listen: false);
+      UserProvider userProvider =
+          Provider.of<UserProvider>(context, listen: false);
       int userId = userProvider.userId;
       int currentPoints = userProvider.point;
 
-      print("Updating score - UserID: $userId, Current Points: $currentPoints, New Score: $newScore, Point Change: $pointChange");
+      print(
+          "Updating score - UserID: $userId, Current Points: $currentPoints, New Score: $newScore, Point Change: $pointChange");
 
       // Yeni puan 1 veya daha azsa, mevcut puanı koru
       if (newScore <= 1) {
-        print("New score is <= 1. Keeping current points.");
         newScore = currentPoints;
       }
 
       // Puan düşüşü kontrolü
       if (newScore < currentPoints) {
-        print("Warning: New score ($newScore) is less than current points ($currentPoints).");
+        print(
+            "Warning: New score ($newScore) is less than current points ($currentPoints).");
       }
 
       // API çağrısı ve local state güncellemesi
@@ -1052,22 +1132,22 @@ class _KelimeOyunuState extends State<KelimeOyunu> with TickerProviderStateMixin
       setState(() {
         score = newScore;
       });
-
-      print("Score updated successfully. New score: $newScore");
     } catch (e) {
-      print("Error updating user score: $e");
     }
   }
 
   void showFeedback({required bool isCorrect}) {
     final snackBar = SnackBar(
-      content: Text(isCorrect ? 'Doğru!' : 'Yanlış! Doğru cevap: ${kelimeler[aktifKelime]}', style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black)),
+      content: Text(
+          isCorrect
+              ? 'Doğru!'
+              : 'Yanlış! Doğru cevap: ${kelimeler[aktifKelime]}',
+          style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black)),
       backgroundColor: isCorrect ? Colors.green : Colors.red,
     );
     ScaffoldMessenger.of(context).showSnackBar(snackBar);
   }
 }
-
 
 class WordGrid extends StatelessWidget {
   final List<String> secenekler;
@@ -1104,11 +1184,11 @@ class WordGrid extends StatelessWidget {
             int optionIndex = index < 4 ? index : index - 1;
             return optionIndex < secenekler.length
                 ? OptionCard(
-              secenek: secenekler[optionIndex],
-              index: optionIndex,
-              handleOptionTap: handleOptionTap,
-              isDarkMode: isDarkMode,
-            )
+                    secenek: secenekler[optionIndex],
+                    index: optionIndex,
+                    handleOptionTap: handleOptionTap,
+                    isDarkMode: isDarkMode,
+                  )
                 : Container();
           }
         }),
@@ -1154,7 +1234,9 @@ class CenterCard extends StatelessWidget {
                 ),
                 Text(
                   '${kelimeDogruSayac[aktifKelime] ?? 0}/3',
-                  style: TextStyle(color: isDarkMode ? Colors.white70 : Colors.teal.shade600),
+                  style: TextStyle(
+                      color:
+                          isDarkMode ? Colors.white70 : Colors.teal.shade600),
                 ),
               ],
             ),
@@ -1186,7 +1268,8 @@ class OptionCard extends StatelessWidget {
     return AnimatedContainer(
       duration: Duration(milliseconds: 300),
       decoration: BoxDecoration(
-        color: backgroundColor ?? (isDarkMode ? Colors.teal.shade600 : Colors.teal.shade50),
+        color: backgroundColor ??
+            (isDarkMode ? Colors.teal.shade600 : Colors.teal.shade50),
         borderRadius: BorderRadius.circular(8),
         boxShadow: [
           BoxShadow(

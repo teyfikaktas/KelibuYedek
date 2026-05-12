@@ -1,5 +1,6 @@
-import 'package:flutter/material.dart';
 import 'dart:math';
+
+import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
 
 typedef SwipingCardDeck = SwipingDeck<Card>;
@@ -10,16 +11,16 @@ typedef SwipingCardDeck = SwipingDeck<Card>;
 class SwipingDeck<T extends Widget> extends StatelessWidget {
   SwipingDeck(
       {Key? key,
-        required this.cardDeck,
-        required this.onLeftSwipe,
-        required this.onRightSwipe,
-        required this.onDeckEmpty,
-        required this.cardWidth,
-        this.minimumVelocity = 1000,
-        this.rotationFactor = .8 / 3.14,
-        this.swipeThreshold,
-        this.swipeAnimationDuration = const Duration(milliseconds: 500),
-        this.disableDragging = false})
+      required this.cardDeck,
+      required this.onLeftSwipe,
+      required this.onRightSwipe,
+      required this.onDeckEmpty,
+      required this.cardWidth,
+      this.minimumVelocity = 1000,
+      this.rotationFactor = .8 / 3.14,
+      this.swipeThreshold,
+      this.swipeAnimationDuration = const Duration(milliseconds: 500),
+      this.disableDragging = false})
       : super(key: key) {
     cardDeck = cardDeck.reversed.toList();
   }

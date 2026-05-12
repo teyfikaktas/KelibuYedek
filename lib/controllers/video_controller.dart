@@ -19,7 +19,8 @@ class VideoController extends GetxController {
   Future<void> initializeVideo(String videoName) async {
     isLoading.value = true;
     try {
-      Uri videoUri = Uri.parse('https://cloud.phdakademi.com/uploads/kelibu.net/videos/$videoName.mp4');
+      Uri videoUri = Uri.parse(
+          'https://cloud.phdakademi.com/uploads/kelibu.net/videos/$videoName.mp4');
       videoController = VideoPlayerController.networkUrl(videoUri);
 
       await videoController.initialize();
@@ -36,7 +37,6 @@ class VideoController extends GetxController {
       isLoading.value = false;
       update();
     } catch (error) {
-      print('Video yüklenirken hata: $error');
       isInitialized.value = false;
       isLoading.value = false;
       update();

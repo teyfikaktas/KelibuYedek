@@ -7,7 +7,9 @@ import 'package:kelibu/screens/games/strach.dart';
 
 // Enum'ları buraya taşı
 enum TimeSelection { short, medium, long, custom }
+
 enum DifficultyLevel { easy, medium, hard }
+
 enum MatchType {
   turkishEnglish, // Türkçe kelimeleri İngilizce karşılıklarıyla eşleştirme
   englishTurkish, // İngilizce kelimeleri Türkçe karşılıklarıyla eşleştirme
@@ -41,7 +43,8 @@ class MatchModeWidget extends StatelessWidget {
           _showMatchModeDialog(context);
         },
         child: Hero(
-          tag: "Eşleştir Modu ${isStarredMode ? 'Star' : 'Normal'}", // Farklı tag'ler
+          tag: "Eşleştir Modu ${isStarredMode ? 'Star' : 'Normal'}",
+          // Farklı tag'ler
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
             decoration: BoxDecoration(
@@ -63,14 +66,19 @@ class MatchModeWidget extends StatelessWidget {
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: [
-                        isDarkMode ? Colors.purple.shade700 : Colors.purple.shade400,
-                        isDarkMode ? Colors.purple.shade900 : Colors.purple.shade600,
+                        isDarkMode
+                            ? Colors.purple.shade700
+                            : Colors.purple.shade400,
+                        isDarkMode
+                            ? Colors.purple.shade900
+                            : Colors.purple.shade600,
                       ],
                     ),
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.purple.withOpacity(isDarkMode ? 0.3 : 0.4),
+                        color:
+                            Colors.purple.withOpacity(isDarkMode ? 0.3 : 0.4),
                         blurRadius: 10,
                         offset: Offset(0, 4),
                       ),
@@ -84,7 +92,8 @@ class MatchModeWidget extends StatelessWidget {
                           color: Colors.white.withOpacity(0.2),
                           shape: BoxShape.circle,
                         ),
-                        child: Icon(Icons.compare_arrows, color: Colors.white, size: 28),
+                        child: Icon(Icons.compare_arrows,
+                            color: Colors.white, size: 28),
                       ),
                       SizedBox(width: 16),
                       Expanded(
@@ -108,7 +117,8 @@ class MatchModeWidget extends StatelessWidget {
                           color: Colors.white.withOpacity(0.2),
                           shape: BoxShape.circle,
                         ),
-                        child: Icon(Icons.arrow_forward, color: Colors.white, size: 24),
+                        child: Icon(Icons.arrow_forward,
+                            color: Colors.white, size: 24),
                       ),
                     ],
                   ),
@@ -151,14 +161,17 @@ class MatchModeWidget extends StatelessWidget {
     final Color primaryColor = Colors.deepPurple;
     final Color backgroundColor = isDarkMode ? Color(0xFF1E1E2C) : Colors.white;
     final Color textColor = isDarkMode ? Colors.white : Color(0xFF2D3142);
-    final Color subtitleColor = isDarkMode ? Colors.grey[400]! : Color(0xFF9DA3B0);
-    final Color dividerColor = isDarkMode ? Color(0xFF2A2A40) : Color(0xFFF0F0F5);
+    final Color subtitleColor =
+        isDarkMode ? Colors.grey[400]! : Color(0xFF9DA3B0);
+    final Color dividerColor =
+        isDarkMode ? Color(0xFF2A2A40) : Color(0xFFF0F0F5);
     final Color cardColor = isDarkMode ? Color(0xFF272838) : Color(0xFFF8F9FC);
 
     final List<Map<String, dynamic>> modes = [
       {
         'title': 'İngilizce - Türkçe',
-        'description': 'İngilizce kelimeleri Türkçe karşılıklarıyla eşleştirin.',
+        'description':
+            'İngilizce kelimeleri Türkçe karşılıklarıyla eşleştirin.',
         'icon': Icons.language,
         'gradient': [Color(0xFF36D1DC), Color(0xFF5B86E5)],
         'matchType': MatchType.englishTurkish,
@@ -208,7 +221,8 @@ class MatchModeWidget extends StatelessWidget {
                     children: [
                       // Header
                       Container(
-                        padding: EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 24, vertical: 20),
                         child: Column(
                           children: [
                             Row(
@@ -219,7 +233,8 @@ class MatchModeWidget extends StatelessWidget {
                                     color: primaryColor.withOpacity(0.1),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
-                                  child: Icon(Icons.compare_arrows, color: primaryColor, size: 24),
+                                  child: Icon(Icons.compare_arrows,
+                                      color: primaryColor, size: 24),
                                 ),
                                 SizedBox(width: 16),
                                 Expanded(
@@ -238,10 +253,13 @@ class MatchModeWidget extends StatelessWidget {
                                   child: Container(
                                     padding: EdgeInsets.all(8),
                                     decoration: BoxDecoration(
-                                      color: isDarkMode ? Color(0xFF272838) : Color(0xFFF5F5F7),
+                                      color: isDarkMode
+                                          ? Color(0xFF272838)
+                                          : Color(0xFFF5F5F7),
                                       shape: BoxShape.circle,
                                     ),
-                                    child: Icon(Icons.close_rounded, color: subtitleColor, size: 20),
+                                    child: Icon(Icons.close_rounded,
+                                        color: subtitleColor, size: 20),
                                   ),
                                 ),
                               ],
@@ -249,7 +267,8 @@ class MatchModeWidget extends StatelessWidget {
                             SizedBox(height: 8),
                             Text(
                               "Oynamak istediğiniz modu seçin",
-                              style: GoogleFonts.poppins(fontSize: 14, color: subtitleColor),
+                              style: GoogleFonts.poppins(
+                                  fontSize: 14, color: subtitleColor),
                             ),
                           ],
                         ),
@@ -262,7 +281,8 @@ class MatchModeWidget extends StatelessWidget {
                           maxHeight: MediaQuery.of(context).size.height * 0.6,
                         ),
                         child: SingleChildScrollView(
-                          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 20, vertical: 16),
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
@@ -273,7 +293,7 @@ class MatchModeWidget extends StatelessWidget {
                                 isDarkMode,
                                 primaryColor,
                                 textColor,
-                                    (TimeSelection time) {
+                                (TimeSelection time) {
                                   setState(() {
                                     selectedTime = time;
                                     HapticFeedback.mediumImpact();
@@ -289,9 +309,10 @@ class MatchModeWidget extends StatelessWidget {
                                 primaryColor,
                                 textColor,
                                 _isDifficultyExpanded,
-                                    () {
+                                () {
                                   setState(() {
-                                    _isDifficultyExpanded = !_isDifficultyExpanded;
+                                    _isDifficultyExpanded =
+                                        !_isDifficultyExpanded;
                                   });
                                   HapticFeedback.lightImpact();
                                 },
@@ -313,7 +334,8 @@ class MatchModeWidget extends StatelessWidget {
                               // Mod seçenekleri
                               for (int i = 0; i < modes.length; i++)
                                 Padding(
-                                  padding: EdgeInsets.only(bottom: i < modes.length - 1 ? 12 : 0),
+                                  padding: EdgeInsets.only(
+                                      bottom: i < modes.length - 1 ? 12 : 0),
                                   child: _buildModernModeOption(
                                     context,
                                     modes[i]['title'],
@@ -327,7 +349,7 @@ class MatchModeWidget extends StatelessWidget {
                                     cardColor,
                                     textColor,
                                     subtitleColor,
-                                        (index) {
+                                    (index) {
                                       setState(() {
                                         selectedOption = index;
                                         HapticFeedback.mediumImpact();
@@ -344,7 +366,8 @@ class MatchModeWidget extends StatelessWidget {
 
                       // Actions
                       Container(
-                        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                         child: Column(
                           children: [
                             // Nasıl Oynanır butonu
@@ -352,8 +375,10 @@ class MatchModeWidget extends StatelessWidget {
                               width: double.infinity,
                               margin: EdgeInsets.only(bottom: 8),
                               child: TextButton.icon(
-                                onPressed: () => _showHowToPlayPanel(context, isDarkMode),
-                                icon: Icon(Icons.help_outline, color: primaryColor),
+                                onPressed: () =>
+                                    _showHowToPlayPanel(context, isDarkMode),
+                                icon: Icon(Icons.help_outline,
+                                    color: primaryColor),
                                 label: Text(
                                   "Nasıl Oynanır?",
                                   style: GoogleFonts.poppins(
@@ -363,9 +388,12 @@ class MatchModeWidget extends StatelessWidget {
                                   ),
                                 ),
                                 style: TextButton.styleFrom(
-                                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                  backgroundColor: primaryColor.withOpacity(0.1),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  padding: EdgeInsets.symmetric(
+                                      horizontal: 16, vertical: 12),
+                                  backgroundColor:
+                                      primaryColor.withOpacity(0.1),
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12)),
                                 ),
                               ),
                             ),
@@ -377,7 +405,8 @@ class MatchModeWidget extends StatelessWidget {
                                 TextButton(
                                   onPressed: () => Navigator.of(context).pop(),
                                   style: TextButton.styleFrom(
-                                    padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                    padding: EdgeInsets.symmetric(
+                                        horizontal: 20, vertical: 12),
                                   ),
                                   child: Text(
                                     "İptal",
@@ -399,14 +428,17 @@ class MatchModeWidget extends StatelessWidget {
                                     }
 
                                     // MatchingGame'i başlat
-                                    DifficultyLevel selectedDifficulty = _getDifficultyFromTimeSelection(selectedTime);
+                                    DifficultyLevel selectedDifficulty =
+                                        _getDifficultyFromTimeSelection(
+                                            selectedTime);
                                     Navigator.of(context).push(
                                       MaterialPageRoute(
                                         builder: (context) => MatchingGame(
                                           words: words,
                                           classroomId: classroomId,
                                           studySetId: studySetId,
-                                          matchType: modes[selectedOption]['matchType'],
+                                          matchType: modes[selectedOption]
+                                              ['matchType'],
                                           difficulty: selectedDifficulty,
                                           timeSelection: selectedTime,
                                           customTimeValue: "120",
@@ -417,13 +449,18 @@ class MatchModeWidget extends StatelessWidget {
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: primaryColor,
                                     foregroundColor: Colors.white,
-                                    padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    padding: EdgeInsets.symmetric(
+                                        horizontal: 24, vertical: 12),
+                                    shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(12)),
                                     elevation: 0,
                                   ),
                                   child: Text(
                                     "Başla",
-                                    style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 15),
+                                    style: GoogleFonts.poppins(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 15),
                                   ),
                                 ),
                               ],
@@ -441,26 +478,31 @@ class MatchModeWidget extends StatelessWidget {
       },
     );
   }
+
   void _showInsufficientWordsDialog(BuildContext context) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: Text(
             'Yeterli Kelime Yok',
-            style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: Colors.amber[800]),
+            style: GoogleFonts.poppins(
+                fontWeight: FontWeight.bold, color: Colors.amber[800]),
           ),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.warning_amber_rounded, size: 80, color: Colors.amber[800]),
+                Icon(Icons.warning_amber_rounded,
+                    size: 80, color: Colors.amber[800]),
                 SizedBox(height: 20),
                 Text(
                   'Eşleştirme modundan en yüksek verimi almanız için en az 4 kelime gerekiyor. Haydi, biraz daha kelime ekleyelim!',
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.poppins(fontSize: 16, color: Colors.amber[900]),
+                  style: GoogleFonts.poppins(
+                      fontSize: 16, color: Colors.amber[900]),
                 ),
               ],
             ),
@@ -469,7 +511,8 @@ class MatchModeWidget extends StatelessWidget {
             TextButton(
               child: Text(
                 'Tamam',
-                style: GoogleFonts.poppins(color: Colors.blue, fontWeight: FontWeight.bold),
+                style: GoogleFonts.poppins(
+                    color: Colors.blue, fontWeight: FontWeight.bold),
               ),
               onPressed: () => Navigator.of(context).pop(),
             ),
@@ -482,7 +525,9 @@ class MatchModeWidget extends StatelessWidget {
   void _showHowToPlayPanel(BuildContext context, bool isDarkMode) {
     final Color backgroundColor = isDarkMode ? Color(0xFF1E1E2C) : Colors.white;
     final Color textColor = isDarkMode ? Colors.white : Color(0xFF2D3142);
-    final Color subtitleColor = isDarkMode ? Colors.grey[300]! : Color(0xFF555A6B); // Daha açık ve okunabilir renkler
+    final Color subtitleColor = isDarkMode
+        ? Colors.grey[300]!
+        : Color(0xFF555A6B); // Daha açık ve okunabilir renkler
     final Color accentColor = Colors.purple[600]!; // Biraz daha açık mor
     final Color cardColor = isDarkMode ? Color(0xFF272838) : Color(0xFFF8F9FC);
 
@@ -583,7 +628,8 @@ class MatchModeWidget extends StatelessWidget {
                         "Puanlama Sistemi",
                         "Her doğru eşleşme için puanlar kazanırsınız. Seri halinde doğru eşleşmeler yapmak, puan çarpanınızı artırır!",
                         Icons.stars,
-                        Colors.amber[600]!, // Daha okunabilir amber tonu
+                        Colors.amber[600]!,
+                        // Daha okunabilir amber tonu
                         isDarkMode,
                         cardColor,
                         textColor,
@@ -653,7 +699,8 @@ class MatchModeWidget extends StatelessWidget {
                         "Seri Bonusu",
                         "Arka arkaya doğru eşleşmeler yaptığınızda kazanırsınız. Kombo sayısı arttıkça, bonus puanlar da artar!",
                         Icons.whatshot,
-                        Colors.deepOrange[400]!, // Daha okunabilir turuncu
+                        Colors.deepOrange[400]!,
+                        // Daha okunabilir turuncu
                         isDarkMode,
                         cardColor,
                         textColor,
@@ -662,8 +709,10 @@ class MatchModeWidget extends StatelessWidget {
                       _buildBonusCard(
                         "Seri Kurtarma Jokeri",
                         "10 seri yaptığınızda 1 adet seri kurtarma jokeri kazanırsınız! Hatalı bir eşleşme yaptığınızda, jokeri kullanma seçeneği sunulur. Jokeri kullanmayı seçerseniz, seriniz bozulmaz ve devam eder. Oyun boyunca sadece 1 kez kullanabilirsiniz, ne zaman kullanacağınıza dikkat edin!",
-                        Icons.auto_awesome,  // Joker için parlak yıldız ikonu
-                        Colors.amber[500]!,  // Altın rengi
+                        Icons.auto_awesome,
+                        // Joker için parlak yıldız ikonu
+                        Colors.amber[500]!,
+                        // Altın rengi
                         isDarkMode,
                         cardColor,
                         textColor,
@@ -696,7 +745,8 @@ class MatchModeWidget extends StatelessWidget {
                         "Mükemmel Tur",
                         "Hiç hata yapmadan tüm eşleşmeleri bulursanız, özel bir 'Mükemmel Tur' bonusu kazanırsınız!",
                         Icons.workspace_premium,
-                        Colors.amber[500]!, // Daha okunabilir amber
+                        Colors.amber[500]!,
+                        // Daha okunabilir amber
                         isDarkMode,
                         cardColor,
                         textColor,
@@ -708,7 +758,8 @@ class MatchModeWidget extends StatelessWidget {
                         "Zorluk Bonusu",
                         "Daha zor seviyelerde oynarsanız, puan çarpanınız artar! Kolay: 0.8x, Orta: 1.0x, Zor: 1.2x",
                         Icons.trending_up,
-                        Colors.green[500]!, // Standart yeşil
+                        Colors.green[500]!,
+                        // Standart yeşil
                         isDarkMode,
                         cardColor,
                         textColor,
@@ -720,7 +771,8 @@ class MatchModeWidget extends StatelessWidget {
                         "Oyun Bitirme Bonusu",
                         "Tüm turları tamamlayıp oyunu bitirdiğinizde büyük bir bonus kazanırsınız! Zorluk seviyesine göre 150-300 arası bonus puan!",
                         Icons.celebration,
-                        Colors.purple[500]!, // Standart mor
+                        Colors.purple[500]!,
+                        // Standart mor
                         isDarkMode,
                         cardColor,
                         textColor,
@@ -732,17 +784,24 @@ class MatchModeWidget extends StatelessWidget {
                         margin: EdgeInsets.only(top: 24, bottom: 16),
                         padding: EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: isDarkMode ? Color(0xFF2A2D4A) : Colors.blue[50], // Koyu modda koyu mavi tonları
+                          color: isDarkMode
+                              ? Color(0xFF2A2D4A)
+                              : Colors.blue[50], // Koyu modda koyu mavi tonları
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: isDarkMode ? Colors.blue[800]! : Colors.blue[200]!),
+                          border: Border.all(
+                              color: isDarkMode
+                                  ? Colors.blue[800]!
+                                  : Colors.blue[200]!),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
                               children: [
-                                Icon(Icons.lightbulb,
-                                  color: Colors.amber[500]!, // Her zaman okunabilir amber
+                                Icon(
+                                  Icons.lightbulb,
+                                  color: Colors.amber[
+                                      500]!, // Her zaman okunabilir amber
                                 ),
                                 SizedBox(width: 8),
                                 Text(
@@ -750,20 +809,39 @@ class MatchModeWidget extends StatelessWidget {
                                   style: GoogleFonts.poppins(
                                     fontSize: 18,
                                     fontWeight: FontWeight.bold,
-                                    color: isDarkMode ? Colors.white : Colors.black87, // Koyu modda beyaz yazı
+                                    color: isDarkMode
+                                        ? Colors.white
+                                        : Colors
+                                            .black87, // Koyu modda beyaz yazı
                                   ),
                                 ),
                               ],
                             ),
                             SizedBox(height: 8),
-                            _buildTipItem("Hızlı olmak için kelime anlamlarını önceden çalışın!", isDarkMode),
-                            _buildTipItem("10 seri yapmak için sabırlı olun ve jokeri stratejik bir zamanda kullanın. Yüksek seriler oluştururken jokeri saklamak daha değerli olabilir!", isDarkMode),
-                            _buildTipItem("Zor modda maksimum puan için, önce kelimeleri iyi ezberleyin, sonra hiç hata yapmadan ve çok hızlı şekilde eşleştirmeleri tamamlayın!", isDarkMode),
-                            _buildTipItem("Tek uzun seri yapmak, birden fazla kısa seriden çok daha değerli! Tutarlılık bonusu için 10+ seri hedefleyin.", isDarkMode),
-                            _buildTipItem("Joker'i stratejik kullanın: 5+ seriniz varken hata yaparsanız kullanın, 1-4 seride harcamayın!", isDarkMode),
-                            _buildTipItem("Mükemmel tur bonusları için özellikle dikkatli olun.", isDarkMode),
-                            _buildTipItem("Seri yapmak için konsantre olun, bir hata yaparsanız seri sıfırlanır.", isDarkMode),
-                            _buildTipItem("Zorluk seviyesi, puanlarınızı doğrudan etkiler. Kendinize güveniyorsanız, Zor modunu deneyin!", isDarkMode),
+                            _buildTipItem(
+                                "Hızlı olmak için kelime anlamlarını önceden çalışın!",
+                                isDarkMode),
+                            _buildTipItem(
+                                "10 seri yapmak için sabırlı olun ve jokeri stratejik bir zamanda kullanın. Yüksek seriler oluştururken jokeri saklamak daha değerli olabilir!",
+                                isDarkMode),
+                            _buildTipItem(
+                                "Zor modda maksimum puan için, önce kelimeleri iyi ezberleyin, sonra hiç hata yapmadan ve çok hızlı şekilde eşleştirmeleri tamamlayın!",
+                                isDarkMode),
+                            _buildTipItem(
+                                "Tek uzun seri yapmak, birden fazla kısa seriden çok daha değerli! Tutarlılık bonusu için 10+ seri hedefleyin.",
+                                isDarkMode),
+                            _buildTipItem(
+                                "Joker'i stratejik kullanın: 5+ seriniz varken hata yaparsanız kullanın, 1-4 seride harcamayın!",
+                                isDarkMode),
+                            _buildTipItem(
+                                "Mükemmel tur bonusları için özellikle dikkatli olun.",
+                                isDarkMode),
+                            _buildTipItem(
+                                "Seri yapmak için konsantre olun, bir hata yaparsanız seri sıfırlanır.",
+                                isDarkMode),
+                            _buildTipItem(
+                                "Zorluk seviyesi, puanlarınızı doğrudan etkiler. Kendinize güveniyorsanız, Zor modunu deneyin!",
+                                isDarkMode),
                           ],
                         ),
                       ),
@@ -791,7 +869,8 @@ class MatchModeWidget extends StatelessWidget {
                     style: GoogleFonts.poppins(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white, // Ayrıca Text widget'ına da beyaz renk veriyoruz
+                      color: Colors
+                          .white, // Ayrıca Text widget'ına da beyaz renk veriyoruz
                     ),
                   ),
                 ),
@@ -810,17 +889,22 @@ class MatchModeWidget extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("• ", style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: isDarkMode ? Colors.white : Colors.black87, // Koyu modda beyaz yazı
-          )),
+          Text("• ",
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: isDarkMode
+                    ? Colors.white
+                    : Colors.black87, // Koyu modda beyaz yazı
+              )),
           Expanded(
             child: Text(
               tip,
               style: GoogleFonts.poppins(
                 fontSize: 14,
-                color: isDarkMode ? Colors.white : Colors.black87, // Koyu modda beyaz yazı
+                color: isDarkMode
+                    ? Colors.white
+                    : Colors.black87, // Koyu modda beyaz yazı
               ),
             ),
           ),
@@ -830,15 +914,8 @@ class MatchModeWidget extends StatelessWidget {
   }
 
 // Nasıl oynanır bölümü widget'ı
-  Widget _buildHowToPlaySection(
-      String title,
-      String description,
-      IconData icon,
-      Color iconColor,
-      bool isDarkMode,
-      Color cardColor,
-      Color textColor
-      ) {
+  Widget _buildHowToPlaySection(String title, String description, IconData icon,
+      Color iconColor, bool isDarkMode, Color cardColor, Color textColor) {
     return Container(
       margin: EdgeInsets.only(bottom: 20),
       padding: EdgeInsets.all(16),
@@ -889,7 +966,9 @@ class MatchModeWidget extends StatelessWidget {
             style: GoogleFonts.poppins(
               fontSize: 14,
               height: 1.5,
-              color: isDarkMode ? Colors.white.withOpacity(0.9) : Colors.black87, // Koyu modda daha açık beyaz
+              color: isDarkMode
+                  ? Colors.white.withOpacity(0.9)
+                  : Colors.black87, // Koyu modda daha açık beyaz
             ),
           ),
         ],
@@ -899,15 +978,15 @@ class MatchModeWidget extends StatelessWidget {
 
 // Bonus kartı widget'ı
   Widget _buildBonusCard(
-      String title,
-      String description,
-      IconData icon,
-      Color color,
-      bool isDarkMode,
-      Color cardColor,
-      Color textColor,
-      Color subtitleColor,
-      ) {
+    String title,
+    String description,
+    IconData icon,
+    Color color,
+    bool isDarkMode,
+    Color cardColor,
+    Color textColor,
+    Color subtitleColor,
+  ) {
     return Container(
       margin: EdgeInsets.only(bottom: 12),
       padding: EdgeInsets.all(16),
@@ -958,7 +1037,9 @@ class MatchModeWidget extends StatelessWidget {
                   description,
                   style: GoogleFonts.poppins(
                     fontSize: 14,
-                    color: isDarkMode ? Colors.white.withOpacity(0.85) : subtitleColor, // Koyu modda daha açık beyaz
+                    color: isDarkMode
+                        ? Colors.white.withOpacity(0.85)
+                        : subtitleColor, // Koyu modda daha açık beyaz
                   ),
                 ),
               ],
@@ -968,15 +1049,16 @@ class MatchModeWidget extends StatelessWidget {
       ),
     );
   }
+
 // 1. Süre seçimine göre zorluk seviyesi belirleme fonksiyonu
   DifficultyLevel getDifficultyFromTimeSelection(TimeSelection timeSelection) {
     switch (timeSelection) {
       case TimeSelection.short:
-        return DifficultyLevel.hard;   // 60 sn = Zor (1.2x çarpan)
+        return DifficultyLevel.hard; // 60 sn = Zor (1.2x çarpan)
       case TimeSelection.medium:
         return DifficultyLevel.medium; // 120 sn = Orta (1.0x çarpan)
       case TimeSelection.long:
-        return DifficultyLevel.easy;   // 180 sn = Kolay (0.8x çarpan)
+        return DifficultyLevel.easy; // 180 sn = Kolay (0.8x çarpan)
       case TimeSelection.custom:
         return DifficultyLevel.medium; // Özel süre = Orta (varsayılan)
     }
@@ -985,23 +1067,29 @@ class MatchModeWidget extends StatelessWidget {
 // İpucu maddesi widget'ı
 // Süre seçim widget'ı
   Widget _buildTimeOption(
-      BuildContext context,
-      String time,
-      String label,
-      TimeSelection option,
-      TimeSelection selectedOption,
-      bool isDarkMode,
-      Color primaryColor,
-      Function(TimeSelection) onSelect,
-      ) {
+    BuildContext context,
+    String time,
+    String label,
+    TimeSelection option,
+    TimeSelection selectedOption,
+    bool isDarkMode,
+    Color primaryColor,
+    Function(TimeSelection) onSelect,
+  ) {
     bool isSelected = selectedOption == option;
 
     // ✅ YENİ: Süre seçimine göre zorluk ve çarpan hesapla
     DifficultyLevel difficulty = getDifficultyFromTimeSelection(option);
-    String multiplier = difficulty == DifficultyLevel.easy ? "0.8x" :
-    difficulty == DifficultyLevel.medium ? "1.0x" : "1.2x";
-    Color multiplierColor = difficulty == DifficultyLevel.easy ? Colors.green :
-    difficulty == DifficultyLevel.medium ? Colors.blue : Colors.red;
+    String multiplier = difficulty == DifficultyLevel.easy
+        ? "0.8x"
+        : difficulty == DifficultyLevel.medium
+            ? "1.0x"
+            : "1.2x";
+    Color multiplierColor = difficulty == DifficultyLevel.easy
+        ? Colors.green
+        : difficulty == DifficultyLevel.medium
+            ? Colors.blue
+            : Colors.red;
 
     return GestureDetector(
       onTap: () => onSelect(option),
@@ -1011,22 +1099,30 @@ class MatchModeWidget extends StatelessWidget {
         decoration: BoxDecoration(
           color: isSelected
               ? primaryColor
-              : isDarkMode ? Colors.grey[800] : Colors.grey[200],
+              : isDarkMode
+                  ? Colors.grey[800]
+                  : Colors.grey[200],
           borderRadius: BorderRadius.circular(12),
-          boxShadow: isSelected ? [
-            BoxShadow(
-              color: primaryColor.withOpacity(0.4),
-              blurRadius: 8,
-              offset: Offset(0, 2),
-            )
-          ] : [],
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: primaryColor.withOpacity(0.4),
+                    blurRadius: 8,
+                    offset: Offset(0, 2),
+                  )
+                ]
+              : [],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               Icons.timer,
-              color: isSelected ? Colors.white : isDarkMode ? Colors.grey[400] : Colors.grey[700],
+              color: isSelected
+                  ? Colors.white
+                  : isDarkMode
+                      ? Colors.grey[400]
+                      : Colors.grey[700],
               size: 22,
             ),
             SizedBox(height: 4),
@@ -1035,14 +1131,22 @@ class MatchModeWidget extends StatelessWidget {
               style: GoogleFonts.poppins(
                 fontSize: 14,
                 fontWeight: FontWeight.bold,
-                color: isSelected ? Colors.white : isDarkMode ? Colors.grey[300] : Colors.grey[800],
+                color: isSelected
+                    ? Colors.white
+                    : isDarkMode
+                        ? Colors.grey[300]
+                        : Colors.grey[800],
               ),
             ),
             Text(
               label,
               style: GoogleFonts.poppins(
                 fontSize: 11,
-                color: isSelected ? Colors.white.withOpacity(0.8) : isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                color: isSelected
+                    ? Colors.white.withOpacity(0.8)
+                    : isDarkMode
+                        ? Colors.grey[400]
+                        : Colors.grey[600],
               ),
             ),
             // ✅ YENİ: Çarpan bilgisi
@@ -1060,9 +1164,7 @@ class MatchModeWidget extends StatelessWidget {
                 style: GoogleFonts.poppins(
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
-                  color: isSelected
-                      ? Colors.white
-                      : multiplierColor,
+                  color: isSelected ? Colors.white : multiplierColor,
                 ),
               ),
             ),
@@ -1071,14 +1173,15 @@ class MatchModeWidget extends StatelessWidget {
       ),
     );
   }
+
   Widget _buildTimeSelectionSection(
-      BuildContext context,
-      TimeSelection selectedTime,
-      bool isDarkMode,
-      Color primaryColor,
-      Color textColor,
-      Function(TimeSelection) onTimeSelect,
-      ) {
+    BuildContext context,
+    TimeSelection selectedTime,
+    bool isDarkMode,
+    Color primaryColor,
+    Color textColor,
+    Function(TimeSelection) onTimeSelect,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1146,24 +1249,38 @@ class MatchModeWidget extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: primaryColor.withOpacity(0.3)),
           ),
-          child: _buildSelectedDifficultyInfo(selectedTime, isDarkMode, textColor),
+          child:
+              _buildSelectedDifficultyInfo(selectedTime, isDarkMode, textColor),
         ),
       ],
     );
   }
-  Widget _buildSelectedDifficultyInfo(TimeSelection selectedTime, bool isDarkMode, Color textColor) {
+
+  Widget _buildSelectedDifficultyInfo(
+      TimeSelection selectedTime, bool isDarkMode, Color textColor) {
     DifficultyLevel difficulty = getDifficultyFromTimeSelection(selectedTime);
 
-    String difficultyText = difficulty == DifficultyLevel.easy ? "Kolay" :
-    difficulty == DifficultyLevel.medium ? "Orta" : "Zor";
-    String multiplier = difficulty == DifficultyLevel.easy ? "0.8x" :
-    difficulty == DifficultyLevel.medium ? "1.0x" : "1.2x";
-    String description = difficulty == DifficultyLevel.easy ? "Daha fazla süre, daha az çarpan" :
-    difficulty == DifficultyLevel.medium ? "Dengeli süre ve çarpan" :
-    "Daha az süre, daha yüksek çarpan!";
+    String difficultyText = difficulty == DifficultyLevel.easy
+        ? "Kolay"
+        : difficulty == DifficultyLevel.medium
+            ? "Orta"
+            : "Zor";
+    String multiplier = difficulty == DifficultyLevel.easy
+        ? "0.8x"
+        : difficulty == DifficultyLevel.medium
+            ? "1.0x"
+            : "1.2x";
+    String description = difficulty == DifficultyLevel.easy
+        ? "Daha fazla süre, daha az çarpan"
+        : difficulty == DifficultyLevel.medium
+            ? "Dengeli süre ve çarpan"
+            : "Daha az süre, daha yüksek çarpan!";
 
-    Color difficultyColor = difficulty == DifficultyLevel.easy ? Colors.green :
-    difficulty == DifficultyLevel.medium ? Colors.blue : Colors.red;
+    Color difficultyColor = difficulty == DifficultyLevel.easy
+        ? Colors.green
+        : difficulty == DifficultyLevel.medium
+            ? Colors.blue
+            : Colors.red;
 
     return Row(
       children: [
@@ -1174,9 +1291,11 @@ class MatchModeWidget extends StatelessWidget {
             shape: BoxShape.circle,
           ),
           child: Icon(
-            difficulty == DifficultyLevel.easy ? Icons.sentiment_satisfied :
-            difficulty == DifficultyLevel.medium ? Icons.sentiment_neutral :
-            Icons.local_fire_department,
+            difficulty == DifficultyLevel.easy
+                ? Icons.sentiment_satisfied
+                : difficulty == DifficultyLevel.medium
+                    ? Icons.sentiment_neutral
+                    : Icons.local_fire_department,
             color: difficultyColor,
             size: 20,
           ),
@@ -1228,16 +1347,18 @@ class MatchModeWidget extends StatelessWidget {
       ],
     );
   }
+
   Widget _buildDynamicMultiplierSection(
-      BuildContext context,
-      TimeSelection selectedTime,
-      bool isDarkMode,
-      Color primaryColor,
-      Color textColor,
-      bool isExpanded,
-      Function() onToggle,
-      ) {
-    DifficultyLevel currentDifficulty = getDifficultyFromTimeSelection(selectedTime);
+    BuildContext context,
+    TimeSelection selectedTime,
+    bool isDarkMode,
+    Color primaryColor,
+    Color textColor,
+    bool isExpanded,
+    Function() onToggle,
+  ) {
+    DifficultyLevel currentDifficulty =
+        getDifficultyFromTimeSelection(selectedTime);
 
     return Container(
       margin: EdgeInsets.only(top: 24, bottom: 16),
@@ -1272,7 +1393,8 @@ class MatchModeWidget extends StatelessWidget {
                   Container(
                     padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: _getDifficultyColor(currentDifficulty).withOpacity(0.2),
+                      color: _getDifficultyColor(currentDifficulty)
+                          .withOpacity(0.2),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
@@ -1309,27 +1431,39 @@ class MatchModeWidget extends StatelessWidget {
               opacity: isExpanded ? 1.0 : 0.0,
               child: isExpanded
                   ? Container(
-                padding: EdgeInsets.only(left: 16, right: 16, bottom: 16),
-                child: Column(
-                  children: [
-                    Divider(
-                      color: primaryColor.withOpacity(0.3),
-                      thickness: 1,
-                    ),
-                    SizedBox(height: 8),
+                      padding: EdgeInsets.only(left: 16, right: 16, bottom: 16),
+                      child: Column(
+                        children: [
+                          Divider(
+                            color: primaryColor.withOpacity(0.3),
+                            thickness: 1,
+                          ),
+                          SizedBox(height: 8),
 
-                    // Zorluk çarpanları - mevcut seçimi vurgula
-                    _buildMultiplierRow("Kolay (180 sn)", "x0.8", Colors.green,
-                        currentDifficulty == DifficultyLevel.easy, textColor),
-                    SizedBox(height: 8),
-                    _buildMultiplierRow("Orta (120 sn)", "x1.0", Colors.blue,
-                        currentDifficulty == DifficultyLevel.medium, textColor),
-                    SizedBox(height: 8),
-                    _buildMultiplierRow("Zor (60 sn)", "x1.2", Colors.red,
-                        currentDifficulty == DifficultyLevel.hard, textColor),
-                  ],
-                ),
-              )
+                          // Zorluk çarpanları - mevcut seçimi vurgula
+                          _buildMultiplierRow(
+                              "Kolay (180 sn)",
+                              "x0.8",
+                              Colors.green,
+                              currentDifficulty == DifficultyLevel.easy,
+                              textColor),
+                          SizedBox(height: 8),
+                          _buildMultiplierRow(
+                              "Orta (120 sn)",
+                              "x1.0",
+                              Colors.blue,
+                              currentDifficulty == DifficultyLevel.medium,
+                              textColor),
+                          SizedBox(height: 8),
+                          _buildMultiplierRow(
+                              "Zor (60 sn)",
+                              "x1.2",
+                              Colors.red,
+                              currentDifficulty == DifficultyLevel.hard,
+                              textColor),
+                        ],
+                      ),
+                    )
                   : SizedBox.shrink(),
             ),
           ),
@@ -1341,21 +1475,28 @@ class MatchModeWidget extends StatelessWidget {
 // 7. Yardımcı fonksiyonlar
   Color _getDifficultyColor(DifficultyLevel difficulty) {
     switch (difficulty) {
-      case DifficultyLevel.easy: return Colors.green;
-      case DifficultyLevel.medium: return Colors.blue;
-      case DifficultyLevel.hard: return Colors.red;
+      case DifficultyLevel.easy:
+        return Colors.green;
+      case DifficultyLevel.medium:
+        return Colors.blue;
+      case DifficultyLevel.hard:
+        return Colors.red;
     }
   }
 
   String _getMultiplierText(DifficultyLevel difficulty) {
     switch (difficulty) {
-      case DifficultyLevel.easy: return "x0.8";
-      case DifficultyLevel.medium: return "x1.0";
-      case DifficultyLevel.hard: return "x1.2";
+      case DifficultyLevel.easy:
+        return "x0.8";
+      case DifficultyLevel.medium:
+        return "x1.0";
+      case DifficultyLevel.hard:
+        return "x1.2";
     }
   }
 
-  Widget _buildMultiplierRow(String label, String multiplier, Color color, bool isSelected, Color textColor) {
+  Widget _buildMultiplierRow(String label, String multiplier, Color color,
+      bool isSelected, Color textColor) {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
@@ -1368,8 +1509,7 @@ class MatchModeWidget extends StatelessWidget {
         children: [
           Row(
             children: [
-              if (isSelected)
-                Icon(Icons.check_circle, color: color, size: 16),
+              if (isSelected) Icon(Icons.check_circle, color: color, size: 16),
               if (isSelected) SizedBox(width: 4),
               Text(
                 label,
@@ -1400,128 +1540,37 @@ class MatchModeWidget extends StatelessWidget {
       ),
     );
   }
+
 // Mod seçenek kartı
-  Widget _buildModeOption(
-      BuildContext context,
-      String title,
-      String description,
-      int index,
-      int selectedOption,
-      Color color,
-      IconData icon,
-      bool isDarkMode,
-      Function(int) onSelect) {
-    bool isSelected = selectedOption == index;
-
-    return GestureDetector(
-      onTap: () => onSelect(index),
-      child: Container(
-        decoration: BoxDecoration(
-          color: isSelected
-              ? (isDarkMode ? color.withOpacity(0.2) : color.withOpacity(0.1))
-              : (isDarkMode ? Colors.grey[800] : Colors.grey[100]),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isSelected ? color : isDarkMode ? Colors.grey[700]! : Colors.grey[300]!,
-            width: isSelected ? 2 : 1,
-          ),
-        ),
-        padding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-        child: Row(
-          children: [
-            // İkon
-            Container(
-              padding: EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: isSelected ? color.withOpacity(0.2) : (isDarkMode ? Colors.grey[700] : Colors.white),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                icon,
-                color: isSelected ? color : isDarkMode ? Colors.grey[400] : Colors.grey[600],
-                size: 22,
-              ),
-            ),
-            SizedBox(width: 12),
-
-            // Metin içeriği
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                      color: isSelected
-                          ? color
-                          : isDarkMode ? Colors.white : Colors.black87,
-                    ),
-                  ),
-                  SizedBox(height: 2),
-                  Text(
-                    description,
-                    style: GoogleFonts.poppins(
-                      fontSize: 12,
-                      color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-
-            // Seçim durumu
-            Container(
-              width: 24,
-              height: 24,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: isSelected ? color : Colors.transparent,
-                border: Border.all(
-                  color: isSelected ? color : isDarkMode ? Colors.grey[600]! : Colors.grey[400]!,
-                  width: 1.5,
-                ),
-              ),
-              child: isSelected
-                  ? Icon(
-                Icons.check,
-                color: Colors.white,
-                size: 16,
-              )
-                  : null,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   DifficultyLevel _getDifficultyFromTimeSelection(TimeSelection timeSelection) {
     switch (timeSelection) {
-      case TimeSelection.short: return DifficultyLevel.hard;
-      case TimeSelection.medium: return DifficultyLevel.medium;
-      case TimeSelection.long: return DifficultyLevel.easy;
-      case TimeSelection.custom: return DifficultyLevel.medium;
+      case TimeSelection.short:
+        return DifficultyLevel.hard;
+      case TimeSelection.medium:
+        return DifficultyLevel.medium;
+      case TimeSelection.long:
+        return DifficultyLevel.easy;
+      case TimeSelection.custom:
+        return DifficultyLevel.medium;
     }
   }
+
   Widget _buildModernModeOption(
-      BuildContext context,
-      String title,
-      String description,
-      int index,
-      int selectedIndex,
-      Color gradientStart,
-      Color gradientEnd,
-      IconData icon,
-      bool isDarkMode,
-      Color cardColor,
-      Color textColor,
-      Color subtitleColor,
-      Function(int) onTap,
-      ) {
+    BuildContext context,
+    String title,
+    String description,
+    int index,
+    int selectedIndex,
+    Color gradientStart,
+    Color gradientEnd,
+    IconData icon,
+    bool isDarkMode,
+    Color cardColor,
+    Color textColor,
+    Color subtitleColor,
+    Function(int) onTap,
+  ) {
     final bool isSelected = index == selectedIndex;
 
     return GestureDetector(
@@ -1532,21 +1581,21 @@ class MatchModeWidget extends StatelessWidget {
         decoration: BoxDecoration(
           gradient: isSelected
               ? LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [gradientStart, gradientEnd],
-          )
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [gradientStart, gradientEnd],
+                )
               : null,
           color: isSelected ? null : cardColor,
           borderRadius: BorderRadius.circular(20),
           boxShadow: isSelected
               ? [
-            BoxShadow(
-              color: gradientStart.withOpacity(0.3),
-              blurRadius: 10,
-              offset: Offset(0, 4),
-            )
-          ]
+                  BoxShadow(
+                    color: gradientStart.withOpacity(0.3),
+                    blurRadius: 10,
+                    offset: Offset(0, 4),
+                  )
+                ]
               : [],
         ),
         padding: EdgeInsets.all(16),
@@ -1587,7 +1636,9 @@ class MatchModeWidget extends StatelessWidget {
                     description,
                     style: GoogleFonts.poppins(
                       fontSize: 13,
-                      color: isSelected ? Colors.white.withOpacity(0.8) : subtitleColor,
+                      color: isSelected
+                          ? Colors.white.withOpacity(0.8)
+                          : subtitleColor,
                     ),
                   ),
                 ],
@@ -1603,18 +1654,19 @@ class MatchModeWidget extends StatelessWidget {
                 border: isSelected
                     ? null
                     : Border.all(
-                  color: isDarkMode ? Colors.grey[700]! : Colors.grey[300]!,
-                  width: 2,
-                ),
+                        color:
+                            isDarkMode ? Colors.grey[700]! : Colors.grey[300]!,
+                        width: 2,
+                      ),
               ),
               child: isSelected
                   ? Center(
-                child: Icon(
-                  Icons.check,
-                  color: gradientEnd,
-                  size: 14,
-                ),
-              )
+                      child: Icon(
+                        Icons.check,
+                        color: gradientEnd,
+                        size: 14,
+                      ),
+                    )
                   : null,
             ),
           ],

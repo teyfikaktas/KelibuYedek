@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
-import 'dart:math';
 
 class Question {
   final String question;
@@ -50,6 +49,7 @@ class SocketService with ChangeNotifier {
   }
 
   String get currentRoom => _currentRoom;
+
   String get username => _username; // Kullanıcı adı getter
 
   void setUsername(String name) {
@@ -65,7 +65,8 @@ class SocketService with ChangeNotifier {
   }
 
   void _connectToSocket() {
-    socket = IO.io('https://nervous-bhabha.213-238-168-122.plesk.page', <String, dynamic>{
+    socket = IO.io(
+        'https://nervous-bhabha.213-238-168-122.plesk.page', <String, dynamic>{
       'transports': ['websocket'],
       'autoConnect': true,
       'ssl': true,
@@ -73,7 +74,6 @@ class SocketService with ChangeNotifier {
 
     socket!.on('connect', (_) {
       addMessage('Bir Flutter cihazı bağlandı');
-      print('Connected to socket server');
     });
 
     socket!.on('user connected', (_) {
@@ -88,27 +88,24 @@ class SocketService with ChangeNotifier {
 
     socket!.on('disconnect', (_) {
       addMessage('Bir Flutter cihazı ayrıldı');
-      print('Disconnected from socket server');
     });
 
     socket!.on('connect_error', (error) {
       addMessage('Bağlantı hatası: $error');
-      print('Connect error: $error');
     });
 
     socket!.on('connect_timeout', (error) {
       addMessage('Bağlantı zaman aşımı: $error');
-      print('Connect timeout: $error');
     });
 
     socket!.on('error', (error) {
       addMessage('Hata: $error');
-      print('Error: $error');
     });
 
     socket!.on('room created', (roomNumber) => _onRoomCreated(roomNumber));
     socket!.on('room info', (data) => _onRoomInfo(data));
-    socket!.on('join room success', (roomNumber) => _onJoinRoomSuccess(roomNumber));
+    socket!.on(
+        'join room success', (roomNumber) => _onJoinRoomSuccess(roomNumber));
     socket!.on('join room error', (error) => addMessage('Hata: $error'));
     socket!.on('answer submitted', (data) => _onAnswerSubmitted(data));
     socket!.on('both answered', (data) => _onBothAnswered(data));
@@ -124,7 +121,6 @@ class SocketService with ChangeNotifier {
 
   void fetchRoomInfo() {
     if (socket != null && socket!.connected) {
-      print('Fetching room info');
       socket!.emit('get room info', _currentRoom);
     }
   }
@@ -138,16 +134,13 @@ class SocketService with ChangeNotifier {
   }
 
   void _onRoomInfo(dynamic data) {
-    print('Room info received: $data');
-
     final roomNumber = data['roomNumber']?.toString() ?? 'Unknown';
     final userCount = data['userCount'] is int
         ? data['userCount'] as int
         : int.tryParse(data['userCount']?.toString() ?? '') ?? 0;
 
-    final users = data['users'] is List
-        ? List<dynamic>.from(data['users'])
-        : [];
+    final users =
+        data['users'] is List ? List<dynamic>.from(data['users']) : [];
 
     // Kullanıcıların yalnızca isimlerini alıyoruz
     this.usersInRoom = users.map((user) {
@@ -161,10 +154,10 @@ class SocketService with ChangeNotifier {
     }).toList();
 
     // Hata ayıklama için kullanıcı isimlerini yazdırıyoruz
-    print('Users in room: ${this.usersInRoom}');
-
     // Soruları işlemek (varsa)
-    if (users.isNotEmpty && users[0] is Map && (users[0] as Map).containsKey('questions')) {
+    if (users.isNotEmpty &&
+        users[0] is Map &&
+        (users[0] as Map).containsKey('questions')) {
       final firstUser = users[0] as Map<String, dynamic>;
       final questionsJson = firstUser['questions'] as List<dynamic>;
       questions = questionsJson.map((question) {
@@ -192,7 +185,8 @@ class SocketService with ChangeNotifier {
     // Check if both users have answered
     bothAnswered = userAnswers.length == userCount;
     if (bothAnswered) {
-      socket!.emit('both answered', {'roomNumber': _currentRoom, 'userAnswers': userAnswers});
+      socket!.emit('both answered',
+          {'roomNumber': _currentRoom, 'userAnswers': userAnswers});
     }
 
     // Kullanıcı puanlarını güncelle
@@ -235,14 +229,14 @@ class SocketService with ChangeNotifier {
             : <String>[];
 
         final userScoresData = data['userScores'] != null
-            ? (data['userScores'] as Map).map((key, value) => MapEntry(key.toString(), value as int))
+            ? (data['userScores'] as Map)
+                .map((key, value) => MapEntry(key.toString(), value as int))
             : <String, int>{};
 
         userScores = userScoresData;
         quizEnded = true;
         notifyListeners();
       } catch (e) {
-        print("Quiz end data format error: $e");
       }
     }
   }
@@ -279,21 +273,30 @@ class SocketService with ChangeNotifier {
     });
   }
 
-  void createRoom(String username, List<Question> questions, int questionCount) {
+  void createRoom(
+      String username, List<Question> questions, int questionCount) {
     this.questions = questions;
 
     // Soruları karıştır ve istenilen sayıda seç
     questions.shuffle();
     questions = questions.take(questionCount).toList();
 
-    socket!.emit('create room', {'username': username, 'questions': questions.map((q) => q.toJson()).toList()});
+    socket!.emit('create room', {
+      'username': username,
+      'questions': questions.map((q) => q.toJson()).toList()
+    });
   }
 
   String determineWinner() {
     if (userScores.isEmpty) return 'Unknown';
 
-    int maxScore = userScores.values.isNotEmpty ? userScores.values.reduce((a, b) => a > b ? a : b) : 0;
-    List<String> topScorers = userScores.entries.where((entry) => entry.value == maxScore).map((entry) => entry.key).toList();
+    int maxScore = userScores.values.isNotEmpty
+        ? userScores.values.reduce((a, b) => a > b ? a : b)
+        : 0;
+    List<String> topScorers = userScores.entries
+        .where((entry) => entry.value == maxScore)
+        .map((entry) => entry.key)
+        .toList();
 
     if (topScorers.length > 1) {
       return 'Berabere';
@@ -337,12 +340,14 @@ class SocketService with ChangeNotifier {
   }
 
   void addMessage(String message) {
-    print('addMessage called: $message');
     messages.add(message);
     notifyListeners();
   }
 
   int get currentUserScore {
-    return userScores.entries.firstWhere((entry) => entry.key == _username, orElse: () => MapEntry(_username, 0)).value;
+    return userScores.entries
+        .firstWhere((entry) => entry.key == _username,
+            orElse: () => MapEntry(_username, 0))
+        .value;
   }
 }

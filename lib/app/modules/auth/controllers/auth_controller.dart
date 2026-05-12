@@ -1,7 +1,7 @@
 // login_controller.dart
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -48,11 +48,10 @@ class LoginController extends GetxController {
 
       // 8. Yönlendirme
       Get.off(
-            () => MainScreen(),
+        () => MainScreen(),
         transition: Transition.fade,
         duration: Duration(milliseconds: 500),
       );
-
     } on ApiException catch (e) {
       _handleApiError(e);
     } catch (e) {
@@ -68,23 +67,21 @@ class LoginController extends GetxController {
       await Purchases.logIn(userIdR);
       await Purchases.syncPurchases();
       final customerInfo = await Purchases.getCustomerInfo();
-      print('RevenueCat customerInfo: ${customerInfo.originalAppUserId}');
     } catch (e) {
-      print('RevenueCat error: $e');
       // RevenueCat hatası login işlemini engellemeyecek
     }
   }
 
   Future<void> _handleTokenStorage(Map<String, dynamic> responseData) async {
-    if (responseData['access_token'] == null || responseData['expires_in'] == null) {
+    if (responseData['access_token'] == null ||
+        responseData['expires_in'] == null) {
       throw Exception('Token bilgisi eksik.');
     }
 
     final String accessToken = responseData['access_token'];
     final int expiresIn = responseData['expires_in'];
-    final int expiresAtMillis = DateTime.now()
-        .add(Duration(seconds: expiresIn))
-        .millisecondsSinceEpoch;
+    final int expiresAtMillis =
+        DateTime.now().add(Duration(seconds: expiresIn)).millisecondsSinceEpoch;
 
     await storage.write(key: 'access_token', value: accessToken);
     await storage.write(key: 'expires_at', value: expiresAtMillis.toString());
@@ -105,7 +102,9 @@ class LoginController extends GetxController {
       user['phone_verified'] ?? false,
       user['created_at'] ?? '',
       user['city'] ?? '',
-      user['birth_year'] != null ? int.tryParse(user['birth_year'].toString()) ?? 0 : 0,
+      user['birth_year'] != null
+          ? int.tryParse(user['birth_year'].toString()) ?? 0
+          : 0,
       user['team'] ?? '',
       streakCount: user['streak_count'] ?? 0,
       dailyRank: user['daily_rank'] ?? 0,
@@ -115,7 +114,8 @@ class LoginController extends GetxController {
     );
   }
 
-  Future<void> _updateSharedPreferences(Map<String, dynamic> responseData) async {
+  Future<void> _updateSharedPreferences(
+      Map<String, dynamic> responseData) async {
     final prefs = await SharedPreferences.getInstance();
     final String userId = responseData['user']['id']?.toString() ?? '0';
     await prefs.setString('userId', userId);
@@ -154,7 +154,8 @@ class LoginController extends GetxController {
       Get.dialog(
         AlertDialog(
           title: Text('Çok Fazla Deneme'),
-          content: Text('Çok fazla giriş denemesi yaptınız. Lütfen bekleyip tekrar deneyin.'),
+          content: Text(
+              'Çok fazla giriş denemesi yaptınız. Lütfen bekleyip tekrar deneyin.'),
           actions: [
             TextButton(
               onPressed: () => Get.back(),
@@ -182,7 +183,8 @@ class LoginController extends GetxController {
   void _handleGeneralError(dynamic e) {
     String message = 'Bir sorun oluştu. Lütfen tekrar deneyin.';
     if (e is ApiException && e.message.contains('Too Many Requests')) {
-      message = 'Çok fazla giriş denemesi yaptınız. Lütfen biraz bekleyip tekrar deneyin.';
+      message =
+          'Çok fazla giriş denemesi yaptınız. Lütfen biraz bekleyip tekrar deneyin.';
     }
 
     Get.dialog(
