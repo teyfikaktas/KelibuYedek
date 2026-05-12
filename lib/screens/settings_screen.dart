@@ -1,30 +1,31 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:kelibu/screens/setting/subscription_settings.dart';
-import 'package:path/path.dart' as p;
-import 'package:image/image.dart' as img;
+import 'package:hive/hive.dart';
 import 'package:http/http.dart' as http;
+import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:kelibu/main.dart';
+import 'package:kelibu/screens/setting/subscription_settings.dart';
 import 'package:kelibu/variables.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 import '../api.dart';
 import '../providers/user_provider.dart';
 import 'about_screen.dart';
 import 'contact_screen.dart';
 import 'loadingIndicator.dart';
-import 'login_screen.dart';
 import 'privacy_conditions_screen.dart';
 import 'privary_policy.dart';
 import 'profile_setting.dart';
-import 'package:hive/hive.dart';
-import 'package:kelibu/main.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class SettingsPage extends StatefulWidget {
   @override
@@ -83,7 +84,6 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-
   Widget _buildProfileHeader(UserProvider userProvider) {
     return Column(
       children: [
@@ -131,6 +131,7 @@ class _SettingsPageState extends State<SettingsPage> {
       ],
     );
   }
+
   Widget _buildSettingsSection() {
     return Container(
       margin: EdgeInsets.symmetric(horizontal: 16),
@@ -148,42 +149,57 @@ class _SettingsPageState extends State<SettingsPage> {
       child: Column(
         children: [
           _buildSettingsItem(Icons.account_circle, 'Hesap Bilgileri', () {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => AccountPage()));
+            Navigator.push(context,
+                MaterialPageRoute(builder: (context) => AccountPage()));
           }),
           _buildSettingsItem(Icons.subscriptions, 'Abonelik Bilgileri', () {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => SubscriptionSettingsPage()));
+            Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => SubscriptionSettingsPage()));
           }),
           _buildDivider(),
           _buildSettingsItem(Icons.info_outline, 'Hakkımızda', () {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => AboutPage()));
+            Navigator.push(
+                context, MaterialPageRoute(builder: (context) => AboutPage()));
           }),
           _buildDivider(),
-          _buildSettingsItem(Icons.contact_support, 'İletişim ve Sorun Bildir', () {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => ContactFormPage()));
+          _buildSettingsItem(Icons.contact_support, 'İletişim ve Sorun Bildir',
+              () {
+            Navigator.push(context,
+                MaterialPageRoute(builder: (context) => ContactFormPage()));
           }),
           _buildDivider(),
           _buildSettingsItem(Icons.book, 'Hüküm ve Koşullar', () {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => TermsAndConditionsPage()));
+            Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => TermsAndConditionsPage()));
           }),
           _buildDivider(),
           _buildSettingsItem(Icons.privacy_tip, 'Gizlilik Sözleşmesi', () {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => PrivacyPolicyPage()));
+            Navigator.push(context,
+                MaterialPageRoute(builder: (context) => PrivacyPolicyPage()));
           }),
           _buildDivider(),
-
           _buildSettingsItem(Icons.delete, 'Hesabımı Sil', () {
-            _confirmDeleteAccount(context, Provider.of<UserProvider>(context, listen: false));
+            _confirmDeleteAccount(
+                context, Provider.of<UserProvider>(context, listen: false));
           }, color: Colors.red),
           _buildDivider(),
-          _buildSettingsItem(Icons.exit_to_app, 'Çıkış Yap', () => logout(context), color: Colors.red),
+          _buildSettingsItem(
+              Icons.exit_to_app, 'Çıkış Yap', () => logout(context),
+              color: Colors.red),
         ],
       ),
     );
   }
 
-  Widget _buildSettingsItem(IconData icon, String title, VoidCallback onTap, {Color? color}) {
+  Widget _buildSettingsItem(IconData icon, String title, VoidCallback onTap,
+      {Color? color}) {
     return ListTile(
-      leading: Icon(icon, color: color ?? (_isDarkMode ? Colors.white : Colors.black)),
+      leading: Icon(icon,
+          color: color ?? (_isDarkMode ? Colors.white : Colors.black)),
       title: Text(
         title,
         style: GoogleFonts.poppins(
@@ -191,7 +207,8 @@ class _SettingsPageState extends State<SettingsPage> {
           fontWeight: FontWeight.w500,
         ),
       ),
-      trailing: Icon(Icons.chevron_right, color: _isDarkMode ? Colors.white70 : Colors.black54),
+      trailing: Icon(Icons.chevron_right,
+          color: _isDarkMode ? Colors.white70 : Colors.black54),
       onTap: onTap,
     );
   }
@@ -256,7 +273,8 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  void _deleteAccount(int userId, BuildContext context, UserProvider userProvider) async {
+  void _deleteAccount(
+      int userId, BuildContext context, UserProvider userProvider) async {
     final bool isSuccess = await ApiService().deleteUser(userId);
     if (isSuccess) {
       // Hesap başarıyla silindiğinde
@@ -286,7 +304,8 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   void _navigateToLoginScreen(BuildContext context) {
-    Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (context) => SplashScreen()));
+    Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (context) => SplashScreen()));
   }
 
   void logout(BuildContext context) async {
@@ -311,15 +330,17 @@ class _SettingsPageState extends State<SettingsPage> {
       // Tüm sayfaları temizleyip SplashScreen'e yönlendirme
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (context) => SplashScreen()),
-            (Route<dynamic> route) => false,
+        (Route<dynamic> route) => false,
       );
     } catch (e) {
-      print('Çıkış yapma sırasında bir hata oluştu: $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Çıkış yapılırken bir hata oluştu. Lütfen tekrar deneyin.')),
+        SnackBar(
+            content: Text(
+                'Çıkış yapılırken bir hata oluştu. Lütfen tekrar deneyin.')),
       );
     }
   }
+
   Future _selectImage(BuildContext context) async {
     final ImagePicker _picker = ImagePicker();
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
@@ -361,7 +382,8 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  Future compressImage(File file, {int minWidth = 256, int minHeight = 256}) async {
+  Future compressImage(File file,
+      {int minWidth = 256, int minHeight = 256}) async {
     final img.Image? image = img.decodeImage(await file.readAsBytes());
     img.Image resized = image!;
     if (image.width < minWidth || image.height < minHeight) {
@@ -371,8 +393,10 @@ class _SettingsPageState extends State<SettingsPage> {
     }
 
     final Directory tempDir = await getTemporaryDirectory();
-    final String targetPath = p.join(tempDir.path, "temp_${DateTime.now().millisecondsSinceEpoch}.jpg");
-    final File newImageFile = File(targetPath)..writeAsBytesSync(img.encodeJpg(resized, quality: 85));
+    final String targetPath = p.join(
+        tempDir.path, "temp_${DateTime.now().millisecondsSinceEpoch}.jpg");
+    final File newImageFile = File(targetPath)
+      ..writeAsBytesSync(img.encodeJpg(resized, quality: 85));
 
     return newImageFile;
   }
@@ -398,19 +422,16 @@ class _SettingsPageState extends State<SettingsPage> {
         String newAvatarUrl = responseData['avatar_url'];
 
         // Eski avatar URL'sini önbellekten temizle
-        String oldAvatarUrl = 'https://kelibu.net/storage/${userProvider.avatar}';
+        String oldAvatarUrl =
+            'https://kelibu.net/storage/${userProvider.avatar}';
         await CachedNetworkImage.evictFromCache(oldAvatarUrl);
 
         // Yeni avatar URL'sini güncelle
         await userProvider.updateUserAvatarUrl(newAvatarUrl);
-
-        print('Avatar URL güncellendi: $newAvatarUrl');
       } else {
         var response = await http.Response.fromStream(streamedResponse);
-        print('Resim yükleme başarısız. Hata: ${response.body}');
       }
     } catch (e) {
-      print('Resim yükleme sırasında bir hata oluştu: $e');
     }
   }
 

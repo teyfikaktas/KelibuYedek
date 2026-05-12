@@ -1,10 +1,11 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
-import 'dart:convert';
 import 'package:kelibu/providers/user_provider.dart';
-import 'package:provider/provider.dart';
 import 'package:kelibu/variables.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ContactFormPage extends StatefulWidget {
@@ -15,7 +16,11 @@ class ContactFormPage extends StatefulWidget {
 class _ContactFormPageState extends State<ContactFormPage> {
   final _formKey = GlobalKey<FormState>();
   String _selectedCategory = 'Genel Sıkıntı';
-  final List<String> _categories = ['Genel Sıkıntı', 'Hata Bildirimi', 'Görüş ve Öneri'];
+  final List<String> _categories = [
+    'Genel Sıkıntı',
+    'Hata Bildirimi',
+    'Görüş ve Öneri'
+  ];
   String _description = '';
   bool _isDarkMode = false;
 
@@ -50,10 +55,11 @@ class _ContactFormPageState extends State<ContactFormPage> {
 
     if (response.statusCode == 200) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gelişmemize verdiğiniz desteklerden dolayı teşekkür ederiz.')),
+        SnackBar(
+            content: Text(
+                'Gelişmemize verdiğiniz desteklerden dolayı teşekkür ederiz.')),
       );
     } else {
-      print('Mesaj gönderilirken bir hata oluştu: ${response.body}');
     }
   }
 
@@ -248,8 +254,10 @@ class _ContactFormPageState extends State<ContactFormPage> {
         });
       },
       dropdownColor: _isDarkMode ? Colors.grey[800] : Colors.white,
-      icon: Icon(Icons.arrow_drop_down, color: _isDarkMode ? Colors.white70 : Colors.blue[700]),
-      style: GoogleFonts.poppins(color: _isDarkMode ? Colors.white : Colors.black87),
+      icon: Icon(Icons.arrow_drop_down,
+          color: _isDarkMode ? Colors.white70 : Colors.blue[700]),
+      style: GoogleFonts.poppins(
+          color: _isDarkMode ? Colors.white : Colors.black87),
     );
   }
 
@@ -282,7 +290,8 @@ class _ContactFormPageState extends State<ContactFormPage> {
         }
         return null;
       },
-      style: GoogleFonts.poppins(color: _isDarkMode ? Colors.white : Colors.black87),
+      style: GoogleFonts.poppins(
+          color: _isDarkMode ? Colors.white : Colors.black87),
     );
   }
 

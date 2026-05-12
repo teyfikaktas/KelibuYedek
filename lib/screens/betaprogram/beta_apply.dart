@@ -1,10 +1,11 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
-import 'dart:convert';
 import 'package:kelibu/providers/user_provider.dart';
-import 'package:provider/provider.dart';
 import 'package:kelibu/variables.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class BetaApplicationPage extends StatefulWidget {
@@ -54,7 +55,6 @@ class _BetaApplicationPageState extends State<BetaApplicationPage> {
         SnackBar(content: Text('Başvurunuz için teşekkür ederiz.')),
       );
     } else {
-      print('Başvuru gönderilirken bir hata oluştu: ${response.body}');
     }
   }
 

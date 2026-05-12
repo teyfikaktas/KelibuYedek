@@ -27,9 +27,7 @@ class _RoomsScreenState extends State<RoomsScreen> {
         .select()
         .eq('status', 'active')
         .order('created_at', ascending: false)
-        .then((data) {
-      print('Debug - Direct query response: $data');
-    });
+        .then((data) {});
 
     // Stream'i düzgün şekilde oluşturalım
     _roomsStream = Supabase.instance.client
@@ -38,6 +36,7 @@ class _RoomsScreenState extends State<RoomsScreen> {
         .eq('status', 'active')
         .order('created_at', ascending: false);
   }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -47,12 +46,7 @@ class _RoomsScreenState extends State<RoomsScreen> {
       body: StreamBuilder<List<Map<String, dynamic>>>(
         stream: _roomsStream,
         builder: (context, snapshot) {
-          print('Debug - Connection state: ${snapshot.connectionState}');
-          print('Debug - Has data: ${snapshot.hasData}');
-          print('Debug - Data content: ${snapshot.data}');
-
           if (snapshot.hasError) {
-            print('Stream error: ${snapshot.error}');
             return Center(
               child: Text('Bir hata oluştu: ${snapshot.error}'),
             );
@@ -66,15 +60,10 @@ class _RoomsScreenState extends State<RoomsScreen> {
 
           final List<Room> rooms = [];
           if (snapshot.hasData) {
-            print('Data length: ${snapshot.data!.length}');
             for (var item in snapshot.data!) {
               try {
-                print('Processing item: $item');
                 rooms.add(Room.fromJson(item));
-              } catch (e) {
-                print('Room parse error: $e');
-                print('Failed item data: $item');
-              }
+              } catch (e) {}
             }
           }
 
@@ -88,7 +77,6 @@ class _RoomsScreenState extends State<RoomsScreen> {
             itemCount: rooms.length,
             itemBuilder: (context, index) {
               final room = rooms[index];
-              print('Rendering room: ${room.roomCode}');
               return RoomCard(room: room);
             },
           );
@@ -100,32 +88,26 @@ class _RoomsScreenState extends State<RoomsScreen> {
             final response = await Supabase.instance.client
                 .from('rooms')
                 .insert({
-              'room_code': 'TEST${DateTime.now().millisecondsSinceEpoch}',
-              'created_by': 12,  // String yerine integer kullanıyoruz
-              'status': 'active',
-              'player_count': 4,
-              'created_at': DateTime.now().toIso8601String(),
-            })
+                  'room_code': 'TEST${DateTime.now().millisecondsSinceEpoch}',
+                  'created_by': 12, // String yerine integer kullanıyoruz
+                  'status': 'active',
+                  'player_count': 4,
+                  'created_at': DateTime.now().toIso8601String(),
+                })
                 .select()
                 .single();
 
-            print('Debug - New room created: $response');
-
             // Kontrol için tüm odaları listeleyelim
-            final allRooms = await Supabase.instance.client
-                .from('rooms')
-                .select();
-            print('Debug - All rooms after insert: $allRooms');
-
-          } catch (e) {
-            print('Debug - Room creation error detail: $e');
-          }
+            final allRooms =
+                await Supabase.instance.client.from('rooms').select();
+          } catch (e) {}
         },
         child: const Icon(Icons.add),
       ),
     );
   }
 }
+
 class RoomCard extends StatelessWidget {
   final Room room;
 
@@ -176,14 +158,13 @@ class RoomCard extends StatelessWidget {
             Text(
               _formatDate(room.createdAt),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Colors.grey[600],
-              ),
+                    color: Colors.grey[600],
+                  ),
             ),
           ],
         ),
         onTap: () {
           // Odaya katılma işlevi buraya gelecek
-          print('Odaya katılınıyor: ${room.roomCode}');
         },
       ),
     );

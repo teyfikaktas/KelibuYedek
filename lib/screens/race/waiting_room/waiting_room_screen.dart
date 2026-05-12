@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:kelibu/screens/race/waiting_room/waiting_room_controller.dart';
 
 class WaitingRoomScreen extends StatelessWidget {
@@ -8,7 +7,8 @@ class WaitingRoomScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final controller = Get.find<WaitingRoomController>(); // Bindings'deki controller'ı al
+    final controller =
+        Get.find<WaitingRoomController>(); // Bindings'deki controller'ı al
     print('Screen using roomId: ${controller.roomId.value}'); // Debug log
     return Scaffold(
       backgroundColor: const Color(0xFF1A1A1A),
@@ -20,12 +20,14 @@ class WaitingRoomScreen extends StatelessWidget {
       body: Obx(() => controller.isLoading.value
           ? const Center(child: CircularProgressIndicator())
           : Column(
-        children: [
-          _buildRoomInfo(controller),
-          _buildPlayersList(controller),
-          Obx(() => controller.isHost.value ? _buildStartButton(controller) : const SizedBox()),
-        ],
-      )),
+              children: [
+                _buildRoomInfo(controller),
+                _buildPlayersList(controller),
+                Obx(() => controller.isHost.value
+                    ? _buildStartButton(controller)
+                    : const SizedBox()),
+              ],
+            )),
     );
   }
 
@@ -78,10 +80,12 @@ class WaitingRoomScreen extends StatelessWidget {
 // WaitingRoomScreen içindeki _buildPlayersList metodunu güncelleyin
 
   Widget _buildPlayersList(WaitingRoomController controller) {
-    print('Current players for roomId ${controller.roomId.value}: ${controller.players}');
+    print(
+        'Current players for roomId ${controller.roomId.value}: ${controller.players}');
 
     // Sadece is_connected=true olan oyuncuları filtrele
-    final connectedPlayers = controller.players.where((player) => player.isConnected).toList();
+    final connectedPlayers =
+        controller.players.where((player) => player.isConnected).toList();
 
     return Expanded(
       child: ListView.builder(
@@ -89,7 +93,8 @@ class WaitingRoomScreen extends StatelessWidget {
         itemCount: connectedPlayers.length,
         itemBuilder: (context, index) {
           final player = connectedPlayers[index];
-          final isCurrentUser = player.userId == controller.roomService.getCurrentUserId();
+          final isCurrentUser =
+              player.userId == controller.roomService.getCurrentUserId();
 
           return Container(
             margin: const EdgeInsets.only(bottom: 12),
@@ -141,7 +146,8 @@ class WaitingRoomScreen extends StatelessWidget {
                           if (isCurrentUser)
                             Container(
                               margin: const EdgeInsets.only(left: 8),
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(
                                 color: Colors.blue.withOpacity(0.2),
                                 borderRadius: BorderRadius.circular(4),
@@ -160,7 +166,8 @@ class WaitingRoomScreen extends StatelessWidget {
                       if (player.isHost)
                         Container(
                           margin: const EdgeInsets.only(top: 4),
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
                             color: Colors.amber.withOpacity(0.2),
                             borderRadius: BorderRadius.circular(4),
@@ -181,14 +188,21 @@ class WaitingRoomScreen extends StatelessWidget {
                 GestureDetector(
                   onTap: isCurrentUser ? controller.toggleReady : null,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: player.isReady ? Colors.green.withOpacity(0.1) : Colors.grey[800],
+                      color: player.isReady
+                          ? Colors.green.withOpacity(0.1)
+                          : Colors.grey[800],
                       borderRadius: BorderRadius.circular(20),
-                      border: isCurrentUser ? Border.all(
-                        color: player.isReady ? Colors.green.withOpacity(0.3) : Colors.grey[700]!,
-                        width: 1,
-                      ) : null,
+                      border: isCurrentUser
+                          ? Border.all(
+                              color: player.isReady
+                                  ? Colors.green.withOpacity(0.3)
+                                  : Colors.grey[700]!,
+                              width: 1,
+                            )
+                          : null,
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -205,7 +219,9 @@ class WaitingRoomScreen extends StatelessWidget {
                         Text(
                           player.isReady ? 'Hazır' : 'Bekliyor',
                           style: TextStyle(
-                            color: player.isReady ? Colors.green : Colors.grey[400],
+                            color: player.isReady
+                                ? Colors.green
+                                : Colors.grey[400],
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
                           ),
@@ -221,6 +237,7 @@ class WaitingRoomScreen extends StatelessWidget {
       ),
     );
   }
+
   Widget _buildStartButton(WaitingRoomController controller) {
     String? tooltipMessage;
     if (!controller.isHost.value) {
@@ -245,7 +262,8 @@ class WaitingRoomScreen extends StatelessWidget {
             child: Tooltip(
               message: tooltipMessage ?? 'Oyunu başlat',
               child: ElevatedButton(
-                onPressed: controller.canStartGame ? controller.startGame : null,
+                onPressed:
+                    controller.canStartGame ? controller.startGame : null,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green,
                   padding: const EdgeInsets.symmetric(vertical: 16),
@@ -273,7 +291,7 @@ class WaitingRoomScreen extends StatelessWidget {
                     ),
                   ],
                 ),
-                            ),
+              ),
             ),
           ),
         ],

@@ -1,7 +1,5 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:get/get_core/src/get_main.dart';
 import 'package:kelibu/screens/race/race/race_controller.dart';
 
 class RaceScreen extends StatelessWidget {
@@ -9,11 +7,8 @@ class RaceScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    print('RaceScreen building...');
-
     // Controller'ı kontrol et
     if (!Get.isRegistered<RaceController>()) {
-      print('RaceController bulunamadı!');
       // Widget ağacını oluştururken direkt navigasyon yapmak yerine,
       // buildden sonraki frame'de yapalım
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -28,8 +23,6 @@ class RaceScreen extends StatelessWidget {
 
     // Controller var, şimdi güvenle kullanabiliriz
     final controller = Get.find<RaceController>();
-    print('RaceController found with roomId: ${controller.roomId.value}');
-
     return WillPopScope(
       onWillPop: () async {
         // Geri tuşuna basıldığında çıkış diyaloğunu göster
@@ -51,12 +44,12 @@ class RaceScreen extends StatelessWidget {
           // Oyun durumunu gösteren etiket
           title: Obx(() => controller.isLastPlayerTimerActive.value
               ? Text(
-            'Tek Oyuncu: ${controller.lastPlayerTimeLeft.value}s',
-            style: const TextStyle(
-              color: Colors.amber,
-              fontSize: 16,
-            ),
-          )
+                  'Tek Oyuncu: ${controller.lastPlayerTimeLeft.value}s',
+                  style: const TextStyle(
+                    color: Colors.amber,
+                    fontSize: 16,
+                  ),
+                )
               : const SizedBox.shrink()),
         ),
         body: SafeArea(
@@ -64,7 +57,8 @@ class RaceScreen extends StatelessWidget {
             init: controller,
             builder: (controller) {
               // Soruların yüklenmesini bekleyen bir loading göster
-              if (controller.isWaitingForPlayers.value || controller.questions.isEmpty) {
+              if (controller.isWaitingForPlayers.value ||
+                  controller.questions.isEmpty) {
                 return Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -94,35 +88,36 @@ class RaceScreen extends StatelessWidget {
                   Obx(() {
                     return controller.isLastPlayerTimerActive.value
                         ? Container(
-                      margin: const EdgeInsets.all(16),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.amber.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.amber.withOpacity(0.5)),
-                      ),
-                      child: Column(
-                        children: [
-                          Text(
-                            'Odada tek kaldınız!',
-                            style: TextStyle(
-                              color: Colors.amber[300],
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
+                            margin: const EdgeInsets.all(16),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.amber.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                  color: Colors.amber.withOpacity(0.5)),
                             ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            '${controller.lastPlayerTimeLeft.value} saniye içinde başka oyuncu katılmazsa kazanan olarak ilan edileceksiniz.',
-                            style: TextStyle(
-                              color: Colors.amber[200],
-                              fontSize: 14,
+                            child: Column(
+                              children: [
+                                Text(
+                                  'Odada tek kaldınız!',
+                                  style: TextStyle(
+                                    color: Colors.amber[300],
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  '${controller.lastPlayerTimeLeft.value} saniye içinde başka oyuncu katılmazsa kazanan olarak ilan edileceksiniz.',
+                                  style: TextStyle(
+                                    color: Colors.amber[200],
+                                    fontSize: 14,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
                             ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
-                      ),
-                    )
+                          )
                         : const SizedBox.shrink();
                   }),
 
@@ -139,6 +134,7 @@ class RaceScreen extends StatelessWidget {
       ),
     );
   }
+
   void _showExitDialog(BuildContext context, RaceController controller) {
     Get.dialog(
       AlertDialog(
@@ -171,7 +167,8 @@ class RaceScreen extends StatelessWidget {
           ElevatedButton(
             onPressed: () async {
               Get.back(); // Dialog'u kapat
-              await controller.leaveGame(); // Oyundan çık ve controller içinde ana sayfaya yönlendir
+              await controller
+                  .leaveGame(); // Oyundan çık ve controller içinde ana sayfaya yönlendir
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red.withOpacity(0.8),
@@ -187,6 +184,7 @@ class RaceScreen extends StatelessWidget {
       ),
     );
   }
+
   Widget _buildLastPlayerTimer(RaceController controller) {
     return Obx(() {
       if (!controller.isLastPlayerTimerActive.value) {
@@ -218,6 +216,7 @@ class RaceScreen extends StatelessWidget {
       );
     });
   }
+
   void _showVictoryMessage(RaceController controller) {
     if (controller.showVictoryMessage.value) {
       // Bu metod doğrudan kullanılmayacak, çünkü dialog controller içinden gösteriliyor
@@ -250,6 +249,7 @@ class RaceScreen extends StatelessWidget {
       );
     }
   }
+
   Widget _buildPlayerConnectionStatus(RaceController controller, int playerId) {
     return FutureBuilder<bool>(
       future: controller.isPlayerConnected(playerId),
@@ -287,7 +287,8 @@ class RaceScreen extends StatelessWidget {
           },
         ),
         Obx(() {
-          final isConnected = controller.playerConnectionStatus[playerId] ?? true;
+          final isConnected =
+              controller.playerConnectionStatus[playerId] ?? true;
           return Container(
             width: 8,
             height: 8,
@@ -301,6 +302,7 @@ class RaceScreen extends StatelessWidget {
       ],
     );
   }
+
   Widget _buildWaitingScreen(RaceController controller) {
     return Center(
       child: Column(
@@ -320,12 +322,12 @@ class RaceScreen extends StatelessWidget {
           ),
           const SizedBox(height: 20),
           Obx(() => Text(
-            '${controller.connectedPlayers.length}/${controller.playerScores.length} oyuncu hazır',
-            style: TextStyle(
-              color: Colors.grey[600],
-              fontSize: 16,
-            ),
-          )),
+                '${controller.connectedPlayers.length}/${controller.playerScores.length} oyuncu hazır',
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontSize: 16,
+                ),
+              )),
         ],
       ),
     );
@@ -334,9 +336,9 @@ class RaceScreen extends StatelessWidget {
 // RaceScreen içindeki _buildScoreBoard metoduna şu değişikliği ekleyin
   Widget _buildScoreBoard(RaceController controller) {
     // Skorboard verilerini kontrol et ve logla
-    print('Skorboard için oyuncu sayısı: ${controller.playerScores.length}');
     controller.playerScores.forEach((playerId, score) {
-      print('Oyuncu: $playerId, Skor: ${score.score}, Soru: ${score.currentQuestionIndex}');
+      print(
+          'Oyuncu: $playerId, Skor: ${score.score}, Soru: ${score.currentQuestionIndex}');
     });
 
     // Eğer skorboard boşsa yükleniyor göster
@@ -394,9 +396,11 @@ class RaceScreen extends StatelessWidget {
                             margin: const EdgeInsets.only(left: 4),
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: controller.playerConnectionStatus[playerId] ?? true
-                                  ? Colors.green
-                                  : Colors.red,
+                              color:
+                                  controller.playerConnectionStatus[playerId] ??
+                                          true
+                                      ? Colors.green
+                                      : Colors.red,
                             ),
                           ),
                         ],
@@ -407,7 +411,8 @@ class RaceScreen extends StatelessWidget {
                   // Skor değerleri - Bu kısmı highlight edelim ki güncellendiğinde dikkat çeksin
                   AnimatedSwitcher(
                     duration: const Duration(milliseconds: 300),
-                    transitionBuilder: (Widget child, Animation<double> animation) {
+                    transitionBuilder:
+                        (Widget child, Animation<double> animation) {
                       return FadeTransition(
                         opacity: animation,
                         child: ScaleTransition(
@@ -418,7 +423,8 @@ class RaceScreen extends StatelessWidget {
                     },
                     child: Text(
                       '${score.score}',
-                      key: ValueKey<int>(score.score), // Değer değiştiğinde animasyon için key
+                      key: ValueKey<int>(score.score),
+                      // Değer değiştiğinde animasyon için key
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 24,
@@ -441,7 +447,9 @@ class RaceScreen extends StatelessWidget {
         ),
       );
     });
-  }  Widget _buildQuestion(RaceController controller) {
+  }
+
+  Widget _buildQuestion(RaceController controller) {
     // Soru ve seçenekleri göstermeden önce kontrol
     if (controller.questions.isEmpty) {
       return Container(
@@ -559,8 +567,10 @@ class RaceScreen extends StatelessWidget {
 
           // Cevap gösteriliyorken buton renklerini ve ikonları belirle
           if (controller.showAnswer.value) {
-            final bool isCorrectOption = index == currentQuestion.correctOptionIndex;
-            final bool isSelectedOption = index == controller.selectedAnswer.value;
+            final bool isCorrectOption =
+                index == currentQuestion.correctOptionIndex;
+            final bool isSelectedOption =
+                index == controller.selectedAnswer.value;
 
             if (isCorrectOption && isSelectedOption) {
               // Doğru cevap ve kullanıcı bunu seçti
@@ -588,7 +598,9 @@ class RaceScreen extends StatelessWidget {
             margin: const EdgeInsets.only(bottom: 12),
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: controller.showAnswer.value ? null : () => controller.submitAnswer(index),
+              onPressed: controller.showAnswer.value
+                  ? null
+                  : () => controller.submitAnswer(index),
               style: ElevatedButton.styleFrom(
                 backgroundColor: buttonColor,
                 padding: const EdgeInsets.symmetric(vertical: 16),
@@ -621,4 +633,5 @@ class RaceScreen extends StatelessWidget {
         }).toList(),
       ),
     );
-  }}
+  }
+}

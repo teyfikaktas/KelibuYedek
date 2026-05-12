@@ -3,7 +3,6 @@ import 'package:get/get.dart';
 
 import '../views/video_player_screen.dart';
 
-
 class GifPlayer extends StatefulWidget {
   final String videoName;
 
@@ -16,7 +15,8 @@ class GifPlayer extends StatefulWidget {
   State<GifPlayer> createState() => _GifPlayerState();
 }
 
-class _GifPlayerState extends State<GifPlayer> with SingleTickerProviderStateMixin {
+class _GifPlayerState extends State<GifPlayer>
+    with SingleTickerProviderStateMixin {
   bool _isPlaying = true;
   int _currentFrame = 0;
   final int _totalFrames = 66;
@@ -36,7 +36,8 @@ class _GifPlayerState extends State<GifPlayer> with SingleTickerProviderStateMix
         child: Image.asset(
           _isPlaying ? 'assets/video.gif' : _lastFrameAsset,
           gaplessPlayback: true,
-          frameBuilder: (BuildContext context, Widget child, int? frame, bool wasSynchronouslyLoaded) {
+          frameBuilder: (BuildContext context, Widget child, int? frame,
+              bool wasSynchronouslyLoaded) {
             if (frame == null) {
               return Container();
             }

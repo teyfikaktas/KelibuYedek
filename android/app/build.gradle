@@ -18,12 +18,12 @@ def flutterRoot = localProperties.getProperty('flutter.sdk')
 
 def flutterVersionCode = localProperties.getProperty('flutter.versionCode')
 if (flutterVersionCode == null) {
-    flutterVersionCode = '58'
+    flutterVersionCode = '110'
 }
 
 def flutterVersionName = localProperties.getProperty('flutter.versionName')
 if (flutterVersionName == null) {
-    flutterVersionName = '1.9.8'
+    flutterVersionName = '2.3.1'
 }
 
 def keystoreProperties = new Properties()
@@ -34,8 +34,8 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace "com.phdakademi.kelibu"
-    compileSdkVersion 34
-    ndkVersion "26.1.10909125"
+    compileSdkVersion 36
+    ndkVersion = "28.0.13004108"
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
@@ -52,8 +52,8 @@ android {
 
     defaultConfig {
         applicationId "com.phdakademi.kelibu"
-        minSdkVersion 23
-        targetSdkVersion 34
+        minSdkVersion flutter.minSdkVersion
+        targetSdkVersion 35
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
     }

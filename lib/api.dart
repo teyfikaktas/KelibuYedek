@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'dart:io';
+import 'dart:ffi';
 
 import 'package:collection/collection.dart';
 import 'package:csv/csv.dart';
@@ -9,7 +9,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:hive/hive.dart';
-import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:kelibu/Models/Classroom.dart';
 import 'package:kelibu/Models/category.dart' as kelibu; // rename
 import 'package:kelibu/Models/product.dart';
@@ -17,7 +16,6 @@ import 'package:kelibu/Models/studySet.dart';
 import 'package:kelibu/Models/user.dart';
 import 'package:kelibu/Models/wordDetaik.dart';
 import 'package:kelibu/shared_preferences/shared_preferences.dart';
-import 'package:kelibu/variables.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart' as sp_pkg;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -35,29 +33,11 @@ class ApiException implements Exception {
   ApiException(this.message, {this.details});
 }
 
-//-----------------------------------------------------
-// CSV İLE İLGİLİ CACHE / YÜKLEME YAPISI
-//-----------------------------------------------------
 class WordDataCache {
-  static List<List<dynamic>>? _wordsData;
-  static List<List<dynamic>>? _synonymsData;
-  static List<List<dynamic>>? _collocationsData;
-  static List<List<dynamic>>? _derivationsData;
-
-  static Future<void> loadAllData() async {
-     print('Veri yükleme tamamlandı');
-    }
-
+  static Future<void> loadAllData() async {}
 
   static List<List<dynamic>> parseCsvData(String csvContent) {
     return const CsvToListConverter(eol: '\n').convert(csvContent);
-  }
-}
-
-class CsvLoader {
-  Future<List<List<dynamic>>> loadCsv(String path) async {
-    final csvFile = await rootBundle.loadString(path);
-    return const CsvToListConverter().convert(csvFile);
   }
 }
 
@@ -73,7 +53,7 @@ class WordDetailService {
         meaning: csvRow[2],
         image: csvRow[3],
         type: csvRow[4],
-        defination:csvRow[4] ,
+        defination: csvRow[4],
         collocations: [],
         derivations: [],
         synonyms: [],
@@ -83,11 +63,13 @@ class WordDetailService {
     return allWords;
   }
 
-  Future<List<WordDetail>> fetchWordsDetailFromCsvByWordIds(String filePath, List<int> wordIds) async {
+  Future<List<WordDetail>> fetchWordsDetailFromCsvByWordIds(
+      String filePath, List<int> wordIds) async {
     List<WordDetail> allWords = await fetchWordsDetailsFromCsv(filePath);
     return allWords.where((word) => wordIds.contains(word.id)).toList();
   }
 }
+// api.dart içine ekle
 
 //-----------------------------------------------------
 // CUSTOM DIO RETRY INTERCEPTOR (HARİCİ PAKET YOK)
@@ -102,10 +84,15 @@ class DioRetryInterceptor extends Interceptor {
     this.retries = 3,
     List<Duration>? retryDelays,
   }) : retryDelays = retryDelays ??
-      const [Duration(seconds: 1), Duration(seconds: 2), Duration(seconds: 3)];
+            const [
+              Duration(seconds: 1),
+              Duration(seconds: 2),
+              Duration(seconds: 3)
+            ];
 
   @override
-  Future<void> onError(DioError err, ErrorInterceptorHandler handler) async {
+  Future<void> onError(
+      DioException err, ErrorInterceptorHandler handler) async {
     final RequestOptions requestOptions = err.requestOptions;
     int currentRetryCount = requestOptions.extra["retryCount"] ?? 0;
 
@@ -118,15 +105,13 @@ class DioRetryInterceptor extends Interceptor {
 
       requestOptions.extra["retryCount"] = currentRetryCount;
 
-      print("[DioRetryInterceptor] Retry attempt: $currentRetryCount");
-
       await Future.delayed(delay);
 
       try {
         final response = await dio.fetch(requestOptions);
         return handler.resolve(response);
       } catch (e) {
-        return handler.next(e as DioError);
+        return handler.next(e as DioException);
       }
     }
 
@@ -134,12 +119,12 @@ class DioRetryInterceptor extends Interceptor {
     return handler.next(err);
   }
 
-  bool _shouldRetry(DioError err) {
+  bool _shouldRetry(DioException err) {
     // İstediğiniz hata tiplerinde retry yapabilirsiniz
-    if (err.type == DioErrorType.connectionError ||
-        err.type == DioErrorType.sendTimeout ||
-        err.type == DioErrorType.receiveTimeout ||
-        err.type == DioErrorType.unknown) {
+    if (err.type == DioExceptionType.connectionError ||
+        err.type == DioExceptionType.sendTimeout ||
+        err.type == DioExceptionType.receiveTimeout ||
+        err.type == DioExceptionType.unknown) {
       return true;
     }
     return false;
@@ -149,27 +134,29 @@ class DioRetryInterceptor extends Interceptor {
 //-----------------------------------------------------
 // INTERCEPTOR: TOKEN YÖNETİMİ
 //-----------------------------------------------------
-class TokenInterceptor extends Interceptor {
-  final FlutterSecureStorage storage;
-  final Dio dioInstance;
 
-  TokenInterceptor({
-    required this.storage,
-    required this.dioInstance,
-  });
+// Süper basit TokenInterceptor - Sadece token ekleme
+class TokenInterceptor extends Interceptor {
+  String? _currentToken;
+
+  // Token'ı set et
+  void setToken(String token) {
+    _currentToken = token;
+  }
+
+  // Token'ı temizle
+  void clearToken() {
+    _currentToken = null;
+  }
 
   @override
-  void onRequest(RequestOptions options, RequestInterceptorHandler handler) async {
-    // Her istekte Header'a token ekliyoruz
-    final token = await storage.read(key: 'access_token');
-    final tokenType = await storage.read(key: 'token_type') ?? 'Bearer';
-
+  void onRequest(
+      RequestOptions options, RequestInterceptorHandler handler) async {
     options.headers['Content-Type'] = 'application/json';
-    // Eğer özel bir header gerekiyorsa ekleyin
-    options.headers['X-Custom-Header'] = privacyKey.privacyKeyVariable;
 
-    if (token != null) {
-      options.headers['Authorization'] = '$tokenType $token';
+    // Token varsa ekle
+    if (_currentToken != null) {
+      options.headers['Authorization'] = 'Bearer $_currentToken';
     }
 
     return handler.next(options);
@@ -177,67 +164,11 @@ class TokenInterceptor extends Interceptor {
 
   @override
   void onError(DioError err, ErrorInterceptorHandler handler) async {
-    // 401 ise token yenileme deneyelim
+    // 401 gelirse token expired, kullanıcıyı login'e yönlendir
     if (err.response?.statusCode == 401) {
-      print('401 hatası alındı, token yenilenmeye çalışılıyor.');
-      final refreshSuccess = await _refreshToken();
-      if (refreshSuccess) {
-        // Token yenilendikten sonra isteği tekrar dene
-        try {
-          final newResponse = await dioInstance.fetch(err.requestOptions);
-          return handler.resolve(newResponse);
-        } catch (e) {
-          return handler.next(err);
-        }
-      }
+      clearToken();
     }
     return handler.next(err);
-  }
-
-  Future<bool> _refreshToken() async {
-    print('TokenInterceptor -> _refreshToken çağrıldı');
-    String? refreshToken = await storage.read(key: 'refresh_token');
-    if (refreshToken == null) {
-      print('refresh_token yok, yenileme yapılamadı');
-      return false;
-    }
-
-    try {
-      final deviceService = DeviceService();
-      final deviceId = await deviceService.getDeviceId();
-      if (deviceId == null) {
-        print('Cihaz ID bulunamadı, token yenileme iptal');
-        return false;
-      }
-
-      final response = await dioInstance.post(
-        '/auth/refresh-token',
-        data: {
-          'refresh_token': refreshToken,
-          'device_id': deviceId,
-        },
-      );
-
-      if (response.statusCode == 200 && response.data != null) {
-        final data = response.data;
-        await storage.write(key: 'access_token', value: data['access_token']);
-        await storage.write(key: 'refresh_token', value: data['refresh_token']);
-        await storage.write(key: 'token_type', value: data['token_type'] ?? 'Bearer');
-
-        final expiresIn = data['expires_in'] ?? 0;
-        final nowMs = DateTime.now().millisecondsSinceEpoch;
-        await storage.write(key: 'expires_at', value: (nowMs + expiresIn * 1000).toString());
-
-        print('Token yenileme başarılı');
-        return true;
-      } else {
-        print('Token yenileme başarısız -> ${response.data}');
-        return false;
-      }
-    } catch (e) {
-      print('Token yenileme isteğinde hata: $e');
-      return false;
-    }
   }
 }
 
@@ -246,7 +177,8 @@ class TokenInterceptor extends Interceptor {
 //-----------------------------------------------------
 class OfflineCacheInterceptor extends Interceptor {
   @override
-  void onRequest(RequestOptions options, RequestInterceptorHandler handler) async {
+  void onRequest(
+      RequestOptions options, RequestInterceptorHandler handler) async {
     // Burada ister internet bağlantısını kontrol edin, ister Hive'dan cache'e bakın.
     // Projenize göre özelleştirin
     return handler.next(options);
@@ -264,9 +196,12 @@ class OfflineCacheInterceptor extends Interceptor {
 //-----------------------------------------------------
 class ApiService {
   late final Dio _dio;
+
   final FlutterSecureStorage storage = const FlutterSecureStorage();
   final DeviceService deviceService = DeviceService();
   static const String LAST_SYNC_KEY = 'last_subscription_sync';
+
+  Dio get dio => _dio;
 
   ApiService() {
     // Dio ayarları
@@ -278,9 +213,9 @@ class ApiService {
       ),
     );
 
-    // (Opsiyonel) Debug moddaysanız kendinden imzalı sertifikayı bypass etmek için:
     if (!kReleaseMode) {
-      (_dio.httpClientAdapter as IOHttpClientAdapter).onHttpClientCreate = (client) {
+      (_dio.httpClientAdapter as IOHttpClientAdapter).onHttpClientCreate =
+          (client) {
         client.badCertificateCallback = (cert, host, port) => true;
         return client;
       };
@@ -288,10 +223,7 @@ class ApiService {
 
     // Interceptor: Token
     _dio.interceptors.add(
-      TokenInterceptor(
-        storage: storage,
-        dioInstance: _dio,
-      ),
+      TokenInterceptor(),
     );
 
     // Interceptor: Kendi yazdığımız Retry Interceptor (DioRetryInterceptor)
@@ -318,35 +250,496 @@ class ApiService {
     if (response.data is Map<String, dynamic>) {
       return response.data;
     } else if (response.data is String) {
-      return json.decode(response.data);
+      final decoded = json.decode(response.data);
+      return decoded;
     } else {
       return {};
     }
   }
 
-
   Future<void> logout() async {
     try {
-      final response = await _dio.post('/auth/logout');
+      await _dio.post('/v2/auth/logout');
+    } catch (e) {
+    } finally {
+      await storage.delete(key: 'access_token');
+
+      final box = await Hive.openBox('userBox');
+      await box.clear();
+
+      // Interceptor'dan token temizle
+      final tokenInterceptor = _dio.interceptors
+          .firstWhere((i) => i is TokenInterceptor) as TokenInterceptor;
+      tokenInterceptor.clearToken();
+    }
+  }
+
+//-----------------------------------------------------
+// TOKEN VALIDASYON
+//-----------------------------------------------------
+  Future<bool> validateToken(String token) async {
+    try {
+      final response = await _dio
+          .get(
+            '/v2/auth/user',
+            options: Options(
+              headers: {
+                'Authorization': 'Bearer $token',
+                'Content-Type': 'application/json',
+              },
+            ),
+          )
+          .timeout(Duration(seconds: 10));
+
       if (response.statusCode == 200) {
-        print('Sunucu tarafında başarılı çıkış');
+        return true;
+      }
+
+      // 401 Unauthorized → Token geçersiz
+      if (response.statusCode == 401) {
+        return false;
+      }
+
+      return false;
+    } on DioException catch (e) {
+      // 401 hatası
+      if (e.response?.statusCode == 401) {
+        return false;
+      }
+
+      // Timeout veya bağlantı hatası - token geçerli kabul et
+      if (e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.receiveTimeout ||
+          e.type == DioExceptionType.connectionError) {
+        return true;
+      }
+
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }
+  /// Word ID listesine göre sorular çek (şıklar otomatik oluşturulur)
+  Future<List<Map<String, dynamic>>> getWordQuestionsByWordIds({
+    required List<int> wordIds,
+    int count = 10,
+  }) async {
+    try {
+      final token = await storage.read(key: 'access_token');
+
+      final response = await _dio.post(
+        '/word-questions-by-ids',
+        data: {
+          'word_ids': wordIds,
+          'count': count,
+        },
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          },
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        if (response.data is Map && response.data['data'] is List) {
+          return List<Map<String, dynamic>>.from(response.data['data']);
+        }
+        return [];
       } else {
-        print('Sunucu yanıtı: ${response.statusCode} - ${response.data}');
+        throw ApiException('Sorular alınamadı');
+      }
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 400) {
+        return [];
+      }
+      throw ApiException('Bağlantı hatası: ${e.message}');
+    }
+  }
+  //-----------------------------------------------------
+// WORD SET İŞLEMLERİ
+//-----------------------------------------------------
+  /// Kategori ID'sine göre WordSet'lerden sorular çek
+  Future<List<Map<String, dynamic>>> getWordQuestionsByCategoryId({
+    required int categoryId,
+    int count = 10,
+  }) async {
+    try {
+      final token = await storage.read(key: 'access_token');
+
+      final queryParams = {
+        'category_id': categoryId,
+        'count': count,
+      };
+
+      final response = await _dio.post(
+        '/word-questions-set', // ✅ DOĞRU ENDPOINT
+        queryParameters: queryParams,
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          },
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        // Backend'den {success: true, category_id: 1, total_words: 150, data: []} formatında geliyor
+        if (response.data is Map && response.data['data'] is List) {
+          return List<Map<String, dynamic>>.from(response.data['data']);
+        } else if (response.data is List) {
+          return List<Map<String, dynamic>>.from(response.data);
+        } else {
+          return [];
+        }
+      } else {
+        throw ApiException('Kategori soruları alınamadı');
+      }
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) {
+        return []; // boş liste dön, exception fırlatma
+      }
+      throw ApiException('Bağlantı hatası: ${e.message}');
+    }
+  }
+  /// Yeni kelime seti oluştur
+  Future<Map<String, dynamic>> createWordSet({
+    required String setName,
+    required String founder,
+    bool isPublic = false,
+    bool isCorporate = false,
+  }) async {
+    try {
+      final token = await storage.read(key: 'access_token');
+
+      final response = await _dio.post(
+        '/word-sets',
+        data: {
+          'set_name': setName,
+          'founder': founder,
+          'is_public': isPublic,
+          'is_corporate': isCorporate,
+        },
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Accept': 'application/json',
+          },
+          validateStatus: (status) => true, // ✅ Tüm status'leri kabul et
+        ),
+      );
+
+      // ✅ Hata mesajını göreceksin
+
+      if (response.statusCode == 201) {
+        return {
+          'success': true,
+          'message': response.data['message'],
+          'data': response.data['data'],
+        };
+      } else {
+        throw ApiException('Hata: ${response.data}');
       }
     } catch (e) {
-      print('Çıkış isteği gönderilirken hata: $e');
-    } finally {
-      // Mevcut token verilerini temizle
-      await storage.delete(key: 'access_token');
-      await storage.delete(key: 'refresh_token');
-      await storage.delete(key: 'token_type');
-      await storage.delete(key: 'expires_at');
+      rethrow;
+    }
+  }
 
-      // Tüm SharedPreferences verilerini temizle
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.clear();
+  //-----------------------------------------------------
+// KELİME ARAMA
+//-----------------------------------------------------
+  /// Kullanıcının kendi word setlerini getir
+  Future<List<Map<String, dynamic>>> getMyWordSets() async {
+    try {
+      final token = await storage.read(key: 'access_token');
 
-      print('Tüm oturum verileri ve SharedPreferences temizlendi');
+      final response = await _dio.get(
+        '/my-word-sets',
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          },
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        final responseData = response.data;
+
+        // Backend formatı: {success: true, data: [...]}
+        if (responseData is Map && responseData['data'] != null) {
+          final dataList = responseData['data'];
+
+          // data bir List mi?
+          if (dataList is List) {
+            return dataList
+                .map((item) => Map<String, dynamic>.from(item))
+                .toList();
+          }
+
+          // data bir Map mi? (paginated data)
+          if (dataList is Map && dataList['data'] != null) {
+            final items = dataList['data'];
+            if (items is List) {
+              return items
+                  .map((item) => Map<String, dynamic>.from(item))
+                  .toList();
+            }
+          }
+        }
+
+        return [];
+      } else {
+        throw ApiException('Koleksiyonlar yüklenemedi: ${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      throw ApiException('Bağlantı hatası: ${e.message}');
+    } catch (e) {
+      throw ApiException('Veri işleme hatası: $e');
+    }
+  }
+
+// ✅ Buradan sonra yeni metotlar eklenecek (getMyWordSets'in DIŞINDA)
+
+  /// Word set detayını getir
+  Future<Map<String, dynamic>> getWordSetDetail(int setId) async {
+    try {
+      final token = await storage.read(key: 'access_token');
+
+      final response = await _dio.get(
+        '/word-sets/$setId',
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          },
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        return response.data['data'];
+      } else {
+        throw ApiException('Word set detayı alınamadı');
+      }
+    } on DioException catch (e) {
+      if (e.response != null) {
+        throw ApiException(e.response?.data['message'] ?? 'Bir hata oluştu');
+      }
+      throw ApiException('Bağlantı hatası: ${e.message}');
+    } catch (e) {
+      throw ApiException('Beklenmeyen hata: $e');
+    }
+  }
+
+  /// Word set güncelle
+  Future<Map<String, dynamic>> updateWordSet({
+    required int setId,
+    String? setName,
+    bool? isPublic,
+  }) async {
+    try {
+      final token = await storage.read(key: 'access_token');
+
+      final Map<String, dynamic> body = {};
+      if (setName != null) body['set_name'] = setName;
+      if (isPublic != null) body['is_public'] = isPublic;
+
+      final response = await _dio.put(
+        '/word-sets/$setId',
+        data: body,
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          },
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        return response.data;
+      } else {
+        throw ApiException('Güncelleme başarısız');
+      }
+    } on DioException catch (e) {
+      if (e.response != null) {
+        throw ApiException(
+            e.response?.data['message'] ?? 'Güncelleme başarısız');
+      }
+      throw ApiException('Bağlantı hatası: ${e.message}');
+    } catch (e) {
+      throw ApiException('Beklenmeyen hata: $e');
+    }
+  }
+
+  /// Word set sil
+  Future<Map<String, dynamic>> deleteWordSet(int setId) async {
+    try {
+      final token = await storage.read(key: 'access_token');
+
+      final response = await _dio.delete(
+        '/word-sets/$setId',
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          },
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        return response.data;
+      } else {
+        throw ApiException('Silme başarısız');
+      }
+    } on DioException catch (e) {
+      if (e.response != null) {
+        throw ApiException(e.response?.data['message'] ?? 'Silme başarısız');
+      }
+      throw ApiException('Bağlantı hatası: ${e.message}');
+    } catch (e) {
+      throw ApiException('Beklenmeyen hata: $e');
+    }
+  }
+
+  /// Sete kelime ekle
+//-----------------------------------------------------
+// KELİME SETE EKLE (Supabase'den bulunan kelimeyi ekle)
+//-----------------------------------------------------
+  Future<Map<String, dynamic>> addWordToSet({
+    required int wordSetId,
+    required int wordId,
+  }) async {
+    try {
+      final token = await storage.read(key: 'access_token');
+
+      final response = await _dio
+          .post(
+            '/words/add-to-set',
+            data: {
+              'word_set_id': wordSetId,
+              'word_id': wordId,
+            },
+            options: Options(
+              headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'Authorization': 'Bearer $token', // ✅ TOKEN
+              },
+            ),
+          )
+          .timeout(Duration(seconds: 10));
+
+      // 201 Created → Kelime eklendi
+      if (response.statusCode == 201) {
+        if (response.data['success'] == true) {
+          return response.data;
+        } else {
+          throw ApiException(response.data['message'] ?? 'Kelime eklenemedi');
+        }
+      }
+
+      throw ApiException('Beklenmeyen bir hata oluştu');
+    } on DioException catch (e) {
+      // ✅ Tam data
+      // 401 - Yetkisiz
+      if (e.response?.statusCode == 401) {
+        throw ApiException('Oturum süreniz dolmuş. Lütfen tekrar giriş yapın.');
+      }
+
+      // 422 - Validasyon hatası
+      if (e.response?.statusCode == 422) {
+        final errors = e.response?.data['errors'];
+        if (errors != null) {
+          final firstError = errors.values.first;
+          throw ApiException(firstError is List ? firstError[0] : firstError);
+        }
+        throw ApiException('Geçersiz veri');
+      }
+
+      // 404 - Bulunamadı
+      if (e.response?.statusCode == 404) {
+        throw ApiException('Kelime seti bulunamadı');
+      }
+
+      // 409 - Çakışma (zaten var)
+      if (e.response?.statusCode == 409) {
+        throw ApiException('Bu kelime zaten sette mevcut');
+      }
+
+      // Timeout veya bağlantı hatası
+      if (e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.receiveTimeout ||
+          e.type == DioExceptionType.connectionError) {
+        throw ApiException(
+            'Bağlantı hatası. İnternet bağlantınızı kontrol edin.');
+      }
+
+      // Genel hata
+      throw ApiException(e.response?.data['message'] ?? 'Bir hata oluştu');
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      throw ApiException('Kelime eklenirken bir hata oluştu');
+    }
+  }
+
+  /// Setten kelime çıkar
+  Future<Map<String, dynamic>> removeWordFromSet({
+    required int setId,
+    required int wordId,
+  }) async {
+    try {
+      final token = await storage.read(key: 'access_token');
+
+      final response = await _dio.post(
+        // ✅ POST
+        '/words/remove-from-set',
+        data: {
+          'word_set_id': setId,
+          'word_id': wordId,
+        },
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          },
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        return response.data;
+      } else {
+        throw ApiException('Kelime silinemedi');
+      }
+    } on DioException catch (e) {
+      if (e.response != null) {
+        throw ApiException(e.response?.data['message'] ?? 'Kelime silinemedi');
+      }
+      throw ApiException('Bağlantı hatası: ${e.message}');
+    } catch (e) {
+      throw ApiException('Beklenmeyen hata: $e');
+    }
+  }
+
+  /// Public/Global word setleri getir
+  Future<List<Map<String, dynamic>>> getPublicWordSets() async {
+    try {
+      final response = await _dio.get('/word-sets');
+
+      if (response.statusCode == 200) {
+        final data = _handleResponse(response);
+        return List<Map<String, dynamic>>.from(data['data'] ?? []);
+      } else {
+        throw ApiException('Koleksiyonlar yüklenemedi: ${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      throw ApiException('Bağlantı hatası: ${e.message}');
     }
   }
 
@@ -358,155 +751,340 @@ class ApiService {
     required String email,
     required String password,
     required String passwordConfirmation,
+    required String fcmToken, // ✅ FCM token parametresi
   }) async {
-    final deviceId = await deviceService.getDeviceId();
-    final response = await _dio.post(
-      '/auth/register',
-      data: {
-        'name': name,
-        'email': email,
-        'password': password,
-        'password_confirmation': passwordConfirmation,
-        'device_id': deviceId,
-      },
-    );
+    try {
+      final deviceId = await deviceService.getDeviceId();
 
-    if (response.statusCode == 201) {
-      final data = _handleResponse(response);
-      await storage.write(key: 'access_token', value: data['access_token']);
-      await storage.write(key: 'refresh_token', value: data['refresh_token']);
-      await storage.write(key: 'token_type', value: data['token_type']);
-      await storage.write(
-        key: 'expires_at',
-        value: (DateTime.now().millisecondsSinceEpoch + data['expires_in'] * 1000).toString(),
+      final response = await _dio.post(
+        '/v2/auth/register',
+        data: {
+          'name': name,
+          'email': email,
+          'password': password,
+          'password_confirmation': passwordConfirmation,
+          'device_name': deviceId,
+          'fcm_token': fcmToken, // ✅ FCM token gönder
+        },
       );
-      return data;
-    } else if (response.statusCode == 422) {
-      throw Exception(response.data['errors']);
-    } else {
-      throw Exception('API error: ${response.statusCode} - ${response.data}');
+
+      if (response.statusCode == 201) {
+        final data = _handleResponse(response);
+
+        if (!data.containsKey('token')) {
+          throw ApiException('Token bulunamadı');
+        }
+
+        final token = data['token'] as String;
+
+        // Token'ı storage'a kaydet
+        await storage.write(key: 'access_token', value: token);
+
+        // Token'ı interceptor'a ver
+        final tokenInterceptor = _dio.interceptors
+            .firstWhere((i) => i is TokenInterceptor) as TokenInterceptor;
+        tokenInterceptor.setToken(token);
+
+        return data;
+      } else {
+        throw ApiException('Kayıt başarısız: ${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 422) {
+        final errors = e.response?.data['errors'];
+        throw ApiException('Validation hatası', details: errors);
+      }
+
+      if (e.response?.statusCode == 409) {
+        throw ApiException('Bu email zaten kayıtlı');
+      }
+
+      throw ApiException('Bağlantı hatası: ${e.message}');
     }
   }
+  Future<Map<String, dynamic>> googleLogin({
+    required String idToken,
+  }) async {
+    try {
+      final deviceId = await deviceService.getDeviceId();
 
+      final response = await _dio.post(
+        '/v2/auth/google',
+        data: {
+          'id_token': idToken,
+          'device_id': deviceId,
+        },
+        options: Options(
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          },
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        final data = _handleResponse(response);
+
+        final token = data['access_token'] as String?;
+        if (token == null) throw ApiException('Token bulunamadı');
+
+        await storage.write(key: 'access_token', value: token);
+
+        final refreshToken = data['refresh_token'] as String?;
+        if (refreshToken != null) {
+          await storage.write(key: 'refresh_token', value: refreshToken);
+        }
+
+        final tokenInterceptor = _dio.interceptors
+            .firstWhere((i) => i is TokenInterceptor) as TokenInterceptor;
+        tokenInterceptor.setToken(token);
+
+        return data;
+      } else {
+        throw ApiException('Google giriş başarısız: ${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 401) {
+        throw ApiException('Geçersiz Google token');
+      }
+      if (e.response?.statusCode == 422) {
+        final errors = e.response?.data['errors'];
+        throw ApiException('Validation hatası', details: errors);
+      }
+      throw ApiException('Bağlantı hatası: ${e.message}');
+    }
+  }
   Future<Map<String, dynamic>> login({
     required String email,
     required String password,
     required String fcmToken,
   }) async {
     try {
-      // İlk girişte BadPaddingException oluşabilir, önceden temizleyelim
-      await _clearTokens();
-
       final deviceId = await deviceService.getDeviceId();
+
+
+
       final response = await _dio.post(
-        '/auth/login',
+        '/v2/auth/login',
         data: {
-          'email': email,
-          'password': password,
-          'device_id': deviceId,
+          'email': email.trim(),
+          'password': password.trim(),
+          'device_name': deviceId,
           'fcm_token': fcmToken,
         },
       );
 
-      // Hata durumlarını kontrol ediyoruz
-      if (response.statusCode == 401) {
-        throw ApiException('Geçersiz e-posta veya şifre.');
+
+      if (response.statusCode == 200) {
+        final data = _handleResponse(response);
+
+        if (!data.containsKey('token')) {
+          throw ApiException('Token bulunamadı');
+        }
+
+        final token = data['token'] as String;
+
+        // ✅ Token'ı kaydetmeden önce
+        await storage.write(key: 'access_token', value: token);
+
+        // ✅ Kaydedildikten sonra kontrol et
+        final savedToken = await storage.read(key: 'access_token');
+
+        final tokenInterceptor = _dio.interceptors
+            .firstWhere((i) => i is TokenInterceptor) as TokenInterceptor;
+        tokenInterceptor.setToken(token);
+
+        return data;
+      } else {
+        throw ApiException('Login failed: ${response.statusCode}');
       }
-
-      if (response.statusCode == 422) {
-        final errorData = response.data;
-        throw ApiException(
-          errorData['message'] ?? 'Giriş bilgilerini kontrol ediniz.',
-          details: errorData['errors'],
-        );
-      }
-
-      if (response.statusCode! < 200 || response.statusCode! >= 300) {
-        throw ApiException('Beklenmeyen bir hata oluştu: ${response.statusCode}');
-      }
-
-      // Başarılı yanıtı işleyelim
-      final data = _handleResponse(response);
-      if (data['error'] == 'invalid_credentials') {
-        throw ApiException('Geçersiz e-posta veya şifre.');
-      }
-
-      await _saveTokens(data, deviceId);
-      await _handleRevenueCatLogin(data);
-      return data;
-
     } on DioException catch (e) {
       if (e.response?.statusCode == 401) {
-        throw ApiException('Geçersiz e-posta veya şifre.');
+        throw ApiException('Geçersiz e-posta veya şifre');
       }
-      if (e.response?.statusCode == 422) {
-        final errorData = e.response?.data;
-        throw ApiException(
-          errorData?['message'] ?? 'Giriş bilgilerini kontrol ediniz.',
-          details: errorData?['errors'],
-        );
+      throw ApiException('Bağlantı hatası: ${e.message}');
+    }
+  }
+  Future<List<Map<String, dynamic>>> getPinnedSets() async {
+    try {
+      final token = await storage.read(key: 'access_token');
+
+      final response = await _dio.get(
+        '/pinned-sets',
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          },
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        final responseData = response.data;
+
+        if (responseData is Map && responseData['data'] != null) {
+          final dataList = responseData['data'];
+          if (dataList is List) {
+            return dataList
+                .map((item) => Map<String, dynamic>.from(item))
+                .toList();
+          }
+        }
+
+        return [];
+      } else {
+        throw ApiException('Sabitlenmiş setler yüklenemedi');
+      }
+    } on DioException catch (e) {
+      throw ApiException('Bağlantı hatası: ${e.message}');
+    } catch (e) {
+      throw ApiException('Veri işleme hatası: $e');
+    }
+  }
+
+  /// Set'i sabitle
+  Future<Map<String, dynamic>> pinWordSet(int wordSetId) async {
+    try {
+      final token = await storage.read(key: 'access_token');
+
+      final response = await _dio.post(
+        '/pinned-sets',
+        data: {
+          'word_set_id': wordSetId,
+        },
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          },
+          validateStatus: (status) => true,
+        ),
+      );
+
+      if (response.statusCode == 201) {
+        return {
+          'success': true,
+          'message': response.data['message'],
+          'data': response.data['data'],
+        };
+      } else if (response.statusCode == 409) {
+        throw ApiException('Bu set zaten sabitlenmiş');
+      } else if (response.statusCode == 403) {
+        throw ApiException('Bu sete erişim yetkiniz yok');
+      } else {
+        throw ApiException('Sabitleme başarısız: ${response.data}');
+      }
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 401) {
+        throw ApiException('Oturum süreniz dolmuş');
       }
       throw ApiException('Bağlantı hatası: ${e.message}');
     } catch (e) {
-      // BadPaddingException ve diğer şifreleme hatalarını yakala
-      if (e.toString().contains('BadPaddingException') ||
-          e.toString().contains('PlatformException') ||
-          e.toString().contains('Cipher')) {
-        // Token'ları temizle ve kullanıcıya bilgi ver
-        await _clearTokens();
-        throw ApiException('Oturum bilgilerinde sorun oluştu. Otomatik olarak temizlendi, lütfen tekrar deneyin.');
-      }
-      // Diğer beklenmeyen hatalar
-      throw ApiException('Beklenmeyen bir hata oluştu: ${e.toString()}');
+      if (e is ApiException) rethrow;
+      throw ApiException('Beklenmeyen hata: $e');
     }
   }
 
-// Token'ları temizlemek için yardımcı fonksiyon
-  Future<void> _clearTokens() async {
+  /// Sabitlemeyi kaldır
+  Future<Map<String, dynamic>> unpinWordSet(int wordSetId) async {
     try {
-      await storage.delete(key: 'access_token');
-      await storage.delete(key: 'refresh_token');
-      await storage.delete(key: 'token_type');
-      await storage.delete(key: 'expires_at');
-      // Diğer ilgili saklanan verileri de temizleyebilirsiniz
-    } catch (e) {
-      // Temizleme sırasında bir hata oluşursa sessizce devam et
-      print('Token temizleme sırasında hata: $e');
-    }
-  }
+      final token = await storage.read(key: 'access_token');
 
+      final response = await _dio.delete(
+        '/pinned-sets/$wordSetId',
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          },
+        ),
+      );
 
-  Future<void> _saveTokens(Map<String, dynamic> data, String deviceId) async {
-    await storage.write(key: 'access_token', value: data['access_token']);
-    await storage.write(key: 'refresh_token', value: data['refresh_token']);
-    await storage.write(key: 'token_type', value: data['token_type']);
-    await storage.write(
-      key: 'expires_at',
-      value: (DateTime.now().millisecondsSinceEpoch + (data['expires_in'] * 1000)).toString(),
-    );
-    await storage.write(key: 'device_id', value: deviceId);
-  }
-
-  Future<void> _handleRevenueCatLogin(Map<String, dynamic> data) async {
-    if (data['user'] != null && data['user']['id'] != null) {
-      try {
-        final userId = data['user']['id'].toString();
-        await Purchases.logIn(userId);
-        await Purchases.setAttributes({
-          'email': data['user']['email'],
-          'name': data['user']['name'],
-          'phone': data['user']['phone'],
-          'created_at': data['user']['created_at'],
-          'user_type': 'premium',
-          'platform': Platform.isIOS ? 'ios' : 'android',
-        });
-        print('RevenueCat login ve attribute ataması yapıldı: $userId');
-      } catch (e) {
-        print('RevenueCat login hatası: $e');
+      if (response.statusCode == 200) {
+        return {
+          'success': true,
+          'message': response.data['message'],
+        };
+      } else {
+        throw ApiException('Sabitleme kaldırılamadı');
       }
+    } on DioException catch (e) {
+      if (e.response != null) {
+        throw ApiException(
+            e.response?.data['message'] ?? 'Sabitleme kaldırılamadı');
+      }
+      throw ApiException('Bağlantı hatası: ${e.message}');
+    } catch (e) {
+      throw ApiException('Beklenmeyen hata: $e');
     }
   }
 
+  /// Set'in sabitlenip sabitlenmediğini kontrol et
+  Future<bool> checkIfPinned(int wordSetId) async {
+    try {
+      final token = await storage.read(key: 'access_token');
+
+      final response = await _dio.get(
+        '/pinned-sets/check/$wordSetId',
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          },
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        return response.data['data']['is_pinned'] ?? false;
+      }
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Sabitleme sırasını güncelle
+  Future<Map<String, dynamic>> updatePinnedSetOrder(
+      List<Map<String, int>> orders) async {
+    try {
+      final token = await storage.read(key: 'access_token');
+
+      final response = await _dio.put(
+        '/pinned-sets/order',
+        data: {
+          'orders': orders, // [{'word_set_id': 1, 'order': 0}, ...]
+        },
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          },
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        return {
+          'success': true,
+          'message': response.data['message'],
+        };
+      } else {
+        throw ApiException('Sıralama güncellenemedi');
+      }
+    } on DioException catch (e) {
+      if (e.response != null) {
+        throw ApiException(
+            e.response?.data['message'] ?? 'Sıralama güncellenemedi');
+      }
+      throw ApiException('Bağlantı hatası: ${e.message}');
+    } catch (e) {
+      throw ApiException('Beklenmeyen hata: $e');
+    }
+  }
   //-----------------------------------------------------
   // ABONELİK / REVENUECAT / LEGACY
   //-----------------------------------------------------
@@ -531,38 +1109,122 @@ class ApiService {
     return _handleResponse(response);
   }
 
-  /// Eski sistem üzerinden abonelik statüsü
-  Future<Map<String, dynamic>> _getLegacySubscriptionStatus() async {
-    final response = await _dio.get('/auth/subscription/status');
-    print('Legacy sistem response: ${response.data}');
-    return _handleResponse(response);
+// ApiService içinde bu metod var mı ve doğru mu?
+  Future<Map<String, dynamic>> updatePasswordOneTime({
+    required String email,
+    required String newPassword,
+    required String accessToken,
+  }) async {
+    try {
+      final response = await dio.post(
+        '/auth/update-password-onetime', // ✅ Endpoint doğru mu?
+        data: {
+          'email': email,
+          'new_password': newPassword,
+          // 'password': newPassword, // Backend hangi field bekliyor?
+        },
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $accessToken',
+            'Content-Type': 'application/json',
+          },
+        ),
+      );
+
+      return response.data;
+    } catch (e) {
+      if (e is DioException) {}
+      throw e;
+    }
   }
 
+  /// Sadece abonelik bitiş tarihini döndürür.
+  /// Önce legacy /status endpoint'ine bakar, yoksa RevenueCat'e fallback yapar.
+  Future<DateTime?> getSubscriptionEndDate() async {
+    // 1. Legacy /status endpoint'ine bak
+    try {
+      final token = await storage.read(key: 'access_token');
+      if (token != null && token.isNotEmpty) {
+        final response = await _dio.get(
+          '/auth/subscription/status',
+          options: Options(
+            headers: {
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            validateStatus: (status) => true,
+          ),
+        );
+
+        if (response.statusCode == 200 && response.data is Map) {
+          final data = response.data as Map;
+          final endDateRaw = data['end_date']?.toString();
+          if (endDateRaw != null && endDateRaw.isNotEmpty) {
+            return DateTime.tryParse(endDateRaw);
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Legacy end_date alınamadı: $e');
+    }
+
+    // 2. RevenueCat fallback
+    try {
+      final customerInfo = await Purchases.getCustomerInfo();
+      final entitlement = customerInfo.entitlements.active.values.isNotEmpty
+          ? customerInfo.entitlements.active.values.first
+          : null;
+
+      final expirationDate = entitlement?.expirationDate;
+      if (expirationDate != null && expirationDate.isNotEmpty) {
+        return DateTime.tryParse(expirationDate);
+      }
+    } catch (e) {
+      debugPrint('RevenueCat end_date alınamadı: $e');
+    }
+
+    return null;
+  }
+  Future<Map<String, dynamic>> _getLegacySubscriptionStatus() async {
+    try {
+      // ✅ TOKEN KONTROLÜ
+      final token = await storage.read(key: 'access_token');
+
+      if (token == null || token.isEmpty) {
+        throw Exception('❌ TOKEN YOK! Kullanıcı login olmamış.');
+      }
+
+      final response = await _dio.get(
+        '/auth/subscription/status',
+        options: Options(
+          headers: {
+            'Accept': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+          validateStatus: (status) => true,
+        ),
+      );
+
+      return _handleResponse(response);
+    } catch (e) {
+      rethrow;
+    }
+  }
   /// RevenueCat üzerinden abonelik statüsü
   Future<Map<String, dynamic>> _getRevenuecatSubscriptionStatus() async {
     try {
       final customerInfo = await Purchases.getCustomerInfo();
       return {
         'is_vip': customerInfo.entitlements.active.isNotEmpty,
-        'status': customerInfo.entitlements.active.isNotEmpty ? 'active' : 'inactive'
+        'status':
+            customerInfo.entitlements.active.isNotEmpty ? 'active' : 'inactive'
+
       };
     } catch (e) {
-      print('RevenueCat check error: $e');
       return {'is_vip': false, 'status': 'inactive'};
     }
   }
 
-  Future<bool> _isRevenuecatAvailable() async {
-    try {
-      await Purchases.getCustomerInfo();
-      return true;
-    } catch (e) {
-      print('RevenueCat kullanılabilir değil: $e');
-      return false;
-    }
-  }
-
-  /// Tek noktadan abonelik durumu
   Future<Map<String, dynamic>> getCombinedSubscriptionStatus() async {
     bool revIsVip = false;
     bool legacyIsVip = false;
@@ -646,16 +1308,14 @@ class ApiService {
   //-----------------------------------------------------
   // LOG İŞLEMLERİ
   //-----------------------------------------------------
-  Future<void> logSetEntry(String logType, String setName, String category) async {
+  Future<void> logSetEntry(
+      String logType, String setName, String category) async {
     try {
       await sendUserLog(
         type: logType,
         log: 'Kullanıcı "$setName" "$category" giriş yaptı.',
       );
-      print('Set giriş logu başarıyla gönderildi.');
-    } catch (e) {
-      print('Set giriş logu gönderilirken hata: $e');
-    }
+    } catch (e) {}
   }
 
   Future<void> sendUserLog({required String type, required String log}) async {
@@ -674,14 +1334,8 @@ class ApiService {
       );
 
       if (response.statusCode == 201) {
-        print('Log başarıyla gönderildi.');
-      } else {
-        print('Log gönderilemedi. Durum Kodu: ${response.statusCode}');
-        print('Yanıt: ${response.data}');
-      }
-    } catch (e) {
-      print('Log gönderilirken hata oluştu: $e');
-    }
+      } else {}
+    } catch (e) {}
   }
 
   //-----------------------------------------------------
@@ -695,12 +1349,9 @@ class ApiService {
       if (response.statusCode == 200) {
         return response.data['point'] ?? 0;
       } else {
-        print('Failed to get current user points. Status code: ${response.statusCode}');
-        print('Response body: ${response.data}');
         return 0;
       }
     } catch (e) {
-      print('Error getting current user points: $e');
       return 0;
     }
   }
@@ -708,11 +1359,9 @@ class ApiService {
   /// Online puan güncelleme (basit örnek)
   Future<void> updateUserPoint(int userId, int newPoint) async {
     try {
-      await _dio.put('/user/$userId/updateUserPoint', data: {'point': newPoint});
-      print('Kullanıcı puanı başarıyla güncellendi.');
-    } catch (e) {
-      print('Puan güncelleme başarısız: $e');
-    }
+      await _dio
+          .put('/user/$userId/updateUserPoint', data: {'point': newPoint});
+    } catch (e) {}
   }
 
   /// Offline/Online entegre puan güncellemesi
@@ -720,7 +1369,8 @@ class ApiService {
   /// - İnternet yoksa puan yerel cache'e kaydedilir.
   /// - İnternet gelince senkronize edilir (`syncPendingUpdates`).
   /// - timePoint parametresi de veritabanına gönderilir.
-  Future<void> updateUserPointTimePeriod(int userId, int newPoint, int timePoint) async {
+  Future<void> updateUserPointTimePeriod(
+      int userId, int newPoint, int timePoint) async {
     try {
       final box = await Hive.openBox('pointUpdateCache');
       try {
@@ -731,30 +1381,28 @@ class ApiService {
         });
         if (response.statusCode == 200) {
           await box.delete('lastPoint_$userId');
-          print('Point updated successfully');
         }
       } on DioError catch (e) {
-        if (e.type == DioErrorType.connectionError || e.type == DioErrorType.unknown) {
+        if (e.type == DioErrorType.connectionError ||
+            e.type == DioErrorType.unknown) {
           // İnternet yoksa cache'e kaydet
           await box.put('lastPoint_$userId', {
             'point': newPoint,
             'timePoint': timePoint,
             'timestamp': DateTime.now().toIso8601String(),
           });
-          print('İnternet yok, puan offline kaydedildi');
           return;
         }
         rethrow;
       }
-    } catch (e) {
-      print('Error updating user point: $e');
-    }
+    } catch (e) {}
   }
 
   /// Uygulama açıldığında bekleyen güncellemeler varsa senkronize et
   Future<void> syncPendingUpdates() async {
     final box = await Hive.openBox('pointUpdateCache');
-    final pendingKeys = box.keys.where((k) => k.toString().startsWith('lastPoint_'));
+    final pendingKeys =
+        box.keys.where((k) => k.toString().startsWith('lastPoint_'));
 
     for (final key in pendingKeys) {
       final update = box.get(key);
@@ -770,10 +1418,7 @@ class ApiService {
             'timePoint': timePoint,
           });
           await box.delete(key);
-          print('Pending update senkronize edildi: $userId');
-        } catch (e) {
-          print('Sync failed for $key: $e');
-        }
+        } catch (e) {}
       }
     }
   }
@@ -783,7 +1428,8 @@ class ApiService {
   //-----------------------------------------------------
   Future<Map<String, dynamic>> fetchUserPoint(int userId) async {
     try {
-      final response = await _dio.post('/user-ranking', data: {'user_id': userId});
+      final response =
+          await _dio.post('/user-ranking', data: {'user_id': userId});
       if (response.statusCode == 200) {
         final userData = response.data;
         final rankings = userData['rankings'] as Map<String, dynamic>;
@@ -803,11 +1449,9 @@ class ApiService {
           'city': userData['city'] ?? '',
         };
       } else {
-        print('API isteği başarısız: ${response.statusCode}');
         return _getDefaultUserData();
       }
     } catch (error) {
-      print('API isteği sırasında hata oluştu: $error');
       return _getDefaultUserData();
     }
   }
@@ -839,7 +1483,7 @@ class ApiService {
   // TANITIM MESAJI
   //-----------------------------------------------------
   Future<String> fetchPromotionMessage() async {
-    final sharedPrefs = await sp_pkg.SharedPreferences.getInstance();
+    await sp_pkg.SharedPreferences.getInstance();
     final response = await _dio.get('/app-info');
     if (response.statusCode == 200) {
       final data = response.data;
@@ -857,7 +1501,9 @@ class ApiService {
       final response = await _dio.get('/user/packages?user_id=$userId');
       if (response.statusCode == 200) {
         List<dynamic> categoriesJson = response.data;
-        return categoriesJson.map((json) => kelibu.Package.fromJson(json)).toList();
+        return categoriesJson
+            .map((json) => kelibu.Package.fromJson(json))
+            .toList();
       } else {
         throw Exception('Failed to load categories: ${response.data}');
       }
@@ -865,6 +1511,7 @@ class ApiService {
       throw Exception('Failed to load categories. Error: $e');
     }
   }
+
   Future<bool> updateFcmToken(int userId, String fcmToken) async {
     try {
       final response = await _dio.post('/update-fcm-token', data: {
@@ -873,17 +1520,15 @@ class ApiService {
       });
 
       if (response.statusCode == 200) {
-        print('FCM token başarıyla güncellendi');
         return true;
       } else {
-        print('FCM token güncellenemedi: ${response.data}');
         return false;
       }
     } catch (e) {
-      print('FCM token güncellenirken hata: $e');
       return false;
     }
   }
+
   List<Product>? _cachedProducts;
   DateTime? _lastFetchTime;
   final Duration _cacheValidity = Duration(minutes: 60);
@@ -903,7 +1548,8 @@ class ApiService {
       if (response.statusCode == 200) {
         // JSON işlemini ana thread'de yapalım - compute kullanmıyoruz
         final List<dynamic> productsJson = response.data;
-        final products = productsJson.map((json) => Product.fromJson(json)).toList();
+        final products =
+            productsJson.map((json) => Product.fromJson(json)).toList();
 
         // Önbelleğe alalım
         _cachedProducts = products;
@@ -925,12 +1571,149 @@ class ApiService {
       throw Exception(e.toString());
     }
   }
+  /// Random sorular getir
+  Future<List<Map<String, dynamic>>> getRandomWordQuestions({
+    int count = 10,
+    String? category,
+  }) async {
+    try {
+      final token = await storage.read(key: 'access_token');
 
+      final queryParams = {
+        'count': count,
+        if (category != null) 'category': category,
+      };
 
-// Ayrı bir isolate'te çalıştırılacak parse fonksiyonu
-List<Product> _parseProducts(List<dynamic> productsJson) {
-  return productsJson.map((json) => Product.fromJson(json)).toList();
-}
+      final response = await _dio.get(
+        '/word-questions-random',
+        queryParameters: queryParams,
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          },
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        // ✅ Düzeltildi
+        if (response.data is List) {
+          return List<Map<String, dynamic>>.from(response.data);
+        } else {
+          return [];
+        }
+      } else {
+        throw ApiException('Random sorular alınamadı');
+      }
+    } on DioException catch (e) {
+      throw ApiException('Bağlantı hatası: ${e.message}');
+    } catch (e) {
+      throw ApiException('Beklenmeyen hata: $e');
+    }
+  }
+
+  /// Kategoriye göre sorular getir
+  Future<List<Map<String, dynamic>>> getWordQuestionsByCategory(
+      String category) async {
+    try {
+      final token = await storage.read(key: 'access_token');
+
+      final response = await _dio.post(
+        '/word-questions-set',
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          },
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        // ✅ Düzeltildi
+        if (response.data is List) {
+          return List<Map<String, dynamic>>.from(response.data);
+        } else {
+          return [];
+        }
+      } else {
+        throw ApiException('Kategori soruları alınamadı');
+      }
+    } on DioException catch (e) {
+      throw ApiException('Bağlantı hatası: ${e.message}');
+    } catch (e) {
+      throw ApiException('Beklenmeyen hata: $e');
+    }
+  }
+
+  /// Belirli kelimeye ait sorular
+  Future<List<Map<String, dynamic>>> getWordQuestionsByWord(int wordId) async {
+    try {
+      final token = await storage.read(key: 'access_token');
+
+      final response = await _dio.get(
+        '/word-questions-by-word/$wordId',
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          },
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        // ✅ Düzeltildi
+        if (response.data is List) {
+          return List<Map<String, dynamic>>.from(response.data);
+        } else {
+          return [];
+        }
+      } else {
+        throw ApiException('Kelime soruları alınamadı');
+      }
+    } on DioException catch (e) {
+      throw ApiException('Bağlantı hatası: ${e.message}');
+    } catch (e) {
+      throw ApiException('Beklenmeyen hata: $e');
+    }
+  }
+
+  /// Tüm kategorileri getir
+  Future<List<String>> getWordQuestionCategories() async {
+    try {
+      final token = await storage.read(key: 'access_token');
+
+      final response = await _dio.get(
+        '/word-questions-categories',
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          },
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        if (response.data is List) {
+          // ✅ Her Map'ten sadece 'category' field'ını al
+          return (response.data as List)
+              .map((item) => item['category'] as String)
+              .toList();
+        } else {
+          return [];
+        }
+      } else {
+        throw ApiException('Kategoriler alınamadı');
+      }
+    } on DioException catch (e) {
+      throw ApiException('Bağlantı hatası: ${e.message}');
+    } catch (e) {
+      throw ApiException('Beklenmeyen hata: $e');
+    }
+  }// Ayrı bir isolate'te çalıştırılacak parse fonksiyonu
 
   List<kelibu.Package> removeDuplicateByText(List<kelibu.Package> packages) {
     final seenTexts = <String>{};
@@ -950,12 +1733,13 @@ List<Product> _parseProducts(List<dynamic> productsJson) {
   //-----------------------------------------------------
   final Map<int, List<Word>> _memoryCache = {};
   final Map<int, DateTime> _lastFetchTimes = {};
+
   Future<List<Word>> fetchWords(int classroomId) async {
     // 1. Önce bellek içi önbelleği kontrol et (en hızlı erişim)
-    if (_memoryCache.containsKey(classroomId) && _lastFetchTimes.containsKey(classroomId)) {
+    if (_memoryCache.containsKey(classroomId) &&
+        _lastFetchTimes.containsKey(classroomId)) {
       final lastFetch = _lastFetchTimes[classroomId]!;
       if (DateTime.now().difference(lastFetch) < _cacheValidity) {
-        print('Bellek önbelleğinden kelimeler alınıyor: $classroomId');
         return _memoryCache[classroomId]!;
       }
     }
@@ -988,7 +1772,6 @@ List<Product> _parseProducts(List<dynamic> productsJson) {
     } catch (e) {
       // 3. Hata durumunda önce bellek önbelleğini kontrol et
       if (_memoryCache.containsKey(classroomId)) {
-        print('Ağ hatası, bellek önbelleğinden veri döndürülüyor: $e');
         return _memoryCache[classroomId]!;
       }
 
@@ -998,7 +1781,6 @@ List<Product> _parseProducts(List<dynamic> productsJson) {
         final cachedData = prefs.getString(cacheKey);
 
         if (cachedData != null) {
-          print('Ağ hatası, yerel önbellekten veri döndürülüyor: $e');
           final words = await _parseWordsJson(cachedData);
 
           // Bellek önbelleğine ekle
@@ -1007,14 +1789,13 @@ List<Product> _parseProducts(List<dynamic> productsJson) {
 
           return words;
         }
-      } catch (parseError) {
-        print('Önbellek çözme hatası: $parseError');
-      }
+      } catch (parseError) {}
 
       // Her şey başarısız olursa, hatayı yeniden fırlat
       rethrow;
     }
   }
+
   Future<List<Word>> _parseWordsJson(String jsonString) async {
     try {
       return compute((String jsonStr) {
@@ -1023,22 +1804,19 @@ List<Product> _parseProducts(List<dynamic> productsJson) {
       }, jsonString);
     } catch (e) {
       // Isolate hatası durumunda ana thread'de parse etmeyi dene
-      print('Isolate hatası, ana thread\'de parse ediliyor: $e');
       final data = jsonDecode(jsonString);
       return (data as List).map<Word>((json) => Word.fromJson(json)).toList();
     }
   }
-  List<Word> _parseWords(String responseBody) {
-    final parsed = jsonDecode(responseBody).cast<Map<String, dynamic>>();
-    return parsed.map<Word>((json) => Word.fromJson(json)).toList();
-  }
 
-  Future<List<StudySet>> fetchStudySets(int classroomId, int wordId, String userId) async {
+  Future<List<StudySet>> fetchStudySets(
+      int classroomId, int wordId, String userId) async {
     final sharedPrefs = await sp_pkg.SharedPreferences.getInstance();
     final key = 'studySets_${classroomId}_${wordId}_$userId';
 
     try {
-      final response = await _dio.get('/classroom/$classroomId/study-sets/$wordId/user/$userId');
+      final response = await _dio
+          .get('/classroom/$classroomId/study-sets/$wordId/user/$userId');
       if (response.statusCode == 200) {
         await sharedPrefs.setString(key, jsonEncode(response.data));
         List<dynamic> studySetsJson = response.data;
@@ -1065,7 +1843,8 @@ List<Product> _parseProducts(List<dynamic> productsJson) {
       if (cachedData != null) {
         return compute(_parseExampleSentences, cachedData);
       }
-      final response = await _dio.post('/example-sentences', data: {'terim': term});
+      final response =
+          await _dio.post('/example-sentences', data: {'terim': term});
       if (response.statusCode == 200) {
         await sharedPrefs.setString(key, jsonEncode(response.data));
         return compute(_parseExampleSentences, jsonEncode(response.data));
@@ -1087,7 +1866,8 @@ List<Product> _parseProducts(List<dynamic> productsJson) {
   }
 
   Future<String> fetchStudySetsStar(int classroomId, int userId) async {
-    final response = await _dio.get('/classroom/$classroomId/study-sets-star/$userId');
+    final response =
+        await _dio.get('/classroom/$classroomId/study-sets-star/$userId');
     if (response.statusCode == 200) {
       List<dynamic> jsonData = response.data;
       return jsonData.map((item) => item['word_id'].toString()).join(',');
@@ -1119,11 +1899,12 @@ List<Product> _parseProducts(List<dynamic> productsJson) {
       throw Exception('Failed to check free mode');
     }
   }
+
   Future<Map<String, dynamic>> fetchInstitutionUsersPointPeriod(
-      String userId,
-      String period,
-      bool isInstitutionMode,
-      ) async {
+    String userId,
+    String period,
+    bool isInstitutionMode,
+  ) async {
     final response = await _dio.post(
       '/institution-users-point-period',
       data: {
@@ -1135,7 +1916,6 @@ List<Product> _parseProducts(List<dynamic> productsJson) {
     if (response.statusCode == 200) {
       var decodedResponse = response.data;
       if (decodedResponse['has_institution'] == false && isInstitutionMode) {
-        print('User does not have an institution, but institution mode was requested');
         return {
           'has_institution': false,
           'message': decodedResponse['message'],
@@ -1144,9 +1924,8 @@ List<Product> _parseProducts(List<dynamic> productsJson) {
       }
       return decodedResponse;
     } else {
-      print('Server responded with status code: ${response.statusCode}');
-      print('Response body: ${response.data}');
-      throw Exception('Failed to load users. Status code: ${response.statusCode}');
+      throw Exception(
+          'Failed to load users. Status code: ${response.statusCode}');
     }
   }
 
@@ -1165,31 +1944,39 @@ List<Product> _parseProducts(List<dynamic> productsJson) {
       List<dynamic> starWordsJson = response.data;
       return starWordsJson.map<int>((json) => json['word_id']).toList();
     } else {
-      throw Exception('Yıldızlı kelimeler yüklenirken bir hata oluştu: ${response.data}');
+      throw Exception(
+          'Yıldızlı kelimeler yüklenirken bir hata oluştu: ${response.data}');
     }
   }
 
   // Yıldızlı kelimeler - Mevcut sunucu API'sini kullan (değişiklik yok)
   Future<List<WordDetail>> fetchStarWordsAll(int userId) async {
-    final response = await _dio.post('/get-star-words-all', data: {'user_id': userId});
+    final response =
+        await _dio.post('/get-star-words-all', data: {'user_id': userId});
     if (response.statusCode == 200) {
       List<dynamic> jsonResponse = response.data;
-      List<WordDetail> wordCards = jsonResponse.map((data) => WordDetail.fromJson(data)).toList();
+      List<WordDetail> wordCards =
+          jsonResponse.map((data) => WordDetail.fromJson(data)).toList();
       var uniqueWordCardsMap = {for (var card in wordCards) card.id: card};
       return uniqueWordCardsMap.values.toList();
     } else {
-      throw Exception('Yıldızlı kelimeler yüklenirken bir hata oluştu: ${response.data}');
+      throw Exception(
+          'Yıldızlı kelimeler yüklenirken bir hata oluştu: ${response.data}');
     }
   }
-  Future<List<WordDetail>> _fetchWordsDetailFromServer(List<int> wordIds) async {
+
+  Future<List<WordDetail>> _fetchWordsDetailFromServer(
+      List<int> wordIds) async {
     try {
-      final response = await _dio.post('/get-words-detail', data: {'word_ids': wordIds});
+      final response =
+          await _dio.post('/get-words-detail', data: {'word_ids': wordIds});
       if (response.statusCode == 200 && response.data != null) {
-        return (response.data as List).map((data) => WordDetail.fromJson(data)).toList();
+        return (response.data as List)
+            .map((data) => WordDetail.fromJson(data))
+            .toList();
       }
       return [];
     } catch (e) {
-      print('Kelime detayları sunucu hatası: $e');
       return [];
     }
   }
@@ -1198,7 +1985,6 @@ List<Product> _parseProducts(List<dynamic> productsJson) {
     final response = await _dio.post('/starredwords', data: {'userid': userId});
     if (response.statusCode == 200) {
       var jsonResponse = response.data;
-      print('Response JSON: $jsonResponse');
       List<dynamic> starredWords = jsonResponse;
       final prefs = await sp_pkg.SharedPreferences.getInstance();
 
@@ -1209,18 +1995,18 @@ List<Product> _parseProducts(List<dynamic> productsJson) {
           int categoryId = word['c_id'];
 
           String key = _generateKey(categoryId, studySetId);
-          List<String>? existingWords = List<String>.from(_getStringListSafe(prefs, key) ?? []);
+          List<String>? existingWords =
+              List<String>.from(_getStringListSafe(prefs, key) ?? []);
 
           if (!existingWords.contains(wordId.toString())) {
             existingWords.add(wordId.toString());
             await prefs.setStringList(key, existingWords);
           }
-        } catch (e) {
-          print('Error processing word: $word, error: $e');
-        }
+        } catch (e) {}
       }
     } else {
-      throw Exception('Yıldızlı kelimeler yüklenirken bir hata oluştu: ${response.data}');
+      throw Exception(
+          'Yıldızlı kelimeler yüklenirken bir hata oluştu: ${response.data}');
     }
   }
 
@@ -1232,92 +2018,55 @@ List<Product> _parseProducts(List<dynamic> productsJson) {
       }
       return null;
     } catch (e) {
-      print('Error getting string list for key $key: $e');
       return null;
     }
   }
 
-  //-----------------------------------------------------
-  // CSV'DEN KELİME DETAYLARI ÇEKME
-  //-----------------------------------------------------
-  // Kelime detaylarını Supabase'den al
   Future<List<WordDetail>> fetchWordsDetail(List<int> wordIds) async {
     try {
       return await WordDetail.fetchWordsDetailsFromSupabaseByIds(wordIds);
     } catch (e) {
-      print('Supabase kelime detayları hatası: $e');
-
       // Hata durumunda orijinal sunucu API'sine dön
       return _fetchWordsDetailFromServer(wordIds);
     }
-  }
-  // Yıldızlı kelimeler - Mevcut sunucu API'sini kullan (değişiklik yok)
-
-  void _attachSynonyms(List<WordDetail> words) {
-    for (var csvRow in WordDataCache._synonymsData!.sublist(1)) {
-      final wordId = int.parse(csvRow[3]);
-      final synonym = Synonym(
-        id: int.parse(csvRow[0]),
-        term: csvRow[1],
-        tanim: csvRow[2],
-        anlam: csvRow[5],
-      );
-      words.firstWhereOrNull((word) => word.id == wordId)?.synonyms.add(synonym);
-    }
-  }
-
-  void _attachCollocations(List<WordDetail> words) {
-    for (var csvRow in WordDataCache._collocationsData!.sublist(1)) {
-      final wordId = int.parse(csvRow[3]);
-      final collocation = Collocation(
-        id: int.parse(csvRow[0]),
-        term: csvRow[1],
-        definition: csvRow[2],
-        anlam: csvRow[8],
-      );
-      words.firstWhereOrNull((word) => word.id == wordId)?.collocations.add(collocation);
-    }
-  }
-
-  void _attachDerivations(List<WordDetail> words) {
-    for (var csvRow in WordDataCache._derivationsData!.sublist(1)) {
-      final wordId = int.parse(csvRow[3]);
-      final derivation = Derivation(
-        id: int.parse(csvRow[0]),
-        term: csvRow[1],
-        definition: csvRow[2],
-        type: csvRow[8],
-        anlam: csvRow[9],
-      );
-      words.firstWhereOrNull((word) => word.id == wordId)?.derivations.add(derivation);
-    }
-  }
-
-  List<WordDetail> _parseWordsDetail(List<int> wordIds) {
-    return WordDataCache._wordsData!
-        .sublist(1)
-        .where((csvRow) => wordIds.contains(int.tryParse(csvRow[0].toString()) ?? 0))
-        .map((csvRow) => WordDetail(
-      id: int.parse(csvRow[0].toString()),
-      word: csvRow[1].toString(),
-      meaning: csvRow[2].toString(),
-      image: csvRow.length > 3 ? csvRow[3]?.toString() : null,
-      type: csvRow.length > 4 ? csvRow[4]?.toString() : null,
-      defination:csvRow[9] ,
-      collocations: [],
-      derivations: [],
-      synonyms: [],
-    ))
-        .toList();
   }
 
   Future<WordDetail?> searchWord(String term) async {
     try {
       return await WordDetail.searchWordInSupabase(term);
+    } catch (e) {}
+    return null;
+  }
+
+//-----------------------------------------------------
+// KELİME ARAMA (Supabase)
+//-----------------------------------------------------
+  Future<List<Map<String, dynamic>>> searchWords(String query) async {
+    try {
+      // Supabase'den kelime ara
+      final wordDetail = await WordDetail.searchWordInSupabase(query);
+
+      if (wordDetail == null) {
+        return [];
+      }
+
+      // API formatına çevir
+      return [
+        {
+          'id': wordDetail.id,
+          'word': wordDetail.word,
+          'meaning': wordDetail.meaning,
+          'example': wordDetail.defination ?? '',
+          'type': wordDetail.type ?? 'noun',
+          'pronunciation': '', // Supabase'de yok
+          'synonyms': wordDetail.synonyms.map((s) => s.term).toList(),
+        }
+      ];
     } catch (e) {
-      print('Supabase kelime araması hatası: $e');
+      throw ApiException('Kelime aranırken bir hata oluştu');
     }
   }
+
   Future<WordDetail> loadWordDetails(WordDetail word) async {
     await Future.wait([
       fetchAndAttachSynonymsToWordDetail([word]),
@@ -1336,7 +2085,8 @@ List<Product> _parseProducts(List<dynamic> productsJson) {
     return word;
   }
 
-  Future<void> fetchAndAttachSynonymsToWordDetail(List<WordDetail> words) async {
+  Future<void> fetchAndAttachSynonymsToWordDetail(
+      List<WordDetail> words) async {
     final synonymsFilePath = 'assets/Model/synonyms.csv';
     final csvFile = await rootBundle.loadString(synonymsFilePath);
 
@@ -1356,7 +2106,10 @@ List<Product> _parseProducts(List<dynamic> productsJson) {
         tanim: csvRow[2],
         anlam: csvRow[5],
       );
-      words.firstWhereOrNull((word) => word.id == wordId)?.synonyms.add(synonym);
+      words
+          .firstWhereOrNull((word) => word.id == wordId)
+          ?.synonyms
+          .add(synonym);
     }
   }
 
@@ -1380,7 +2133,10 @@ List<Product> _parseProducts(List<dynamic> productsJson) {
         definition: csvRow[2],
         anlam: csvRow[8],
       );
-      words.firstWhereOrNull((word) => word.id == wordId)?.collocations.add(collocation);
+      words
+          .firstWhereOrNull((word) => word.id == wordId)
+          ?.collocations
+          .add(collocation);
     }
   }
 
@@ -1405,7 +2161,10 @@ List<Product> _parseProducts(List<dynamic> productsJson) {
         type: csvRow[8],
         anlam: csvRow[9],
       );
-      words.firstWhereOrNull((word) => word.id == wordId)?.derivations.add(derivation);
+      words
+          .firstWhereOrNull((word) => word.id == wordId)
+          ?.derivations
+          .add(derivation);
     }
   }
 
@@ -1416,14 +2175,11 @@ List<Product> _parseProducts(List<dynamic> productsJson) {
     try {
       final response = await _dio.delete('/user/$userId');
       if (response.statusCode == 200) {
-        print('User deleted successfully');
         return true;
       } else {
-        print('Failed to delete user: ${response.data}');
         return false;
       }
     } catch (e) {
-      print('Delete user exception: $e');
       return false;
     }
   }
@@ -1443,8 +2199,10 @@ List<Product> _parseProducts(List<dynamic> productsJson) {
         if (starredWordsList != null) {
           var parts = key.split('_');
           if (parts.length >= 3) {
-            int? categoryId = int.tryParse(RegExp(r'\d+').firstMatch(parts[1])?.group(0) ?? '');
-            int? studySetId = int.tryParse(RegExp(r'\d+').firstMatch(parts[2])?.group(0) ?? '');
+            int? categoryId = int.tryParse(
+                RegExp(r'\d+').firstMatch(parts[1])?.group(0) ?? '');
+            int? studySetId = int.tryParse(
+                RegExp(r'\d+').firstMatch(parts[2])?.group(0) ?? '');
 
             if (categoryId != null && studySetId != null) {
               dataToSend.add({
@@ -1464,16 +2222,9 @@ List<Product> _parseProducts(List<dynamic> productsJson) {
         "starred_words": dataToSend,
       });
       if (response.statusCode == 200) {
-        print("Starred words synced successfully");
-        print("Raw response: ${response.data}");
         _updateSharedPreferences(response.data['starred_words']);
-        print(response.data['starred_words']);
-      } else {
-        print("Failed to sync starred words: ${response.data}");
-      }
-    } catch (e) {
-      print("syncStarredWordsWithServer exception: $e");
-    }
+      } else {}
+    } catch (e) {}
   }
 
   void _updateSharedPreferences(List<dynamic> starredWords) async {
@@ -1481,7 +2232,8 @@ List<Product> _parseProducts(List<dynamic> productsJson) {
     for (var wordData in starredWords) {
       String key = _generateKey(wordData['c_id'], wordData['study_set_id']);
       if (wordData['words'] != null && wordData['words'].isNotEmpty) {
-        List<String> wordIds = (wordData['words'] as List).map((w) => w.toString()).toList();
+        List<String> wordIds =
+            (wordData['words'] as List).map((w) => w.toString()).toList();
         await prefs.setStringList(key, wordIds);
       }
     }
@@ -1492,12 +2244,20 @@ List<Product> _parseProducts(List<dynamic> productsJson) {
     return 'starredWords_classroomId:${classroomId}_studySetId:${studySetId}';
   }
 
-  Future<List<WordDetail>> fetchWordsDetailStar(int classroomId, List<int> studySetId) async {
+  Future<List<WordDetail>> fetchWordsDetailStar(
+      int classroomId, List<int> studySetId) async {
     final service = StarredWordsService();
-    final starredWordIds = await service.loadClassroomStarredWordsAll(classroomId, studySetId);
+    final starredWordIds =
+        await service.loadClassroomStarredWordsAll(classroomId, studySetId);
     return fetchWordsDetail(starredWordIds.toList());
   }
-
+  Future<List<int>> fetchWordsId(
+      int classroomId, List<int> studySetId) async {
+    final service = StarredWordsService();
+    final starredWordIds =
+    await service.loadClassroomStarredWordsAll(classroomId, studySetId);
+    return starredWordIds.toList();
+  }
   Future<bool> checkStarred(int wordId, int studySetId, int userId) async {
     final response = await _dio.get(
       '/check-starred',
@@ -1510,11 +2270,13 @@ List<Product> _parseProducts(List<dynamic> productsJson) {
     if (response.statusCode == 200) {
       return response.data['isStarred'];
     } else {
-      throw Exception('Yıldızlanma durumunu kontrol ederken bir hata oluştu: ${response.data}');
+      throw Exception(
+          'Yıldızlanma durumunu kontrol ederken bir hata oluştu: ${response.data}');
     }
   }
 
-  Future<void> starWord(int wordId, int categoryID, int studySetID, int userID) async {
+  Future<void> starWord(
+      int wordId, int categoryID, int studySetID, int userID) async {
     final response = await _dio.post('/star-word', data: {
       'word_id': wordId,
       'userid': userID,
@@ -1522,7 +2284,8 @@ List<Product> _parseProducts(List<dynamic> productsJson) {
       'study_set_id': studySetID,
     });
     if (response.statusCode != 200) {
-      throw Exception('Yıldızlama işlemi sırasında bir hata oluştu: ${response.data}');
+      throw Exception(
+          'Yıldızlama işlemi sırasında bir hata oluştu: ${response.data}');
     }
   }
 
@@ -1532,11 +2295,13 @@ List<Product> _parseProducts(List<dynamic> productsJson) {
       'userid': userID,
     });
     if (response.statusCode != 200) {
-      throw Exception('Yıldızlama silme işlemi sırasında hata: ${response.data}');
+      throw Exception(
+          'Yıldızlama silme işlemi sırasında hata: ${response.data}');
     }
   }
 
-  Future<void> starWordDelete(int wordId, int categoryID, int studySetID, int userID) async {
+  Future<void> starWordDelete(
+      int wordId, int categoryID, int studySetID, int userID) async {
     final response = await _dio.post('/star-word-star', data: {
       'word_id': wordId,
       'userid': userID,
@@ -1544,11 +2309,13 @@ List<Product> _parseProducts(List<dynamic> productsJson) {
       'study_set_id': studySetID,
     });
     if (response.statusCode != 200) {
-      throw Exception('Yıldızlama işlemi sırasında bir hata oluştu: ${response.data}');
+      throw Exception(
+          'Yıldızlama işlemi sırasında bir hata oluştu: ${response.data}');
     }
   }
 
-  Future<Map<int, bool>> checkStarredBulk(List<int> wordIds, int studySetId, int userId) async {
+  Future<Map<int, bool>> checkStarredBulk(
+      List<int> wordIds, int studySetId, int userId) async {
     var body = {
       'word_ids': wordIds,
       'study_set_id': studySetId.toString(),
@@ -1569,12 +2336,9 @@ List<Product> _parseProducts(List<dynamic> productsJson) {
           return isStarredMap;
         } else if (response.statusCode == 429 && retryCount < maxRetries) {
           retryCount++;
-          print('Request rate limit reached, retrying... Attempt: $retryCount');
           await Future.delayed(retryDelay);
           continue;
         } else {
-          print('Request failed with status: ${response.statusCode}.');
-          print('Response data: ${response.data}');
           throw Exception('Request failed: ${response.data}');
         }
       } catch (e) {
@@ -1582,7 +2346,6 @@ List<Product> _parseProducts(List<dynamic> productsJson) {
           throw Exception('Failed after $maxRetries retries. Error: $e');
         }
         retryCount++;
-        print('An error occurred, retrying... Attempt: $retryCount');
         await Future.delayed(retryDelay);
       }
     }
@@ -1591,7 +2354,8 @@ List<Product> _parseProducts(List<dynamic> productsJson) {
   //-----------------------------------------------------
   // ÖRNEK BİR BULK CÜMLE ÇAĞRISI
   //-----------------------------------------------------
-  Future<Map<String, List<String>>> fetchExampleSentencesBulk(List<String> terms) async {
+  Future<Map<String, List<String>>> fetchExampleSentencesBulk(
+      List<String> terms) async {
     final sharedPrefs = await sp_pkg.SharedPreferences.getInstance();
     final key = 'exampleSentencesBulk_${terms.join("_")}';
     final exampleSentencesCached = sharedPrefs.getString(key);
@@ -1599,24 +2363,31 @@ List<Product> _parseProducts(List<dynamic> productsJson) {
     if (exampleSentencesCached != null) {
       Map<String, dynamic> data = json.decode(exampleSentencesCached);
       return data.map<String, List<String>>((key, value) {
-        var sentences = (value as List<dynamic>).map((item) => item.toString()).toList();
+        var sentences =
+            (value as List<dynamic>).map((item) => item.toString()).toList();
         return MapEntry(key, sentences);
       });
     } else {
-      final response = await _dio.post('/example-sentences-word', data: {'terimler': terms});
+      final response =
+          await _dio.post('/example-sentences-word', data: {'terimler': terms});
       if (response.statusCode == 200) {
         Map<String, dynamic> data = response.data;
-        Map<String, List<String>> sentencesMap = data.map<String, List<String>>((key, value) {
-          var sentences = (value as List).map<String>((item) => item['cumle'].toString()).toList();
+        Map<String, List<String>> sentencesMap =
+            data.map<String, List<String>>((key, value) {
+          var sentences = (value as List)
+              .map<String>((item) => item['cumle'].toString())
+              .toList();
           return MapEntry(key, sentences);
         });
         sharedPrefs.setString(key, json.encode(sentencesMap));
         return sentencesMap;
       } else {
-        throw Exception('Data could not be fetched: ${response.statusCode} - ${response.data}');
+        throw Exception(
+            'Data could not be fetched: ${response.statusCode} - ${response.data}');
       }
     }
   }
+
   Future<List<Announcement>> getAnnouncements() async {
     try {
       final response = await _dio.get('/announcements');
@@ -1624,16 +2395,23 @@ List<Product> _parseProducts(List<dynamic> productsJson) {
       if (response.statusCode == 200 && response.data['status'] == 'success') {
         final List<dynamic> announcementData = response.data['announcements'];
 
-        return announcementData.map((json) => Announcement.fromJson(json)).toList();
+        return announcementData
+            .map((json) => Announcement.fromJson(json))
+            .toList();
       } else {
         throw Exception('Duyurular yüklenirken bir hata oluştu');
       }
-    } on DioError catch (e) {
-      print('Duyurular yüklenirken DioError: ${e.message}');
+    } on DioException {
       return [];
     } catch (e) {
-      print('Duyurular yüklenirken hata: $e');
       return [];
     }
+  }
+}
+
+class HiveUserHelper {
+  static Future<int?> getUserId() async {
+    final box = await Hive.openBox('userBox');
+    return box.get('userId') as int?;
   }
 }

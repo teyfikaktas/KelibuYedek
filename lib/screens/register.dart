@@ -1,12 +1,13 @@
-import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
-import 'package:kelibu/screens/verify_email.dart';
+import 'dart:io';
+
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:kelibu/screens/sdk/customShowDialog.dart';
-import 'package:kelibu/variables.dart';
+import 'package:kelibu/screens/verify_email.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../api.dart';
 
@@ -65,19 +66,38 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return regex.hasMatch(password);
   }
 
+  Future<String?> _getFCMToken() async {
+    try {
+      if (Platform.isIOS) {
+        String? apnsToken = await FirebaseMessaging.instance.getAPNSToken();
+        if (apnsToken == null) {
+          await Future.delayed(const Duration(seconds: 3));
+          apnsToken = await FirebaseMessaging.instance.getAPNSToken();
+        }
+      }
+
+      String? token = await FirebaseMessaging.instance.getToken();
+      return token;
+    } catch (e) {
+      return null;
+    }
+  }
+
   Future<void> register() async {
-
-
     if (!_validateForm()) return;
 
     setState(() => _isLoading = true);
 
     try {
+      // FCM token al
+      String? fcmToken = await _getFCMToken();
+
       final responseData = await _apiService.register(
         name: _nameController.text.trim(),
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
         passwordConfirmation: _confirmPasswordController.text.trim(),
+        fcmToken: fcmToken ?? '',
       );
 
       _handleSuccessfulRegistration(responseData);
@@ -123,7 +143,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   void _handleSuccessfulRegistration(Map<String, dynamic> responseData) {
-    print(responseData);
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -135,8 +154,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   void _handleApiException(ApiException e) {
-    print('API Hatası: ${e.message}');
-
     String message = 'Bir hata oluştu. ';
 
     if (e.details != null && e.details!.containsKey('errors')) {
@@ -152,7 +169,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   void _handleGeneralException(Object e) {
-    print(e);
     String errorMessage = e.toString().toLowerCase();
     String title = 'Beklenmeyen Hata';
     String content = e.toString();
@@ -195,7 +211,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       TextEditingController controller, String label, IconData icon,
       {bool isPassword = false, bool isConfirm = false}) {
     return Container(
-      margin: EdgeInsets.only(bottom: 15),
+      margin: const EdgeInsets.only(bottom: 15),
       decoration: BoxDecoration(
         color: _isDarkMode ? Colors.grey[800] : Colors.white,
         borderRadius: BorderRadius.circular(10),
@@ -363,7 +379,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 color: Colors.grey.withOpacity(0.1),
                                 spreadRadius: 5,
                                 blurRadius: 7,
-                                offset: Offset(0, 3),
+                                offset: const Offset(0, 3),
                               ),
                             ],
                           ),
@@ -381,7 +397,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   isPassword: true, isConfirm: true),
                               SizedBox(height: constraints.maxHeight * 0.01),
                               _isLoading
-                                  ? Center(child: CircularProgressIndicator())
+                                  ? const Center(
+                                      child: CircularProgressIndicator())
                                   : _buildButton(
                                       'Kayıt Ol', Colors.blue, register),
                             ],
@@ -393,7 +410,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             onPressed: () {
                               Navigator.pop(context);
                             },
-                            child: Text(
+                            child: const Text(
                               'Zaten hesabın var mı? Giriş Yap',
                               style: TextStyle(color: Colors.blue),
                             ),

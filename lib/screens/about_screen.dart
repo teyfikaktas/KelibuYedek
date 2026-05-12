@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:kelibu/variables.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AboutPage extends StatefulWidget {
   @override
@@ -202,17 +202,20 @@ class _AboutPageState extends State<AboutPage> {
             ),
           ),
           SizedBox(height: 24),
-          ...content.map((widget) => Align(
-            alignment: Alignment.center,
-            child: Container(
-              constraints: BoxConstraints(maxWidth: 600),
-              child: widget,
-            ),
-          )).toList(),
+          ...content
+              .map((widget) => Align(
+                    alignment: Alignment.center,
+                    child: Container(
+                      constraints: BoxConstraints(maxWidth: 600),
+                      child: widget,
+                    ),
+                  ))
+              .toList(),
         ],
       ),
     );
   }
+
   Widget _buildParagraph(String text, Color textColor) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16.0),

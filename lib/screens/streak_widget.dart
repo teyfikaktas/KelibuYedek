@@ -1,8 +1,9 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'dart:math';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import 'package:google_fonts/google_fonts.dart';
+
 import '../api.dart';
 
 class StreakWidget extends StatefulWidget {
@@ -43,7 +44,6 @@ class _StreakWidgetState extends State<StreakWidget> {
         activeUserCount = response['total_users'] ?? 0;
       });
     } catch (e) {
-      print('Error fetching active users: $e');
     }
   }
 
@@ -53,7 +53,7 @@ class _StreakWidgetState extends State<StreakWidget> {
       builder: (context, constraints) {
         final maxWidth = constraints.maxWidth;
         final isSmallScreen = maxWidth < 600;
-        final scaleFactor = (maxWidth / 400) ; // %20 küçültme
+        final scaleFactor = (maxWidth / 400); // %20 küçültme
 
         return Padding(
           padding: EdgeInsets.symmetric(
@@ -67,7 +67,9 @@ class _StreakWidgetState extends State<StreakWidget> {
               borderRadius: BorderRadius.circular(15 * scaleFactor),
               boxShadow: [
                 BoxShadow(
-                  color: widget.isDarkMode ? Colors.black : Colors.black.withOpacity(0.1),
+                  color: widget.isDarkMode
+                      ? Colors.black
+                      : Colors.black.withOpacity(0.1),
                   spreadRadius: 0,
                   blurRadius: 8 * scaleFactor,
                   offset: Offset(0, 3 * scaleFactor),
@@ -87,12 +89,13 @@ class _StreakWidgetState extends State<StreakWidget> {
             ),
           ),
         ).animate().fadeIn(duration: 300.ms).scale(
-          duration: 300.ms,
-          curve: Curves.elasticOut,
-        );
+              duration: 300.ms,
+              curve: Curves.elasticOut,
+            );
       },
     );
   }
+
 // _buildStreakDisplay metodundan sonra eklenecek metodlar:
 
   Widget _buildYearMonthDayDisplay(double scaleFactor) {
@@ -103,11 +106,30 @@ class _StreakWidgetState extends State<StreakWidget> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        if (years > 0) _buildTimeUnit(years, "Yıl", widget.isDarkMode ? Colors.purpleAccent : Colors.purple, HandDrawnYearPainter(widget.isDarkMode), scaleFactor),
-        if (years > 0 && (months > 0 || days > 0)) SizedBox(width: 4 * scaleFactor),
-        if (months > 0) _buildTimeUnit(months, "Ay", widget.isDarkMode ? Colors.greenAccent[700]! : Colors.green[700]!, HandDrawnMonthPainter(widget.isDarkMode), scaleFactor),
+        if (years > 0)
+          _buildTimeUnit(
+              years,
+              "Yıl",
+              widget.isDarkMode ? Colors.purpleAccent : Colors.purple,
+              HandDrawnYearPainter(widget.isDarkMode),
+              scaleFactor),
+        if (years > 0 && (months > 0 || days > 0))
+          SizedBox(width: 4 * scaleFactor),
+        if (months > 0)
+          _buildTimeUnit(
+              months,
+              "Ay",
+              widget.isDarkMode ? Colors.greenAccent[700]! : Colors.green[700]!,
+              HandDrawnMonthPainter(widget.isDarkMode),
+              scaleFactor),
         if (months > 0 && days > 0) SizedBox(width: 4 * scaleFactor),
-        if (days > 0 || (years == 0 && months == 0)) _buildTimeUnit(days, "Gün", widget.isDarkMode ? Colors.orangeAccent : Colors.orange, HandDrawnDayPainter(widget.isDarkMode), scaleFactor),
+        if (days > 0 || (years == 0 && months == 0))
+          _buildTimeUnit(
+              days,
+              "Gün",
+              widget.isDarkMode ? Colors.orangeAccent : Colors.orange,
+              HandDrawnDayPainter(widget.isDarkMode),
+              scaleFactor),
       ],
     );
   }
@@ -131,8 +153,11 @@ class _StreakWidgetState extends State<StreakWidget> {
             if (marksInGroup == 0) marksInGroup = 5;
             return CustomPaint(
               size: Size(size, size * 1.25),
-              painter: TallyMarksPainter(marksInGroup, (index + 1) % 7 == 0, widget.isDarkMode),
-            ).animate(delay: (50 * index).ms).scale(duration: 300.ms, curve: Curves.elasticOut);
+              painter: TallyMarksPainter(
+                  marksInGroup, (index + 1) % 7 == 0, widget.isDarkMode),
+            )
+                .animate(delay: (50 * index).ms)
+                .scale(duration: 300.ms, curve: Curves.elasticOut);
           }),
         );
       },
@@ -156,17 +181,26 @@ class _StreakWidgetState extends State<StreakWidget> {
           runSpacing: 4 * scaleFactor,
           alignment: WrapAlignment.center,
           children: [
-            if (widget.dailyRank != null) _buildRankingItem("Günlük", widget.dailyRank!, scaleFactor, isSmallScreen),
-            if (widget.weeklyRank != null) _buildRankingItem("Haftalık", widget.weeklyRank!, scaleFactor, isSmallScreen),
-            if (widget.monthlyRank != null) _buildRankingItem("Aylık", widget.monthlyRank!, scaleFactor, isSmallScreen),
-            if (widget.allTimeRank != null) _buildRankingItem("Tüm Zaman", widget.allTimeRank!, scaleFactor, isSmallScreen),
+            if (widget.dailyRank != null)
+              _buildRankingItem(
+                  "Günlük", widget.dailyRank!, scaleFactor, isSmallScreen),
+            if (widget.weeklyRank != null)
+              _buildRankingItem(
+                  "Haftalık", widget.weeklyRank!, scaleFactor, isSmallScreen),
+            if (widget.monthlyRank != null)
+              _buildRankingItem(
+                  "Aylık", widget.monthlyRank!, scaleFactor, isSmallScreen),
+            if (widget.allTimeRank != null)
+              _buildRankingItem(
+                  "Tüm Zaman", widget.allTimeRank!, scaleFactor, isSmallScreen),
           ],
         ),
       ],
     );
   }
 
-  Widget _buildRankingItem(String label, dynamic rank, double scaleFactor, bool isSmallScreen) {
+  Widget _buildRankingItem(
+      String label, dynamic rank, double scaleFactor, bool isSmallScreen) {
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: 5 * scaleFactor,
@@ -184,25 +218,26 @@ class _StreakWidgetState extends State<StreakWidget> {
         text: TextSpan(
           style: GoogleFonts.indieFlower(
               fontSize: (isSmallScreen ? 9 : 11) * scaleFactor,
-              color: widget.isDarkMode ? Colors.white70 : Colors.brown[800]
-          ),
+              color: widget.isDarkMode ? Colors.white70 : Colors.brown[800]),
           children: [
             TextSpan(
                 text: "$label: ",
-                style: TextStyle(fontWeight: FontWeight.bold)
-            ),
+                style: TextStyle(fontWeight: FontWeight.bold)),
             TextSpan(
               text: rank == 'not_ranked' ? "Sıralamada Yok" : "#$rank",
               style: GoogleFonts.permanentMarker(
-                  fontSize: (isSmallScreen ? 11 : 13) * scaleFactor
-              ),
+                  fontSize: (isSmallScreen ? 11 : 13) * scaleFactor),
             ),
           ],
         ),
       ),
-    ).animate().slideX(begin: 0.3, end: 0, duration: 300.ms, curve: Curves.easeOut);
+    )
+        .animate()
+        .slideX(begin: 0.3, end: 0, duration: 300.ms, curve: Curves.easeOut);
   }
-  Widget _buildTimeUnit(int count, String unit, Color color, CustomPainter iconPainter, double scaleFactor) {
+
+  Widget _buildTimeUnit(int count, String unit, Color color,
+      CustomPainter iconPainter, double scaleFactor) {
     return Row(
       children: [
         CustomPaint(
@@ -230,6 +265,7 @@ class _StreakWidgetState extends State<StreakWidget> {
       ],
     ).animate().scale(duration: 300.ms, curve: Curves.elasticOut);
   }
+
   Widget _buildStreakDisplay(double scaleFactor) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -244,7 +280,8 @@ class _StreakWidgetState extends State<StreakWidget> {
         ),
         _buildYearMonthDayDisplay(scaleFactor),
       ],
-    ).animate().slideY(begin: -0.5, end: 0, duration: 400.ms, curve: Curves.elasticOut);
+    ).animate().slideY(
+        begin: -0.5, end: 0, duration: 400.ms, curve: Curves.elasticOut);
   }
 
   // ... Diğer widget build metodları buraya gelecek ...
@@ -275,11 +312,11 @@ class _StreakWidgetState extends State<StreakWidget> {
         ],
       ),
     ).animate().slideY(
-      begin: 0.3,
-      end: 0,
-      duration: 500.ms,
-      curve: Curves.easeOutBack,
-    );
+          begin: 0.3,
+          end: 0,
+          duration: 500.ms,
+          curve: Curves.easeOutBack,
+        );
   }
 
   Widget _buildPulsingDot(double scaleFactor) {
@@ -326,6 +363,7 @@ class _StreakWidgetState extends State<StreakWidget> {
 
 class HandDrawnYearPainter extends CustomPainter {
   final bool isDarkMode;
+
   HandDrawnYearPainter(this.isDarkMode);
 
   @override
@@ -347,7 +385,8 @@ class HandDrawnYearPainter extends CustomPainter {
 
     for (int i = 1; i < 3; i++) {
       double y = rect.top + 4 + (rect.height - 4) / 3 * i;
-      _drawWavyLine(canvas, Offset(rect.left + 2, y), Offset(rect.right - 2, y), paint);
+      _drawWavyLine(
+          canvas, Offset(rect.left + 2, y), Offset(rect.right - 2, y), paint);
     }
   }
 
@@ -394,6 +433,7 @@ class HandDrawnYearPainter extends CustomPainter {
 
 class HandDrawnMonthPainter extends CustomPainter {
   final bool isDarkMode;
+
   HandDrawnMonthPainter(this.isDarkMode);
 
   @override
@@ -406,10 +446,14 @@ class HandDrawnMonthPainter extends CustomPainter {
 
     Path path = Path();
     path.moveTo(size.width * 0.2, size.height * 0.5);
-    path.quadraticBezierTo(size.width * 0.1, size.height * 0.2, size.width * 0.5, size.height * 0.1);
-    path.quadraticBezierTo(size.width * 0.9, size.height * 0.2, size.width * 0.8, size.height * 0.5);
-    path.quadraticBezierTo(size.width * 0.9, size.height * 0.8, size.width * 0.5, size.height * 0.9);
-    path.quadraticBezierTo(size.width * 0.1, size.height * 0.8, size.width * 0.2, size.height * 0.5);
+    path.quadraticBezierTo(size.width * 0.1, size.height * 0.2,
+        size.width * 0.5, size.height * 0.1);
+    path.quadraticBezierTo(size.width * 0.9, size.height * 0.2,
+        size.width * 0.8, size.height * 0.5);
+    path.quadraticBezierTo(size.width * 0.9, size.height * 0.8,
+        size.width * 0.5, size.height * 0.9);
+    path.quadraticBezierTo(size.width * 0.1, size.height * 0.8,
+        size.width * 0.2, size.height * 0.5);
 
     canvas.drawPath(path, paint);
   }
@@ -420,6 +464,7 @@ class HandDrawnMonthPainter extends CustomPainter {
 
 class HandDrawnDayPainter extends CustomPainter {
   final bool isDarkMode;
+
   HandDrawnDayPainter(this.isDarkMode);
 
   @override
@@ -430,15 +475,18 @@ class HandDrawnDayPainter extends CustomPainter {
       ..strokeWidth = 1.2
       ..strokeCap = StrokeCap.round;
 
-    canvas.drawCircle(Offset(size.width / 2, size.height / 2), size.width * 0.3, paint);
+    canvas.drawCircle(
+        Offset(size.width / 2, size.height / 2), size.width * 0.3, paint);
 
     for (int i = 0; i < 8; i++) {
       double angle = i * pi / 4;
       double startRadius = size.width * 0.35;
       double endRadius = size.width * 0.45;
       canvas.drawLine(
-        Offset(size.width / 2 + cos(angle) * startRadius, size.height / 2 + sin(angle) * startRadius),
-        Offset(size.width / 2 + cos(angle) * endRadius, size.height / 2 + sin(angle) * endRadius),
+        Offset(size.width / 2 + cos(angle) * startRadius,
+            size.height / 2 + sin(angle) * startRadius),
+        Offset(size.width / 2 + cos(angle) * endRadius,
+            size.height / 2 + sin(angle) * endRadius),
         paint,
       );
     }
@@ -494,7 +542,8 @@ class TallyMarksPainter extends CustomPainter {
       final startY = Random().nextDouble() * size.height;
       canvas.drawLine(
         Offset(startX, startY),
-        Offset(startX + Random().nextDouble() * 1.5 - 0.75, startY + Random().nextDouble() * 1.5 - 0.75),
+        Offset(startX + Random().nextDouble() * 1.5 - 0.75,
+            startY + Random().nextDouble() * 1.5 - 0.75),
         paint..strokeWidth = 0.4,
       );
     }

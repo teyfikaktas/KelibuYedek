@@ -1,30 +1,33 @@
+// ignore_for_file: duplicate_import, unused_import, unused_element
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:kelibu/api.dart';
 import 'package:kelibu/Models/studySet.dart';
+import 'package:kelibu/api.dart';
 import 'package:kelibu/screens/game_mod.dart';
 import 'package:kelibu/screens/game_screen_star.dart';
 import 'package:kelibu/screens/video_player.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'loadingIndicator.dart';
 
 import '../event.dart';
 import '../event_bus.dart';
 import '../globalDart/urls.dart';
 import '../providers/user_provider.dart';
 import '../shared_preferences/shared_preferences.dart';
-import 'loadingIndicator.dart';
 import '../variables.dart';
-
+import 'loadingIndicator.dart';
 
 class StudySetListScreen extends StatefulWidget {
   final int classroomId;
   final int wordid;
-  const StudySetListScreen({Key? key, required this.classroomId, required this.wordid}) : super(key: key);
+
+  const StudySetListScreen(
+      {Key? key, required this.classroomId, required this.wordid})
+      : super(key: key);
 
   @override
   _StudySetListScreenState createState() => _StudySetListScreenState();
@@ -39,7 +42,6 @@ class _StudySetListScreenState extends State<StudySetListScreen> {
   bool _isDarkMode = false;
   int totalStarredWords = 0;
 
-
   @override
   void initState() {
     super.initState();
@@ -50,15 +52,15 @@ class _StudySetListScreenState extends State<StudySetListScreen> {
   }
 
   Future<void> loadStarredWordsCounts() async {
-    print('Yıldızlanmış kelimeler yükleniyor...');
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     int userID = userProvider.userId;
-    var sets = await ApiService().fetchStudySets(widget.classroomId, widget.wordid, userID.toString());
-    print(widget.classroomId);
+    var sets = await ApiService()
+        .fetchStudySets(widget.classroomId, widget.wordid, userID.toString());
     final tempStarredWordCounts = <int, int>{};
     int tempTotalStarredWords = 0;
     for (var studySet in sets) {
-      final starredWordsSet = await StarredWordsService().loadStarredWords(widget.classroomId, studySet.id);
+      final starredWordsSet = await StarredWordsService()
+          .loadStarredWords(widget.classroomId, studySet.id);
       tempStarredWordCounts[studySet.id] = starredWordsSet.length;
       tempTotalStarredWords += starredWordsSet.length;
     }
@@ -94,10 +96,12 @@ class _StudySetListScreenState extends State<StudySetListScreen> {
           _buildRoundedIconButton(
             Icons.slow_motion_video_sharp,
             Colors.green,
-                () {
+            () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => VideoPlayerScreen(videoUrl: AppUrls.studysets)),
+                MaterialPageRoute(
+                    builder: (context) =>
+                        VideoPlayerScreen(videoUrl: AppUrls.studysets)),
               );
             },
           ),
@@ -152,14 +156,17 @@ class _StudySetListScreenState extends State<StudySetListScreen> {
           onPressed: navigateToGameModeStarScreen,
           icon: Icon(Icons.star, color: Colors.amber),
           label: Text('Yıldızlı Kelimelere Çalış'),
-          backgroundColor: _isDarkMode ? Colors.blueGrey[700] : Color(0xFF3D5AFE),
+          backgroundColor:
+              _isDarkMode ? Colors.blueGrey[700] : Color(0xFF3D5AFE),
           foregroundColor: Colors.white,
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
-  Widget _buildRoundedIconButton(IconData icon, Color color, VoidCallback onPressed) {
+
+  Widget _buildRoundedIconButton(
+      IconData icon, Color color, VoidCallback onPressed) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8.0),
       child: InkWell(
@@ -182,7 +189,8 @@ class _StudySetListScreenState extends State<StudySetListScreen> {
       future: studySetsFuture,
       builder: (context, snapshot) {
         // Eğer veri yükleniyorsa ve önceden veri yoksa loading göster
-        if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
+        if (snapshot.connectionState == ConnectionState.waiting &&
+            !snapshot.hasData) {
           return Center(child: LogoLoadingIndicator());
         }
 
@@ -241,6 +249,7 @@ class _StudySetListScreenState extends State<StudySetListScreen> {
       },
     );
   }
+
   Future<void> _loadDarkModePreference() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
@@ -259,7 +268,8 @@ class _StudySetListScreenState extends State<StudySetListScreen> {
 
       setState(() {
         // Future'ı hemen oluştur
-        studySetsFuture = ApiService().fetchStudySets(widget.classroomId, widget.wordid, userID.toString());
+        studySetsFuture = ApiService().fetchStudySets(
+            widget.classroomId, widget.wordid, userID.toString());
       });
 
       // Paralel olarak starred words'ü yükle
@@ -274,7 +284,6 @@ class _StudySetListScreenState extends State<StudySetListScreen> {
         });
       }
     } catch (e) {
-      print('Veri yükleme hatası: $e');
       // Hata durumunda state'i güncelle
       if (mounted) {
         setState(() {
@@ -283,7 +292,6 @@ class _StudySetListScreenState extends State<StudySetListScreen> {
       }
     }
   }
-
 
   Future<void> navigateToGameModeStarScreen() async {
     showDialog(
@@ -300,11 +308,8 @@ class _StudySetListScreenState extends State<StudySetListScreen> {
     );
 
     try {
-      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      Provider.of<UserProvider>(context, listen: false);
       String idString = studySetIds.join(', ');
-      print('studytsets' + idString);
-
-      // Veri yükleme işlemini bekleyin
 
       Navigator.of(context).pop(); // Yükleme göstergesini kapat
 
@@ -319,20 +324,19 @@ class _StudySetListScreenState extends State<StudySetListScreen> {
       );
 
       if (result != null) {
-        print('Geri dönüldü ve sayfa güncellenecek');
         await loadStarredWordsCounts();
         reloadStudySets();
       }
     } catch (e) {
       Navigator.of(context).popUntil((route) => route.isFirst);
-      print('Hata: $e');
     }
   }
 
   void reloadStudySets() {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     int userID = userProvider.userId;
-    studySetsFuture = ApiService().fetchStudySets(widget.classroomId, widget.wordid, userID.toString());
+    studySetsFuture = ApiService()
+        .fetchStudySets(widget.classroomId, widget.wordid, userID.toString());
     studySetsFuture!.then((sets) {
       setState(() {
         studySets = sets;
@@ -377,7 +381,8 @@ class _StudySetListScreenState extends State<StudySetListScreen> {
       child: ListTile(
         contentPadding: EdgeInsets.all(16),
         leading: CircleAvatar(
-          backgroundColor: _isDarkMode ? Colors.blueGrey[700] : Colors.blue[700],
+          backgroundColor:
+              _isDarkMode ? Colors.blueGrey[700] : Colors.blue[700],
           child: Icon(Icons.book, color: Colors.white),
         ),
         title: Text(
@@ -398,7 +403,8 @@ class _StudySetListScreenState extends State<StudySetListScreen> {
             Icon(Icons.star, color: Colors.amber),
             Text(
               '${starredWordCountsNotifier.value[studySet.id] ?? 0}',
-              style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: textColor),
+              style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.bold, color: textColor),
             ),
           ],
         ),
@@ -441,13 +447,11 @@ class _StudySetListScreenState extends State<StudySetListScreen> {
       );
 
       if (result != null) {
-        print('Geri dönüldü ve sayfa güncellenecek');
         await loadStarredWordsCounts();
         reloadStudySets();
       }
     } catch (e) {
       Navigator.of(context).popUntil((route) => route.isFirst);
-      print('Hata: $e');
     }
   }
 

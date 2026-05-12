@@ -1,5 +1,5 @@
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:collection/collection.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 // Supabase istemcisi için global değişken
 final supabase = Supabase.instance.client;
@@ -40,7 +40,8 @@ class WordDetail {
       type: json['type'],
       image: json['image'],
       defination: json['defination'] ?? json['definition'],
-      collocations: collocationsList.map((c) => Collocation.fromJson(c)).toList(),
+      collocations:
+          collocationsList.map((c) => Collocation.fromJson(c)).toList(),
       derivations: derivationsList.map((d) => Derivation.fromJson(d)).toList(),
       synonyms: synonymsList.map((s) => Synonym.fromJson(s)).toList(),
     );
@@ -69,9 +70,7 @@ class WordDetail {
   static Future<List<WordDetail>> fetchWordsDetailsFromSupabase() async {
     try {
       // Tüm kelimeleri çek
-      final response = await supabase
-          .from('words')
-          .select();
+      final response = await supabase.from('words').select();
 
       // WordDetail nesnelerini oluştur
       List<WordDetail> words = (response as List)
@@ -85,19 +84,17 @@ class WordDetail {
 
       return words;
     } catch (e) {
-      print('Supabase\'den kelimeler alınırken hata: $e');
       return [];
     }
   }
 
   // ID'lere göre detayları getir
-  static Future<List<WordDetail>> fetchWordsDetailsFromSupabaseByIds(List<int> wordIds) async {
+  static Future<List<WordDetail>> fetchWordsDetailsFromSupabaseByIds(
+      List<int> wordIds) async {
     try {
       // Belirli kelimeleri ID'lerine göre çek
-      final response = await supabase
-          .from('words')
-          .select()
-          .filter('id', 'in', wordIds);
+      final response =
+          await supabase.from('words').select().filter('id', 'in', wordIds);
 
       // WordDetail nesnelerini oluştur
       List<WordDetail> words = (response as List)
@@ -111,7 +108,6 @@ class WordDetail {
 
       return words;
     } catch (e) {
-      print('Supabase\'den kelimeler alınırken hata: $e');
       return [];
     }
   }
@@ -139,7 +135,6 @@ class WordDetail {
 
       return word;
     } catch (e) {
-      print('Supabase\'de kelime aranırken hata: $e');
       return null;
     }
   }
@@ -147,10 +142,8 @@ class WordDetail {
   // Tam metin araması
   static Future<List<WordDetail>> searchWordsFullText(String searchTerm) async {
     try {
-      final response = await supabase
-          .from('words')
-          .select()
-          .textSearch('fts', searchTerm);
+      final response =
+          await supabase.from('words').select().textSearch('fts', searchTerm);
 
       // WordDetail nesnelerini oluştur
       List<WordDetail> words = (response as List)
@@ -164,13 +157,13 @@ class WordDetail {
 
       return words;
     } catch (e) {
-      print('Tam metin araması yapılırken hata: $e');
       return [];
     }
   }
 
   // CSV yerine Supabase'den eşanlamlıları al
-  static Future<void> fetchAndAttachSynonymsFromSupabase(List<WordDetail> words) async {
+  static Future<void> fetchAndAttachSynonymsFromSupabase(
+      List<WordDetail> words) async {
     if (words.isEmpty) return;
 
     try {
@@ -199,12 +192,12 @@ class WordDetail {
         }
       }
     } catch (e) {
-      print('Eşanlamlılar alınırken hata: $e');
     }
   }
 
   // CSV yerine Supabase'den kolokasyonları al
-  static Future<void> fetchAndAttachCollocationsFromSupabase(List<WordDetail> words) async {
+  static Future<void> fetchAndAttachCollocationsFromSupabase(
+      List<WordDetail> words) async {
     if (words.isEmpty) return;
 
     try {
@@ -233,12 +226,12 @@ class WordDetail {
         }
       }
     } catch (e) {
-      print('Kolokasyonlar alınırken hata: $e');
     }
   }
 
   // CSV yerine Supabase'den türetilmiş kelimeleri al
-  static Future<void> fetchAndAttachDerivationsFromSupabase(List<WordDetail> words) async {
+  static Future<void> fetchAndAttachDerivationsFromSupabase(
+      List<WordDetail> words) async {
     if (words.isEmpty) return;
 
     try {
@@ -268,7 +261,6 @@ class WordDetail {
         }
       }
     } catch (e) {
-      print('Türetilmiş kelimeler alınırken hata: $e');
     }
   }
 }
@@ -292,10 +284,11 @@ class Collocation {
       id: json['id'],
       term: json['terim'],
       definition: json['anlam'],
-      anlam:  json['turkce'],
+      anlam: json['turkce'],
     );
   }
 }
+
 class Derivation {
   final int id;
   final String term;

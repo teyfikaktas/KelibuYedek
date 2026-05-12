@@ -2,35 +2,28 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:auto_size_text/auto_size_text.dart';
+import 'package:back_button_interceptor/back_button_interceptor.dart';
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:get/get.dart';
-import 'package:get/get_core/src/get_main.dart';
+import 'package:flutter_tts/flutter_tts.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:kelibu/Models/wordDetaik.dart'; // WordDetail modelinizin importu
 import 'package:kelibu/api.dart';
-import 'package:kelibu/screens/flash_card.dart'; // FlashCardScreen sayfasının importu
 import 'package:kelibu/providers/user_provider.dart'; // UserProvider importu
 import 'package:kelibu/screens/video_player.dart';
 import 'package:provider/provider.dart';
-import 'package:kelibu/screens/quiz.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:flutter_tts/flutter_tts.dart';
-import 'package:flutter_spinkit/flutter_spinkit.dart';
-import 'package:back_button_interceptor/back_button_interceptor.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../globalDart/urls.dart';
 import '../shared_preferences/shared_preferences.dart';
 import '../variables.dart';
 import '../widgets/gifplayer.dart';
 import 'loadingIndicator.dart';
-import 'package:collection/collection.dart';
-import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:flutter_tts/flutter_tts.dart';
-import 'dart:async';
 
 class AnimatedSentenceCarousel extends StatefulWidget {
   final List<Map<String, dynamic>> sentences;
@@ -47,10 +40,12 @@ class AnimatedSentenceCarousel extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  _AnimatedSentenceCarouselState createState() => _AnimatedSentenceCarouselState();
+  _AnimatedSentenceCarouselState createState() =>
+      _AnimatedSentenceCarouselState();
 }
 
-class _AnimatedSentenceCarouselState extends State<AnimatedSentenceCarousel> with SingleTickerProviderStateMixin {
+class _AnimatedSentenceCarouselState extends State<AnimatedSentenceCarousel>
+    with SingleTickerProviderStateMixin {
   int _currentIndex = 0;
   final FlutterTts _flutterTts = FlutterTts();
   bool _isPlaying = false;
@@ -70,7 +65,8 @@ class _AnimatedSentenceCarouselState extends State<AnimatedSentenceCarousel> wit
     _initAnimations();
     // Pre-process all sentences into words
     for (int i = 0; i < widget.sentences.length; i++) {
-      _sentenceWordsMap[i] = _splitSentenceToWords(widget.sentences[i]['sentence'] ?? '');
+      _sentenceWordsMap[i] =
+          _splitSentenceToWords(widget.sentences[i]['sentence'] ?? '');
     }
 
     // İlk cümlenin hemen görünmesi için animasyonu başlat
@@ -116,11 +112,13 @@ class _AnimatedSentenceCarouselState extends State<AnimatedSentenceCarousel> wit
     await _flutterTts.setVolume(1.0);
     await _flutterTts.setPitch(1.0);
 
-    _flutterTts.setProgressHandler((String text, int startOffset, int endOffset, String word) {
+    _flutterTts.setProgressHandler(
+        (String text, int startOffset, int endOffset, String word) {
       if (word.isNotEmpty) {
         final words = _sentenceWordsMap[_currentIndex] ?? [];
         String textUpToNow = text.substring(0, startOffset);
-        int wordCount = textUpToNow.split(' ').where((s) => s.isNotEmpty).length;
+        int wordCount =
+            textUpToNow.split(' ').where((s) => s.isNotEmpty).length;
 
         if (wordCount >= 0 && wordCount < words.length) {
           setState(() {
@@ -259,7 +257,8 @@ class _AnimatedSentenceCarouselState extends State<AnimatedSentenceCarousel> wit
 
     _animationController.forward(from: 0.0).then((_) {
       setState(() {
-        _currentIndex = (_currentIndex - 1 + widget.sentences.length) % widget.sentences.length;
+        _currentIndex = (_currentIndex - 1 + widget.sentences.length) %
+            widget.sentences.length;
         _highlightedWordIndex = -1;
         if (_isPlaying) {
           _flutterTts.stop();
@@ -372,19 +371,23 @@ class _AnimatedSentenceCarouselState extends State<AnimatedSentenceCarousel> wit
     });
   }
 
-  Widget _buildHighlightedText(List<String> words, String wordToHighlight, int currentWordIndex) {
+  Widget _buildHighlightedText(
+      List<String> words, String wordToHighlight, int currentWordIndex) {
     final wordToHighlightLower = wordToHighlight.toLowerCase();
 
     return RichText(
       text: TextSpan(
         style: GoogleFonts.poppins(
           fontSize: 16,
-          color: widget.isDarkMode ? Colors.white.withOpacity(0.9) : Colors.black87,
+          color: widget.isDarkMode
+              ? Colors.white.withOpacity(0.9)
+              : Colors.black87,
           height: 1.5,
         ),
         children: List.generate(words.length, (index) {
           final word = words[index];
-          final isWordHighlighted = word.toLowerCase().contains(wordToHighlightLower);
+          final isWordHighlighted =
+              word.toLowerCase().contains(wordToHighlightLower);
           final isCurrentlyBeingRead = index == currentWordIndex;
 
           // Reading highlight (current word)
@@ -463,7 +466,8 @@ class _AnimatedSentenceCarouselState extends State<AnimatedSentenceCarousel> wit
                 children: [
                   if (level.isNotEmpty)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
                         color: Colors.orange.shade400,
                         borderRadius: BorderRadius.circular(20),
@@ -488,7 +492,9 @@ class _AnimatedSentenceCarouselState extends State<AnimatedSentenceCarousel> wit
           animation: _animationController,
           builder: (context, child) {
             // İlk yüklemede animasyon uygulanmaması için kontrol
-            if (_currentIndex == 0 && !_animationController.isAnimating && _animationController.status != AnimationStatus.completed) {
+            if (_currentIndex == 0 &&
+                !_animationController.isAnimating &&
+                _animationController.status != AnimationStatus.completed) {
               return child!;
             }
 
@@ -547,8 +553,14 @@ class _AnimatedSentenceCarouselState extends State<AnimatedSentenceCarousel> wit
                           // Audio button
                           IconButton(
                             icon: Icon(
-                              _isPlaying ? Icons.volume_up : Icons.volume_up_outlined,
-                              color: _isPlaying ? Colors.teal : widget.isDarkMode ? Colors.grey[400] : Colors.grey,
+                              _isPlaying
+                                  ? Icons.volume_up
+                                  : Icons.volume_up_outlined,
+                              color: _isPlaying
+                                  ? Colors.teal
+                                  : widget.isDarkMode
+                                      ? Colors.grey[400]
+                                      : Colors.grey,
                             ),
                             onPressed: () => _speakSentence(sentence),
                           ),
@@ -562,7 +574,9 @@ class _AnimatedSentenceCarouselState extends State<AnimatedSentenceCarousel> wit
                         translation,
                         style: GoogleFonts.poppins(
                           fontSize: 14,
-                          color: widget.isDarkMode ? Colors.grey[400] : Colors.grey[700],
+                          color: widget.isDarkMode
+                              ? Colors.grey[400]
+                              : Colors.grey[700],
                           fontStyle: FontStyle.italic,
                           height: 1.4,
                         ),
@@ -597,7 +611,7 @@ class _AnimatedSentenceCarouselState extends State<AnimatedSentenceCarousel> wit
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: List.generate(
                       widget.sentences.length,
-                          (index) => GestureDetector(
+                      (index) => GestureDetector(
                         onTap: () => _goToIndex(index),
                         child: AnimatedContainer(
                           duration: Duration(milliseconds: 200),
@@ -607,7 +621,9 @@ class _AnimatedSentenceCarouselState extends State<AnimatedSentenceCarousel> wit
                           decoration: BoxDecoration(
                             color: index == _currentIndex
                                 ? Colors.teal
-                                : (widget.isDarkMode ? Colors.grey.shade600 : Colors.grey.shade300),
+                                : (widget.isDarkMode
+                                    ? Colors.grey.shade600
+                                    : Colors.grey.shade300),
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
@@ -619,7 +635,9 @@ class _AnimatedSentenceCarouselState extends State<AnimatedSentenceCarousel> wit
 
               // Next button
               IconButton(
-                onPressed: _currentIndex < widget.sentences.length - 1 ? _goToNext : null,
+                onPressed: _currentIndex < widget.sentences.length - 1
+                    ? _goToNext
+                    : null,
                 icon: Icon(Icons.arrow_forward_ios),
                 color: _currentIndex < widget.sentences.length - 1
                     ? (widget.isDarkMode ? Colors.teal.shade300 : Colors.teal)
@@ -640,16 +658,19 @@ class _AnimatedSentenceCarouselState extends State<AnimatedSentenceCarousel> wit
     super.dispose();
   }
 }
+
 class ScoreDisplay extends StatefulWidget {
   final ValueNotifier<int> userPointsNotifier;
 
-  const ScoreDisplay({Key? key, required this.userPointsNotifier}) : super(key: key);
+  const ScoreDisplay({Key? key, required this.userPointsNotifier})
+      : super(key: key);
 
   @override
   _ScoreDisplayState createState() => _ScoreDisplayState();
 }
 
-class _ScoreDisplayState extends State<ScoreDisplay> with TickerProviderStateMixin {
+class _ScoreDisplayState extends State<ScoreDisplay>
+    with TickerProviderStateMixin {
   late AnimationController _colorController;
   late Animation<Color?> _colorAnimation;
 
@@ -736,12 +757,15 @@ class _ScoreDisplayState extends State<ScoreDisplay> with TickerProviderStateMix
         );
       },
     );
-  }}
+  }
+}
+
 class CustomLoadingIndicator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: SpinKitChasingDots( // Circle türündeki yükleme göstergesi
+      child: SpinKitChasingDots(
+        // Circle türündeki yükleme göstergesi
         color: Theme.of(context).primaryColor, // Yükleme göstergesi rengi
         size: 50.0, // Yükleme göstergesi boyutu
       ),
@@ -755,15 +779,19 @@ class StudyScreen extends StatefulWidget {
   final int studySetId;
   final bool isStarred;
 
-  StudyScreen({required this.words, required this.classroomId, required this.studySetId,    this.isStarred = false,  // Varsayılan değer false olarak ayarlandı
+  StudyScreen({
+    required this.words,
+    required this.classroomId,
+    required this.studySetId,
+    this.isStarred = false, // Varsayılan değer false olarak ayarlandı
   });
 
   @override
   _StudyScreenState createState() => _StudyScreenState();
 }
 
-class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin, AutomaticKeepAliveClientMixin {
-
+class _StudyScreenState extends State<StudyScreen>
+    with TickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   Map<int, ValueNotifier<bool>> starredNotifiers = {};
   late TabController _tabController;
   bool _isMenuExpanded = false;
@@ -771,17 +799,22 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
   @override
   late UserProvider userProvider;
   ValueNotifier<int> pointValueNotifier = ValueNotifier(0);
+
   bool get wantKeepAlive => true;
   late PageController _sentencePageController;
   bool isLoading = true; // Yeni durum değişkeni
-  bool _showOnlyStarred = false; // Yıldızlı kelimeleri göstermek için eklediğimiz kontrol değişkeni
-  bool _shouldSpeak = true;  // Sayfa değiştirildiğinde seslendirme yapılması gerekip gerekmediğini kontrol eder
-  int _targetPageIndex = -1;  // Hedef kelimenin indeksini saklamak için bir değişken
+  bool _showOnlyStarred =
+      false; // Yıldızlı kelimeleri göstermek için eklediğimiz kontrol değişkeni
+  bool _shouldSpeak =
+      true; // Sayfa değiştirildiğinde seslendirme yapılması gerekip gerekmediğini kontrol eder
+  int _targetPageIndex =
+      -1; // Hedef kelimenin indeksini saklamak için bir değişken
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   ValueNotifier<int> _currentSentenceIndex = ValueNotifier<int>(0);
   late PageController _pageController;
   ValueNotifier<int> _selectedPageIndex = ValueNotifier<int>(0);
-  TextEditingController _searchController = TextEditingController(); // Kelime arama için kontrolcü
+  TextEditingController _searchController =
+      TextEditingController(); // Kelime arama için kontrolcü
   List<WordDetail> filteredWords = []; // Filtrelenmiş kelimeleri içerecek liste
   int currentWordIndex = 0; // Geçerli kelimenin indeksi
   int userID = 2;
@@ -798,24 +831,28 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
   Map<int, ValueNotifier<int>> _currentSentenceIndices = {};
   bool _isDarkMode = false; // Dark mode durumu
   late ScrollController _scrollController;
-  String _sentenceSelectionMode = 'traditional'; // 'default', 'traditional', veya 'ai' olabilir
+  String _sentenceSelectionMode =
+      'traditional'; // 'default', 'traditional', veya 'ai' olabilir
   Map<int, ValueNotifier<int>> _sentenceIndices = {};
 
   bool myInterceptor(bool stopDefaultButtonEvent, RouteInfo info) {
     _showExitConfirmationDialog();
     return true;
   }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     _scaffoldMessenger = ScaffoldMessenger.of(context);
   }
+
   Map<String, double> sectionOffsets = {
     'Synonyms': -1,
     'Örnek Cümleler': -1,
     'Türemeler': -1,
     'Collocations': -1,
   };
+
   void _showInfoDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -841,7 +878,9 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
                   textAlign: TextAlign.center,
                 ),
                 SizedBox(height: 10),
-                bulletPoint('Kelimenin farklı anlamda kullanılması',),
+                bulletPoint(
+                  'Kelimenin farklı anlamda kullanılması',
+                ),
                 bulletPoint('Benzer kelimelerin karışması (tent/tenth)'),
                 SizedBox(height: 15),
                 Text(
@@ -882,7 +921,8 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
                       Expanded(
                         child: Text(
                           'Çeviriler yapay zeka çevirisidir ve fikir vermek için hazırlanmıştır. Tam çeviri olmayabilir.',
-                          style: TextStyle(fontSize: 13, color: Colors.blue.shade800),
+                          style: TextStyle(
+                              fontSize: 13, color: Colors.blue.shade800),
                         ),
                       ),
                     ],
@@ -891,7 +931,10 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
                 SizedBox(height: 15),
                 Text(
                   'PhD Akademi',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.teal),
+                  style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.teal),
                 ),
                 SizedBox(height: 20),
                 Align(
@@ -936,16 +979,19 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
       ),
     ).then((value) => value ?? false ? Navigator.of(context).pop(true) : null);
   }
+
   Future<void> _loadDarkModePreference() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _isDarkMode = prefs.getBool("darkMode") ?? false;
     });
   }
+
   bool _showScrollButton = false;
   late AnimationController _filterPanelController;
   late Animation<double> _filterPanelAnimation;
   bool _isFilterPanelVisible = false;
+
   @override
   void initState() {
     super.initState();
@@ -983,7 +1029,8 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
 
     // Kullanıcı puanının güncellenmesi
     userProvider.addPoint(currentPoints + 1);
-    ApiService().updateUserPointTimePeriod(userProvider.userId, currentPoints, 1);
+    ApiService()
+        .updateUserPointTimePeriod(userProvider.userId, currentPoints, 1);
 
     // Kelime kontrolcülerinin oluşturulması
     for (var word in widget.words) {
@@ -1005,25 +1052,32 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
       pointValueNotifier.value = userProvider.point;
     });
   }
+
   void _scrollListener() {
-    if (_scrollController.offset >= _scrollController.position.maxScrollExtent &&
+    if (_scrollController.offset >=
+            _scrollController.position.maxScrollExtent &&
         !_scrollController.position.outOfRange) {
       _isAtBottom.value = true;
-    } else if (_scrollController.offset <= _scrollController.position.minScrollExtent &&
+    } else if (_scrollController.offset <=
+            _scrollController.position.minScrollExtent &&
         !_scrollController.position.outOfRange) {
       _isAtBottom.value = false;
     }
   }
+
   int itemsPerPage = 5; // Her seferinde yüklenecek kelime sayısı
   int currentPage = 0; // Başlangıçta yüklenecek sayfa numarası
   List<WordDetail> getDisplayedWords() {
     // Eğer yıldızlı kelimeleri göster seçeneği aktifse, yalnızca yıldızlı kelimelerin listesini döndür
     if (_showOnlyStarred) {
-      return widget.words.where((word) => starredNotifiers[word.id]?.value ?? false).toList();
+      return widget.words
+          .where((word) => starredNotifiers[word.id]?.value ?? false)
+          .toList();
     }
     // Değilse, tüm kelimeleri döndür
     return widget.words;
   }
+
   Future<void> loadExampleSentences() async {
     try {
       for (var word in widget.words) {
@@ -1034,7 +1088,6 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
         isLoading = false;
       });
     } catch (e) {
-      print('Hata: $e');
       setState(() {
         isLoading = false;
       });
@@ -1046,46 +1099,42 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
       var sentences = await ApiService().fetchExampleSentencesBulk([word]);
       return sentences[word] ?? ["Cümle bulunamadı"];
     } catch (e) {
-      print('Hata: $e');
       return ["Cümle yüklenirken hata oluştu"];
     }
   }
+
   Future<void> _updateUserScore(int newScore, int pointChange) async {
     try {
-      UserProvider userProvider = Provider.of<UserProvider>(context, listen: false);
+      UserProvider userProvider =
+          Provider.of<UserProvider>(context, listen: false);
       int currentPoints = userProvider.point;
 
-      print("Updating score - UserID: ${userProvider.userId}, Current Points: $currentPoints, New Score: $newScore, Point Change: $pointChange");
-
       if (newScore <= 1) {
-        print("New score is <= 1. Keeping current points.");
         newScore = currentPoints;
       }
 
-      if (newScore < currentPoints) {
-        print("Warning: New score ($newScore) is less than current points ($currentPoints).");
-      }
+      if (newScore < currentPoints) {}
 
       await Future.wait([
-        ApiService().updateUserPointTimePeriod(userProvider.userId, newScore, pointChange),
+        ApiService().updateUserPointTimePeriod(
+            userProvider.userId, newScore, pointChange),
         userProvider.addPoint(newScore),
       ]);
 
       setState(() {
         pointValueNotifier.value = newScore;
       });
-
-      print("Score updated successfully. New score: $newScore");
     } catch (e) {
-      print("Error updating user score: $e");
       throw e;
     }
   }
+
 // Var olan _toggleFilterPanel fonksiyonunu değiştirin
   void _toggleFilterPanel() {
     WordDetail currentWord = getDisplayedWords()[_selectedPageIndex.value];
     _showFilterPanel(currentWord, _filteredSentences);
   }
+
   @override
   void dispose() {
     _sentenceIndices.forEach((_, notifier) => notifier.dispose());
@@ -1113,23 +1162,22 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
     }
     super.dispose();
   }
+
   void speak(String text) async {
-    print(text);
     await flutterTts.setLanguage("en-US");
     await flutterTts.awaitSpeakCompletion(true);
     await flutterTts.speak(text);
   }
 
-
-
-
   @override
   Widget build(BuildContext context) {
-    super.build(context);  // AutomaticKeepAliveClientMixin için gerekli
+    super.build(context); // AutomaticKeepAliveClientMixin için gerekli
 
     return Scaffold(
       key: _scaffoldKey,
-      backgroundColor: _isDarkMode ? darkModeColors["background"] : lightModeColors["background"],
+      backgroundColor: _isDarkMode
+          ? darkModeColors["background"]
+          : lightModeColors["background"],
       appBar: AppBar(
         elevation: 0,
         backgroundColor: Colors.transparent,
@@ -1149,7 +1197,9 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
         title: ValueListenableBuilder<int>(
           valueListenable: _selectedPageIndex,
           builder: (_, currentPageIndex, __) {
-            int wordCount = _showOnlyStarred ? getDisplayedWords().length : widget.words.length;
+            int wordCount = _showOnlyStarred
+                ? getDisplayedWords().length
+                : widget.words.length;
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1173,14 +1223,15 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
             },
           ),
           ScoreDisplay(userPointsNotifier: pointValueNotifier),
-
           _buildRoundedIconButton(
             Icons.slow_motion_video_sharp,
             Colors.green,
-                () {
+            () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => VideoPlayerScreen(videoUrl: AppUrls.study)),
+                MaterialPageRoute(
+                    builder: (context) =>
+                        VideoPlayerScreen(videoUrl: AppUrls.study)),
               );
             },
           ),
@@ -1192,12 +1243,12 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
           isLoading
               ? Center(child: LogoLoadingIndicator())
               : AnimatedPadding(
-            duration: Duration(milliseconds: 300),
-            padding: EdgeInsets.only(left: _isMenuExpanded ? 200 : 60),
-            child: isLoading
-                ? Center(child: LogoLoadingIndicator())
-                : buildPageView(),
-          ),
+                  duration: Duration(milliseconds: 300),
+                  padding: EdgeInsets.only(left: _isMenuExpanded ? 200 : 60),
+                  child: isLoading
+                      ? Center(child: LogoLoadingIndicator())
+                      : buildPageView(),
+                ),
           Positioned(
             left: 0,
             top: 0,
@@ -1216,6 +1267,7 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
       ),
     );
   }
+
   Widget _buildRoundedIconButton(
       IconData icon, Color color, VoidCallback onPressed) {
     return Padding(
@@ -1231,7 +1283,6 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
     );
   }
 
-
   Widget _buildStarredModeButton() {
     if (widget.isStarred) {
       return SizedBox.shrink(); // Boş bir widget döndür
@@ -1242,7 +1293,9 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
       child: AnimatedContainer(
         duration: Duration(milliseconds: 300),
         decoration: BoxDecoration(
-          color: _showOnlyStarred ? Colors.yellow.withOpacity(0.2) : Colors.white.withOpacity(0.1),
+          color: _showOnlyStarred
+              ? Colors.yellow.withOpacity(0.2)
+              : Colors.white.withOpacity(0.1),
           borderRadius: BorderRadius.circular(20),
         ),
         child: Material(
@@ -1251,7 +1304,8 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
             borderRadius: BorderRadius.circular(20),
             onTap: _toggleStarredMode,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 6.0),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12.0, vertical: 6.0),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -1281,9 +1335,12 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
     setState(() {
       _showOnlyStarred = !_showOnlyStarred;
       if (_showOnlyStarred) {
-        List<WordDetail> starredWords = widget.words.where((word) => starredNotifiers[word.id]?.value ?? false).toList();
+        List<WordDetail> starredWords = widget.words
+            .where((word) => starredNotifiers[word.id]?.value ?? false)
+            .toList();
         if (starredWords.isNotEmpty) {
-          int firstStarredWordIndex = widget.words.indexWhere((word) => starredWords.contains(word));
+          int firstStarredWordIndex =
+              widget.words.indexWhere((word) => starredWords.contains(word));
           if (firstStarredWordIndex != -1) {
             _pageController.jumpToPage(firstStarredWordIndex);
             _selectedPageIndex.value = firstStarredWordIndex;
@@ -1303,13 +1360,14 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
   Widget _buildDrawer() {
     return Drawer(
       child: Container(
-        color: _isDarkMode ? darkModeColors["background"] : lightModeColors["background"],
+        color: _isDarkMode
+            ? darkModeColors["background"]
+            : lightModeColors["background"],
         child: Column(
           children: [
             _buildDrawerHeader(),
             _buildSearchBar(),
             Expanded(child: _buildWordList()),
-
           ],
         ),
       ),
@@ -1383,7 +1441,8 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
       itemCount: getDisplayedWords().length,
       itemBuilder: (context, index) {
         WordDetail word = filteredWords[index];
-        bool isCurrentWord = widget.words.indexOf(word) == _selectedPageIndex.value;
+        bool isCurrentWord =
+            widget.words.indexOf(word) == _selectedPageIndex.value;
         return _buildWordListItem(word, isCurrentWord, index);
       },
     );
@@ -1440,7 +1499,8 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
                         word.meaning,
                         style: GoogleFonts.roboto(
                           fontSize: 14,
-                          color: isCurrentWord ? Colors.white70 : Colors.black54,
+                          color:
+                              isCurrentWord ? Colors.white70 : Colors.black54,
                         ),
                         maxLines: 1,
                         minFontSize: 6,
@@ -1460,7 +1520,8 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
 
   Widget _buildStarIcon(WordDetail word, bool isCurrentWord) {
     if (widget.isStarred) {
-      return SizedBox.shrink(); // Eğer isStarred true ise, boş bir widget döndür
+      return SizedBox
+          .shrink(); // Eğer isStarred true ise, boş bir widget döndür
     }
 
     return ValueListenableBuilder<bool>(
@@ -1474,7 +1535,9 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
         ),
         child: Icon(
           isStarred ? Icons.star : Icons.star_border,
-          color: isStarred ? Colors.white : (isCurrentWord ? Colors.white : Colors.grey),
+          color: isStarred
+              ? Colors.white
+              : (isCurrentWord ? Colors.white : Colors.grey),
           size: 28,
         ),
       ),
@@ -1484,7 +1547,7 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
   void _onWordTap(WordDetail word, int index) async {
     Navigator.of(context).pop(); // Drawer'ı kapat
     int originalIndex = widget.words.indexOf(word);
-    _targetPageIndex = index;  // Hedef kelimenin indeksini ayarla
+    _targetPageIndex = index; // Hedef kelimenin indeksini ayarla
 
     _pageController.jumpToPage(originalIndex);
     setState(() {
@@ -1498,11 +1561,9 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
 
     try {
       await _updateUserScore(newPoints, 1);
-      print('Puan güncellendi: $newPoints');
-    } catch (e) {
-      print('Puan güncelleme hatası: $e');
-    }
+    } catch (e) {}
   }
+
   Widget buildPageView() {
     List<WordDetail> displayedWords = getDisplayedWords();
     return PageView.builder(
@@ -1517,8 +1578,9 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
         }
 
         // Önceki kelimeyi al
-        WordDetail? previousWord = currentWordIndex < displayedWords.length ?
-        displayedWords[currentWordIndex] : null;
+        WordDetail? previousWord = currentWordIndex < displayedWords.length
+            ? displayedWords[currentWordIndex]
+            : null;
 
         // Yeni kelimeyi al
         WordDetail currentWord = displayedWords[index];
@@ -1537,10 +1599,9 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
           // ÖNEMLİ: Yeni kelimenin cümle PageController'ını sıfırla
           if (_sentencePageControllers.containsKey(currentWord.id) &&
               _sentencePageControllers[currentWord.id]!.hasClients) {
-            _sentencePageControllers[currentWord.id] = PageController(initialPage: 0);
+            _sentencePageControllers[currentWord.id] =
+                PageController(initialPage: 0);
             _sentencePageControllers[currentWord.id]!.jumpToPage(0);
-
-            print("Kelime ID: ${currentWord.id} için PageController sıfırlandı");
           }
 
           // Tüm TTS okumalarını durdur
@@ -1563,7 +1624,8 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
 
         // Eğer kelime için zaten yüklenmiş veritabanı cümleleri yoksa, yüklenmelerini sağla
         if (!_wordFilteredSentences.containsKey(currentWord.id)) {
-          var sentencesData = await _loadSentencesFromDatabase(currentWord.word ?? '');
+          var sentencesData =
+              await _loadSentencesFromDatabase(currentWord.word ?? '');
           if (sentencesData.isNotEmpty) {
             setState(() {
               _wordFilteredSentences[currentWord.id] = sentencesData;
@@ -1595,7 +1657,9 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
         );
       },
     );
-  }  void _resetSentenceStates(WordDetail word) {
+  }
+
+  void _resetSentenceStates(WordDetail word) {
     // Tüm TTS okumalarını durdur
     _flutterTts.stop();
 
@@ -1607,8 +1671,6 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
 
       // Controller'ı sıfırla
       _sentencePageControllers[word.id]!.jumpToPage(0);
-
-      print("Kelime ID: ${word.id} için PageController sıfırlandı");
     }
 
     // Cümle çalma durumlarını sıfırla
@@ -1647,9 +1709,8 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
     for (var notifier in _currentWordIndexNotifiers.values) {
       notifier.value = -1;
     }
-
-    print("Tüm cümle durumları sıfırlandı");
   }
+
   List<TextSpan> _getHighlightedText(String text, String wordToHighlight) {
     if (wordToHighlight.isEmpty) return [TextSpan(text: text)];
 
@@ -1678,7 +1739,8 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
 
       // Eşleşen kelimeyi vurgulayarak ekle
       spans.add(TextSpan(
-        text: text.substring(indexOfMatch, indexOfMatch + wordToHighlight.length),
+        text:
+            text.substring(indexOfMatch, indexOfMatch + wordToHighlight.length),
         style: GoogleFonts.poppins(
           fontWeight: FontWeight.bold,
           color: Colors.teal,
@@ -1692,14 +1754,18 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
 
     return spans;
   }
+
   List<Map<String, dynamic>> _filteredSentences = [];
+
 // Açılır filtre paneli oluşturmak için _buildSentencesSection fonksiyonu
 // Eklenmesi gereken sınıf değişkenleri
   final FlutterTts _flutterTts = FlutterTts();
-  Map<String, List<String>> _sentenceWordsMap = {}; // Cümleleri kelimelere bölmek için (kelimeId_cümleIndeksi şeklinde anahtarlanır)
+  Map<String, List<String>> _sentenceWordsMap =
+      {}; // Cümleleri kelimelere bölmek için (kelimeId_cümleIndeksi şeklinde anahtarlanır)
 
 // Ayrıca, eğer diğer değişkenler de benzer şekilde String anahtar kullanıyorsa, onları da aynı şekilde güncellemelisiniz:
-  Map<String, ValueNotifier<bool>> _isPlayingNotifiers = {}; // Cümle çalınma durumu
+  Map<String, ValueNotifier<bool>> _isPlayingNotifiers =
+      {}; // Cümle çalınma durumu
   Map<String, ValueNotifier<int>> _currentWordIndexNotifiers = {};
 
   Widget _buildSentencesSection(WordDetail word) {
@@ -1747,7 +1813,8 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
             ),
           );
         } else {
-          final sentencesData = snapshot.data ?? []; // Null durumunda boş liste kullan
+          final sentencesData =
+              snapshot.data ?? []; // Null durumunda boş liste kullan
 
           // Her kelime için benzersiz bir filtrelenmiş cümleler listesi oluştur
           List<Map<String, dynamic>> currentWordFilteredSentences;
@@ -1797,7 +1864,10 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
                         onPressed: () {
                           setState(() {
                             // Cümle seçim modunu değiştir
-                            _sentenceSelectionMode = _sentenceSelectionMode == 'traditional' ? 'ai' : 'traditional';
+                            _sentenceSelectionMode =
+                                _sentenceSelectionMode == 'traditional'
+                                    ? 'ai'
+                                    : 'traditional';
                             // Mevcut filtrelenen cümleleri temizle
                             _wordFilteredSentences.remove(word.id);
                             // Yeni cümleleri yükle
@@ -1815,7 +1885,8 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.teal,
                           foregroundColor: Colors.white,
-                          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 10),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
@@ -1825,9 +1896,10 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
                   ),
                 )
               else
-              // Cümleler varsa AnimatedSentenceCarousel'i göster
+                // Cümleler varsa AnimatedSentenceCarousel'i göster
                 Container(
-                  key: ValueKey<String>('sentenceContainer_${word.id}_${currentWordFilteredSentences.length}_${_selectedLevel ?? "all"}_${_selectedType ?? "all"}_${_maxSentencesToShow}_${DateTime.now().millisecondsSinceEpoch}'),
+                  key: ValueKey<String>(
+                      'sentenceContainer_${word.id}_${currentWordFilteredSentences.length}_${_selectedLevel ?? "all"}_${_selectedType ?? "all"}_${_maxSentencesToShow}_${DateTime.now().millisecondsSinceEpoch}'),
                   constraints: BoxConstraints(
                     minHeight: 200,
                     maxHeight: 350,
@@ -1844,7 +1916,9 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
         }
       },
     );
-  }  void _resetSentenceController(WordDetail word) {
+  }
+
+  void _resetSentenceController(WordDetail word) {
     if (_sentencePageControllers.containsKey(word.id)) {
       // Önce dispose et (eğer varsa)
       if (_sentencePageControllers[word.id]!.hasClients) {
@@ -1869,6 +1943,7 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
       });
     }
   }
+
 // Cümleyi kelimelere ayıran yardımcı fonksiyon
   List<String> _splitSentenceToWords(String sentence) {
     // Daha basit bir yaklaşım kullanarak cümleyi kelimelere bölelim
@@ -1885,9 +1960,11 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
     }
 
     return result;
-  }// Okunan kelimeyi vurgulayan widget
+  } // Okunan kelimeyi vurgulayan widget
+
 // Okunan kelimeyi vurgulayan widget
-  Widget _buildHighlightedText(List<String> words, String wordToHighlight, int currentWordIndex) {
+  Widget _buildHighlightedText(
+      List<String> words, String wordToHighlight, int currentWordIndex) {
     final wordToHighlightLower = wordToHighlight.toLowerCase();
 
     return RichText(
@@ -1899,7 +1976,8 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
         ),
         children: List.generate(words.length, (index) {
           final word = words[index];
-          final isWordHighlighted = word.toLowerCase().contains(wordToHighlightLower);
+          final isWordHighlighted =
+              word.toLowerCase().contains(wordToHighlightLower);
           final isCurrentlyBeingRead = index == currentWordIndex;
 
           // Okuma vurgulaması (okunan kelime)
@@ -1936,13 +2014,16 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
       ),
     );
   }
+
   Map<int, List<Map<String, dynamic>>> _wordFilteredSentences = {};
+
   Future<void> _speakSentence(String sentence, String sentenceKey) async {
     // Eğer zaten çalıyorsa durdur
     if (_isPlayingNotifiers[sentenceKey]?.value == true) {
       await _flutterTts.stop();
       _isPlayingNotifiers[sentenceKey]?.value = false;
-      _currentWordIndexNotifiers[sentenceKey]?.value = -1; // Vurgulamayı sıfırla
+      _currentWordIndexNotifiers[sentenceKey]?.value =
+          -1; // Vurgulamayı sıfırla
       return;
     }
 
@@ -1953,13 +2034,15 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
     await _flutterTts.setPitch(1.0); // Ses tonu
 
     // Kelime başı olayını dinle
-    _flutterTts.setProgressHandler((String text, int startOffset, int endOffset, String word) {
+    _flutterTts.setProgressHandler(
+        (String text, int startOffset, int endOffset, String word) {
       if (word.isNotEmpty) {
         final words = _sentenceWordsMap[sentenceKey] ?? [];
 
         // Şu anki pozisyona kadar olan kelimelerin sayısını bul
         String textUpToNow = text.substring(0, startOffset);
-        int wordCount = textUpToNow.split(' ').where((s) => s.isNotEmpty).length;
+        int wordCount =
+            textUpToNow.split(' ').where((s) => s.isNotEmpty).length;
 
         // Cümledeki toplam kelime sayısıyla karşılaştır ve sınırları kontrol et
         if (wordCount >= 0 && wordCount < words.length) {
@@ -1971,17 +2054,20 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
     // Çalma/durma durumunu takip etmek için dinleyicileri ekle
     _flutterTts.setCompletionHandler(() {
       _isPlayingNotifiers[sentenceKey]?.value = false;
-      _currentWordIndexNotifiers[sentenceKey]?.value = -1; // Vurgulamayı sıfırla
+      _currentWordIndexNotifiers[sentenceKey]?.value =
+          -1; // Vurgulamayı sıfırla
     });
 
     _flutterTts.setErrorHandler((error) {
       _isPlayingNotifiers[sentenceKey]?.value = false;
-      _currentWordIndexNotifiers[sentenceKey]?.value = -1; // Vurgulamayı sıfırla
+      _currentWordIndexNotifiers[sentenceKey]?.value =
+          -1; // Vurgulamayı sıfırla
     });
 
     // Ses simgesini aktif hale getir
     _isPlayingNotifiers[sentenceKey]?.value = true;
-    _currentWordIndexNotifiers[sentenceKey]?.value = -1; // Vurgulamayı başlangıçta sıfırla
+    _currentWordIndexNotifiers[sentenceKey]?.value =
+        -1; // Vurgulamayı başlangıçta sıfırla
 
     // Cümleyi okut
     await _flutterTts.speak(sentence);
@@ -1990,26 +2076,20 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
 // TTS'i başlat
   Future<void> _initializeTts() async {
     await _flutterTts.setLanguage("en-US");
-    _wordFilteredSentences = {};  // Her kelime için filtrelenmiş cümleler
+    _wordFilteredSentences = {}; // Her kelime için filtrelenmiş cümleler
 
     // TTS'in özelliklerini kontrol et - bu metod hataya sebep oluyordu
     try {
       bool hasProgressFeature = await _flutterTts.isLanguageAvailable("en-US");
 
       if (hasProgressFeature) {
-        print("TTS başarıyla başlatıldı ve İngilizce destekleniyor!");
-      } else {
-        print("Bu dil desteklenmiyor, başka bir dil seçin");
-      }
-    } catch (e) {
-      print("TTS başlatılırken hata oluştu: $e");
-    }
+      } else {}
+    } catch (e) {}
   }
 
-
-
 // _buildHeaderWithFilters fonksiyonunu da güncelleyelim
-  Widget _buildHeaderWithFilters(List<Map<String, dynamic>> sentencesData, WordDetail word) {
+  Widget _buildHeaderWithFilters(
+      List<Map<String, dynamic>> sentencesData, WordDetail word) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
       child: Column(
@@ -2033,17 +2113,22 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
               GestureDetector(
                 onTap: () => _showFilterModal(word, sentencesData),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
                     color: _isDarkMode ? Colors.grey.shade800 : Colors.white,
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                      color: _isDarkMode ? Colors.teal.shade300.withOpacity(0.5) : Colors.teal.shade300,
+                      color: _isDarkMode
+                          ? Colors.teal.shade300.withOpacity(0.5)
+                          : Colors.teal.shade300,
                       width: 1.5,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: _isDarkMode ? Colors.black.withOpacity(0.2) : Colors.black.withOpacity(0.08),
+                        color: _isDarkMode
+                            ? Colors.black.withOpacity(0.2)
+                            : Colors.black.withOpacity(0.08),
                         blurRadius: 4,
                         offset: const Offset(0, 2),
                       ),
@@ -2055,7 +2140,9 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
                       Icon(
                         Icons.filter_list_rounded,
                         size: 18,
-                        color: _isDarkMode ? Colors.teal.shade300 : Colors.teal.shade700,
+                        color: _isDarkMode
+                            ? Colors.teal.shade300
+                            : Colors.teal.shade700,
                       ),
                       SizedBox(width: 4),
                       Text(
@@ -2063,7 +2150,9 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
                         style: GoogleFonts.poppins(
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
-                          color: _isDarkMode ? Colors.teal.shade300 : Colors.teal.shade700,
+                          color: _isDarkMode
+                              ? Colors.teal.shade300
+                              : Colors.teal.shade700,
                         ),
                       ),
                     ],
@@ -2140,10 +2229,12 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
                 },
               ),
             ],
-          ),        ],
+          ),
+        ],
       ),
     );
   }
+
   Widget _buildSelectionButton({
     required String label,
     required bool isSelected,
@@ -2172,11 +2263,11 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
       ),
     );
   }
-  Widget _buildFilterChip({
-    required String label,
-    required Color color,
-    required VoidCallback onTap
-  }) {
+
+  Widget _buildFilterChip(
+      {required String label,
+      required Color color,
+      required VoidCallback onTap}) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -2202,12 +2293,16 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
       ),
     );
   }
-  void _filterSentences(List<Map<String, dynamic>> allSentences, WordDetail word) {
+
+  void _filterSentences(
+      List<Map<String, dynamic>> allSentences, WordDetail word) {
     setState(() {
       // Filtreleri uygula ve sonuçları kelimeye özgü olarak sakla
       _wordFilteredSentences[word.id] = allSentences.where((sentence) {
-        bool levelMatch = _selectedLevel == null || sentence['level'] == _selectedLevel;
-        bool typeMatch = _selectedType == null || sentence['type'] == _selectedType;
+        bool levelMatch =
+            _selectedLevel == null || sentence['level'] == _selectedLevel;
+        bool typeMatch =
+            _selectedType == null || sentence['type'] == _selectedType;
         return levelMatch && typeMatch;
       }).toList();
 
@@ -2215,8 +2310,10 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
       _filteredSentences = _wordFilteredSentences[word.id] ?? [];
 
       // Maksimum cümle sayısı sınırlama
-      if (_maxSentencesToShow > 0 && _wordFilteredSentences[word.id]!.length > _maxSentencesToShow) {
-        _wordFilteredSentences[word.id] = _wordFilteredSentences[word.id]!.sublist(0, _maxSentencesToShow);
+      if (_maxSentencesToShow > 0 &&
+          _wordFilteredSentences[word.id]!.length > _maxSentencesToShow) {
+        _wordFilteredSentences[word.id] =
+            _wordFilteredSentences[word.id]!.sublist(0, _maxSentencesToShow);
         _filteredSentences = _filteredSentences.sublist(0, _maxSentencesToShow);
       }
 
@@ -2269,8 +2366,10 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
         );
       }
     });
-  }// Filtre panelini açmak için bu fonksiyonu çağırın
-  void _showFilterPanel(WordDetail word, List<Map<String, dynamic>> sentencesData) {
+  } // Filtre panelini açmak için bu fonksiyonu çağırın
+
+  void _showFilterPanel(
+      WordDetail word, List<Map<String, dynamic>> sentencesData) {
     // Mevcut değerleri geçici olarak saklayalım
     String? tempSelectedLevel = _selectedLevel;
     String? tempSelectedType = _selectedType;
@@ -2287,24 +2386,32 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
             Set<String> availableTypes = {};
 
             for (var sentence in sentencesData) {
-              if (sentence['level'] != null && sentence['level'].toString().isNotEmpty) {
+              if (sentence['level'] != null &&
+                  sentence['level'].toString().isNotEmpty) {
                 availableLevels.add(sentence['level']);
               }
-              if (sentence['type'] != null && sentence['type'].toString().isNotEmpty) {
+              if (sentence['type'] != null &&
+                  sentence['type'].toString().isNotEmpty) {
                 availableTypes.add(sentence['type']);
               }
             }
 
             // Burada filtrelenen cümle sayısını hesaplıyoruz
-            List<Map<String, dynamic>> tempFilteredSentences = sentencesData.where((sentence) {
-              bool levelMatch = tempSelectedLevel == null || sentence['level'] == tempSelectedLevel;
-              bool typeMatch = tempSelectedType == null || sentence['type'] == tempSelectedType;
+            List<Map<String, dynamic>> tempFilteredSentences =
+                sentencesData.where((sentence) {
+              bool levelMatch = tempSelectedLevel == null ||
+                  sentence['level'] == tempSelectedLevel;
+              bool typeMatch = tempSelectedType == null ||
+                  sentence['type'] == tempSelectedType;
               return levelMatch && typeMatch;
             }).toList();
 
             int totalFilteredCount = tempFilteredSentences.length;
-            int displayCount = tempMaxSentences == 0 ? totalFilteredCount :
-            (tempMaxSentences < totalFilteredCount ? tempMaxSentences : totalFilteredCount);
+            int displayCount = tempMaxSentences == 0
+                ? totalFilteredCount
+                : (tempMaxSentences < totalFilteredCount
+                    ? tempMaxSentences
+                    : totalFilteredCount);
 
             return Dialog(
               backgroundColor: Colors.transparent,
@@ -2329,7 +2436,8 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
                   children: [
                     // Panel Başlığı
                     Container(
-                      padding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [Colors.teal.shade700, Colors.teal.shade500],
@@ -2343,7 +2451,8 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.filter_list, color: Colors.white, size: 24),
+                          Icon(Icons.filter_list,
+                              color: Colors.white, size: 24),
                           SizedBox(width: 12),
                           Expanded(
                             child: Text(
@@ -2386,11 +2495,13 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
                                 ),
                                 child: Row(
                                   children: [
-                                    Icon(Icons.info_outline, color: Colors.teal.shade700, size: 20),
+                                    Icon(Icons.info_outline,
+                                        color: Colors.teal.shade700, size: 20),
                                     SizedBox(width: 12),
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           Text(
                                             "Filtreleme Bilgisi",
@@ -2496,16 +2607,19 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
                                       });
                                     },
                                   ),
-                                  ...availableLevels.map((level) => _buildDialogFilterOption(
-                                    label: level,
-                                    isSelected: tempSelectedLevel == level,
-                                    color: Colors.orange.shade400,
-                                    onTap: () {
-                                      setDialogState(() {
-                                        tempSelectedLevel = level;
-                                      });
-                                    },
-                                  )).toList(),
+                                  ...availableLevels
+                                      .map((level) => _buildDialogFilterOption(
+                                            label: level,
+                                            isSelected:
+                                                tempSelectedLevel == level,
+                                            color: Colors.orange.shade400,
+                                            onTap: () {
+                                              setDialogState(() {
+                                                tempSelectedLevel = level;
+                                              });
+                                            },
+                                          ))
+                                      .toList(),
                                 ],
                               ),
 
@@ -2535,16 +2649,19 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
                                       });
                                     },
                                   ),
-                                  ...availableTypes.map((type) => _buildDialogFilterOption(
-                                    label: type,
-                                    isSelected: tempSelectedType == type,
-                                    color: Colors.teal.shade400,
-                                    onTap: () {
-                                      setDialogState(() {
-                                        tempSelectedType = type;
-                                      });
-                                    },
-                                  )).toList(),
+                                  ...availableTypes
+                                      .map((type) => _buildDialogFilterOption(
+                                            label: type,
+                                            isSelected:
+                                                tempSelectedType == type,
+                                            color: Colors.teal.shade400,
+                                            onTap: () {
+                                              setDialogState(() {
+                                                tempSelectedType = type;
+                                              });
+                                            },
+                                          ))
+                                      .toList(),
                                 ],
                               ),
 
@@ -2552,7 +2669,8 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
 
                               // Gösterilecek Cümle Sayısı
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
                                     "Gösterilecek Cümle Sayısı",
@@ -2563,21 +2681,30 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
                                     ),
                                   ),
                                   Container(
-                                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                    padding: EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 6),
                                     decoration: BoxDecoration(
-                                      color: tempMaxSentences == 0 ? Colors.teal.shade100 : Colors.grey.shade100,
+                                      color: tempMaxSentences == 0
+                                          ? Colors.teal.shade100
+                                          : Colors.grey.shade100,
                                       borderRadius: BorderRadius.circular(20),
                                       border: Border.all(
-                                        color: tempMaxSentences == 0 ? Colors.teal : Colors.grey.shade300,
+                                        color: tempMaxSentences == 0
+                                            ? Colors.teal
+                                            : Colors.grey.shade300,
                                         width: 1,
                                       ),
                                     ),
                                     child: Text(
-                                      tempMaxSentences == 0 ? "Tümü" : tempMaxSentences.toString(),
+                                      tempMaxSentences == 0
+                                          ? "Tümü"
+                                          : tempMaxSentences.toString(),
                                       style: GoogleFonts.poppins(
                                         fontSize: 14,
                                         fontWeight: FontWeight.w600,
-                                        color: tempMaxSentences == 0 ? Colors.teal : Colors.grey.shade700,
+                                        color: tempMaxSentences == 0
+                                            ? Colors.teal
+                                            : Colors.grey.shade700,
                                       ),
                                     ),
                                   ),
@@ -2597,37 +2724,44 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
                                   runSpacing: 12,
                                   alignment: WrapAlignment.center,
                                   children: [
-                                    _buildDialogNumberOption(0, "Tümü", tempMaxSentences, (value) {
+                                    _buildDialogNumberOption(
+                                        0, "Tümü", tempMaxSentences, (value) {
                                       setDialogState(() {
                                         tempMaxSentences = value;
                                       });
                                     }),
-                                    _buildDialogNumberOption(5, "5", tempMaxSentences, (value) {
+                                    _buildDialogNumberOption(
+                                        5, "5", tempMaxSentences, (value) {
                                       setDialogState(() {
                                         tempMaxSentences = value;
                                       });
                                     }),
-                                    _buildDialogNumberOption(10, "10", tempMaxSentences, (value) {
+                                    _buildDialogNumberOption(
+                                        10, "10", tempMaxSentences, (value) {
                                       setDialogState(() {
                                         tempMaxSentences = value;
                                       });
                                     }),
-                                    _buildDialogNumberOption(20, "20", tempMaxSentences, (value) {
+                                    _buildDialogNumberOption(
+                                        20, "20", tempMaxSentences, (value) {
                                       setDialogState(() {
                                         tempMaxSentences = value;
                                       });
                                     }),
-                                    _buildDialogNumberOption(30, "30", tempMaxSentences, (value) {
+                                    _buildDialogNumberOption(
+                                        30, "30", tempMaxSentences, (value) {
                                       setDialogState(() {
                                         tempMaxSentences = value;
                                       });
                                     }),
-                                    _buildDialogNumberOption(50, "50", tempMaxSentences, (value) {
+                                    _buildDialogNumberOption(
+                                        50, "50", tempMaxSentences, (value) {
                                       setDialogState(() {
                                         tempMaxSentences = value;
                                       });
                                     }),
-                                    _buildDialogNumberOption(100, "100", tempMaxSentences, (value) {
+                                    _buildDialogNumberOption(
+                                        100, "100", tempMaxSentences, (value) {
                                       setDialogState(() {
                                         tempMaxSentences = value;
                                       });
@@ -2762,11 +2896,11 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
 
 // Sayı seçimi için buton (Dialog için)
   Widget _buildDialogNumberOption(
-      int value,
-      String label,
-      int currentValue,
-      Function(int) onSelected,
-      ) {
+    int value,
+    String label,
+    int currentValue,
+    Function(int) onSelected,
+  ) {
     bool isSelected = currentValue == value;
 
     return GestureDetector(
@@ -2780,13 +2914,15 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
             color: isSelected ? Colors.teal : Colors.grey.shade300,
             width: 1.5,
           ),
-          boxShadow: isSelected ? [
-            BoxShadow(
-              color: Colors.teal.withOpacity(0.2),
-              blurRadius: 4,
-              offset: Offset(0, 2),
-            ),
-          ] : null,
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: Colors.teal.withOpacity(0.2),
+                    blurRadius: 4,
+                    offset: Offset(0, 2),
+                  ),
+                ]
+              : null,
         ),
         child: Text(
           label,
@@ -2800,17 +2936,19 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
     );
   }
 
-
 // Floating filtre butonu da yeni modal dialog'u açacak
-  void _showFilterModal(WordDetail word, List<Map<String, dynamic>> sentencesData) {
+  void _showFilterModal(
+      WordDetail word, List<Map<String, dynamic>> sentencesData) {
     if (sentencesData.isEmpty) {
       // Mevcut modun tersini kullan
-      final newMode = _sentenceSelectionMode == 'traditional' ? 'ai' : 'traditional';
+      final newMode =
+          _sentenceSelectionMode == 'traditional' ? 'ai' : 'traditional';
 
       // Yükleme devam ediyor mesajı
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text("Cümleler ${newMode == 'ai' ? 'Yapay Zeka' : 'Geleneksel'} modunda yeniden yükleniyor..."),
+          content: Text(
+              "Cümleler ${newMode == 'ai' ? 'Yapay Zeka' : 'Geleneksel'} modunda yeniden yükleniyor..."),
           duration: Duration(seconds: 2),
         ),
       );
@@ -2834,7 +2972,8 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
     Set<String> availableTypes = {};
 
     for (var sentence in sentencesData) {
-      if (sentence['level'] != null && sentence['level'].toString().isNotEmpty) {
+      if (sentence['level'] != null &&
+          sentence['level'].toString().isNotEmpty) {
         availableLevels.add(sentence['level']);
       }
       if (sentence['type'] != null && sentence['type'].toString().isNotEmpty) {
@@ -2850,20 +2989,26 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
         return StatefulBuilder(
           builder: (context, setModalState) {
             // Burada filtrelenen cümle sayısını hesaplıyoruz
-            List<Map<String, dynamic>> tempFilteredSentences = sentencesData.where((sentence) {
-              bool levelMatch = tempSelectedLevel == null || sentence['level'] == tempSelectedLevel;
-              bool typeMatch = tempSelectedType == null || sentence['type'] == tempSelectedType;
+            List<Map<String, dynamic>> tempFilteredSentences =
+                sentencesData.where((sentence) {
+              bool levelMatch = tempSelectedLevel == null ||
+                  sentence['level'] == tempSelectedLevel;
+              bool typeMatch = tempSelectedType == null ||
+                  sentence['type'] == tempSelectedType;
               return levelMatch && typeMatch;
             }).toList();
 
             int totalFilteredCount = tempFilteredSentences.length;
-            int displayCount = tempMaxSentences == 0 ? totalFilteredCount :
-            (tempMaxSentences < totalFilteredCount ? tempMaxSentences : totalFilteredCount);
+            int displayCount = tempMaxSentences == 0
+                ? totalFilteredCount
+                : (tempMaxSentences < totalFilteredCount
+                    ? tempMaxSentences
+                    : totalFilteredCount);
 
             return DraggableScrollableSheet(
               initialChildSize: 0.8, // Sayfanın %80'ini kaplar
-              minChildSize: 0.5,     // En az %50'sini kaplar
-              maxChildSize: 0.95,    // En fazla %95'ini kaplar
+              minChildSize: 0.5, // En az %50'sini kaplar
+              maxChildSize: 0.95, // En fazla %95'ini kaplar
               builder: (_, scrollController) {
                 return Container(
                   decoration: BoxDecoration(
@@ -2948,7 +3093,8 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
                         ),
                         child: Row(
                           children: [
-                            Icon(Icons.info_outline, color: Colors.teal.shade700),
+                            Icon(Icons.info_outline,
+                                color: Colors.teal.shade700),
                             SizedBox(width: 12),
                             Expanded(
                               child: Text(
@@ -2974,7 +3120,10 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
                               margin: EdgeInsets.only(bottom: 24),
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
-                                  colors: [Colors.teal.shade700, Colors.teal.shade500],
+                                  colors: [
+                                    Colors.teal.shade700,
+                                    Colors.teal.shade500
+                                  ],
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
                                 ),
@@ -3018,7 +3167,8 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.transparent,
                                   foregroundColor: Colors.white,
-                                  padding: EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+                                  padding: EdgeInsets.symmetric(
+                                      vertical: 16, horizontal: 24),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(16),
                                   ),
@@ -3029,7 +3179,8 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
                                   setModalState(() {
                                     tempSelectedLevel = null;
                                     tempSelectedType = null;
-                                    tempMaxSentences = 0; // 0 değeri tüm cümleleri gösterir
+                                    tempMaxSentences =
+                                        0; // 0 değeri tüm cümleleri gösterir
                                   });
                                 },
                               ),
@@ -3046,7 +3197,8 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
                                         padding: EdgeInsets.all(6),
                                         decoration: BoxDecoration(
                                           color: Colors.orange.shade100,
-                                          borderRadius: BorderRadius.circular(8),
+                                          borderRadius:
+                                              BorderRadius.circular(8),
                                         ),
                                         child: Icon(
                                           Icons.signal_cellular_alt,
@@ -3080,16 +3232,20 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
                                           });
                                         },
                                       ),
-                                      ...availableLevels.map((level) => _buildModalFilterOption(
-                                        label: level,
-                                        isSelected: tempSelectedLevel == level,
-                                        color: Colors.orange.shade400,
-                                        onTap: () {
-                                          setModalState(() {
-                                            tempSelectedLevel = level;
-                                          });
-                                        },
-                                      )).toList(),
+                                      ...availableLevels
+                                          .map((level) =>
+                                              _buildModalFilterOption(
+                                                label: level,
+                                                isSelected:
+                                                    tempSelectedLevel == level,
+                                                color: Colors.orange.shade400,
+                                                onTap: () {
+                                                  setModalState(() {
+                                                    tempSelectedLevel = level;
+                                                  });
+                                                },
+                                              ))
+                                          .toList(),
                                     ],
                                   ),
                                 ],
@@ -3108,7 +3264,8 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
                                         padding: EdgeInsets.all(6),
                                         decoration: BoxDecoration(
                                           color: Colors.teal.shade100,
-                                          borderRadius: BorderRadius.circular(8),
+                                          borderRadius:
+                                              BorderRadius.circular(8),
                                         ),
                                         child: Icon(
                                           Icons.category,
@@ -3142,16 +3299,20 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
                                           });
                                         },
                                       ),
-                                      ...availableTypes.map((type) => _buildModalFilterOption(
-                                        label: type,
-                                        isSelected: tempSelectedType == type,
-                                        color: Colors.teal.shade400,
-                                        onTap: () {
-                                          setModalState(() {
-                                            tempSelectedType = type;
-                                          });
-                                        },
-                                      )).toList(),
+                                      ...availableTypes
+                                          .map((type) =>
+                                              _buildModalFilterOption(
+                                                label: type,
+                                                isSelected:
+                                                    tempSelectedType == type,
+                                                color: Colors.teal.shade400,
+                                                onTap: () {
+                                                  setModalState(() {
+                                                    tempSelectedType = type;
+                                                  });
+                                                },
+                                              ))
+                                          .toList(),
                                     ],
                                   ),
                                 ],
@@ -3170,7 +3331,8 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
                                         padding: EdgeInsets.all(6),
                                         decoration: BoxDecoration(
                                           color: Colors.blue.shade100,
-                                          borderRadius: BorderRadius.circular(8),
+                                          borderRadius:
+                                              BorderRadius.circular(8),
                                         ),
                                         child: Icon(
                                           Icons.format_list_numbered,
@@ -3202,37 +3364,45 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
                                     spacing: 10,
                                     runSpacing: 10,
                                     children: [
-                                      _buildModalNumberOption(0, "Tümü", tempMaxSentences, (value) {
+                                      _buildModalNumberOption(
+                                          0, "Tümü", tempMaxSentences, (value) {
                                         setModalState(() {
                                           tempMaxSentences = value;
                                         });
                                       }),
-                                      _buildModalNumberOption(5, "5", tempMaxSentences, (value) {
+                                      _buildModalNumberOption(
+                                          5, "5", tempMaxSentences, (value) {
                                         setModalState(() {
                                           tempMaxSentences = value;
                                         });
                                       }),
-                                      _buildModalNumberOption(10, "10", tempMaxSentences, (value) {
+                                      _buildModalNumberOption(
+                                          10, "10", tempMaxSentences, (value) {
                                         setModalState(() {
                                           tempMaxSentences = value;
                                         });
                                       }),
-                                      _buildModalNumberOption(20, "20", tempMaxSentences, (value) {
+                                      _buildModalNumberOption(
+                                          20, "20", tempMaxSentences, (value) {
                                         setModalState(() {
                                           tempMaxSentences = value;
                                         });
                                       }),
-                                      _buildModalNumberOption(30, "30", tempMaxSentences, (value) {
+                                      _buildModalNumberOption(
+                                          30, "30", tempMaxSentences, (value) {
                                         setModalState(() {
                                           tempMaxSentences = value;
                                         });
                                       }),
-                                      _buildModalNumberOption(50, "50", tempMaxSentences, (value) {
+                                      _buildModalNumberOption(
+                                          50, "50", tempMaxSentences, (value) {
                                         setModalState(() {
                                           tempMaxSentences = value;
                                         });
                                       }),
-                                      _buildModalNumberOption(100, "100", tempMaxSentences, (value) {
+                                      _buildModalNumberOption(
+                                          100, "100", tempMaxSentences,
+                                          (value) {
                                         setModalState(() {
                                           tempMaxSentences = value;
                                         });
@@ -3331,6 +3501,7 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
       },
     );
   }
+
   Widget _buildModalFilterOption({
     required String label,
     required bool isSelected,
@@ -3363,11 +3534,11 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
 
 // Sayı seçimi için buton (Modal için)
   Widget _buildModalNumberOption(
-      int value,
-      String label,
-      int currentValue,
-      Function(int) onSelected,
-      ) {
+    int value,
+    String label,
+    int currentValue,
+    Function(int) onSelected,
+  ) {
     bool isSelected = currentValue == value;
 
     return GestureDetector(
@@ -3381,13 +3552,15 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
             color: isSelected ? Colors.blue.shade500 : Colors.grey.shade300,
             width: 1.5,
           ),
-          boxShadow: isSelected ? [
-            BoxShadow(
-              color: Colors.blue.withOpacity(0.2),
-              blurRadius: 4,
-              offset: Offset(0, 2),
-            ),
-          ] : null,
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: Colors.blue.withOpacity(0.2),
+                    blurRadius: 4,
+                    offset: Offset(0, 2),
+                  ),
+                ]
+              : null,
         ),
         child: Text(
           label,
@@ -3400,8 +3573,10 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
       ),
     );
   }
+
   // Sayı seçimlerini buton şeklinde göstermek için yeni bir widget
-  Widget _buildNumberOption(int value, String label, List<Map<String, dynamic>> sentencesData, WordDetail word) {
+  Widget _buildNumberOption(int value, String label,
+      List<Map<String, dynamic>> sentencesData, WordDetail word) {
     bool isSelected = _maxSentencesToShow == value;
 
     return GestureDetector(
@@ -3510,7 +3685,8 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
           height: 24,
           child: currentWordFilteredSentences.length > 10
               ? _buildScrollablePaginationDots(currentPage, word)
-              : _buildFixedPaginationDots(currentPage, currentWordFilteredSentences.length),
+              : _buildFixedPaginationDots(
+                  currentPage, currentWordFilteredSentences.length),
         );
       },
     );
@@ -3522,7 +3698,7 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
       mainAxisAlignment: MainAxisAlignment.center,
       children: List.generate(
         totalPages,
-            (index) => Container(
+        (index) => Container(
           margin: const EdgeInsets.symmetric(horizontal: 4),
           width: index == currentPage ? 24 : 8,
           height: 8,
@@ -3540,137 +3716,138 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
     List<Map<String, dynamic>> currentWordFilteredSentences =
         _wordFilteredSentences[word.id] ?? [];
 
-    return LayoutBuilder(
-        builder: (context, constraints) {
-          // Kaydırılabilir genişlik için mevcut genişlik
-          final availableWidth = constraints.maxWidth;
+    return LayoutBuilder(builder: (context, constraints) {
+      // Kaydırılabilir genişlik için mevcut genişlik
+      final availableWidth = constraints.maxWidth;
 
-          // Her bir noktanın genişliği (margin dahil)
-          const dotWidth = 16.0; // 8 dot + 8 margin
-          const activeDotWidth = 32.0; // 24 dot + 8 margin
+      // Her bir noktanın genişliği (margin dahil)
+      const dotWidth = 16.0; // 8 dot + 8 margin
+      const activeDotWidth = 32.0; // 24 dot + 8 margin
 
-          // Ekranda gösterilebilecek maksimum nokta sayısı
-          final maxVisibleDots = (availableWidth - activeDotWidth) ~/ dotWidth;
+      // Ekranda gösterilebilecek maksimum nokta sayısı
+      final maxVisibleDots = (availableWidth - activeDotWidth) ~/ dotWidth;
 
-          // Başlangıç ve bitiş indeksi
-          int startIdx = 0;
-          int endIdx = currentWordFilteredSentences.length - 1;
+      // Başlangıç ve bitiş indeksi
+      int startIdx = 0;
+      int endIdx = currentWordFilteredSentences.length - 1;
 
-          // Eğer nokta sayısı ekran sığacağından fazlaysa, aktif sayfaya göre aralık belirle
-          if (currentWordFilteredSentences.length > maxVisibleDots) {
-            // Aktif nokta mümkün olduğunca ortada görünsün
-            final halfVisible = (maxVisibleDots - 1) ~/ 2;
+      // Eğer nokta sayısı ekran sığacağından fazlaysa, aktif sayfaya göre aralık belirle
+      if (currentWordFilteredSentences.length > maxVisibleDots) {
+        // Aktif nokta mümkün olduğunca ortada görünsün
+        final halfVisible = (maxVisibleDots - 1) ~/ 2;
 
-            // Başlangıç indeksi hesapla
-            startIdx = currentPage - halfVisible;
+        // Başlangıç indeksi hesapla
+        startIdx = currentPage - halfVisible;
 
-            // Sınırları ayarla
-            if (startIdx < 0) {
-              startIdx = 0;
-            }
+        // Sınırları ayarla
+        if (startIdx < 0) {
+          startIdx = 0;
+        }
 
-            // Bitiş indeksi hesapla
-            endIdx = startIdx + maxVisibleDots - 1;
+        // Bitiş indeksi hesapla
+        endIdx = startIdx + maxVisibleDots - 1;
 
-            // Bitiş indeksi toplam sayıyı aşmasın
-            if (endIdx >= currentWordFilteredSentences.length) {
-              endIdx = currentWordFilteredSentences.length - 1;
-              // Başlangıç indeksini tekrar ayarla
-              startIdx = endIdx - maxVisibleDots + 1;
-              if (startIdx < 0) startIdx = 0;
-            }
-          }
+        // Bitiş indeksi toplam sayıyı aşmasın
+        if (endIdx >= currentWordFilteredSentences.length) {
+          endIdx = currentWordFilteredSentences.length - 1;
+          // Başlangıç indeksini tekrar ayarla
+          startIdx = endIdx - maxVisibleDots + 1;
+          if (startIdx < 0) startIdx = 0;
+        }
+      }
 
-          return SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Sol ok göstergesi (gerekirse)
-                if (startIdx > 0)
-                  GestureDetector(
-                    onTap: () {
-                      _sentencePageControllers[word.id]!.animateToPage(
-                        0,
-                        duration: const Duration(milliseconds: 300),
-                        curve: Curves.easeInOut,
-                      );
-                    },
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 4),
-                      child: Icon(
-                        Icons.arrow_back_ios,
-                        size: 14,
-                        color: Colors.grey.shade500,
-                      ),
-                    ),
+      return SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Sol ok göstergesi (gerekirse)
+            if (startIdx > 0)
+              GestureDetector(
+                onTap: () {
+                  _sentencePageControllers[word.id]!.animateToPage(
+                    0,
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeInOut,
+                  );
+                },
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Icon(
+                    Icons.arrow_back_ios,
+                    size: 14,
+                    color: Colors.grey.shade500,
                   ),
+                ),
+              ),
 
-                // Görünür noktalar
-                ...List.generate(
-                  endIdx - startIdx + 1,
-                      (i) {
-                    final index = i + startIdx;
-                    return GestureDetector(
-                      onTap: () {
-                        _sentencePageControllers[word.id]!.animateToPage(
-                          index,
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeInOut,
-                        );
-                      },
-                      child: Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 4),
-                        width: index == currentPage ? 24 : 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: index == currentPage
-                              ? Colors.teal
-                              : (_isDarkMode ? Colors.grey.shade600 : Colors.grey.shade300),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
+            // Görünür noktalar
+            ...List.generate(
+              endIdx - startIdx + 1,
+              (i) {
+                final index = i + startIdx;
+                return GestureDetector(
+                  onTap: () {
+                    _sentencePageControllers[word.id]!.animateToPage(
+                      index,
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
                     );
                   },
-                ),
-
-                // Sağ ok göstergesi (gerekirse)
-                if (endIdx < currentWordFilteredSentences.length - 1)
-                  GestureDetector(
-                    onTap: () {
-                      _sentencePageControllers[word.id]!.animateToPage(
-                        currentWordFilteredSentences.length - 1,
-                        duration: const Duration(milliseconds: 300),
-                        curve: Curves.easeInOut,
-                      );
-                    },
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 4),
-                      child: Icon(
-                        Icons.arrow_forward_ios,
-                        size: 14,
-                        color: Colors.grey.shade500,
-                      ),
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    width: index == currentPage ? 24 : 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: index == currentPage
+                          ? Colors.teal
+                          : (_isDarkMode
+                              ? Colors.grey.shade600
+                              : Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-              ],
+                );
+              },
             ),
-          );
-        });
+
+            // Sağ ok göstergesi (gerekirse)
+            if (endIdx < currentWordFilteredSentences.length - 1)
+              GestureDetector(
+                onTap: () {
+                  _sentencePageControllers[word.id]!.animateToPage(
+                    currentWordFilteredSentences.length - 1,
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeInOut,
+                  );
+                },
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Icon(
+                    Icons.arrow_forward_ios,
+                    size: 14,
+                    color: Colors.grey.shade500,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      );
+    });
   }
 
   // 10'dan fazla sayfa için kaydırılabilir pagination dots
 
-
   void _loadStarredStatusAsync() async {
     final service = StarredWordsService();
-    final starredWordIds = await service.loadStarredWords(widget.classroomId, widget.studySetId);
-    print('Yüklenen yıldızlı kelimeler: $starredWordIds');
+    final starredWordIds =
+        await service.loadStarredWords(widget.classroomId, widget.studySetId);
 
     setState(() {
       for (var word in widget.words) {
         bool isStarred = starredWordIds.contains(word.id);
-        starredNotifiers[word.id] = ValueNotifier<bool>(isStarred); // Bu satır değişti
+        starredNotifiers[word.id] =
+            ValueNotifier<bool>(isStarred); // Bu satır değişti
         starredStatus[word.id] = isStarred;
       }
       _updateStarredWordCount();
@@ -3711,7 +3888,8 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
                                   ),
                                   minFontSize: 18, // Minimum font size
                                   maxLines: 1, // Text appears in a single line
-                                  overflow: TextOverflow.ellipsis, // Shows ellipsis when text overflows
+                                  overflow: TextOverflow
+                                      .ellipsis, // Shows ellipsis when text overflows
                                 ),
                               ],
                             ),
@@ -3726,19 +3904,21 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
                       ),
                     ),
                     ValueListenableBuilder<bool>(
-                      valueListenable: starredNotifiers[word.id] ?? ValueNotifier(false),
+                      valueListenable:
+                          starredNotifiers[word.id] ?? ValueNotifier(false),
                       builder: (_, isStarred, __) => AnimatedContainer(
                         duration: Duration(milliseconds: 300),
                         child: widget.isStarred
                             ? SizedBox.shrink()
                             : IconButton(
-                          icon: Icon(
-                            isStarred ? Icons.star : Icons.star_border,
-                            color: isStarred ? Colors.amber : Colors.grey,
-                            size: 32,
-                          ),
-                          onPressed: () => _toggleStar(word, starredNotifiers[word.id]!),
-                        ),
+                                icon: Icon(
+                                  isStarred ? Icons.star : Icons.star_border,
+                                  color: isStarred ? Colors.amber : Colors.grey,
+                                  size: 32,
+                                ),
+                                onPressed: () => _toggleStar(
+                                    word, starredNotifiers[word.id]!),
+                              ),
                       ),
                     ),
                   ],
@@ -3764,7 +3944,9 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
                   ),
                   child: InkWell(
                     onTap: () {
-                      if (word.defination != null && word.defination != 'NULL' && word.defination!.isNotEmpty) {
+                      if (word.defination != null &&
+                          word.defination != 'NULL' &&
+                          word.defination!.isNotEmpty) {
                         speak(word.defination!);
                       }
                     },
@@ -3826,11 +4008,15 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
-                              currentNote.isEmpty ? 'Not eklemek için tıklayın' : currentNote,
+                              currentNote.isEmpty
+                                  ? 'Not eklemek için tıklayın'
+                                  : currentNote,
                               style: GoogleFonts.roboto(
                                 fontSize: 18,
                                 color: Colors.black87,
-                                fontStyle: currentNote.isEmpty ? FontStyle.italic : FontStyle.normal,
+                                fontStyle: currentNote.isEmpty
+                                    ? FontStyle.italic
+                                    : FontStyle.normal,
                               ),
                             ),
                           ),
@@ -3925,7 +4111,6 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
                   ],
                 ),
 
-
                 SizedBox(height: 8),
                 _buildSentencesSection(word),
                 SizedBox(height: 24),
@@ -3967,7 +4152,8 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
                   backgroundColor: Colors.teal.shade700,
                   icon: AnimatedSwitcher(
                     duration: Duration(milliseconds: 300),
-                    transitionBuilder: (Widget child, Animation<double> animation) {
+                    transitionBuilder:
+                        (Widget child, Animation<double> animation) {
                       return RotationTransition(
                         turns: animation,
                         child: child,
@@ -3999,7 +4185,8 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
                     HapticFeedback.lightImpact();
                   },
                   elevation: 4,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30)),
                 );
               },
             ),
@@ -4008,25 +4195,22 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
       ],
     );
   }
+
   final supabase = Supabase.instance.client;
 
-  Future<List<Map<String, dynamic>>> _loadSentencesFromDatabase(String word) async {
+  Future<List<Map<String, dynamic>>> _loadSentencesFromDatabase(
+      String word) async {
     try {
       if (_sentenceSelectionMode == 'traditional') {
         // Geleneksel mod: Sadece tam kelime eşleşmesi
-        final data = await supabase
-            .from('sentences')
-            .select()
-            .eq('word', word);
+        final data = await supabase.from('sentences').select().eq('word', word);
 
-        print("Geleneksel mod - Aranan kelime: '$word' - Bulunan sonuç: ${data.length}");
         return List<Map<String, dynamic>>.from(data);
       } else {
         // Yapay Zeka mod: FTS ile arama
         return await searchWords(word);
       }
     } catch (e) {
-      print("Supabase'den kelime '$word' için cümle alınırken hata: $e");
       return [];
     }
   }
@@ -4048,8 +4232,6 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
           .select()
           .textSearch('fts', exactPhraseQuery, config: 'english');
 
-      print("Tam ifade araması - Aranan: '$exactPhraseQuery' - Bulunan: ${exactMatches.length}");
-
       // Eğer tam ifade araması yeterli sonuç verirse, sadece onları döndür
       if (exactMatches.length >= 3) {
         return List<Map<String, dynamic>>.from(exactMatches);
@@ -4065,21 +4247,17 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
           .select()
           .textSearch('fts', orQuery, config: 'english');
 
-      print("Yakınlık araması - Aranan: '$orQuery' - Bulunan: ${proximityMatches.length}");
-
       // 3. Hala yeterli sonuç yoksa, ILIKE ile tam metin araması yapalım
       List<Map<String, dynamic>> ilikeMatches = [];
       if (exactMatches.length + proximityMatches.length < 3) {
-        ilikeMatches = await supabase
-            .from('sentences')
-            .select()
-            .ilike('sentence', '%$searchTerm%'); // Değiştirildi: 'content' yerine 'sentence' kullanıldı
-
-        print("ILIKE araması - Aranan: '$searchTerm' - Bulunan: ${ilikeMatches.length}");
+        ilikeMatches = await supabase.from('sentences').select().ilike(
+            'sentence',
+            '%$searchTerm%'); // Değiştirildi: 'content' yerine 'sentence' kullanıldı
       }
 
       // Sonuçları birleştir ve tekrarları kaldır
-      List<Map<String, dynamic>> allResults = List<Map<String, dynamic>>.from(exactMatches);
+      List<Map<String, dynamic>> allResults =
+          List<Map<String, dynamic>>.from(exactMatches);
       allResults.addAll(proximityMatches);
       allResults.addAll(ilikeMatches);
 
@@ -4100,26 +4278,23 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
     } else {
       // Tek kelimeler için tam kelime eşleşmesini zorla
       // Kelimenin en az 4 karakter olması durumunda joker karakter kullan
-      final String queryTerm = searchTerm.length > 3 ? "$searchTerm:*" : searchTerm;
+      final String queryTerm =
+          searchTerm.length > 3 ? "$searchTerm:*" : searchTerm;
 
       final data = await supabase
           .from('sentences')
           .select()
           .textSearch('fts', queryTerm, config: 'english');
 
-      print("Tam kelime araması - Aranan: '$queryTerm' - Bulunan: ${data.length}");
-
       // Yeterli sonuç yoksa ILIKE ile de arayalım
       if (data.length < 3) {
-        final ilikeResults = await supabase
-            .from('sentences')
-            .select()
-            .ilike('sentence', '% $searchTerm %'); // Değiştirildi: 'content' yerine 'sentence' kullanıldı
-
-        print("ILIKE araması (tek kelime) - Aranan: '$searchTerm' - Bulunan: ${ilikeResults.length}");
+        final ilikeResults = await supabase.from('sentences').select().ilike(
+            'sentence',
+            '% $searchTerm %'); // Değiştirildi: 'content' yerine 'sentence' kullanıldı
 
         // Sonuçları birleştir ve tekrarları kaldır
-        List<Map<String, dynamic>> allResults = List<Map<String, dynamic>>.from(data);
+        List<Map<String, dynamic>> allResults =
+            List<Map<String, dynamic>>.from(data);
         allResults.addAll(ilikeResults);
 
         // Tekrarlanan sonuçları kaldır
@@ -4141,13 +4316,15 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
       return List<Map<String, dynamic>>.from(data);
     }
   }
+
   bool _isLoadingCentences = false; // Yükleme durumunu takip etmek için
   int _retryAttempts = 0; // Deneme sayısını takip etmek için
   int _maxRetryAttempts = 3; // Maksimum deneme sayısı
 
 // Cümle seçim modunu değiştirdiğinde tekrar deneme yapacak metod
 // _applySentenceSelection fonksiyonunu da düzeltelim
-  void _applySentenceSelection(WordDetail word, List<Map<String, dynamic>> sentencesData) async {
+  void _applySentenceSelection(
+      WordDetail word, List<Map<String, dynamic>> sentencesData) async {
     // İlk olarak TTS'i durdur
     _flutterTts.stop();
 
@@ -4164,13 +4341,13 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
       while (_retryAttempts < _maxRetryAttempts) {
         try {
           // Yeni cümleleri yükle
-          List<Map<String, dynamic>> newSentencesData = await _loadSentencesFromDatabase(word.word ?? '');
+          List<Map<String, dynamic>> newSentencesData =
+              await _loadSentencesFromDatabase(word.word ?? '');
           // Başarılı olursa sonucu döndür
           return newSentencesData;
         } catch (e) {
           // Hata durumunda
           _retryAttempts++;
-          print("Cümle yükleme hatası (Deneme ${_retryAttempts}/$_maxRetryAttempts): $e");
           if (_retryAttempts >= _maxRetryAttempts) {
             // Maksimum deneme sayısına ulaşıldıysa hatayı göster
             if (mounted) {
@@ -4207,13 +4384,17 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
       setState(() {
         // Örnek cümleleri güncelle
         _wordFilteredSentences[word.id] = newSentencesData.where((sentence) {
-          bool levelMatch = _selectedLevel == null || sentence['level'] == _selectedLevel;
-          bool typeMatch = _selectedType == null || sentence['type'] == _selectedType;
+          bool levelMatch =
+              _selectedLevel == null || sentence['level'] == _selectedLevel;
+          bool typeMatch =
+              _selectedType == null || sentence['type'] == _selectedType;
           return levelMatch && typeMatch;
         }).toList();
 
-        if (_maxSentencesToShow > 0 && _wordFilteredSentences[word.id]!.length > _maxSentencesToShow) {
-          _wordFilteredSentences[word.id] = _wordFilteredSentences[word.id]!.sublist(0, _maxSentencesToShow);
+        if (_maxSentencesToShow > 0 &&
+            _wordFilteredSentences[word.id]!.length > _maxSentencesToShow) {
+          _wordFilteredSentences[word.id] =
+              _wordFilteredSentences[word.id]!.sublist(0, _maxSentencesToShow);
         }
 
         // PageController'ı kesin bir şekilde sıfırla
@@ -4254,13 +4435,13 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
           _scrollController.jumpTo(currentScrollPosition);
         }
       });
-
-      print("Cümle seçim modu değiştirildi: ${_sentenceSelectionMode}");
     }
   }
+
   void _cleanupSentenceStates(WordDetail word) {
     // Kelimeye özel tüm state'leri temizle
-    _sentenceWordsMap.removeWhere((key, value) => key.startsWith('${word.id}_'));
+    _sentenceWordsMap
+        .removeWhere((key, value) => key.startsWith('${word.id}_'));
 
     _currentWordIndexNotifiers.removeWhere((key, value) {
       if (key.startsWith('${word.id}_')) {
@@ -4278,6 +4459,7 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
       return false;
     });
   }
+
   void _scrollToBottom() {
     _scrollController.animateTo(
       _scrollController.position.maxScrollExtent,
@@ -4285,8 +4467,8 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
       curve: Curves.easeOut,
     );
   }
-  void _scrollToSection(String sectionName) {
 
+  void _scrollToSection(String sectionName) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final RenderBox? box = context.findRenderObject() as RenderBox?;
       if (box == null) return;
@@ -4320,7 +4502,8 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
         final statusBarHeight = MediaQuery.of(context).padding.top;
 
         // Hedef offseti ayarla
-        targetOffset = max(0, targetOffset - (screenHeight / 4) + appBarHeight + statusBarHeight);
+        targetOffset = max(0,
+            targetOffset - (screenHeight / 4) + appBarHeight + statusBarHeight);
 
         _scrollController.animateTo(
           targetOffset,
@@ -4332,21 +4515,27 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
       }
     });
   }
+
   void _scrollToTop() {
-    _scrollController.animateTo(
+    _scrollController
+        .animateTo(
       0,
       duration: Duration(milliseconds: 500),
       curve: Curves.easeOut,
-    ).then((_) {
-      _isAtBottom.value = false; // Yukarı çıktıktan sonra "Aşağı İn" durumuna geri dön
+    )
+        .then((_) {
+      _isAtBottom.value =
+          false; // Yukarı çıktıktan sonra "Aşağı İn" durumuna geri dön
     });
   }
+
   void _scrollToOffset(double offset) {
     final screenHeight = MediaQuery.of(context).size.height;
     final appBarHeight = AppBar().preferredSize.height;
     final statusBarHeight = MediaQuery.of(context).padding.top;
 
-    final adjustedOffset = max(0.0, offset - (screenHeight / 3) + appBarHeight + statusBarHeight);
+    final adjustedOffset =
+        max(0.0, offset - (screenHeight / 3) + appBarHeight + statusBarHeight);
 
     _scrollController.animateTo(
       adjustedOffset,
@@ -4354,8 +4543,10 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
       curve: Curves.easeInOutCubic,
     );
   }
+
   void _editReminderNote(int wordId, String currentNote) {
-    TextEditingController _noteController = TextEditingController(text: currentNote);
+    TextEditingController _noteController =
+        TextEditingController(text: currentNote);
     showDialog(
       context: context,
       builder: (BuildContext dialogContext) => AlertDialog(
@@ -4414,7 +4605,8 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
             ),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.redAccent,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
             ),
             onPressed: () => Navigator.of(dialogContext).pop(),
           ),
@@ -4426,7 +4618,8 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
             ),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.green,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
             ),
             onPressed: () async {
               await saveReminderNote(wordId, _noteController.text);
@@ -4460,6 +4653,7 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
       ),
     );
   }
+
   void _findAndScrollToSection(String sectionName) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       RenderBox? box = context.findRenderObject() as RenderBox?;
@@ -4485,6 +4679,7 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
       }
     });
   }
+
   void showNotFoundMessage() {
     if (!mounted) return;
 
@@ -4544,21 +4739,26 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
       ),
     );
   }
-  void _toggleStar(WordDetail word, ValueNotifier<bool> isStarredNotifier) async {
+
+  void _toggleStar(
+      WordDetail word, ValueNotifier<bool> isStarredNotifier) async {
     final service = StarredWordsService();
     final newStatus = !isStarredNotifier.value;
 
-    await service.toggleWordStarStatus(word.id, newStatus, widget.classroomId, widget.studySetId);
+    await service.toggleWordStarStatus(
+        word.id, newStatus, widget.classroomId, widget.studySetId);
     setState(() {
       isStarredNotifier.value = newStatus; // UI'ı güncelleyin
       starredStatus[word.id] = newStatus; // Bu eklemeyi unutmayın
       _updateStarredWordCount();
     });
   }
+
   void _updateStarredWordCount() {
     int newCount = starredStatus.values.where((isStarred) => isStarred).length;
     animatedStarredCount.value = newCount; // Bu satırı ekledim
   }
+
   TableRow buildTableRow(String term, String meaning) {
     return TableRow(
       children: [
@@ -4566,7 +4766,11 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
           padding: const EdgeInsets.all(8.0),
           child: Text(
             term,
-            style: GoogleFonts.roboto(fontSize: 18, color: _isDarkMode ? darkModeColors["text"] : lightModeColors["text"]),
+            style: GoogleFonts.roboto(
+                fontSize: 18,
+                color: _isDarkMode
+                    ? darkModeColors["text"]
+                    : lightModeColors["text"]),
           ),
         ),
         Padding(
@@ -4579,6 +4783,7 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
       ],
     );
   }
+
 // Ortak bir widget oluşturma fonksiyonu
   Widget buildSectionWidget({
     required String title,
@@ -4592,7 +4797,10 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
           padding: const EdgeInsets.symmetric(vertical: 8.0),
           child: Text(
             title,
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(color: titleColor),
+            style: Theme.of(context)
+                .textTheme
+                .titleLarge
+                ?.copyWith(color: titleColor),
           ),
         ),
         ...children,
@@ -4621,9 +4829,9 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
           ),
           subtitle: subtitle != null
               ? Text(
-            subtitle,
-            style: Theme.of(context).textTheme.bodyMedium,
-          )
+                  subtitle,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                )
               : null,
         ),
       ),
@@ -4675,33 +4883,37 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
           child: Wrap(
             spacing: 8.0,
             runSpacing: 8.0,
-            children: uniqueSynonyms.map((synonym) => GestureDetector(
-              onTap: () => speak(synonym.tanim),
-              child: Container(
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: Colors.indigo.withOpacity(0.3),
-                    width: 1,
-                  ),
-                ),
-                child: Text(
-                  synonym.tanim,
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    color: Colors.indigo.shade700,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            )).toList(),
+            children: uniqueSynonyms
+                .map((synonym) => GestureDetector(
+                      onTap: () => speak(synonym.tanim),
+                      child: Container(
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: Colors.indigo.withOpacity(0.3),
+                            width: 1,
+                          ),
+                        ),
+                        child: Text(
+                          synonym.tanim,
+                          style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            color: Colors.indigo.shade700,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ))
+                .toList(),
           ),
         ),
       ],
     );
   }
+
 // Collocations bölümü
   Widget buildCollocationsSection(List<Collocation> collocations) {
     return Column(
@@ -4728,55 +4940,60 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
             ],
           ),
         ),
-        ...collocations.map((collocation) => GestureDetector(
-          onTap: () => collocation.definition != null
-              ? speak(collocation.definition!)
-              : null,
-          child: Container(
-            width: double.infinity,
-            margin: const EdgeInsets.only(bottom: 8, left: 16, right: 16),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Colors.indigo.withOpacity(0.1),
-                  Colors.indigo.withOpacity(0.05)
-                ],
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  collocation.definition ?? '',
-                  style: GoogleFonts.poppins(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
-                    height: 1.3,
+        ...collocations
+            .map((collocation) => GestureDetector(
+                  onTap: () => collocation.definition != null
+                      ? speak(collocation.definition!)
+                      : null,
+                  child: Container(
+                    width: double.infinity,
+                    margin:
+                        const EdgeInsets.only(bottom: 8, left: 16, right: 16),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Colors.indigo.withOpacity(0.1),
+                          Colors.indigo.withOpacity(0.05)
+                        ],
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          collocation.definition ?? '',
+                          style: GoogleFonts.poppins(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black87,
+                            height: 1.3,
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          collocation.anlam ?? '',
+                          style: GoogleFonts.roboto(
+                            fontSize: 14,
+                            color: Colors.black54,
+                            fontStyle: FontStyle.italic,
+                            height: 1.2,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                SizedBox(height: 4),
-                Text(
-                  collocation.anlam ?? '',
-                  style: GoogleFonts.roboto(
-                    fontSize: 14,
-                    color: Colors.black54,
-                    fontStyle: FontStyle.italic,
-                    height: 1.2,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        )).toList(),
+                ))
+            .toList(),
       ],
     );
   }
+
   Future<void> saveReminderNote(int wordId, String note) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('reminder_$wordId', note);
@@ -4786,6 +5003,7 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('reminder_$wordId');
   }
+
 // Derivations bölümü
   Widget buildDerivationsSection(List<Derivation> derivations) {
     var groupedDerivations = groupBy(derivations, (d) => d.type?.toLowerCase());
@@ -4815,19 +5033,25 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
           ),
         ),
         if (groupedDerivations.containsKey('verb'))
-          buildDerivationList("Fiiller", groupedDerivations['verb']!, Icons.run_circle, Colors.lightBlueAccent),
+          buildDerivationList("Fiiller", groupedDerivations['verb']!,
+              Icons.run_circle, Colors.lightBlueAccent),
         if (groupedDerivations.containsKey('noun'))
-          buildDerivationList("İsimler", groupedDerivations['noun']!, Icons.account_balance, Colors.amber),
+          buildDerivationList("İsimler", groupedDerivations['noun']!,
+              Icons.account_balance, Colors.amber),
         if (groupedDerivations.containsKey('adjective'))
-          buildDerivationList("Sıfatlar", groupedDerivations['adjective']!, Icons.adjust, Colors.purpleAccent),
+          buildDerivationList("Sıfatlar", groupedDerivations['adjective']!,
+              Icons.adjust, Colors.purpleAccent),
         if (groupedDerivations.containsKey('adverb'))
-          buildDerivationList("Zarflar", groupedDerivations['adverb']!, Icons.airplanemode_active, Colors.greenAccent),
+          buildDerivationList("Zarflar", groupedDerivations['adverb']!,
+              Icons.airplanemode_active, Colors.greenAccent),
       ],
     );
   }
 
-  Widget buildDerivationList(String title, List<Derivation> derivations, IconData icon, Color iconColor) {
-    var uniqueDerivations = {for (var d in derivations) d.definition: d}.values.toList();
+  Widget buildDerivationList(String title, List<Derivation> derivations,
+      IconData icon, Color iconColor) {
+    var uniqueDerivations =
+        {for (var d in derivations) d.definition: d}.values.toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -4841,64 +5065,69 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
               Text(
                 title,
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: iconColor,
-                  fontWeight: FontWeight.bold,
-                ),
+                      color: iconColor,
+                      fontWeight: FontWeight.bold,
+                    ),
               ),
             ],
           ),
         ),
-        ...uniqueDerivations.map((derivation) => _buildDerivationItem(derivation, iconColor)),
+        ...uniqueDerivations
+            .map((derivation) => _buildDerivationItem(derivation, iconColor)),
       ],
     );
   }
 
   Widget _buildDerivationItem(Derivation derivation, Color color) {
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: GestureDetector(
-          onTap: () => speak(derivation.definition),
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              color: Colors.transparent,
-            ),
-            child: Padding(
-              padding: EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    derivation.definition,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: color.withOpacity(0.8),
-                    ),
-                  ),
-                  if (derivation.anlam != null) ...[
-                    SizedBox(height: 4),
-                    Text(
-                      derivation.anlam!,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+        margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Material(
+            color: Colors.transparent,
+            child: GestureDetector(
+              onTap: () => speak(derivation.definition),
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  color: Colors.transparent,
+                ),
+                child: Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        derivation.definition,
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: color.withOpacity(0.8),
+                                ),
                       ),
-                    ),
-                  ],
-                ],
+                      if (derivation.anlam != null) ...[
+                        SizedBox(height: 4),
+                        Text(
+                          derivation.anlam!,
+                          style:
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                  ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
               ),
-            ),
-          ),
-        )
-      )
-    );
+            )));
   }
-  Widget buildSentencePageView(Future<List<String>> sentencesFuture, PageController controller) {
+
+  Widget buildSentencePageView(
+      Future<List<String>> sentencesFuture, PageController controller) {
     return FutureBuilder<List<String>>(
       future: sentencesFuture,
       builder: (context, snapshot) {
@@ -4922,7 +5151,9 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
                   'Senin için örnek cümleler arıyorum...',
                   style: GoogleFonts.roboto(
                     fontSize: 18,
-                    color: _isDarkMode ? darkModeColors["text"] : lightModeColors["text"],
+                    color: _isDarkMode
+                        ? darkModeColors["text"]
+                        : lightModeColors["text"],
                   ),
                 ),
               ],
@@ -4944,7 +5175,9 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
               'Cümle bulunamadı',
               style: GoogleFonts.roboto(
                 fontSize: 18,
-                color: _isDarkMode ? darkModeColors["text"] : lightModeColors["text"],
+                color: _isDarkMode
+                    ? darkModeColors["text"]
+                    : lightModeColors["text"],
               ),
             ),
           );
@@ -4967,15 +5200,19 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.warning_amber_rounded, color: Colors.amber.shade800),
+                    Icon(Icons.warning_amber_rounded,
+                        color: Colors.amber.shade800),
                     SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         'Örnek cümleler hakkında önemli bilgi',
-                        style: TextStyle(color: Colors.amber.shade800, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                            color: Colors.amber.shade800,
+                            fontWeight: FontWeight.bold),
                       ),
                     ),
-                    Icon(Icons.arrow_forward_ios, color: Colors.amber.shade800, size: 16),
+                    Icon(Icons.arrow_forward_ios,
+                        color: Colors.amber.shade800, size: 16),
                   ],
                 ),
               ),
@@ -5003,9 +5240,12 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
                       child: Hero(
                         tag: 'sentence_$index',
                         child: Container(
-                          margin: EdgeInsets.symmetric(horizontal: 6.0, vertical: 8.0),
+                          margin: EdgeInsets.symmetric(
+                              horizontal: 6.0, vertical: 8.0),
                           decoration: BoxDecoration(
-                            color: _isDarkMode ? darkModeColors["cardBackground"] : lightModeColors["cardBackground"],
+                            color: _isDarkMode
+                                ? darkModeColors["cardBackground"]
+                                : lightModeColors["cardBackground"],
                             borderRadius: BorderRadius.circular(15.0),
                             boxShadow: [
                               BoxShadow(
@@ -5023,7 +5263,9 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
                                 sentences[index],
                                 style: GoogleFonts.roboto(
                                   fontSize: 18,
-                                  color: _isDarkMode ? darkModeColors["text"] : lightModeColors["text"],
+                                  color: _isDarkMode
+                                      ? darkModeColors["text"]
+                                      : lightModeColors["text"],
                                 ),
                                 textAlign: TextAlign.center,
                               ),
@@ -5044,7 +5286,8 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
               builder: (_, value, __) {
                 return Container(
                   margin: EdgeInsets.only(top: 10),
-                  padding: EdgeInsets.symmetric(horizontal: 10.0, vertical: 5.0),
+                  padding:
+                      EdgeInsets.symmetric(horizontal: 10.0, vertical: 5.0),
                   decoration: BoxDecoration(
                     color: Colors.teal,
                     borderRadius: BorderRadius.circular(20.0),
@@ -5061,6 +5304,7 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
       },
     );
   }
+
   void _showWarningDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -5076,6 +5320,7 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
       },
     );
   }
+
   Widget buildAudioNoteWidget() {
     return Container(
       padding: EdgeInsets.all(8),
@@ -5108,6 +5353,7 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
       ),
     );
   }
+
   Widget ContentBox(BuildContext context) {
     return Stack(
       children: <Widget>[
@@ -5156,7 +5402,10 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
               SizedBox(height: 10),
               Text(
                 'PhD Akademi',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.teal),
+                style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.teal),
               ),
               SizedBox(height: 20),
               Align(
@@ -5198,7 +5447,8 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
         children: [
           Text(
             '• ',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.teal),
+            style: TextStyle(
+                fontSize: 14, fontWeight: FontWeight.bold, color: Colors.teal),
           ),
           Expanded(
             child: Text(
@@ -5210,6 +5460,7 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
       ),
     );
   }
+
   void filterWords(String query) {
     setState(() {
       filteredWords = widget.words.where((word) {
@@ -5218,6 +5469,7 @@ class _StudyScreenState extends State<StudyScreen> with TickerProviderStateMixin
     });
   }
 }
+
 class SideMenu extends StatefulWidget {
   final Function(String) onSectionSelected;
   final bool isExpanded;
@@ -5250,7 +5502,6 @@ class _SideMenuState extends State<SideMenu> with TickerProviderStateMixin {
     if (widget.isExpanded) {
       _animationController.value = 1.0;
     }
-
   }
 
   @override
@@ -5274,7 +5525,6 @@ class _SideMenuState extends State<SideMenu> with TickerProviderStateMixin {
   void _toggleMenu() {
     widget.onExpandChanged(!widget.isExpanded);
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -5330,16 +5580,15 @@ class _SideMenuState extends State<SideMenu> with TickerProviderStateMixin {
     );
   }
 
-
   Widget _buildMenuItem(IconData icon, String section) {
     return ListTile(
       leading: Icon(icon, color: Colors.white),
       title: widget.isExpanded
           ? Text(
-        section,
-        style: TextStyle(color: Colors.white),
-        overflow: TextOverflow.ellipsis,
-      )
+              section,
+              style: TextStyle(color: Colors.white),
+              overflow: TextOverflow.ellipsis,
+            )
           : null,
       onTap: () {
         widget.onSectionSelected(section);
@@ -5353,6 +5602,7 @@ class _SideMenuState extends State<SideMenu> with TickerProviderStateMixin {
     );
   }
 }
+
 class ContentBoxSentence extends StatelessWidget {
   final Widget content;
   final IconData icon;

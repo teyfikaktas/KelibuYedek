@@ -1,25 +1,23 @@
 import 'dart:async';
 import 'dart:math';
 import 'dart:ui';
+
+import 'package:confetti/confetti.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kelibu/Models/wordDetaik.dart';
+import 'package:kelibu/api.dart';
+import 'package:kelibu/providers/user_provider.dart';
 import 'package:lottie/lottie.dart';
 import 'package:provider/provider.dart';
-import 'package:kelibu/providers/user_provider.dart';
-import 'package:kelibu/api.dart';
-import 'package:confetti/confetti.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../widgets/match_mode_widget.dart';
 
-
 // 1. Öncelikle, süre seçimi için bir enum ekleyin
 
-
 // Oyun zorluk seviyeleri
-
 
 // Öğe tarafı enum
 enum ItemSide { left, right }
@@ -384,17 +382,12 @@ class _MatchingGameState extends State<MatchingGame>
       userCurrentPoints: _currentUserPoints,
     );
   }
+
   void _checkCompletion({String context = "unknown"}) {
     if (!mounted) return;
 
-    print("🔍 [$context] Tamamlanma kontrolü başlatılıyor...");
-    print("📊 Mevcut durum - Sol: ${_leftItems.length}, Sağ: ${_rightItems.length}");
-    print("🎯 Round: $_currentRound/$_totalRounds");
-    print("🔒 States - RoundCompleting: $_isRoundCompleting, GameCompleting: $_isGameCompleting");
-
     // Eğer zaten bir işlem devam ediyorsa durma
     if (_isRoundCompleting || _isGameCompleting || _gameOver || _gameWon) {
-      print("⏸️ İşlem zaten devam ediyor, kontrol iptal edildi");
       return;
     }
 
@@ -403,28 +396,23 @@ class _MatchingGameState extends State<MatchingGame>
     bool isRoundComplete = _leftItems.isEmpty && _rightItems.isEmpty;
 
     if (isRoundComplete) {
-      print("✅ Tur tamamlandı algılandı!");
       _handleRoundCompletion(context: context);
     } else if (hasItemsLeft) {
-      print("🎮 Oyun devam ediyor - ${_leftItems.length} öğe kaldı");
       _updateItemCounts();
     } else {
-      print("⚠️ Beklenmeyen durum - Liste durumları tutarsız");
       _handleInconsistentState();
     }
   }
+
   /// Tur tamamlama işlemi
   void _handleRoundCompletion({String context = "unknown"}) {
     if (_isRoundCompleting || _isGameCompleting) {
-      print("⏸️ Tur tamamlama zaten devam ediyor");
       return;
     }
 
     setState(() {
       _isRoundCompleting = true;
     });
-
-    print("🎯 [$context] Tur $_currentRound tamamlanıyor...");
 
     // Tur sonucunu hesapla (sadece bir kez)
     if (!_roundResultCalculated) {
@@ -444,16 +432,13 @@ class _MatchingGameState extends State<MatchingGame>
   void _executeRoundTransition() {
     if (!mounted) return;
 
-    print("🔄 Tur geçiş işlemi başlatılıyor...");
-
     if (_currentRound < _totalRounds) {
-      print("➡️ Sonraki tura geçiliyor: ${_currentRound + 1}/$_totalRounds");
       _proceedToNextRound();
     } else {
-      print("🏆 TÜM TURLAR TAMAMLANDI - Oyun bitişi başlatılıyor");
       _handleGameCompletion();
     }
   }
+
   void _updateAllItemPositions() {
     setState(() {
       for (var item in [..._leftItems, ..._rightItems]) {
@@ -461,6 +446,7 @@ class _MatchingGameState extends State<MatchingGame>
       }
     });
   }
+
   void _proceedToNextRound() {
     setState(() {
       _isRoundCompleting = false;
@@ -475,7 +461,6 @@ class _MatchingGameState extends State<MatchingGame>
   /// Oyun tamamlama işlemi
   void _handleGameCompletion() {
     if (_isGameCompleting) {
-      print("⏸️ Oyun tamamlama zaten devam ediyor");
       return;
     }
 
@@ -483,8 +468,6 @@ class _MatchingGameState extends State<MatchingGame>
       _isGameCompleting = true;
       _isRoundCompleting = false;
     });
-
-    print("🏁 OYUN TAMAMEN BİTİYOR!");
 
     // 300ms sonra final işlemleri gerçekleştir
     _gameCompletionTimer?.cancel();
@@ -498,8 +481,6 @@ class _MatchingGameState extends State<MatchingGame>
   void _executeFinalGameCompletion() {
     if (!mounted) return;
 
-    print("🎊 Final oyun bitiş işlemleri gerçekleştiriliyor...");
-
     _calculateFinalScore();
 
     setState(() {
@@ -511,8 +492,6 @@ class _MatchingGameState extends State<MatchingGame>
 
     _updateStats();
     _confettiController.play();
-
-    print("✨ Oyun başarıyla tamamlandı!");
   }
 
   // ===== 3. GÜVENLİ EŞLEŞME YÖNETİMİ =====
@@ -525,13 +504,9 @@ class _MatchingGameState extends State<MatchingGame>
 
     // Eşleşmeyi işlenmiş listesine ekle
     if (_processedMatches.contains(matchedId)) {
-      print("⚠️ Bu eşleşme zaten işlendi: $matchedId");
       return;
     }
     _processedMatches.add(matchedId);
-
-    print("🗑️ Eşleşen öğeler kaldırılıyor: ID $matchedId");
-    print("📊 Kaldırma öncesi - Sol: ${_leftItems.length}, Sağ: ${_rightItems.length}");
 
     // Animasyon süresince bekle
     Future.delayed(const Duration(milliseconds: 600), () {
@@ -540,6 +515,7 @@ class _MatchingGameState extends State<MatchingGame>
       _performItemRemoval(matchedId);
     });
   }
+
   void _performItemRemoval(int matchedId) {
     setState(() {
       int leftBefore = _leftItems.length;
@@ -551,8 +527,6 @@ class _MatchingGameState extends State<MatchingGame>
 
       int leftAfter = _leftItems.length;
       int rightAfter = _rightItems.length;
-
-      print("📊 Kaldırma sonrası - Sol: $leftBefore→$leftAfter, Sağ: $rightBefore→$rightAfter");
 
       // Seçimleri temizle
       _clearSelections();
@@ -587,6 +561,7 @@ class _MatchingGameState extends State<MatchingGame>
     _lastLeftItemCount = _leftItems.length;
     _lastRightItemCount = _rightItems.length;
   }
+
   // Seri kurtarma animasyonunu göster
   void _showSeriesSaverAnimation() {
     if (!mounted) return;
@@ -631,12 +606,11 @@ class _MatchingGameState extends State<MatchingGame>
     });
   }
 
-  Future<void> _updateUserScore(int newTotalScore) async {
+  Future<void> _updateUserScore(int newTotalScore, int roundpoint) async {
     try {
       UserProvider userProvider =
           Provider.of<UserProvider>(context, listen: false);
       int currentPoints = userProvider.point;
-
 
       // Puan düşüşü kontrolü
       if (newTotalScore < currentPoints) {
@@ -647,7 +621,7 @@ class _MatchingGameState extends State<MatchingGame>
       await ApiService().updateUserPointTimePeriod(
           userProvider.userId,
           newTotalScore, // ✅ Toplam puanı gönder
-          0 // time point - oyun süresi istemiyorsan 0 ver
+          roundpoint // time point - oyun süresi istemiyorsan 0 ver
           );
 
       // ✅ LOCAL STATE'İ GÜNCELLE
@@ -656,9 +630,7 @@ class _MatchingGameState extends State<MatchingGame>
       setState(() {
         _currentUserPoints = newTotalScore;
       });
-
-    } catch (e) {
-    }
+    } catch (e) {}
   }
 
   Future<void> _loadUserPoints() async {
@@ -682,13 +654,10 @@ class _MatchingGameState extends State<MatchingGame>
     try {
       final prefs = await SharedPreferences.getInstance();
 
-
       // ✅ DÜZELTME: Toplam puanı kaydet (ekleme değil, set etme)
       await prefs.setInt('userPoints', newTotalPoints);
       await Future.delayed(const Duration(milliseconds: 100));
-
-    } catch (e) {
-    }
+    } catch (e) {}
   }
 
   bool _localPointsUpdated = false; // Class seviyesinde değişken ekle
@@ -762,7 +731,6 @@ class _MatchingGameState extends State<MatchingGame>
             TextButton(
               onPressed: () {
                 Navigator.of(context).pop();
-                print("🚫 Joker kullanılmadı - Normal hata işlemi yapılıyor");
                 _processNormalMismatchWithStreakBreak();
               },
               child: Text(
@@ -783,8 +751,6 @@ class _MatchingGameState extends State<MatchingGame>
               ),
               onPressed: () {
                 Navigator.of(context).pop();
-
-                print("🃏 Joker kullanıldı - Seri korunuyor!");
 
                 _usedSeriesSaver = true;
                 _hasSeriesSaver = false;
@@ -820,7 +786,6 @@ class _MatchingGameState extends State<MatchingGame>
   void _checkSeriesSaverEarning() {
     // Her 10 seride bir joker kazan (sadece bir kez)
     if (_scoreManager.streak == 10 && !_hasSeriesSaver && !_usedSeriesSaver) {
-      print("🎁 10 seri tamamlandı - Joker kazanıldı!");
       setState(() {
         _hasSeriesSaver = true;
       });
@@ -829,6 +794,7 @@ class _MatchingGameState extends State<MatchingGame>
       _showSeriesSaverEarnedDialog();
     }
   }
+
 // ✅ YENİ: Joker kazanma bildirimi
   void _showSeriesSaverEarnedDialog() {
     showDialog(
@@ -909,7 +875,6 @@ class _MatchingGameState extends State<MatchingGame>
     );
   }
 
-
 // ✅ YENİ VE İYİLEŞTİRİLMİŞ SERİ KURTARMA OVERLAY
   Widget _buildSeriesSaverOverlay() {
     if (!_showingSeriesSaverAnimation) return const SizedBox.shrink();
@@ -953,8 +918,12 @@ class _MatchingGameState extends State<MatchingGame>
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                               colors: [
-                                _isDarkMode ? const Color(0xFF374151) : Colors.white,
-                                _isDarkMode ? const Color(0xFF1F2937) : const Color(0xFFFAFBFC),
+                                _isDarkMode
+                                    ? const Color(0xFF374151)
+                                    : Colors.white,
+                                _isDarkMode
+                                    ? const Color(0xFF1F2937)
+                                    : const Color(0xFFFAFBFC),
                               ],
                             ),
                             borderRadius: BorderRadius.circular(24),
@@ -1024,11 +993,13 @@ class _MatchingGameState extends State<MatchingGame>
                                         fontWeight: FontWeight.w800,
                                         color: _isDarkMode
                                             ? Colors.green[400]
-                                            : Colors.green[700], // Yeşil tonu
+                                            : Colors.green[700],
+                                        // Yeşil tonu
                                         letterSpacing: 1.0,
                                         shadows: [
                                           Shadow(
-                                            color: Colors.green.withOpacity(0.3),
+                                            color:
+                                                Colors.green.withOpacity(0.3),
                                             blurRadius: 6,
                                             offset: const Offset(0, 2),
                                           ),
@@ -1040,7 +1011,8 @@ class _MatchingGameState extends State<MatchingGame>
 
                                     // ✅ Alt yazı - Daha sade
                                     Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
                                       children: [
                                         Icon(
                                           Icons.check_circle_outline,
@@ -1076,7 +1048,8 @@ class _MatchingGameState extends State<MatchingGame>
                         // ✅ Alt bilgi kartı - Daha temiz
                         const SizedBox(height: 20),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 20, vertical: 10),
                           decoration: BoxDecoration(
                             // ✅ Beyaz glassmorphism
                             color: Colors.white.withOpacity(0.2),
@@ -1124,6 +1097,7 @@ class _MatchingGameState extends State<MatchingGame>
       ),
     );
   }
+
 // ✅ GELİŞTİRİLMİŞ ZİNCİR ANİMASYONU
   Widget _buildEnhancedChainAnimation() {
     return Container(
@@ -1140,8 +1114,10 @@ class _MatchingGameState extends State<MatchingGame>
             width: 500,
             fit: BoxFit.contain,
             // ✅ TERS OYNAMA SEÇENEKLERİ:
-            repeat: false, // Tekrar etmesin
-            reverse: true, // Controller ile kontrol edeceğiz
+            repeat: false,
+            // Tekrar etmesin
+            reverse: true,
+            // Controller ile kontrol edeceğiz
             animate: false, // Manuel kontrol
           ),
 
@@ -1162,7 +1138,6 @@ class _MatchingGameState extends State<MatchingGame>
       ),
     );
   }
-
 
   Widget _buildGameContent(Map<String, Color> colors) {
     // ✅ 1. HAZIRLIK EKRANI - Sonraki tur hazırlanıyor
@@ -1481,7 +1456,8 @@ class _MatchingGameState extends State<MatchingGame>
 
                                   // Ayırıcı çizgi
                                   Container(
-                                    margin: const EdgeInsets.symmetric(vertical: 16),
+                                    margin: const EdgeInsets.symmetric(
+                                        vertical: 16),
                                     height: 1,
                                     decoration: BoxDecoration(
                                       gradient: LinearGradient(
@@ -1512,7 +1488,8 @@ class _MatchingGameState extends State<MatchingGame>
 
                                   // ✅ TOPLAM PUAN - ScoreManager'dan al
                                   TweenAnimationBuilder(
-                                    duration: const Duration(milliseconds: 1200),
+                                    duration:
+                                        const Duration(milliseconds: 1200),
                                     tween: Tween<double>(begin: 0, end: 1),
                                     builder: (context, double value, child) {
                                       return Transform.scale(
@@ -1549,9 +1526,10 @@ class _MatchingGameState extends State<MatchingGame>
                                                 ),
                                               ),
                                               Container(
-                                                padding: const EdgeInsets.symmetric(
-                                                    horizontal: 12,
-                                                    vertical: 6),
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                        horizontal: 12,
+                                                        vertical: 6),
                                                 decoration: BoxDecoration(
                                                   color: colors['primary'],
                                                   borderRadius:
@@ -1561,7 +1539,8 @@ class _MatchingGameState extends State<MatchingGame>
                                                       color: colors['primary']!
                                                           .withOpacity(0.3),
                                                       blurRadius: 8,
-                                                      offset: const Offset(0, 2),
+                                                      offset:
+                                                          const Offset(0, 2),
                                                     ),
                                                   ],
                                                 ),
@@ -1959,11 +1938,12 @@ class _MatchingGameState extends State<MatchingGame>
               onTap: () {
                 // ✅ ScoreResult kullanarak kullanıcı puanını güncelle
                 int newUserPoints = _currentUserPoints + finalRoundScore;
-                _updateUserScore(newUserPoints);
+                _updateUserScore(newUserPoints,finalRoundScore);
                 _startNextRoundManually();
               },
               child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+                padding:
+                    const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -1989,7 +1969,8 @@ class _MatchingGameState extends State<MatchingGame>
                     ),
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(0.2),
                         borderRadius: BorderRadius.circular(12),
@@ -2113,11 +2094,11 @@ class _MatchingGameState extends State<MatchingGame>
       controller.dispose();
     }
     _fadeControllers.clear();
-  }// 1. Sadece ters oynatma:
+  } // 1. Sadece ters oynatma:
+
   void _playChainReverse() {
     _lottieChainController.reverse(from: 1.0); // Sondan başa doğru
   }
-
 
   void _pointAnimationStatusListener(AnimationStatus status) {
     if (status == AnimationStatus.completed && !_localPointsUpdated) {
@@ -2145,14 +2126,12 @@ class _MatchingGameState extends State<MatchingGame>
           finalRoundPoints, // ✅ Sadece bu roundda kazanılan puan
           gameDuration);
 
-
       // Log kaydı
       await ApiService().logSetEntry(
           'Eşleştirme Oyunu - Tur $_currentRound',
           '${widget.difficulty.toString().split('.').last.toUpperCase()} zorluğunda $finalRoundPoints puan kazandı.',
           'Süre: $gameDuration sn, Seri: $_bestStreak, Yeni Toplam: $_currentUserPoints');
-    } catch (e) {
-    }
+    } catch (e) {}
   }
 
   void _filterValidWords() {
@@ -2224,7 +2203,7 @@ class _MatchingGameState extends State<MatchingGame>
         _timeRemaining = _initialTime = 180;
         break;
       case TimeSelection.custom:
-      // Özel süre için girilen değeri al (varsayılan 120, min 30, max 300)
+        // Özel süre için girilen değeri al (varsayılan 120, min 30, max 300)
         int customTime = int.tryParse(widget.customTimeValue) ?? 120;
         customTime = customTime.clamp(30, 300);
         _timeRemaining = _initialTime = customTime;
@@ -2325,13 +2304,15 @@ class _MatchingGameState extends State<MatchingGame>
       _totalScore = 0; // ✅ BU SATIR EKSİK OLMUŞ OLABİLİR!
     }
   }
+
   List<T> _getRandomSublist<T>(List<T> items, int count) {
     final shuffled = List<T>.from(items)..shuffle(Random());
     return shuffled.take(count).toList();
   }
 
   void handleItemTap(ItemModel item) {
-    if (_gameOver || _isPaused || _isRoundCompleting || _isGameCompleting) return;
+    if (_gameOver || _isPaused || _isRoundCompleting || _isGameCompleting)
+      return;
 
     HapticFeedback.lightImpact();
 
@@ -2385,6 +2366,7 @@ class _MatchingGameState extends State<MatchingGame>
       }
     }
   }
+
   Widget _buildUserPointsDisplay(Map<String, Color> colors) {
     return AnimatedBuilder(
       animation: _pointAnimationController,
@@ -2490,6 +2472,7 @@ class _MatchingGameState extends State<MatchingGame>
       },
     );
   }
+
   void _checkGameCompletionSafely() {
     // ✅ Çoklu çağrı koruması ekle
     if (_gameOver || _gameWon || _isCheckingCompletion) return;
@@ -2505,7 +2488,6 @@ class _MatchingGameState extends State<MatchingGame>
       bool hasItemsLeft = _leftItems.isNotEmpty && _rightItems.isNotEmpty;
 
       if (!hasItemsLeft) {
-        print("🎯 Oyun tamamlandı - Round: $_currentRound/$_totalRounds");
         _calculateFinalScore();
 
         if (_currentRound < _totalRounds) {
@@ -2531,44 +2513,37 @@ class _MatchingGameState extends State<MatchingGame>
 
   void checkMatch() {
     if (_selectedLeftItem == null || _selectedRightItem == null) return;
-    if (_gameOver || _isPaused || _isRoundCompleting || _isGameCompleting) return;
-
-    print("🔍 Eşleşme kontrolü - Sol ID: ${_selectedLeftItem!.id}, Sağ ID: ${_selectedRightItem!.id}");
+    if (_gameOver || _isPaused || _isRoundCompleting || _isGameCompleting)
+      return;
 
     if (_selectedLeftItem!.id == _selectedRightItem!.id) {
       // ==================== BAŞARILI EŞLEŞME ====================
-
-      print("✅ Eşleşme başarılı!");
 
       // Son kelime kontrolü
       bool isLastMatch = (_leftItems.length == 1 && _rightItems.length == 1);
 
       if (isLastMatch) {
-        print("🎯 SON KELİME EŞLEŞTİRİLİYOR!");
         _handleLastMatchSecurely();
         return;
       }
 
       // Normal eşleşme işlemi
       _handleSuccessfulMatch();
-
     } else {
       // ==================== BAŞARISIZ EŞLEŞME ====================
 
-      print("❌ Eşleşme başarısız!");
-
       // ✅ DÜZELTME: Joker kontrolü ÖNCE yapılmalı (seri kesilmeden önce)
       if (_hasSeriesSaver && !_usedSeriesSaver && _scoreManager.streak >= 5) {
-        print("🃏 Joker kullanım şartları karşılandı - Dialog gösteriliyor");
         _showSeriesSaverDialog();
         return;
       }
 
       // Joker yoksa veya kullanılamıyorsa normal işlem
-      print("🚫 Joker kullanılamıyor - Normal hata işlemi");
       _processNormalMismatchWithStreakBreak();
     }
-  }  /// Başarılı eşleşme işlemi
+  }
+
+  /// Başarılı eşleşme işlemi
   void _handleSuccessfulMatch() {
     // ScoreManager'a bildirme
     _scoreManager.addMatchScore();
@@ -2595,11 +2570,8 @@ class _MatchingGameState extends State<MatchingGame>
 
   /// Son kelime güvenli işlemi
   void _handleLastMatchSecurely() {
-    print("🔥 Son kelime güvenli işlem başlatıldı");
-
     // Eğer zaten bir tamamlanma işlemi varsa dur
     if (_isRoundCompleting || _isGameCompleting) {
-      print("⏸️ Tamamlanma işlemi zaten devam ediyor");
       return;
     }
 
@@ -2623,8 +2595,6 @@ class _MatchingGameState extends State<MatchingGame>
     Future.delayed(const Duration(milliseconds: 250), () {
       if (!mounted || _isRoundCompleting || _isGameCompleting) return;
 
-      print("🎯 Son kelime - listeler temizleniyor");
-
       setState(() {
         _leftItems.clear();
         _rightItems.clear();
@@ -2635,34 +2605,28 @@ class _MatchingGameState extends State<MatchingGame>
       _checkCompletion(context: "last_match_completed");
     });
   }
+
   /// Tur skorunu hesapla
   void _calculateRoundScore() {
     if (_currentRoundResult != null) {
-      print("⚠️ Bu tur için skor zaten hesaplandı");
       return;
     }
 
-    print("📊 Tur $_currentRound skoru hesaplanıyor...");
-
     _scoreManager.timeRemaining = _timeRemaining;
     _currentRoundResult = _scoreManager.calculateRoundResult();
-
-    print("💰 Tur skoru: ${_currentRoundResult!.finalRoundScore}");
   }
 
   /// Sonraki tur başlatma (manuel)
   void _startNextRoundManually() {
     if (_isRoundCompleting || _isGameCompleting) {
-      print("⏸️ Tur değişimi zaten devam ediyor");
       return;
     }
 
-    print("🎮 Manuel sonraki tur başlatılıyor...");
-
     // Kullanıcı puanını güncelle
     if (_currentRoundResult != null) {
-      int newUserPoints = _currentUserPoints + _currentRoundResult!.finalRoundScore;
-      _updateUserScore(newUserPoints);
+      int newUserPoints =
+          _currentUserPoints + _currentRoundResult!.finalRoundScore;
+      _updateUserScore(newUserPoints,_currentRoundResult!.finalRoundScore);
     }
 
     setState(() {
@@ -2692,16 +2656,12 @@ class _MatchingGameState extends State<MatchingGame>
 
   /// Tutarsız durum yönetimi
   void _handleInconsistentState() {
-    print("🔧 Tutarsız oyun durumu düzeltiliyor...");
-
     setState(() {
       _clearSelections();
     });
 
     // Liste durumlarını kontrol et
     if (_leftItems.length != _rightItems.length) {
-      print("⚠️ Liste uzunlukları farklı - Sol: ${_leftItems.length}, Sağ: ${_rightItems.length}");
-
       // Eğer her iki liste de boşsa, turu tamamla
       if (_leftItems.isEmpty && _rightItems.isEmpty) {
         _checkCompletion(context: "inconsistent_state_both_empty");
@@ -2713,7 +2673,6 @@ class _MatchingGameState extends State<MatchingGame>
   bool _validateGameState() {
     // Temel kontroller
     if (_leftItems.length != _rightItems.length) {
-      print("⚠️ Liste uzunlukları eşit değil! Sol: ${_leftItems.length}, Sağ: ${_rightItems.length}");
       return false;
     }
 
@@ -2721,23 +2680,21 @@ class _MatchingGameState extends State<MatchingGame>
     Set<int> leftIds = _leftItems.map((e) => e.id).toSet();
     Set<int> rightIds = _rightItems.map((e) => e.id).toSet();
 
-    if (leftIds.length != _leftItems.length || rightIds.length != _rightItems.length) {
-      print("⚠️ Tekrar eden ID'ler bulundu!");
+    if (leftIds.length != _leftItems.length ||
+        rightIds.length != _rightItems.length) {
       return false;
     }
 
     // ID uyumu kontrolü
     if (!leftIds.every((id) => rightIds.contains(id))) {
-      print("⚠️ Sol ve sağ listeler farklı ID'lere sahip!");
       return false;
     }
 
     return true;
   }
+
 // ✅ YENİ METOD: Son kelime özel işlemi
   void _handleLastMatch() {
-    print("🔥 Son kelime işlemi başlatıldı");
-
     // ScoreManager'a doğru eşleşme bildir
     _scoreManager.addMatchScore();
 
@@ -2758,8 +2715,6 @@ class _MatchingGameState extends State<MatchingGame>
     Future.delayed(const Duration(milliseconds: 200), () {
       if (!mounted) return;
 
-      print("🎯 Son kelime animasyonu tamamlandı, oyun bitiriliyor");
-
       setState(() {
         // Listeleri temizle
         _leftItems.clear();
@@ -2776,6 +2731,7 @@ class _MatchingGameState extends State<MatchingGame>
       _checkGameCompletionSafely();
     });
   }
+
   void _checkGameCompletion() {
     // Kısa bir gecikme ile kontrol et (animasyonların başlaması için)
     Future.delayed(const Duration(milliseconds: 100), () {
@@ -2796,6 +2752,7 @@ class _MatchingGameState extends State<MatchingGame>
       }
     });
   }
+
   Widget _buildSeriesSaverIndicator(Map<String, Color> colors) {
     if (!_hasSeriesSaver || _usedSeriesSaver) {
       return const SizedBox.shrink(); // Joker yoksa hiçbir şey gösterme
@@ -2829,12 +2786,8 @@ class _MatchingGameState extends State<MatchingGame>
 
 // ✅ DÜZELTME: processNormalMismatchWithStreakBreak metodunu güncelle
   void _processNormalMismatchWithStreakBreak() {
-    print("💥 Seri kesiliyor - Önceki seri: ${_scoreManager.streak}");
-
     // ScoreManager'a yanlış eşleşme bildir (bu seriyi keser)
     _scoreManager.addMissScore();
-
-    print("📉 Yeni seri değeri: ${_scoreManager.streak}");
 
     _selectedLeftItem!.isWrong = true;
     _selectedRightItem!.isWrong = true;
@@ -2861,8 +2814,8 @@ class _MatchingGameState extends State<MatchingGame>
       });
     });
   }
-  void _processNormalMismatch() {
 
+  void _processNormalMismatch() {
     // ✅ MUTLAKA seriyi kes
     _processNormalMismatchWithStreakBreak();
   }
@@ -2891,8 +2844,8 @@ class _MatchingGameState extends State<MatchingGame>
       });
     });
   }
-  void _calculateFinalScore() {
 
+  void _calculateFinalScore() {
     // ScoreManager'ı güncelle
     _scoreManager.setTotalRounds(_totalRounds);
     _scoreManager.timeRemaining = _timeRemaining;
@@ -2908,7 +2861,7 @@ class _MatchingGameState extends State<MatchingGame>
     // Debug bilgilerini yazdır
 
     // Kullanıcı puanını güncelle
-    _updateUserScore(result.newUserTotal);
+    _updateUserScore(result.newUserTotal, 0);  // İki parametre
 
     // Başarı kontrolü
     if (result.perfectBonus > 0) {
@@ -3198,18 +3151,23 @@ class _MatchingGameState extends State<MatchingGame>
     final rightController = _fadeControllers[_selectedRightItem!.id]!;
 
     _selectedLeftItem!.fadeAnimation = Tween<double>(begin: 1.0, end: 0.0)
-        .animate(CurvedAnimation(parent: leftController, curve: Curves.easeOut));
+        .animate(
+            CurvedAnimation(parent: leftController, curve: Curves.easeOut));
     _selectedLeftItem!.scaleAnimation = Tween<double>(begin: 1.0, end: 0.7)
-        .animate(CurvedAnimation(parent: leftController, curve: Curves.easeOut));
+        .animate(
+            CurvedAnimation(parent: leftController, curve: Curves.easeOut));
 
     _selectedRightItem!.fadeAnimation = Tween<double>(begin: 1.0, end: 0.0)
-        .animate(CurvedAnimation(parent: rightController, curve: Curves.easeOut));
+        .animate(
+            CurvedAnimation(parent: rightController, curve: Curves.easeOut));
     _selectedRightItem!.scaleAnimation = Tween<double>(begin: 1.0, end: 0.7)
-        .animate(CurvedAnimation(parent: rightController, curve: Curves.easeOut));
+        .animate(
+            CurvedAnimation(parent: rightController, curve: Curves.easeOut));
 
     leftController.forward();
     rightController.forward();
   }
+
   @override
   Widget build(BuildContext context) {
     final colors = _isDarkMode ? _darkModeColors() : _lightModeColors();
@@ -3489,8 +3447,8 @@ class _MatchingGameState extends State<MatchingGame>
     return AnimatedPositioned(
       duration: const Duration(milliseconds: 500),
       curve: Curves.easeOutQuart,
-      bottom:
-          _isAddingPoints ? 20 : -100, // Animasyon bitince ekrandan kaybolsun
+      bottom: _isAddingPoints ? 20 : -100,
+      // Animasyon bitince ekrandan kaybolsun
       left: 0,
       right: 0,
       child: Center(
@@ -3719,8 +3677,8 @@ class _MatchingGameState extends State<MatchingGame>
                                         1.2, // Satır yüksekliğini küçültelim
                                   ),
                                   textAlign: TextAlign.center,
-                                  overflow: TextOverflow
-                                      .visible, // Değiştirildi: Taşmaya izin verelim
+                                  overflow: TextOverflow.visible,
+                                  // Değiştirildi: Taşmaya izin verelim
                                   maxLines: null, // Sınırsız satır
                                 ),
                               ),
@@ -3865,7 +3823,8 @@ class _MatchingGameState extends State<MatchingGame>
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.emoji_events, color: Colors.amber, size: 24),
+                    const Icon(Icons.emoji_events,
+                        color: Colors.amber, size: 24),
                     const SizedBox(width: 8),
                     Text(
                       "Toplam:",
@@ -4417,7 +4376,8 @@ class _MatchingGameState extends State<MatchingGame>
             backgroundColor: colors['primary'],
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            minimumSize: const Size(double.infinity, 50), // Genişliği max yapıyoruz
+            minimumSize: const Size(double.infinity, 50),
+            // Genişliği max yapıyoruz
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(14),
             ),
@@ -4443,7 +4403,8 @@ class _MatchingGameState extends State<MatchingGame>
             backgroundColor: colors['secondary'],
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            minimumSize: const Size(double.infinity, 50), // Genişliği max yapıyoruz
+            minimumSize: const Size(double.infinity, 50),
+            // Genişliği max yapıyoruz
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(14),
             ),
@@ -5197,29 +5158,29 @@ class ScoreManager {
   int _getBaseScore() {
     switch (difficulty) {
       case DifficultyLevel.easy:
-        return 8;
+        return 1;
       case DifficultyLevel.medium:
-        return 10;
+        return 2;
       case DifficultyLevel.hard:
-        return 15;
+        return 3;
     }
   }
 
   int _calculateStreakBonus() {
     if (_streak <= 1) return 0;
 
-    int bonus = (_streak - 1) * 5; // Her seri için 5 puan
-    if (_streak > 5) bonus += (_streak - 5) * 3; // 5'ten sonra 3 ek puan
-    if (_streak > 10) bonus += (_streak - 10) * 5; // 10'dan sonra 5 ek puan
+    int bonus = (_streak - 1) * 2; // Her seri için 5 puan
+    if (_streak > 5) bonus += (_streak - 5) * 2; // 5'ten sonra 3 ek puan
+    if (_streak > 10) bonus += (_streak - 10) * 2; // 10'dan sonra 5 ek puan
 
     return bonus;
   }
 
   int _calculateTimeBonus() {
     double timeRatio = timeRemaining / initialTime;
-    if (timeRatio > 0.7) return 50;
-    if (timeRatio > 0.5) return 25;
-    if (timeRatio > 0.3) return 10;
+    if (timeRatio > 0.7) return 8;
+    if (timeRatio > 0.5) return 5;
+    if (timeRatio > 0.3) return 2;
     return 0;
   }
 
@@ -5228,11 +5189,11 @@ class ScoreManager {
     if (_moves > 0 && _moves == _perfectMatches) {
       switch (difficulty) {
         case DifficultyLevel.easy:
-          return 80;
+          return 15;
         case DifficultyLevel.medium:
-          return 100;
+          return 20;
         case DifficultyLevel.hard:
-          return 150;
+          return 30;
       }
     }
     return 0;
@@ -5241,11 +5202,11 @@ class ScoreManager {
   double _getDifficultyMultiplier() {
     switch (difficulty) {
       case DifficultyLevel.easy:
-        return 0.8;
+        return 0.5;
       case DifficultyLevel.medium:
         return 1.0;
       case DifficultyLevel.hard:
-        return 1.2;
+        return 1.1;
     }
   }
 
@@ -5269,10 +5230,8 @@ class ScoreManager {
     // Round skoruna ekle
     _currentRoundScore += matchScore;
 
-
     // ✅ YENİ: Joker kazanma kontrolü
-    if (_streak == 10) {
-    }
+    if (_streak == 10) {}
   }
 
   // Yanlış eşleşme
@@ -5284,21 +5243,28 @@ class ScoreManager {
 
   // === GETTER METODLARİ ===
   int get currentRoundScore => _currentRoundScore;
+
   int get allRoundsScore => _allRoundsScore;
+
   int get userTotalPoints => _userTotalPoints;
+
   int get streak => _streak;
+
   int get bestStreak => _bestStreak;
+
   int get moves => _moves;
+
   int get perfectMatches => _perfectMatches;
 
   // Anlık puan bilgisi ekran için
   int get displayScore => _allRoundsScore + _currentRoundScore;
+
   ScoreResult calculateFinalGameResult() {
     // Son round için normal hesaplama
     ScoreResult lastRound = calculateRoundResult();
 
     // Final oyun bonusları
-    int gameCompletionBonus = 100; // Oyunu bitirme bonusu
+    int gameCompletionBonus = 50; // Oyunu bitirme bonusu
     int perfectGameBonus = _calculatePerfectGameBonus();
     int consistencyBonus = _calculateConsistencyBonus();
 
@@ -5310,7 +5276,8 @@ class ScoreManager {
     int finalTotalScore = _allRoundsScore + finalBonuses;
 
     return ScoreResult(
-      baseScore: _allRoundsScore, // Tüm roundların toplamı
+      baseScore: _allRoundsScore,
+      // Tüm roundların toplamı
       timeBonus: gameCompletionBonus,
       perfectBonus: perfectGameBonus,
       difficultyMultiplier: _getDifficultyMultiplier(),
@@ -5333,18 +5300,18 @@ class ScoreManager {
     if (_perfectRoundCount >= _totalRounds) {
       switch (difficulty) {
         case DifficultyLevel.easy:
-          return 200;
+          return 35;
         case DifficultyLevel.medium:
-          return 300;
+          return 85;
         case DifficultyLevel.hard:
-          return 500;
+          return 100;
       }
     }
 
     // Çoğu turu mükemmel tamamladıysa
     double perfectRatio = _perfectRoundCount / _totalRounds;
-    if (perfectRatio >= 0.8) {
-      return (100 * perfectRatio).round();
+    if (perfectRatio >= 0.6) {
+      return (30 * perfectRatio).round();
     }
 
     return 0;
@@ -5352,9 +5319,9 @@ class ScoreManager {
 
   // Tutarlılık bonusu (sürekli iyi performans)
   int _calculateConsistencyBonus() {
-    if (_bestStreak >= _totalRounds * 3) return 150; // Çok uzun seri
-    if (_bestStreak >= _totalRounds * 2) return 100; // Uzun seri
-    if (_bestStreak >= _totalRounds) return 50; // Orta seri
+    if (_bestStreak >= _totalRounds * 3) return 50; // Çok uzun seri
+    if (_bestStreak >= _totalRounds * 2) return 35; // Uzun seri
+    if (_bestStreak >= _totalRounds) return 15; // Orta seri
     return 0;
   }
 
@@ -5407,6 +5374,7 @@ class ScoreResult {
     this.isGameFinal = false,
   });
 }
+
 class ShimmerPainter extends CustomPainter {
   final Animation<double> animation;
   final bool isDarkMode;
@@ -5484,7 +5452,9 @@ class UltraChainPainter extends CustomPainter {
           centerY,
           linkWidth,
           linkHeight,
-          i == 2 ? breakProgress : breakProgress, // Her iki halka da aynı anda kırılır
+          i == 2
+              ? breakProgress
+              : breakProgress, // Her iki halka da aynı anda kırılır
         );
 
         // Kırılma sonrası tamir
@@ -5511,7 +5481,8 @@ class UltraChainPainter extends CustomPainter {
   }
 
   // ✅ NORMAL ZİNCİR HALKASI
-  void _drawNormalChainLink(Canvas canvas, double x, double y, double width, double height, int index) {
+  void _drawNormalChainLink(Canvas canvas, double x, double y, double width,
+      double height, int index) {
     // Derinlik için çoklu gölge
     for (int i = 3; i >= 0; i--) {
       final shadowPaint = Paint()
@@ -5557,7 +5528,8 @@ class UltraChainPainter extends CustomPainter {
 
     // Üst kısımda parlak çizgi
     canvas.drawArc(
-      Rect.fromCenter(center: Offset(x, y), width: width * 0.7, height: height * 0.7),
+      Rect.fromCenter(
+          center: Offset(x, y), width: width * 0.7, height: height * 0.7),
       -pi * 0.7,
       pi * 0.4,
       false,
@@ -5581,7 +5553,8 @@ class UltraChainPainter extends CustomPainter {
   }
 
   // ✅ KIRIK ZİNCİR HALKASI
-  void _drawBrokenChainLink(Canvas canvas, double x, double y, double width, double height, double progress) {
+  void _drawBrokenChainLink(Canvas canvas, double x, double y, double width,
+      double height, double progress) {
     final breakOffset = progress * 20;
     final crackWidth = progress * 8;
 
@@ -5589,7 +5562,7 @@ class UltraChainPainter extends CustomPainter {
     final bottomPaint = Paint()
       ..shader = LinearGradient(
         colors: [Colors.amber[600]!, Colors.red[400]!],
-      ).createShader(Rect.fromLTWH(x - width/2, y, width, height/2))
+      ).createShader(Rect.fromLTWH(x - width / 2, y, width, height / 2))
       ..style = PaintingStyle.stroke
       ..strokeWidth = 8
       ..strokeCap = StrokeCap.round;
@@ -5610,7 +5583,8 @@ class UltraChainPainter extends CustomPainter {
     final topPaint = Paint()
       ..shader = LinearGradient(
         colors: [Colors.red[400]!, Colors.amber[600]!],
-      ).createShader(Rect.fromLTWH(x - width/2, y - height/2, width, height/2))
+      ).createShader(
+          Rect.fromLTWH(x - width / 2, y - height / 2, width, height / 2))
       ..style = PaintingStyle.stroke
       ..strokeWidth = 8
       ..strokeCap = StrokeCap.round;
@@ -5636,10 +5610,10 @@ class UltraChainPainter extends CustomPainter {
 
       // Jagged kırılma çizgisi
       final path = Path();
-      path.moveTo(x - crackWidth/2, y - breakOffset);
-      path.lineTo(x + crackWidth/3, y - breakOffset/2);
-      path.lineTo(x - crackWidth/3, y);
-      path.lineTo(x + crackWidth/2, y + breakOffset/2);
+      path.moveTo(x - crackWidth / 2, y - breakOffset);
+      path.lineTo(x + crackWidth / 3, y - breakOffset / 2);
+      path.lineTo(x - crackWidth / 3, y);
+      path.lineTo(x + crackWidth / 2, y + breakOffset / 2);
       path.lineTo(x, y + breakOffset);
 
       canvas.drawPath(path, crackPaint);
@@ -5647,10 +5621,11 @@ class UltraChainPainter extends CustomPainter {
   }
 
   // ✅ HALKALARİ BAĞLAYAN ZİNCİR PARÇALARI
-  void _drawConnectingChains(Canvas canvas, double startX, double centerY, double spacing, double linkWidth) {
+  void _drawConnectingChains(Canvas canvas, double startX, double centerY,
+      double spacing, double linkWidth) {
     for (int i = 0; i < 5; i++) {
-      double x1 = startX + (i * spacing) + linkWidth/2;
-      double x2 = startX + ((i + 1) * spacing) - linkWidth/2;
+      double x1 = startX + (i * spacing) + linkWidth / 2;
+      double x2 = startX + ((i + 1) * spacing) - linkWidth / 2;
 
       // Gölge
       final shadowPaint = Paint()
@@ -5748,7 +5723,12 @@ class UltraChainPainter extends CustomPainter {
       final particleY = y + sin(angle) * radius * repairProgress;
 
       final particlePaint = Paint()
-        ..color = [Colors.cyan, Colors.blue, Colors.purple, Colors.pink][random.nextInt(4)]
+        ..color = [
+          Colors.cyan,
+          Colors.blue,
+          Colors.purple,
+          Colors.pink
+        ][random.nextInt(4)]
             .withOpacity(repairProgress * 0.8)
         ..style = PaintingStyle.fill;
 
@@ -5769,7 +5749,8 @@ class UltraChainPainter extends CustomPainter {
   }
 
   // ✅ TAMİR EFEKTİ
-  void _drawRepairEffect(Canvas canvas, double x, double y, double width, double height) {
+  void _drawRepairEffect(
+      Canvas canvas, double x, double y, double width, double height) {
     if (repairProgress <= 0) return;
 
     // Tamir edilen halka
@@ -5780,7 +5761,8 @@ class UltraChainPainter extends CustomPainter {
           Colors.blue.withOpacity(repairProgress),
           Colors.purple.withOpacity(repairProgress),
         ],
-      ).createShader(Rect.fromCenter(center: Offset(x, y), width: width * 2, height: height * 2))
+      ).createShader(Rect.fromCenter(
+          center: Offset(x, y), width: width * 2, height: height * 2))
       ..style = PaintingStyle.stroke
       ..strokeWidth = 10
       ..strokeCap = StrokeCap.round;
@@ -5797,8 +5779,10 @@ class UltraChainPainter extends CustomPainter {
   }
 
   // ✅ HALKA ŞEKLİ ÇİZME HELPER
-  void _drawLinkShape(Canvas canvas, double x, double y, double width, double height, Paint paint) {
-    final rect = Rect.fromCenter(center: Offset(x, y), width: width, height: height);
+  void _drawLinkShape(Canvas canvas, double x, double y, double width,
+      double height, Paint paint) {
+    final rect =
+        Rect.fromCenter(center: Offset(x, y), width: width, height: height);
     canvas.drawOval(rect, paint);
   }
 
@@ -5809,13 +5793,13 @@ class UltraChainPainter extends CustomPainter {
 
     // 4 köşeli yıldız
     path.moveTo(x, y - size);
-    path.lineTo(x + size/3, y - size/3);
+    path.lineTo(x + size / 3, y - size / 3);
     path.lineTo(x + size, y);
-    path.lineTo(x + size/3, y + size/3);
+    path.lineTo(x + size / 3, y + size / 3);
     path.lineTo(x, y + size);
-    path.lineTo(x - size/3, y + size/3);
+    path.lineTo(x - size / 3, y + size / 3);
     path.lineTo(x - size, y);
-    path.lineTo(x - size/3, y - size/3);
+    path.lineTo(x - size / 3, y - size / 3);
     path.close();
 
     canvas.drawPath(path, paint);

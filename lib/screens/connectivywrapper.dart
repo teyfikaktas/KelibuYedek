@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:kelibu/screens/connectivyplus.dart';
+import 'package:provider/provider.dart';
 
 class ConnectivityWrapper extends StatelessWidget {
   final Widget child;

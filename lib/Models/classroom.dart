@@ -8,7 +8,8 @@ class Word {
     return Word(
       id: json['id'],
       // 'title' anahtarına karşılık gelen değer 'null' ise varsayılan olarak boş bir string ('') atanıyor.
-      name: json['title'] as String? ?? '', // Burada null kontrolü yapılarak, 'title' null ise boş string atanıyor.
+      name: json['title'] as String? ??
+          '', // Burada null kontrolü yapılarak, 'title' null ise boş string atanıyor.
     );
   }
 

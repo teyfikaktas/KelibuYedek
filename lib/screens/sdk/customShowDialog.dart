@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:get/get.dart';
 
 class CustomDialog extends StatelessWidget {
   final String title;
@@ -20,61 +21,82 @@ class CustomDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       elevation: 8,
-      backgroundColor: Colors.transparent,
       child: Container(
-        padding: const EdgeInsets.all(20),
+        width: Get.width * 0.95,
+        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 28),
         decoration: BoxDecoration(
-          color: Colors.white,
           borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 10,
-              offset: const Offset(0, 5),
-            ),
-          ],
+          gradient: const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0xFFF8F9FF),
+              Colors.white,
+            ],
+          ),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            if (imagePath != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 20),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: Image.asset(imagePath!, width: 100, height: 100, fit: BoxFit.cover),
-                ),
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white,
               ),
+              child: Image.asset(
+                imagePath ?? 'assets/logo.png',
+                width: 56,
+                height: 56,
+                fit: BoxFit.contain,
+              ),
+            ),
+            const SizedBox(height: 18),
             Text(
               title,
-              style: GoogleFonts.poppins(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).primaryColor,
+              style: GoogleFonts.comfortaa(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFFD32F2F),
               ),
             ),
-            const SizedBox(height: 12),
-            Text(
-              content,
-              style: GoogleFonts.roboto(fontSize: 16, color: Colors.black87),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: onPressed ?? () => Navigator.of(context).pop(),
-              child: Text(buttonText, style: GoogleFonts.roboto(fontSize: 16)),
-              style: ElevatedButton.styleFrom(
-                foregroundColor: Colors.white,
-                backgroundColor: Theme.of(context).primaryColor,
-                padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30),
+            const SizedBox(height: 16),
+            ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: Get.height * 0.25),
+              child: SingleChildScrollView(
+                child: Text(
+                  content,
+                  textAlign: TextAlign.left,
+                  style: GoogleFonts.quicksand(
+                    fontSize: 15,
+                    height: 1.5,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF212121),
+                  ),
                 ),
-                elevation: 2,
+              ),
+            ),
+            const SizedBox(height: 22),
+            SizedBox(
+              width: double.infinity,
+              child: TextButton(
+                onPressed: onPressed ?? () => Get.back(),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  backgroundColor: const Color(0xFF1565C0),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+                child: Text(
+                  buttonText,
+                  style: GoogleFonts.quicksand(
+                    fontSize: 15,
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
             ),
           ],
@@ -84,68 +106,15 @@ class CustomDialog extends StatelessWidget {
   }
 }
 
-Future<void> showCustomDialog(BuildContext context, String title, String message) {
+Future<void> showCustomDialog(
+    BuildContext context, String title, String message) {
   return showDialog<void>(
     context: context,
-    barrierDismissible: false, // Kullanıcı dışarı tıklayarak kapatamaz
+    barrierDismissible: true,
     builder: (BuildContext context) {
-      return AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        backgroundColor: Colors.white,
-        title: Row(
-          children: [
-            // Hata ikonunu ve emoji ekleyerek başlığı daha çekici hale getirin
-            SizedBox(width: 10),
-            Text(
-              "$title ",
-              style: GoogleFonts.comfortaa(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.red,
-              ),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              message,
-              style: GoogleFonts.quicksand(
-                fontSize: 18,
-                color: Colors.black87,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            SizedBox(height: 20),
-            // Eğlenceli bir emoji ekleyebilirsiniz
-          ],
-        ),
-        actions: <Widget>[
-          Center(
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red, // Buton rengini hata temasına uygun yapın
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18.0),
-                ),
-                padding: EdgeInsets.symmetric(horizontal: 30, vertical: 10),
-              ),
-              child: Text(
-                'Anladım',
-                style: GoogleFonts.comfortaa(
-                  fontSize: 16,
-                  color: Colors.white,
-                ),
-              ),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-          ),
-        ],
+      return CustomDialog(
+        title: title,
+        content: message,
       );
     },
   );

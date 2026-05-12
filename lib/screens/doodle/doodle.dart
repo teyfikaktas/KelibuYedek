@@ -1,22 +1,22 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../advantages/books_pro.dart';
 
 class LogoColorTheme {
-  static const Color primaryBlue = Color(0xFF0066CC);     // Daha canlı mavi
-  static const Color accentPurple = Color(0xFF5E35B1);    // Daha zengin mor
-  static const Color accentYellow = Color(0xFFFFAB00);    // Sıcak amber sarısı
-  static const Color accentRed = Color(0xFFD50000);       // Daha canlı kırmızı
+  static const Color primaryBlue = Color(0xFF0066CC); // Daha canlı mavi
+  static const Color accentPurple = Color(0xFF5E35B1); // Daha zengin mor
+  static const Color accentYellow = Color(0xFFFFAB00); // Sıcak amber sarısı
+  static const Color accentRed = Color(0xFFD50000); // Daha canlı kırmızı
 
   // Yeni eklenen renkler
-  static const Color lemonYellow = Color(0xFFFFF176);     // Limon sarısı
-  static const Color mutedYellow = Color(0xFFFFECB3);      // Sönük sarı
+  static const Color lemonYellow = Color(0xFFFFF176); // Limon sarısı
+  static const Color mutedYellow = Color(0xFFFFECB3); // Sönük sarı
 
   // Tamamlayıcı renkler
-  static const Color neutralGray = Color(0xFF455A64);     // Koyu slate gri
-  static const Color lightGray = Color(0xFFECEFF1);       // Çok açık gri
-  static const Color successGreen = Color(0xFF00C853);    // Başarı yeşili
+  static const Color neutralGray = Color(0xFF455A64); // Koyu slate gri
+  static const Color lightGray = Color(0xFFECEFF1); // Çok açık gri
+  static const Color successGreen = Color(0xFF00C853); // Başarı yeşili
 
   // Gradient renkler
   static const List<Color> blueGradient = [
@@ -72,6 +72,7 @@ class LogoColorTheme {
     ),
   );
 }
+
 class KelibuDoodlePromo extends StatefulWidget {
   final Color color;
 
@@ -84,7 +85,8 @@ class KelibuDoodlePromo extends StatefulWidget {
   State<KelibuDoodlePromo> createState() => _KelibuDoodlePromoState();
 }
 
-class _KelibuDoodlePromoState extends State<KelibuDoodlePromo> with SingleTickerProviderStateMixin {
+class _KelibuDoodlePromoState extends State<KelibuDoodlePromo>
+    with SingleTickerProviderStateMixin {
   bool _isDarkMode = false;
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
@@ -223,14 +225,18 @@ class _KelibuDoodlePromoState extends State<KelibuDoodlePromo> with SingleTicker
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
-                          isHealthSeries ? Icons.medical_services_rounded : Icons.school_rounded,
+                          isHealthSeries
+                              ? Icons.medical_services_rounded
+                              : Icons.school_rounded,
                           color: Colors.white,
                           size: 30,
                         ),
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        isHealthSeries ? 'Sağlık ${levelNum}' : 'Level ${levelNum}',
+                        isHealthSeries
+                            ? 'Sağlık ${levelNum}'
+                            : 'Level ${levelNum}',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 22,
@@ -240,7 +246,9 @@ class _KelibuDoodlePromoState extends State<KelibuDoodlePromo> with SingleTicker
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        isHealthSeries ? 'Sağlık İngilizcesi' : 'Genel İngilizce',
+                        isHealthSeries
+                            ? 'Sağlık İngilizcesi'
+                            : 'Genel İngilizce',
                         style: TextStyle(
                           color: Colors.white.withOpacity(0.85),
                           fontSize: 15,
@@ -249,7 +257,8 @@ class _KelibuDoodlePromoState extends State<KelibuDoodlePromo> with SingleTicker
                       ),
                       const SizedBox(height: 16),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
                           color: Colors.white.withOpacity(0.15),
                           borderRadius: BorderRadius.circular(30),
@@ -341,61 +350,61 @@ class _KelibuDoodlePromoState extends State<KelibuDoodlePromo> with SingleTicker
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Logo ve başlık
-      Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Expanded(
-          child: RichText(
-            text: TextSpan(
-              children: [
-                // "Kelibu" kısmı
-                const TextSpan(
-                  text: 'Kelibu ',
-                  style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                    fontFamily: 'Roboto',
-                  ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: RichText(
+                text: TextSpan(
+                  children: [
+                    // "Kelibu" kısmı
+                    const TextSpan(
+                      text: 'Kelibu ',
+                      style: TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        fontFamily: 'Roboto',
+                      ),
+                    ),
+                    // "Doo" kısmı: limon sarısı
+                    TextSpan(
+                      text: 'Doo',
+                      style: TextStyle(
+                        fontSize: 32,
+                        color: LogoColorTheme.lemonYellow,
+                        fontFamily: 'Indie Flower',
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    // "dle" kısmı: sönük sarı
+                    TextSpan(
+                      text: 'dle',
+                      style: TextStyle(
+                        fontSize: 32,
+                        color: LogoColorTheme.mutedYellow,
+                        fontFamily: 'Indie Flower',
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
                 ),
-                // "Doo" kısmı: limon sarısı
-                TextSpan(
-                  text: 'Doo',
-                  style: TextStyle(
-                    fontSize: 32,
-                    color: LogoColorTheme.lemonYellow,
-                    fontFamily: 'Indie Flower',
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                // "dle" kısmı: sönük sarı
-                TextSpan(
-                  text: 'dle',
-                  style: TextStyle(
-                    fontSize: 32,
-                    color: LogoColorTheme.mutedYellow,
-                    fontFamily: 'Indie Flower',
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.book,
+                color: LogoColorTheme.lemonYellow,
+                size: 28,
+              ),
+            ),
+          ],
         ),
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.1),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            Icons.book,
-            color: LogoColorTheme.lemonYellow,
-            size: 28,
-          ),
-        ),
-      ],
-    ),
         const SizedBox(height: 24),
 
         // Tanıtım metni
@@ -426,7 +435,7 @@ class _KelibuDoodlePromoState extends State<KelibuDoodlePromo> with SingleTicker
         _buildActionButton(
           'Hemen Dene',
           Icons.arrow_forward_rounded,
-              () {
+          () {
             Navigator.of(context).push(
               MaterialPageRoute(
                 builder: (context) => const KelibuProListWidget(),
@@ -472,33 +481,36 @@ class _KelibuDoodlePromoState extends State<KelibuDoodlePromo> with SingleTicker
         const SizedBox(height: 20),
 
         // Kategoriler
-        ...bookCategories.map((category) => Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 4),
-              child: Text(
-                category.title,
-                style: TextStyle(
-                  fontSize: 18,
-                  color: Colors.white.withOpacity(0.9),
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            SizedBox(
-              height: 240,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                physics: const BouncingScrollPhysics(),
-                itemCount: category.books.length,
-                itemBuilder: (context, index) {
-                  return _buildBookCard(category.books[index]);
-                },
-              ),
-            ),
-          ],
-        )).toList(),
+        ...bookCategories
+            .map((category) => Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 16, horizontal: 4),
+                      child: Text(
+                        category.title,
+                        style: TextStyle(
+                          fontSize: 18,
+                          color: Colors.white.withOpacity(0.9),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    SizedBox(
+                      height: 240,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        physics: const BouncingScrollPhysics(),
+                        itemCount: category.books.length,
+                        itemBuilder: (context, index) {
+                          return _buildBookCard(category.books[index]);
+                        },
+                      ),
+                    ),
+                  ],
+                ))
+            .toList(),
       ],
     );
   }

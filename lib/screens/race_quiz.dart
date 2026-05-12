@@ -103,8 +103,8 @@ class _RaceQuizScreenState extends State<RaceQuizScreen> {
                 onTap: answerRevealed
                     ? null
                     : () {
-                  answerQuestion(index);
-                },
+                        answerQuestion(index);
+                      },
                 tileColor: answerRevealed && index == correctAnswerIndex
                     ? Colors.green
                     : null,
@@ -113,7 +113,8 @@ class _RaceQuizScreenState extends State<RaceQuizScreen> {
             if (answerRevealed)
               ElevatedButton(
                 onPressed: () {
-                  widget.socket.emit('next question', {'roomNumber': widget.roomNumber});
+                  widget.socket
+                      .emit('next question', {'roomNumber': widget.roomNumber});
                 },
                 child: Text('Next Question'),
               ),

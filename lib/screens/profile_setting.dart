@@ -1,13 +1,14 @@
+import 'dart:convert';
+
+import 'package:another_flushbar/flushbar.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
+import 'package:http/http.dart' as http;
 import 'package:kelibu/providers/user_provider.dart';
 import 'package:kelibu/variables.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:another_flushbar/flushbar.dart';
 
 class AccountPage extends StatefulWidget {
   @override
@@ -31,7 +32,8 @@ class _AccountPageState extends State<AccountPage> {
     _nameController = TextEditingController(text: userProvider.username);
     _emailController = TextEditingController(text: userProvider.email);
     _phoneNumberController = TextEditingController(text: userProvider.phone);
-    _ageController = TextEditingController(text: (DateTime.now().year - userProvider.birthYear).toString());
+    _ageController = TextEditingController(
+        text: (DateTime.now().year - userProvider.birthYear).toString());
     _teamController = TextEditingController(text: userProvider.team);
     _cityController = TextEditingController(text: userProvider.city);
     _loadDarkModePreference();
@@ -96,7 +98,8 @@ class _AccountPageState extends State<AccountPage> {
               SizedBox(height: 24),
               _buildInfoCard('Kişisel Bilgiler', [
                 _buildInfoField(Icons.person, 'İsim', _nameController),
-                _buildInfoField(Icons.email, 'E-posta', _emailController, readOnly: true),
+                _buildInfoField(Icons.email, 'E-posta', _emailController,
+                    readOnly: true),
                 _buildInfoField(Icons.phone, 'Telefon', _phoneNumberController),
               ]),
               SizedBox(height: 16),
@@ -113,7 +116,6 @@ class _AccountPageState extends State<AccountPage> {
       ),
     );
   }
-
 
   Widget _buildProfileHeader(UserProvider userProvider) {
     return Container(
@@ -160,6 +162,7 @@ class _AccountPageState extends State<AccountPage> {
       ),
     );
   }
+
   Widget _buildPasswordChangeCard() {
     return GestureDetector(
       onTap: _showPasswordChangeDialog,
@@ -248,7 +251,9 @@ class _AccountPageState extends State<AccountPage> {
     );
   }
 
-  Widget _buildInfoField(IconData icon, String label, TextEditingController controller, {bool readOnly = false}) {
+  Widget _buildInfoField(
+      IconData icon, String label, TextEditingController controller,
+      {bool readOnly = false}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: TextFormField(
@@ -256,16 +261,20 @@ class _AccountPageState extends State<AccountPage> {
         readOnly: readOnly,
         style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black),
         decoration: InputDecoration(
-          prefixIcon: Icon(icon, color: _isDarkMode ? Colors.white70 : Colors.black54),
+          prefixIcon:
+              Icon(icon, color: _isDarkMode ? Colors.white70 : Colors.black54),
           labelText: label,
-          labelStyle: TextStyle(color: _isDarkMode ? Colors.white70 : Colors.black54),
+          labelStyle:
+              TextStyle(color: _isDarkMode ? Colors.white70 : Colors.black54),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: _isDarkMode ? Colors.white30 : Colors.black26),
+            borderSide: BorderSide(
+                color: _isDarkMode ? Colors.white30 : Colors.black26),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: _isDarkMode ? Colors.white30 : Colors.black26),
+            borderSide: BorderSide(
+                color: _isDarkMode ? Colors.white30 : Colors.black26),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
@@ -283,7 +292,8 @@ class _AccountPageState extends State<AccountPage> {
       onPressed: updateUserInformation,
       child: Text('Bilgileri Güncelle'),
       style: ElevatedButton.styleFrom(
-        foregroundColor: Colors.white, backgroundColor: Colors.green,
+        foregroundColor: Colors.white,
+        backgroundColor: Colors.green,
         padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
@@ -317,7 +327,8 @@ class _AccountPageState extends State<AccountPage> {
 
       if (response.statusCode == 200) {
         final responseBody = jsonDecode(response.body);
-        showCustomFlushbar(context, responseBody['message'] ?? 'Bilgiler başarıyla güncellendi');
+        showCustomFlushbar(context,
+            responseBody['message'] ?? 'Bilgiler başarıyla güncellendi');
         await userProvider.setUser(
           _nameController.text,
           userProvider.userId,
@@ -334,12 +345,14 @@ class _AccountPageState extends State<AccountPage> {
         userProvider.notifyListeners();
       } else {
         final responseBody = jsonDecode(response.body);
-        print(responseBody);
-        showCustomFlushbar(context, responseBody['error_message'] ?? 'Bilgiler güncellenirken bir hata oluştu');
+        showCustomFlushbar(
+            context,
+            responseBody['error_message'] ??
+                'Bilgiler güncellenirken bir hata oluştu');
       }
     } catch (e) {
-      print(e);
-      showCustomFlushbar(context, 'Bilgiler güncellenirken bir hata oluştu: $e');
+      showCustomFlushbar(
+          context, 'Bilgiler güncellenirken bir hata oluştu: $e');
     }
   }
 
@@ -426,72 +439,84 @@ class _PasswordChangeDialogState extends State<PasswordChangeDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        backgroundColor: widget.isDarkMode ? Colors.grey[800] : Colors.white,
-        child: Padding(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      backgroundColor: widget.isDarkMode ? Colors.grey[800] : Colors.white,
+      child: Padding(
         padding: const EdgeInsets.all(24.0),
-    child: Form(
-    key: _passwordFormKey,
-    child: Column(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-    Text(
-    'Şifre Değiştir',
-    style: GoogleFonts.poppins(fontSize: 24,
-      fontWeight: FontWeight.bold,
-      color: widget.isDarkMode ? Colors.white : Colors.black,
-    ),
-    ),
-      SizedBox(height: 24),
-      _buildPasswordField('Mevcut Şifre', _currentPasswordController, _obscureCurrentPassword, () {
-        setState(() => _obscureCurrentPassword = !_obscureCurrentPassword);
-      }),
-      SizedBox(height: 16),
-      _buildPasswordField('Yeni Şifre', _newPasswordController, _obscureNewPassword, () {
-        setState(() => _obscureNewPassword = !_obscureNewPassword);
-      }),
-      SizedBox(height: 16),
-      _buildPasswordField('Yeni Şifre (Tekrar)', _confirmNewPasswordController, _obscureConfirmPassword, () {
-        setState(() => _obscureConfirmPassword = !_obscureConfirmPassword);
-      }),
-      SizedBox(height: 32),
-      ElevatedButton(
-        onPressed: () {
-          if (_passwordFormKey.currentState!.validate()) {
-            updatePassword();
-          }
-        },
-        child: Text('Şifreyi Değiştir'),
-        style: ElevatedButton.styleFrom(
-          foregroundColor: Colors.white, backgroundColor: Colors.green,
-          padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+        child: Form(
+          key: _passwordFormKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Şifre Değiştir',
+                style: GoogleFonts.poppins(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: widget.isDarkMode ? Colors.white : Colors.black,
+                ),
+              ),
+              SizedBox(height: 24),
+              _buildPasswordField('Mevcut Şifre', _currentPasswordController,
+                  _obscureCurrentPassword, () {
+                setState(
+                    () => _obscureCurrentPassword = !_obscureCurrentPassword);
+              }),
+              SizedBox(height: 16),
+              _buildPasswordField(
+                  'Yeni Şifre', _newPasswordController, _obscureNewPassword,
+                  () {
+                setState(() => _obscureNewPassword = !_obscureNewPassword);
+              }),
+              SizedBox(height: 16),
+              _buildPasswordField('Yeni Şifre (Tekrar)',
+                  _confirmNewPasswordController, _obscureConfirmPassword, () {
+                setState(
+                    () => _obscureConfirmPassword = !_obscureConfirmPassword);
+              }),
+              SizedBox(height: 32),
+              ElevatedButton(
+                onPressed: () {
+                  if (_passwordFormKey.currentState!.validate()) {
+                    updatePassword();
+                  }
+                },
+                child: Text('Şifreyi Değiştir'),
+                style: ElevatedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  backgroundColor: Colors.green,
+                  padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
-    ],
-    ),
-    ),
-        ),
     );
   }
 
-  Widget _buildPasswordField(String label, TextEditingController controller, bool obscureText, VoidCallback toggleObscure) {
+  Widget _buildPasswordField(String label, TextEditingController controller,
+      bool obscureText, VoidCallback toggleObscure) {
     return TextFormField(
       controller: controller,
       obscureText: obscureText,
       style: TextStyle(color: widget.isDarkMode ? Colors.white : Colors.black),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: TextStyle(color: widget.isDarkMode ? Colors.white70 : Colors.black54),
+        labelStyle: TextStyle(
+            color: widget.isDarkMode ? Colors.white70 : Colors.black54),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: widget.isDarkMode ? Colors.white30 : Colors.black26),
+          borderSide: BorderSide(
+              color: widget.isDarkMode ? Colors.white30 : Colors.black26),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: widget.isDarkMode ? Colors.white30 : Colors.black26),
+          borderSide: BorderSide(
+              color: widget.isDarkMode ? Colors.white30 : Colors.black26),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
@@ -538,7 +563,8 @@ class _PasswordChangeDialogState extends State<PasswordChangeDialog> {
       showCustomFlushbar(context, message);
     } else {
       final responseBody = jsonDecode(response.body);
-      String errorMessage = responseBody['error_message'] ?? 'Şifre güncellenemedi';
+      String errorMessage =
+          responseBody['error_message'] ?? 'Şifre güncellenemedi';
       showCustomFlushbar(context, errorMessage);
     }
   }

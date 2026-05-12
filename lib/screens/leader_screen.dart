@@ -1,17 +1,18 @@
+import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:kelibu/Models/user.dart';
 import 'package:kelibu/api.dart';
+import 'package:kelibu/providers/user_provider.dart';
 import 'package:kelibu/screens/video_player.dart';
 import 'package:provider/provider.dart';
-import 'package:kelibu/providers/user_provider.dart';
-import 'package:kelibu/Models/user.dart';
-import 'package:auto_size_text/auto_size_text.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
+
 import '../globalDart/urls.dart';
 import '../variables.dart';
 import 'loadingIndicator.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 class LeaderboardPage extends StatefulWidget {
   const LeaderboardPage({Key? key}) : super(key: key);
@@ -103,12 +104,14 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
       setState(() {
         _hasInstitution = response['has_institution'];
         _institutionName = response['institution_name'];
-        _users = (response['users'] as List).map((u) => User.fromJson(u)).toList();
+        _users =
+            (response['users'] as List).map((u) => User.fromJson(u)).toList();
 
         _users!.sort((a, b) => b.point.compareTo(a.point));
 
         if (_hasInstitution && _isInstitutionMode) {
-          int currentUserIndex = _users!.indexWhere((user) => user.id == currentUserId);
+          int currentUserIndex =
+              _users!.indexWhere((user) => user.id == currentUserId);
           if (currentUserIndex != -1) {
             userRank = currentUserIndex + 1;
             _isUserRankComputed = true;
@@ -122,7 +125,6 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
         }
       });
     } catch (e) {
-      print("Error loading data: $e");
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Veri yüklenirken bir hata oluştu: $e')),
       );
@@ -135,11 +137,13 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
       });
     }
   }
+
   @override
   void dispose() {
     _scrollController.dispose();
     super.dispose();
   }
+
   void _onModeChanged(String mode) async {
     final prefs = await SharedPreferences.getInstance();
     if (mode == 'Kurumsal') {
@@ -166,8 +170,8 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
     } else {
       setState(() {
         _filteredUsers = _users
-            ?.where((user) =>
-            user.name.toLowerCase().contains(query.toLowerCase()))
+            ?.where(
+                (user) => user.name.toLowerCase().contains(query.toLowerCase()))
             .toList();
       });
     }
@@ -180,9 +184,8 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
     return Scaffold(
       backgroundColor: colors["background"],
       appBar: AppBar(
-        backgroundColor: _isInstitutionMode
-            ? const Color(0xFFFFA726)
-            : Colors.transparent,
+        backgroundColor:
+            _isInstitutionMode ? const Color(0xFFFFA726) : Colors.transparent,
         elevation: 0,
         centerTitle: false,
         leading: Padding(
@@ -231,45 +234,52 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
               ],
             ),
           ),
-          _buildRoundedIconButton(Icons.slow_motion_video_sharp, Colors.green, () {
+          _buildRoundedIconButton(Icons.slow_motion_video_sharp, Colors.green,
+              () {
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => VideoPlayerScreen(videoUrl: AppUrls.leaderscreen)),
+              MaterialPageRoute(
+                  builder: (context) =>
+                      VideoPlayerScreen(videoUrl: AppUrls.leaderscreen)),
             );
           }),
         ],
-        bottom: _isInstitutionMode ? PreferredSize(
-          preferredSize: Size.fromHeight(60.h),
-          child: Container(
-            margin: EdgeInsets.fromLTRB(16.w, 0, 16.w, 16.h),
-            decoration: BoxDecoration(
-              color: _isDarkMode ? Colors.grey[800] : Colors.white,
-              borderRadius: BorderRadius.circular(15.r),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 5),
+        bottom: _isInstitutionMode
+            ? PreferredSize(
+                preferredSize: Size.fromHeight(60.h),
+                child: Container(
+                  margin: EdgeInsets.fromLTRB(16.w, 0, 16.w, 16.h),
+                  decoration: BoxDecoration(
+                    color: _isDarkMode ? Colors.grey[800] : Colors.white,
+                    borderRadius: BorderRadius.circular(15.r),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, 5),
+                      ),
+                    ],
+                  ),
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: "Öğrenci ara...",
+                      hintStyle: TextStyle(color: Colors.grey[400]),
+                      prefixIcon: Icon(Icons.search,
+                          color: Color(0xFFFFA726), size: 22.sp),
+                      border: InputBorder.none,
+                      contentPadding: EdgeInsets.symmetric(
+                          horizontal: 16.w, vertical: 12.h),
+                    ),
+                    style: GoogleFonts.poppins(
+                      fontSize: 14.sp,
+                      color: _isDarkMode ? Colors.white : Colors.black87,
+                    ),
+                    onChanged: _filterUsers,
+                  ),
                 ),
-              ],
-            ),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: "Öğrenci ara...",
-                hintStyle: TextStyle(color: Colors.grey[400]),
-                prefixIcon: Icon(Icons.search, color: Color(0xFFFFA726), size: 22.sp),
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-              ),
-              style: GoogleFonts.poppins(
-                fontSize: 14.sp,
-                color: _isDarkMode ? Colors.white : Colors.black87,
-              ),
-              onChanged: _filterUsers,
-            ),
-          ),
-        ) : null,
+              )
+            : null,
       ),
       body: Stack(
         children: [
@@ -277,7 +287,8 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
             children: [
               if (_isInstitutionMode && _institutionName != null)
                 Container(
-                  padding: EdgeInsets.symmetric(vertical: 10.h, horizontal: 16.w),
+                  padding:
+                      EdgeInsets.symmetric(vertical: 10.h, horizontal: 16.w),
                   color: const Color(0xFFFFA726),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -306,15 +317,16 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
                   padding: EdgeInsets.only(bottom: 80.h),
                   child: _hasInstitution || !_isInstitutionMode
                       ? LeaderboardList(
-                    users: _filteredUsers ?? _users,
-                    scrollController: _scrollController,
-                    isDarkMode: _isDarkMode,
-                  )
+                          users: _filteredUsers ?? _users,
+                          scrollController: _scrollController,
+                          isDarkMode: _isDarkMode,
+                        )
                       : NoInstitutionWidget(
-                    onContactInstitution: () {
-                      launch('mailto:destek@kelibu.com?subject=Kurumsal Kayıt Talebi&body=Merhaba, Kurumumuzun Liderlik Tablosuna eklenmesini talep ediyoruz.');
-                    },
-                  ),
+                          onContactInstitution: () {
+                            launch(
+                                'mailto:destek@kelibu.com?subject=Kurumsal Kayıt Talebi&body=Merhaba, Kurumumuzun Liderlik Tablosuna eklenmesini talep ediyoruz.');
+                          },
+                        ),
                 ),
               ),
             ],
@@ -371,7 +383,9 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
       ),
       bottomSheet: _buildUserRankBottomSheet(colors),
     );
-  }Widget _buildCustomTabs() {
+  }
+
+  Widget _buildCustomTabs() {
     return Padding(
       padding: EdgeInsets.symmetric(vertical: 10.h, horizontal: 16.w),
       child: Row(
@@ -385,6 +399,7 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
       ),
     );
   }
+
   Widget _buildModeButton({
     required String title,
     required bool isSelected,
@@ -410,7 +425,9 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
       ),
     );
   }
-  Widget _buildRoundedIconButton(IconData icon, Color color, VoidCallback onPressed) {
+
+  Widget _buildRoundedIconButton(
+      IconData icon, Color color, VoidCallback onPressed) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8.0),
       child: InkWell(
@@ -423,6 +440,7 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
       ),
     );
   }
+
   Widget _buildTabItem(String title, int index) {
     final colors = _isDarkMode ? darkModeColors : lightModeColors;
     bool isSelected = _selectedTabIndex == index;
@@ -450,17 +468,21 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
                     ? colors['selectedTab']?.withOpacity(0.95)
                     : colors['unselectedTab']?.withOpacity(0.08),
                 borderRadius: BorderRadius.circular(16.r),
-                border: isSelected ? null : Border.all(
-                  color: colors['unselectedTab']!.withOpacity(0.3),
-                  width: 1,
-                ),
-                boxShadow: isSelected ? [
-                  BoxShadow(
-                    color: colors['selectedTab']!.withOpacity(0.2),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  )
-                ] : null,
+                border: isSelected
+                    ? null
+                    : Border.all(
+                        color: colors['unselectedTab']!.withOpacity(0.3),
+                        width: 1,
+                      ),
+                boxShadow: isSelected
+                    ? [
+                        BoxShadow(
+                          color: colors['selectedTab']!.withOpacity(0.2),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        )
+                      ]
+                    : null,
               ),
               child: Center(
                 child: Row(
@@ -483,7 +505,8 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
                         color: isSelected
                             ? colors['textSelected']
                             : colors['textUnselected']?.withOpacity(0.75),
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                        fontWeight:
+                            isSelected ? FontWeight.w600 : FontWeight.w500,
                         fontSize: 13.sp,
                         letterSpacing: 0.2,
                       ),
@@ -499,6 +522,7 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
       ),
     );
   }
+
   String _getTimePeriodForIndex(int index) {
     switch (index) {
       case 0:
@@ -515,8 +539,10 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
   }
 
   Widget _buildUserRankBottomSheet(Map<String, Color> colors) {
-    final bool hasRank = userRank != null && userRank! > 0 && _isUserRankComputed;
-    final Color sheetColor = _isInstitutionMode ? Color(0xFFFFA726) : Colors.green[400]!;
+    final bool hasRank =
+        userRank != null && userRank! > 0 && _isUserRankComputed;
+    final Color sheetColor =
+        _isInstitutionMode ? Color(0xFFFFA726) : Colors.green[400]!;
 
     return Container(
       height: 60.h,
@@ -537,15 +563,16 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
       child: Stack(
         children: [
           // Arkaplan deseni (opsiyonel)
-          if (hasRank) Positioned(
-            right: -20,
-            top: -20,
-            child: Icon(
-              Icons.emoji_events,
-              size: 80.sp,
-              color: Colors.white.withOpacity(0.1),
+          if (hasRank)
+            Positioned(
+              right: -20,
+              top: -20,
+              child: Icon(
+                Icons.emoji_events,
+                size: 80.sp,
+                color: Colors.white.withOpacity(0.1),
+              ),
             ),
-          ),
           // Ana içerik
           Padding(
             padding: EdgeInsets.symmetric(horizontal: 16.w),
@@ -727,13 +754,15 @@ class LeaderboardList extends StatelessWidget {
         controller: scrollController,
         itemCount: users!.length,
         itemBuilder: (context, index) {
-          return _buildUserTile(context, users![index], index + 1, colors, isDarkMode);
+          return _buildUserTile(
+              context, users![index], index + 1, colors, isDarkMode);
         },
       );
     }
   }
 
-  Widget _buildUserTile(BuildContext context, User user, int rank, Map<String, Color> colors, bool isDarkMode) {
+  Widget _buildUserTile(BuildContext context, User user, int rank,
+      Map<String, Color> colors, bool isDarkMode) {
     final isTopThree = rank <= 3;
     final backgroundColor = _getBackgroundColorForRank(rank, isDarkMode);
     final textColor = isTopThree ? Colors.white : colors["text"]!;
@@ -743,10 +772,13 @@ class LeaderboardList extends StatelessWidget {
       decoration: BoxDecoration(
         color: backgroundColor,
         borderRadius: BorderRadius.circular(12.r),
-        border: isTopThree ? Border.all(
-          color: isDarkMode ? Colors.white24 : Colors.blue.withOpacity(0.3),
-          width: 1.5,
-        ) : null,
+        border: isTopThree
+            ? Border.all(
+                color:
+                    isDarkMode ? Colors.white24 : Colors.blue.withOpacity(0.3),
+                width: 1.5,
+              )
+            : null,
         boxShadow: [
           BoxShadow(
             color: isTopThree
@@ -825,16 +857,21 @@ class LeaderboardList extends StatelessWidget {
                       children: [
                         Icon(
                           Icons.local_fire_department,
-                          color: isTopThree ? Colors.amber : _getStreakColor(user.currentStreak!),
+                          color: isTopThree
+                              ? Colors.amber
+                              : _getStreakColor(user.currentStreak!),
                           size: _getStreakSize(user.currentStreak!).sp,
                         ),
                         SizedBox(width: 2.w),
                         Text(
                           '${user.currentStreak}',
                           style: GoogleFonts.poppins(
-                            color: isTopThree ? Colors.amber : _getStreakColor(user.currentStreak!),
+                            color: isTopThree
+                                ? Colors.amber
+                                : _getStreakColor(user.currentStreak!),
                             fontWeight: FontWeight.bold,
-                            fontSize: (_getStreakSize(user.currentStreak!) - 4).sp,
+                            fontSize:
+                                (_getStreakSize(user.currentStreak!) - 4).sp,
                           ),
                         ),
                       ],
@@ -847,21 +884,23 @@ class LeaderboardList extends StatelessWidget {
         ),
       ),
     );
-  }  Color _getStreakColor(int streak) {
-    if (streak >= 30) return Colors.redAccent;     // Efsanevi
-    if (streak >= 20) return Colors.deepOrangeAccent;  // Çok İyi
-    if (streak >= 10) return Colors.orangeAccent;   // İyi
-    if (streak >= 5)  return Colors.orange;      // Başlangıç
-    return Colors.grey.shade400;                 // Normal
+  }
+
+  Color _getStreakColor(int streak) {
+    if (streak >= 30) return Colors.redAccent; // Efsanevi
+    if (streak >= 20) return Colors.deepOrangeAccent; // Çok İyi
+    if (streak >= 10) return Colors.orangeAccent; // İyi
+    if (streak >= 5) return Colors.orange; // Başlangıç
+    return Colors.grey.shade400; // Normal
   }
 
 // Daha küçük boyutlar kullanalım
   double _getStreakSize(int streak) {
-    if (streak >= 30) return 18;     // Efsanevi
-    if (streak >= 20) return 17;     // Çok İyi
-    if (streak >= 10) return 16;     // İyi
-    if (streak >= 5)  return 15;     // Başlangıç
-    return 14;                       // Normal
+    if (streak >= 30) return 18; // Efsanevi
+    if (streak >= 20) return 17; // Çok İyi
+    if (streak >= 10) return 16; // İyi
+    if (streak >= 5) return 15; // Başlangıç
+    return 14; // Normal
   }
 
   Widget _buildStreakWidget(int streak, bool isTopThree) {
@@ -874,7 +913,9 @@ class LeaderboardList extends StatelessWidget {
           child: Container(
             padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 2.h),
             decoration: BoxDecoration(
-              color: streak >= 20 ? _getStreakColor(streak).withOpacity(0.1) : null,
+              color: streak >= 20
+                  ? _getStreakColor(streak).withOpacity(0.1)
+                  : null,
               borderRadius: BorderRadius.circular(8.r),
             ),
             child: Row(
@@ -901,6 +942,7 @@ class LeaderboardList extends StatelessWidget {
       },
     );
   }
+
   Widget _buildLeadingWidget(BuildContext context, int rank, User user) {
     IconData icon;
     Color iconColor;
@@ -928,7 +970,8 @@ class LeaderboardList extends StatelessWidget {
       children: [
         CircleAvatar(
           radius: 24.r,
-          backgroundImage: NetworkImage('https://kelibu.net/storage/${user.avatar}'),
+          backgroundImage:
+              NetworkImage('https://kelibu.net/storage/${user.avatar}'),
         ),
         if (rank <= 3)
           Positioned(
@@ -955,11 +998,11 @@ class LeaderboardList extends StatelessWidget {
     if (isDarkMode) {
       switch (rank) {
         case 1:
-          return Color(0xFF2C3E50);  // Koyu lacivert
+          return Color(0xFF2C3E50); // Koyu lacivert
         case 2:
-          return Color(0xFF34495E);  // Biraz daha açık lacivert
+          return Color(0xFF34495E); // Biraz daha açık lacivert
         case 3:
-          return Color(0xFF445D6E);  // En açık lacivert
+          return Color(0xFF445D6E); // En açık lacivert
         default:
           return Colors.grey.shade900;
       }

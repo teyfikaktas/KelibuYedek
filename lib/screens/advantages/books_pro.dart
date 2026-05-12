@@ -1,16 +1,12 @@
-import 'dart:io';
-import 'dart:ui';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:saver_gallery/saver_gallery.dart';
+import 'package:screenshot/screenshot.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
-import 'package:screenshot/screenshot.dart';
-import 'package:image/image.dart' as img;
-import 'package:flutter_colorpicker/flutter_colorpicker.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'dart:math' as math;
 
 class KelibuProListWidget extends StatefulWidget {
   const KelibuProListWidget({Key? key}) : super(key: key);
@@ -35,20 +31,11 @@ class _KelibuProListWidgetState extends State<KelibuProListWidget> {
     });
   }
 
-  Future<void> _toggleDarkMode() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _isDarkMode = !_isDarkMode;
-      prefs.setBool("darkMode", _isDarkMode);
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final Color primaryColor = _isDarkMode ? Colors.white : Colors.black;
-    final Color backgroundColor = _isDarkMode ? Colors.grey[900]! : Colors.grey[100]!;
-    final Color cardColor = _isDarkMode ? Colors.grey[800]! : Colors.white;
-    final Color textColor = _isDarkMode ? Colors.white : Colors.black87;
+    final Color backgroundColor =
+        _isDarkMode ? Colors.grey[900]! : Colors.grey[100]!;
 
     return MaterialApp(
       theme: ThemeData(
@@ -101,9 +88,27 @@ class _KelibuProListWidgetState extends State<KelibuProListWidget> {
         body: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            _buildListItem('Level 1', 'Temel kelimeleri öğren', Icons.emoji_objects, Colors.blue, context, 'assets/pdf/level1.pdf'),
-            _buildListItem('Level 2', 'Cümle yapılarını geliştir', Icons.psychology, Colors.green, context, 'assets/pdf/level2.pdf'),
-            _buildListItem('Level 3', 'Akıcı konuşmayı hedefle', Icons.workspace_premium, Colors.orange, context, 'assets/pdf/level3.pdf'),
+            _buildListItem(
+                'Level 1',
+                'Temel kelimeleri öğren',
+                Icons.emoji_objects,
+                Colors.blue,
+                context,
+                'assets/pdf/level1.pdf'),
+            _buildListItem(
+                'Level 2',
+                'Cümle yapılarını geliştir',
+                Icons.psychology,
+                Colors.green,
+                context,
+                'assets/pdf/level2.pdf'),
+            _buildListItem(
+                'Level 3',
+                'Akıcı konuşmayı hedefle',
+                Icons.workspace_premium,
+                Colors.orange,
+                context,
+                'assets/pdf/level3.pdf'),
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 10),
               child: Text(
@@ -116,15 +121,28 @@ class _KelibuProListWidgetState extends State<KelibuProListWidget> {
                 ),
               ),
             ),
-            _buildListItem('Sağlık 0', 'Sağlık sınavları için temel', Icons.medical_services_rounded, Colors.teal.shade400, context, 'assets/pdf/saglik0.pdf'),
-            _buildListItem('Sağlık 1', 'İleri düzey ', Icons.medical_services_rounded, Colors.teal.shade600, context, 'assets/pdf/saglik1.pdf'),
+            _buildListItem(
+                'Sağlık 0',
+                'Sağlık sınavları için temel',
+                Icons.medical_services_rounded,
+                Colors.teal.shade400,
+                context,
+                'assets/pdf/saglik0.pdf'),
+            _buildListItem(
+                'Sağlık 1',
+                'İleri düzey ',
+                Icons.medical_services_rounded,
+                Colors.teal.shade600,
+                context,
+                'assets/pdf/saglik1.pdf'),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildListItem(String title, String subtitle, IconData icon, Color iconColor, BuildContext context, String pdfPath) {
+  Widget _buildListItem(String title, String subtitle, IconData icon,
+      Color iconColor, BuildContext context, String pdfPath) {
     final Color cardColor = _isDarkMode ? Colors.grey[800]! : Colors.white;
     final Color textColor = _isDarkMode ? Colors.white : Colors.black87;
 
@@ -134,7 +152,8 @@ class _KelibuProListWidgetState extends State<KelibuProListWidget> {
       margin: const EdgeInsets.only(bottom: 16),
       color: cardColor,
       child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         leading: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
@@ -197,15 +216,16 @@ class _PDFViewerState extends State<PDFViewer> {
   Color _currentColor = Colors.red;
   double _currentStrokeWidth = 2.0;
   Offset? _circleStart;
-  Offset? _textPosition;
   double _currentFontSize = 16.0;
   double _baseScaleFactor = 1.0;
-  double _pdfScale = 1.0;
   double _circleRadius = 20.0;
   final GlobalKey pdfViewerKey = GlobalKey();
 
   Color get primaryColor => _isDarkMode ? Colors.white : Colors.black;
-  Color get backgroundColor => _isDarkMode ? Colors.grey[900]! : Colors.grey[100]!;
+
+  Color get backgroundColor =>
+      _isDarkMode ? Colors.grey[900]! : Colors.grey[100]!;
+
   Color get textColor => _isDarkMode ? Colors.white : Colors.black;
 
   @override
@@ -429,10 +449,12 @@ class _PDFViewerState extends State<PDFViewer> {
   }
 
   Offset _convertToPdfCoordinates(Offset globalPosition) {
-    RenderBox? renderBox = pdfViewerKey.currentContext?.findRenderObject() as RenderBox?;
+    RenderBox? renderBox =
+        pdfViewerKey.currentContext?.findRenderObject() as RenderBox?;
     if (renderBox != null) {
       Offset localPosition = renderBox.globalToLocal(globalPosition);
-      Offset pdfPosition = (localPosition + _pdfViewerController.scrollOffset) / _pdfViewerController.zoomLevel;
+      Offset pdfPosition = (localPosition + _pdfViewerController.scrollOffset) /
+          _pdfViewerController.zoomLevel;
       return pdfPosition;
     } else {
       return globalPosition;
@@ -443,21 +465,23 @@ class _PDFViewerState extends State<PDFViewer> {
     final imageUint8List = await _screenshotController.capture();
     if (imageUint8List != null) {
       try {
-        final result = await SaverGallery.saveImage(
-          imageUint8List,
-          quality: 100,
-          name: "screenshot_${DateTime.now().millisecondsSinceEpoch}.png",
-          androidRelativePath: "Pictures/Screenshots",
-          androidExistNotSave: false, // Her zaman kaydet, varsa üzerine yaz
-        );
+        final result = await SaverGallery.saveImage(imageUint8List,
+            quality: 100,
+            fileName: "screenshot_${DateTime.now().millisecondsSinceEpoch}.png",
+            androidRelativePath: "Pictures/Screenshots",
+            skipIfExists: true);
 
         if (result.isSuccess) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Ekran görüntüsü başarıyla galeriye kaydedildi.')),
+            SnackBar(
+                content:
+                    Text('Ekran görüntüsü başarıyla galeriye kaydedildi.')),
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Ekran görüntüsü kaydedilemedi: ${result.errorMessage}')),
+            SnackBar(
+                content: Text(
+                    'Ekran görüntüsü kaydedilemedi: ${result.errorMessage}')),
           );
         }
       } catch (e) {
@@ -470,7 +494,9 @@ class _PDFViewerState extends State<PDFViewer> {
         SnackBar(content: Text('Ekran görüntüsü alınamadı.')),
       );
     }
-  }  Widget build(BuildContext context) {
+  }
+
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: backgroundColor,
       appBar: AppBar(
@@ -546,9 +572,13 @@ class _PDFViewerState extends State<PDFViewer> {
                 children: [
                   _buildIconButton(Icons.edit, Colors.red, 'Kalem'),
                   _buildIconButton(Icons.brush, Colors.blue, 'Fırça'),
-                  _buildIconButton(Icons.circle_outlined, Colors.green, 'Daire'),
-                  _buildIconButton(Icons.text_fields, Colors.orange, 'Metin Ekle', onPressed: _startAddingText),
-                  _buildIconButton(Icons.pan_tool, Colors.cyan, 'Gezinme', onPressed: () {
+                  _buildIconButton(
+                      Icons.circle_outlined, Colors.green, 'Daire'),
+                  _buildIconButton(
+                      Icons.text_fields, Colors.orange, 'Metin Ekle',
+                      onPressed: _startAddingText),
+                  _buildIconButton(Icons.pan_tool, Colors.cyan, 'Gezinme',
+                      onPressed: () {
                     setState(() {
                       _isPanningMode = true;
                       _isDrawingMode = false;
@@ -557,15 +587,20 @@ class _PDFViewerState extends State<PDFViewer> {
                       _isEraserMode = false;
                     });
                   }),
-                  _buildIconButton(Icons.save_alt, Colors.purple, 'Kaydet', onPressed: _saveScreenshot),
-                  _buildIconButton(Icons.search, Colors.indigo, 'Sayfaya Git', onPressed: _showGoToPageDialog),
-                  _buildIconButton(Icons.zoom_in, Colors.brown, 'Yakınlaştır', onPressed: () {
+                  _buildIconButton(Icons.save_alt, Colors.purple, 'Kaydet',
+                      onPressed: _saveScreenshot),
+                  _buildIconButton(Icons.search, Colors.indigo, 'Sayfaya Git',
+                      onPressed: _showGoToPageDialog),
+                  _buildIconButton(Icons.zoom_in, Colors.brown, 'Yakınlaştır',
+                      onPressed: () {
                     _pdfViewerController.zoomLevel += 0.25;
                   }),
-                  _buildIconButton(Icons.zoom_out, Colors.brown, 'Uzaklaştır', onPressed: () {
+                  _buildIconButton(Icons.zoom_out, Colors.brown, 'Uzaklaştır',
+                      onPressed: () {
                     _pdfViewerController.zoomLevel -= 0.25;
                   }),
-                  _buildIconButton(Icons.delete, Colors.red, 'Silgi', onPressed: () {
+                  _buildIconButton(Icons.delete, Colors.red, 'Silgi',
+                      onPressed: () {
                     setState(() {
                       _isEraserMode = true;
                       _isDrawingMode = false;
@@ -601,9 +636,7 @@ class _PDFViewerState extends State<PDFViewer> {
                     canShowScrollHead: true,
                     canShowScrollStatus: true,
                     onZoomLevelChanged: (PdfZoomDetails details) {
-                      setState(() {
-                        _pdfScale = details.newZoomLevel;
-                      });
+                      setState(() {});
                     },
                   ),
                   Positioned.fill(
@@ -629,7 +662,9 @@ class _PDFViewerState extends State<PDFViewer> {
       ),
     );
   }
-  Widget _buildIconButton(IconData icon, Color color, String tooltip, {VoidCallback? onPressed}) {
+
+  Widget _buildIconButton(IconData icon, Color color, String tooltip,
+      {VoidCallback? onPressed}) {
     return Tooltip(
       message: tooltip,
       child: Container(
@@ -641,7 +676,7 @@ class _PDFViewerState extends State<PDFViewer> {
         child: IconButton(
           icon: Icon(icon, color: color),
           onPressed: onPressed ??
-                  () {
+              () {
                 setState(() {
                   _isDrawingMode = icon == Icons.edit || icon == Icons.brush;
                   _isAddingText = false;
@@ -677,7 +712,6 @@ class _PDFViewerState extends State<PDFViewer> {
       });
     } else if (_isAddingText) {
       setState(() {
-        _textPosition = pdfPosition;
         _addDrawnItem(DrawnItem(
           points: [pdfPosition],
           color: _currentColor,
@@ -711,10 +745,13 @@ class _PDFViewerState extends State<PDFViewer> {
         _circleRadius = (_circleStart! - pdfPosition).distance;
       });
     } else if (_isPanningMode) {
-      _pdfViewerController.zoomLevel = (_baseScaleFactor * details.scale).clamp(1.0, 3.0);
+      _pdfViewerController.zoomLevel =
+          (_baseScaleFactor * details.scale).clamp(1.0, 3.0);
       _pdfViewerController.jumpTo(
-        xOffset: _pdfViewerController.scrollOffset.dx - details.focalPointDelta.dx,
-        yOffset: _pdfViewerController.scrollOffset.dy - details.focalPointDelta.dy,
+        xOffset:
+            _pdfViewerController.scrollOffset.dx - details.focalPointDelta.dx,
+        yOffset:
+            _pdfViewerController.scrollOffset.dy - details.focalPointDelta.dy,
       );
     } else if (_isEraserMode) {
       _eraseAtPoint(pdfPosition);
@@ -742,11 +779,13 @@ class _PDFViewerState extends State<PDFViewer> {
     setState(() {
       _drawnItemsByPage[_currentPage]?.removeWhere((item) {
         if (item.type == DrawnItemType.freehand) {
-          return item.points.any((p) => (p - point).distance < 20 / _pdfViewerController.zoomLevel);
+          return item.points.any((p) =>
+              (p - point).distance < 20 / _pdfViewerController.zoomLevel);
         } else if (item.type == DrawnItemType.circle) {
           return (item.points.first - point).distance < (item.radius ?? 0);
         } else if (item.type == DrawnItemType.text) {
-          return (item.points.first - point).distance < 20 / _pdfViewerController.zoomLevel;
+          return (item.points.first - point).distance <
+              20 / _pdfViewerController.zoomLevel;
         }
         return false;
       });
@@ -804,13 +843,17 @@ class DrawingPainter extends CustomPainter {
           if (item.points.length > 1) {
             final path = Path();
             path.moveTo(
-              item.points.first.dx * pdfController.zoomLevel - pdfController.scrollOffset.dx,
-              item.points.first.dy * pdfController.zoomLevel - pdfController.scrollOffset.dy,
+              item.points.first.dx * pdfController.zoomLevel -
+                  pdfController.scrollOffset.dx,
+              item.points.first.dy * pdfController.zoomLevel -
+                  pdfController.scrollOffset.dy,
             );
             for (int i = 1; i < item.points.length; i++) {
               path.lineTo(
-                item.points[i].dx * pdfController.zoomLevel - pdfController.scrollOffset.dx,
-                item.points[i].dy * pdfController.zoomLevel - pdfController.scrollOffset.dy,
+                item.points[i].dx * pdfController.zoomLevel -
+                    pdfController.scrollOffset.dx,
+                item.points[i].dy * pdfController.zoomLevel -
+                    pdfController.scrollOffset.dy,
               );
             }
             canvas.drawPath(path, paint);
@@ -819,8 +862,10 @@ class DrawingPainter extends CustomPainter {
         case DrawnItemType.circle:
           if (item.points.isNotEmpty && item.radius != null) {
             Offset center = Offset(
-              item.points.first.dx * pdfController.zoomLevel - pdfController.scrollOffset.dx,
-              item.points.first.dy * pdfController.zoomLevel - pdfController.scrollOffset.dy,
+              item.points.first.dx * pdfController.zoomLevel -
+                  pdfController.scrollOffset.dx,
+              item.points.first.dy * pdfController.zoomLevel -
+                  pdfController.scrollOffset.dy,
             );
             double scaledRadius = item.radius! * pdfController.zoomLevel;
             canvas.drawCircle(center, scaledRadius, paint);
@@ -841,8 +886,10 @@ class DrawingPainter extends CustomPainter {
             );
             textPainter.layout();
             Offset position = Offset(
-              item.points.first.dx * pdfController.zoomLevel - pdfController.scrollOffset.dx,
-              item.points.first.dy * pdfController.zoomLevel - pdfController.scrollOffset.dy,
+              item.points.first.dx * pdfController.zoomLevel -
+                  pdfController.scrollOffset.dx,
+              item.points.first.dy * pdfController.zoomLevel -
+                  pdfController.scrollOffset.dy,
             );
             textPainter.paint(canvas, position);
           }
@@ -859,7 +906,6 @@ class DrawingPainter extends CustomPainter {
         oldDelegate.currentPage != currentPage;
   }
 }
-
 
 class ColorfulDoodleText extends StatelessWidget {
   final String text;
@@ -917,10 +963,12 @@ class _DoodleTextPainter extends CustomPainter {
     );
     textPainter.layout();
 
-    final random = math.Random(42);  // Sabit bir tohum kullanarak tutarlı rastgelelik sağlıyoruz
+    final random = math.Random(
+        42); // Sabit bir tohum kullanarak tutarlı rastgelelik sağlıyoruz
 
     for (int i = 0; i < text.length; i++) {
-      final charOffset = textPainter.getOffsetForCaret(TextPosition(offset: i), Rect.zero);
+      final charOffset =
+          textPainter.getOffsetForCaret(TextPosition(offset: i), Rect.zero);
       final charSize = textPainter.size.height;
 
       final paint = Paint()
@@ -928,20 +976,30 @@ class _DoodleTextPainter extends CustomPainter {
         ..strokeWidth = 2
         ..style = PaintingStyle.stroke;
 
-      for (int j = 0; j < 3; j++) {  // Her karakter için 3 karalama çizgisi
+      for (int j = 0; j < 3; j++) {
+        // Her karakter için 3 karalama çizgisi
         final startX = charOffset.dx + random.nextDouble() * charSize * 0.2;
         final startY = charOffset.dy + random.nextDouble() * charSize;
         final endX = startX + random.nextDouble() * charSize * 0.6;
         final endY = startY + (random.nextDouble() - 0.5) * charSize * 0.6;
 
-        final controlPoint1X = startX + (endX - startX) / 3 + (random.nextDouble() - 0.5) * charSize * 0.2;
-        final controlPoint1Y = startY + (endY - startY) / 3 + (random.nextDouble() - 0.5) * charSize * 0.2;
-        final controlPoint2X = startX + 2 * (endX - startX) / 3 + (random.nextDouble() - 0.5) * charSize * 0.2;
-        final controlPoint2Y = startY + 2 * (endY - startY) / 3 + (random.nextDouble() - 0.5) * charSize * 0.2;
+        final controlPoint1X = startX +
+            (endX - startX) / 3 +
+            (random.nextDouble() - 0.5) * charSize * 0.2;
+        final controlPoint1Y = startY +
+            (endY - startY) / 3 +
+            (random.nextDouble() - 0.5) * charSize * 0.2;
+        final controlPoint2X = startX +
+            2 * (endX - startX) / 3 +
+            (random.nextDouble() - 0.5) * charSize * 0.2;
+        final controlPoint2Y = startY +
+            2 * (endY - startY) / 3 +
+            (random.nextDouble() - 0.5) * charSize * 0.2;
 
         final path = Path()
           ..moveTo(startX, startY)
-          ..cubicTo(controlPoint1X, controlPoint1Y, controlPoint2X, controlPoint2Y, endX, endY);
+          ..cubicTo(controlPoint1X, controlPoint1Y, controlPoint2X,
+              controlPoint2Y, endX, endY);
 
         canvas.drawPath(path, paint);
       }

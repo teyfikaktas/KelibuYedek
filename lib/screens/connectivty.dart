@@ -1,5 +1,5 @@
-import 'package:http/http.dart' as http;
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:http/http.dart' as http;
 
 class NetworkService {
   static Future<bool> isConnected() async {
@@ -9,7 +9,9 @@ class NetworkService {
     }
 
     try {
-      final response = await http.get(Uri.parse('https://www.google.com')).timeout(Duration(seconds: 5));
+      final response = await http
+          .get(Uri.parse('https://www.google.com'))
+          .timeout(Duration(seconds: 5));
       return response.statusCode == 200;
     } catch (_) {
       return false;

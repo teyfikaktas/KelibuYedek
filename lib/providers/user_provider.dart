@@ -1,8 +1,8 @@
 import 'dart:convert';
+
 import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
-import 'package:kelibu/api.dart';
 
 class UserProvider with ChangeNotifier {
   String _username = '';
@@ -32,22 +32,36 @@ class UserProvider with ChangeNotifier {
 
   // Getter'lar
   String get username => _username;
+
   int get userId => _userId;
+
   String get avatar => _avatar;
+
   int get point => _point;
+
   String get email => _email;
+
   String get phone => _phone;
+
   bool get phoneVerified => _phoneVerified;
+
   String get createdAt => _createdAt;
+
   String get city => _city;
+
   int get birthYear => _birthYear;
+
   String? get team => _team;
 
   // Yeni getter'lar
   int get streakCount => _streakCount;
+
   int get dailyRank => _dailyRank;
+
   int get weeklyRank => _weeklyRank;
+
   int get monthlyRank => _monthlyRank;
+
   int get allTimeRank => _allTimeRank;
 
   bool get isLoggedIn => _username.isNotEmpty;
@@ -65,10 +79,10 @@ class UserProvider with ChangeNotifier {
       int birthYear,
       String? team,
       {int streakCount = 0,
-        int dailyRank = 0,
-        int weeklyRank = 0,
-        int monthlyRank = 0,
-        int allTimeRank = 0}) async {
+      int dailyRank = 0,
+      int weeklyRank = 0,
+      int monthlyRank = 0,
+      int allTimeRank = 0}) async {
     _username = username;
     _userId = userId;
     _avatar = avatar;
@@ -119,7 +133,8 @@ class UserProvider with ChangeNotifier {
   }
 
   Future<bool> loadUser() async {
-    try {  // try-catch ekleyelim
+    try {
+      // try-catch ekleyelim
       var box = await Hive.openBox('userBox');
 
       // Özellikle bu alanları kontrol edelim
@@ -145,10 +160,10 @@ class UserProvider with ChangeNotifier {
       notifyListeners();
       return _username.isNotEmpty;
     } catch (e) {
-      print('Error in loadUser: $e');
       return false;
     }
   }
+
   Future<void> updateUserAvatarUrl(String newAvatarUrl) async {
     _avatar = newAvatarUrl;
     var box = await Hive.openBox('userBox');

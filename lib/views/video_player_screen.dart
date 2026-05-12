@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:video_player/video_player.dart';
+
 import '../controllers/video_controller.dart';
 
 class VideoPlayerScreen extends StatelessWidget {
@@ -48,7 +49,8 @@ class VideoPlayerScreen extends StatelessWidget {
                   Row(
                     children: [
                       Container(
-                        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
                           color: Colors.grey[200],
                           borderRadius: BorderRadius.circular(20),
@@ -126,22 +128,23 @@ class VideoPlayerScreen extends StatelessWidget {
                   VideoPlayer(controller.videoController),
                   // Play/Pause butonu
                   Obx(() => IconButton(
-                    icon: FaIcon(
-                      controller.isPlaying.value
-                          ? FontAwesomeIcons.pause
-                          : FontAwesomeIcons.play,
-                      color: Colors.white,
-                      size: 30,
-                    ),
-                    onPressed: controller.playPause,
-                  )),
+                        icon: FaIcon(
+                          controller.isPlaying.value
+                              ? FontAwesomeIcons.pause
+                              : FontAwesomeIcons.play,
+                          color: Colors.white,
+                          size: 30,
+                        ),
+                        onPressed: controller.playPause,
+                      )),
                   // Kontrol butonları
                   Positioned(
                     bottom: 0,
                     left: 0,
                     right: 0,
                     child: Container(
-                      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           begin: Alignment.bottomCenter,
@@ -156,38 +159,44 @@ class VideoPlayerScreen extends StatelessWidget {
                         children: [
                           // İlerleme çubuğu
                           Obx(() => SliderTheme(
-                            data: SliderThemeData(
-                              thumbColor: Color(0xFF00897B),
-                              activeTrackColor: Color(0xFF00897B),
-                              inactiveTrackColor: Colors.grey[300],
-                            ),
-                            child: Slider(
-                              value: controller.currentPosition.value.inSeconds.toDouble(),
-                              min: 0,
-                              max: controller.duration.value.inSeconds.toDouble(),
-                              onChanged: (value) {
-                                controller.seekTo(Duration(seconds: value.toInt()));
-                              },
-                            ),
-                          )),
+                                data: SliderThemeData(
+                                  thumbColor: Color(0xFF00897B),
+                                  activeTrackColor: Color(0xFF00897B),
+                                  inactiveTrackColor: Colors.grey[300],
+                                ),
+                                child: Slider(
+                                  value: controller
+                                      .currentPosition.value.inSeconds
+                                      .toDouble(),
+                                  min: 0,
+                                  max: controller.duration.value.inSeconds
+                                      .toDouble(),
+                                  onChanged: (value) {
+                                    controller.seekTo(
+                                        Duration(seconds: value.toInt()));
+                                  },
+                                ),
+                              )),
                           // Zaman ve kontrol butonları
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               // Zaman
                               Obx(() => Text(
-                                '${controller.formatDuration(controller.currentPosition.value)} / ${controller.formatDuration(controller.duration.value)}',
-                                style: TextStyle(color: Colors.white),
-                              )),
+                                    '${controller.formatDuration(controller.currentPosition.value)} / ${controller.formatDuration(controller.duration.value)}',
+                                    style: TextStyle(color: Colors.white),
+                                  )),
                               // İleri/Geri butonları
                               Row(
                                 children: [
                                   IconButton(
-                                    icon: Icon(Icons.replay_10, color: Colors.white),
+                                    icon: Icon(Icons.replay_10,
+                                        color: Colors.white),
                                     onPressed: controller.rewind10Seconds,
                                   ),
                                   IconButton(
-                                    icon: Icon(Icons.forward_10, color: Colors.white),
+                                    icon: Icon(Icons.forward_10,
+                                        color: Colors.white),
                                     onPressed: controller.forward10Seconds,
                                   ),
                                 ],
@@ -205,7 +214,9 @@ class VideoPlayerScreen extends StatelessWidget {
         );
       },
     );
-  }  Widget _buildErrorWidget() {
+  }
+
+  Widget _buildErrorWidget() {
     return Container(
       padding: EdgeInsets.all(24),
       child: Column(

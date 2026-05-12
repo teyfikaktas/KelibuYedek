@@ -1,4 +1,5 @@
 import 'dart:math';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final gameProvider = StateNotifierProvider<GameNotifier, GameState>((ref) {
@@ -21,12 +22,16 @@ class GameNotifier extends StateNotifier<GameState> {
 
   void setOptions() {
     var currentWord = state.remainingWords[state.currentWordIndex].keys.first;
-    var correctAnswer = state.remainingWords[state.currentWordIndex][currentWord]!;
+    var correctAnswer =
+        state.remainingWords[state.currentWordIndex][currentWord]!;
     var options = [correctAnswer];
     var random = Random();
 
     while (options.length < 4) {
-      var option = state.remainingWords[random.nextInt(state.remainingWords.length)].values.first;
+      var option = state
+          .remainingWords[random.nextInt(state.remainingWords.length)]
+          .values
+          .first;
       if (!options.contains(option)) {
         options.add(option);
       }
@@ -38,12 +43,14 @@ class GameNotifier extends StateNotifier<GameState> {
 
   void selectAnswer(String answer) {
     var currentWord = state.remainingWords[state.currentWordIndex].keys.first;
-    var correctAnswer = state.remainingWords[state.currentWordIndex][currentWord]!;
+    var correctAnswer =
+        state.remainingWords[state.currentWordIndex][currentWord]!;
     if (answer == correctAnswer) {
       state = state.copyWith(correctAnswers: state.correctAnswers + 1);
       if (state.correctAnswers % 3 == 0) {
         state = state.copyWith(
-          remainingWords: List.from(state.remainingWords)..removeAt(state.currentWordIndex),
+          remainingWords: List.from(state.remainingWords)
+            ..removeAt(state.currentWordIndex),
           correctAnswers: 0,
         );
         if (state.remainingWords.isEmpty) {

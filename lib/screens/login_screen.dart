@@ -1,37 +1,32 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // inputFormatters için eklenmeli
 import 'package:flutter/gestures.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
-import 'package:get/get_core/src/get_main.dart';
-import 'package:get/get_navigation/src/routes/transitions_type.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:kelibu/api.dart';
+import 'package:kelibu/globalDart/urls.dart';
 import 'package:kelibu/main.dart';
+import 'package:kelibu/providers/user_provider.dart';
 import 'package:kelibu/screens/privary_policy.dart';
 import 'package:kelibu/screens/register.dart';
-import 'package:kelibu/screens/register_screen.dart';
 import 'package:kelibu/screens/reset_password_screen.dart';
 import 'package:kelibu/screens/video_player.dart';
-import 'package:kelibu/screens/home_screen_widgets/home_screen.dart';
-import 'package:kelibu/providers/user_provider.dart';
+import 'package:kelibu/variables.dart';
+import 'package:lottie/lottie.dart';
 import 'package:provider/provider.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:lottie/lottie.dart';
-import 'package:kelibu/api.dart'; // ApiService'in doğru yolunu kullanın
-import 'package:kelibu/globalDart/urls.dart';
-import 'package:kelibu/variables.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
-
+import 'package:google_sign_in/google_sign_in.dart';
 class LoginScreen extends StatefulWidget {
   final String username;
   final String password;
-  final String? warning; // Yeni opsiyonel parametre
+  final String? warning;
 
   LoginScreen({this.username = '', this.password = '', this.warning});
 
@@ -39,7 +34,8 @@ class LoginScreen extends StatefulWidget {
   _LoginScreenState createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin {
+class _LoginScreenState extends State<LoginScreen>
+    with TickerProviderStateMixin {
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _obscureText = true;
@@ -91,7 +87,8 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
       ),
     );
 
-    _slideAnimation = Tween<Offset>(begin: const Offset(0, 0.1), end: Offset.zero).animate(
+    _slideAnimation =
+        Tween<Offset>(begin: const Offset(0, 0.1), end: Offset.zero).animate(
       CurvedAnimation(
         parent: _slideAnimationController,
         curve: Curves.easeOutCubic,
@@ -121,13 +118,15 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
         curve: Curves.easeInOut,
       ),
     );
-    _forgotPasswordButtonScaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
+    _forgotPasswordButtonScaleAnimation =
+        Tween<double>(begin: 1.0, end: 0.95).animate(
       CurvedAnimation(
         parent: _forgotPasswordButtonAnimationController,
         curve: Curves.easeInOut,
       ),
     );
-    _registerButtonScaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
+    _registerButtonScaleAnimation =
+        Tween<double>(begin: 1.0, end: 0.95).animate(
       CurvedAnimation(
         parent: _registerButtonAnimationController,
         curve: Curves.easeInOut,
@@ -135,7 +134,8 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
     );
 
     // Otomatik doldurulmuş alanlar
-    if (widget.username.trim().isNotEmpty && widget.password.trim().isNotEmpty) {
+    if (widget.username.trim().isNotEmpty &&
+        widget.password.trim().isNotEmpty) {
       _usernameController.text = widget.username.trim();
       _passwordController.text = widget.password.trim();
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -181,7 +181,8 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
       return;
     }
     // Basit bir e-posta doğrulama regex'i
-    final RegExp emailRegex = RegExp(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$");
+    final RegExp emailRegex =
+        RegExp(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$");
     if (!emailRegex.hasMatch(email)) {
       _showErrorDialog('Hata', 'Lütfen geçerli bir e-posta adresi giriniz.');
       return;
@@ -200,39 +201,27 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
   }
 
   Future<void> login(String email, String password) async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    // Loading dialogunu başlangıçta göster
+    setState(() => _isLoading = true);
     _showLoadingDialog();
 
     try {
-      // FCM token'ını güvenli bir şekilde al
       String? fcmToken = await _getFCMToken();
-
-      // API isteğini yap
-      final Map<String, dynamic> responseData = await _apiService.login(
+      final responseData = await _apiService.login(
         email: email.trim(),
         password: password.trim(),
         fcmToken: fcmToken ?? '',
       );
-
       final user = responseData['user'];
-
       if (user == null) {
-        throw Exception('Kullanıcı verisi bulunamadı.');
+        throw Exception('Kullanıcı verisi bulunamadı');
       }
-
-      // RevenueCat işlemlerini arka planda yap
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
       final String userIdR = user['id']?.toString() ?? '0';
       unawaited(_handleRevenueCat(userIdR));
 
-      // User Provider güncelleme
-      final UserProvider userProvider = Provider.of<UserProvider>(context, listen: false);
       await userProvider.setUser(
         user['name'] ?? '',
-        user['id'] != null ? int.tryParse(user['id'].toString()) ?? 0 : 0,
+        user['id'] ?? 0,
         user['avatar'] ?? '',
         user['point'] ?? 0,
         user['email'] ?? '',
@@ -240,44 +229,31 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
         user['phone_verified'] ?? false,
         user['created_at'] ?? '',
         user['city'] ?? '',
-        user['birth_year'] != null ? int.tryParse(user['birth_year'].toString()) ?? 0 : 0,
+        user['birth_year'] ?? 0,
         user['team'] ?? '',
-        streakCount: user['streak_count'] ?? 0,
-        dailyRank: user['daily_rank'] ?? 0,
-        weeklyRank: user['weekly_rank'] ?? 0,
-        monthlyRank: user['monthly_rank'] ?? 0,
-        allTimeRank: user['all_time_rank'] ?? 0,
       );
+      final token = responseData['token'];
 
-      // SharedPreferences ile userId ve version kaydı
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('userId', user['id']?.toString() ?? '0');
-      await prefs.setString('app_version', "3");
-
-      // Loading dialog'u kapat
-      Get.back();
-
-      // Ana ekrana geç
+      await prefs.setString('userId', user['id'].toString());
+      await prefs.setString('app_version', '3');
+      await storage.write(key: 'access_token', value: token);
+      Get.back(); // Loading dialog kapat
       await Get.off(
             () => MainScreen(),
         transition: Transition.fade,
         duration: const Duration(milliseconds: 300),
       );
-
     } on ApiException catch (e) {
-      Get.back(); // Loading dialog'u kapat
+      Get.back();
       _handleApiError(e);
-    } catch (e) {
-      Get.back(); // Loading dialog'u kapat
+    } catch (e, stackTrace) {
+      Get.back();
       _handleGenericError(e);
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      setState(() => _isLoading = false);
     }
   }
-
-// FCM token'ını güvenli bir şekilde almak için yardımcı metot
   Future<String?> _getFCMToken() async {
     return null;
   }
@@ -288,9 +264,9 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
       await Purchases.syncPurchases();
       await Purchases.getCustomerInfo();
     } catch (e) {
-      print('RevenueCat error: $e');
     }
   }
+
 
 // Loading dialog için yardımcı fonksiyon
   void _showLoadingDialog() {
@@ -345,7 +321,8 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
       ),
       barrierDismissible: false,
       barrierColor: Colors.black.withOpacity(0.3),
-      transitionDuration: const Duration(milliseconds: 150), // Geçiş süresini kısalt
+      transitionDuration: const Duration(milliseconds: 150),
+      // Geçiş süresini kısalt
       transitionCurve: Curves.easeInOut,
     );
   }
@@ -385,96 +362,119 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
       );
     }
   }
+
   void _showErrorDialog(String title, String message, {String? errorCode}) {
     Get.dialog(
       Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        elevation: 8,
         child: Container(
-          width: Get.width * 0.95, // Daha geniş dialog
-          padding: const EdgeInsets.all(24),
+          width: Get.width * 0.95,
+          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 28),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            gradient: const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0xFFF8F9FF),
+                Colors.white,
+              ],
+            ),
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              SvgPicture.string(_errorIconSvg,
-                  width: 70,
-                  height: 70,
-                  fit: BoxFit.contain
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF1565C0).withOpacity(0.12),
+                      blurRadius: 16,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
+                child: Image.asset(
+                  'assets/logo.png',
+                  width: 56,
+                  height: 56,
+                  fit: BoxFit.contain,
+                ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 18),
               Text(
                 title,
                 style: GoogleFonts.comfortaa(
                   fontSize: 20,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFFE53935),
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFFD32F2F),
                 ),
               ),
-              const SizedBox(height: 12),
-              // Kaydırılabilir hata mesajı alanı
-              Container(
-                height: Get.height * 0.3, // Yükseklik sınırı
+              if (errorCode != null) ...[
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEEEEEE),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    'Kod: $errorCode',
+                    style: GoogleFonts.quicksand(
+                      fontSize: 11,
+                      color: Colors.black45,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 16),
+              ConstrainedBox(
+                constraints: BoxConstraints(maxHeight: Get.height * 0.25),
                 child: SingleChildScrollView(
                   child: Text(
                     message,
-                    textAlign: TextAlign.left, // Hata mesajları için sol hizalama daha iyi
+                    textAlign: TextAlign.left,
                     style: GoogleFonts.quicksand(
-                      fontSize: 14,
-                      color: Colors.black87,
+                      fontSize: 15,
+                      height: 1.5,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF212121),
                     ),
                   ),
                 ),
               ),
-              const SizedBox(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  TextButton(
-                    onPressed: () => Get.back(),
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                      backgroundColor: const Color(0xFFE53935).withOpacity(0.1),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                    child: Text('Anladım',
-                        style: GoogleFonts.quicksand(
-                            color: const Color(0xFFE53935),
-                            fontWeight: FontWeight.w600
-                        )
-                    ),
+              const SizedBox(height: 22),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                  onPressed: () => Get.back(),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    backgroundColor: const Color(0xFF1565C0),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                   ),
-                  TextButton(
-                    onPressed: () {
-                      // Hata mesajını kopyala
-                      Clipboard.setData(ClipboardData(text: message));
-                      ScaffoldMessenger.of(Get.context!).showSnackBar(
-                        SnackBar(content: Text('Hata mesajı kopyalandı')),
-                      );
-                    },
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                      backgroundColor: const Color(0xFF2196F3).withOpacity(0.1),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                    child: Text('Kopyala',
-                        style: GoogleFonts.quicksand(
-                            color: const Color(0xFF2196F3),
-                            fontWeight: FontWeight.w600
-                        )
-                    ),
-                  ),
-                ],
-              )
+                  child: Text('Tamam',
+                      style: GoogleFonts.quicksand(
+                          fontSize: 15,
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700)),
+                ),
+              ),
             ],
           ),
         ),
       ),
       barrierDismissible: true,
-      transitionDuration: const Duration(milliseconds: 200),
-      transitionCurve: Curves.easeInOut,
+      transitionDuration: const Duration(milliseconds: 250),
+      transitionCurve: Curves.easeOutCubic,
     );
-  }
-
-  // Örnek bir buton oluşturma fonksiyonu
+  }  // Örnek bir buton oluşturma fonksiyonu
   Widget _buildButton(String text, VoidCallback onPressed, Color color) {
     return ElevatedButton(
       onPressed: onPressed,
@@ -538,8 +538,8 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                 const SizedBox(height: 15),
                 Text(
                   'Şu anda ${details?['active_sessions'] ?? 'birden fazla'} aktif oturumunuz var. '
-                      'En fazla ${details?['max_allowed'] ?? 3} cihazda aynı anda oturum açabilirsiniz. '
-                      'Lütfen diğer cihazlardan oturumu kapatarak tekrar deneyin.',
+                  'En fazla ${details?['max_allowed'] ?? 3} cihazda aynı anda oturum açabilirsiniz. '
+                  'Lütfen diğer cihazlardan oturumu kapatarak tekrar deneyin.',
                   textAlign: TextAlign.center,
                   style: GoogleFonts.quicksand(
                     fontSize: 18,
@@ -547,7 +547,8 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                   ),
                 ),
                 const SizedBox(height: 30),
-                _buildButton('Anladım', () => Navigator.of(context).pop(), const Color(0xFFE53935)),
+                _buildButton('Anladım', () => Navigator.of(context).pop(),
+                    const Color(0xFFE53935)),
               ],
             ),
           ),
@@ -582,7 +583,8 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => VideoPlayerScreen(videoUrl: AppUrls.login),
+                builder: (context) =>
+                    VideoPlayerScreen(videoUrl: AppUrls.login),
               ),
             );
           },
@@ -650,7 +652,6 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
     );
   }
 
-  // Giriş alanları (E-posta, Şifre)
   Widget _buildInputFields(Map<String, Color?> colors, Size screenSize) {
     return Container(
       padding: EdgeInsets.all(screenSize.width * 0.03),
@@ -658,7 +659,6 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
         color: colors["cardBackground"],
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
-          // Tek tip hafif gölge
           BoxShadow(
             color: Colors.black.withOpacity(0.08),
             blurRadius: 8,
@@ -668,19 +668,21 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
       ),
       child: Column(
         children: [
-          // E-posta TextField
           TextField(
             controller: _usernameController,
             textInputAction: TextInputAction.next,
             keyboardType: TextInputType.emailAddress,
             inputFormatters: [
-              FilteringTextInputFormatter.deny(RegExp(r'\s')), // Boşlukları engeller
+              FilteringTextInputFormatter.deny(RegExp(r'\s')),
             ],
             decoration: InputDecoration(
               hintText: 'E-posta',
+              hintStyle: TextStyle(
+                color: colors["text"]?.withOpacity(0.4),
+              ),
               prefixIcon: Icon(
                 Icons.email,
-                color: colors["text"],
+                color: colors["text"]?.withOpacity(0.7),
                 size: screenSize.width * 0.05,
               ),
               filled: true,
@@ -691,7 +693,8 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(30),
-                borderSide: const BorderSide(color: Color(0xFF4A90E2), width: 2),
+                borderSide:
+                const BorderSide(color: Color(0xFF4A90E2), width: 2),
               ),
             ),
             style: TextStyle(
@@ -700,7 +703,6 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
             ),
           ),
           SizedBox(height: screenSize.height * 0.01),
-          // Şifre TextField
           TextField(
             controller: _passwordController,
             obscureText: _obscureText,
@@ -710,15 +712,18 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
             ],
             decoration: InputDecoration(
               hintText: 'Şifre',
+              hintStyle: TextStyle(
+                color: colors["text"]?.withOpacity(0.4),
+              ),
               prefixIcon: Icon(
                 Icons.lock,
-                color: colors["text"],
+                color: colors["text"]?.withOpacity(0.7),
                 size: screenSize.width * 0.05,
               ),
               suffixIcon: IconButton(
                 icon: Icon(
                   _obscureText ? Icons.visibility : Icons.visibility_off,
-                  color: colors["text"],
+                  color: colors["text"]?.withOpacity(0.7),
                   size: screenSize.width * 0.05,
                 ),
                 onPressed: () => setState(() => _obscureText = !_obscureText),
@@ -731,7 +736,8 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(30),
-                borderSide: const BorderSide(color: Color(0xFF4A90E2), width: 2),
+                borderSide:
+                const BorderSide(color: Color(0xFF4A90E2), width: 2),
               ),
             ),
             style: TextStyle(
@@ -744,7 +750,6 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
     );
   }
 
-  // “Şifremi Unuttum” butonu
   Widget _buildForgotPasswordButton() {
     return CustomButton(
       onPressed: () => Navigator.push(
@@ -754,12 +759,16 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
       isDarkMode: _isDarkMode,
       label: 'Şifremi Unuttum',
       icon: Icons.lock_outline,
-      lightModeColor: const Color(0xFF2D5DA0),  // Logo mavi
-      darkModeColor: const Color(0xFF1C3B69),   // Koyu mavi
-      lightHoverColor: const Color(0xFFE86548),  // Logo kırmızı
-      darkHoverColor: const Color(0xFFC84E35),   // Koyu kırmızı
+      lightModeColor: const Color(0xFF2D5DA0),
+      // Logo mavi
+      darkModeColor: const Color(0xFF1C3B69),
+      // Koyu mavi
+      lightHoverColor: const Color(0xFFE86548),
+      // Logo kırmızı
+      darkHoverColor: const Color(0xFFC84E35), // Koyu kırmızı
     );
   }
+
   // “Kayıt Ol” butonu
   Widget _buildRegisterButton() {
     return CustomButton(
@@ -776,6 +785,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
       darkHoverColor: const Color(0xFF4169E1),
     );
   }
+
   // “Giriş Yap” butonu
 // _buildLoginButton yerine bu kodu ekle
   Widget _buildLoginButton(Map<String, Color?> colors, Size screenSize) {
@@ -804,7 +814,8 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
   }
 
   // Kullanım şartları, gizlilik politikası linkleri
-  Widget _buildTermsAndConditionsText(Map<String, Color?> colors, Size screenSize) {
+  Widget _buildTermsAndConditionsText(
+      Map<String, Color?> colors, Size screenSize) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: Column(
@@ -813,12 +824,13 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
             textAlign: TextAlign.center,
             text: TextSpan(
               style: TextStyle(
-                fontSize: screenSize.width * 0.035,
+                fontSize: screenSize.width * 0.025,
                 fontStyle: FontStyle.italic,
                 color: colors["text"],
               ),
               children: [
-                const TextSpan(text: 'By using the application, you accept the '),
+                const TextSpan(
+                    text: 'By using the application, you accept the '),
                 TextSpan(
                   text: 'Terms of Service (EULA)',
                   style: const TextStyle(
@@ -829,7 +841,8 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                     ..onTap = () {
                       String url = '';
                       if (Platform.isIOS) {
-                        url = 'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/';
+                        url =
+                            'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/';
                       } else if (Platform.isAndroid) {
                         url = 'https://policies.google.com/terms?hl=en-US';
                       }
@@ -847,19 +860,20 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                     ..onTap = () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (context) => PrivacyPolicyPage()),
+                        MaterialPageRoute(
+                            builder: (context) => PrivacyPolicyPage()),
                       );
                     },
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 5),
+          const SizedBox(height: 3),
           RichText(
             textAlign: TextAlign.center,
             text: TextSpan(
               style: TextStyle(
-                fontSize: screenSize.width * 0.035,
+                fontSize: screenSize.width * 0.025,
                 fontStyle: FontStyle.italic,
                 color: colors["text"],
               ),
@@ -875,7 +889,8 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                     ..onTap = () {
                       String url = '';
                       if (Platform.isIOS) {
-                        url = 'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/';
+                        url =
+                            'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/';
                       } else if (Platform.isAndroid) {
                         url = 'https://policies.google.com/terms?hl=tr';
                       }
@@ -893,7 +908,8 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                     ..onTap = () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (context) => PrivacyPolicyPage()),
+                        MaterialPageRoute(
+                            builder: (context) => PrivacyPolicyPage()),
                       );
                     },
                 ),
@@ -946,10 +962,11 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                     SizedBox(height: screenSize.height * 0.02),
                     _buildInputFields(colors, screenSize),
                     SizedBox(height: screenSize.height * 0.02),
-
-
                     _buildLoginButton(colors, screenSize),
                     SizedBox(height: screenSize.height * 0.01),
+                    _buildGoogleSignInButton(screenSize), // BURAYA EKLE
+                    SizedBox(height: screenSize.height * 0.01),
+
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
@@ -966,6 +983,116 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
         ),
       ),
     );
+  }
+  Widget _buildGoogleSignInButton(Size screenSize) {
+    return GestureDetector(
+      onTap: _isLoading ? null : _loginWithGoogle,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade300),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _isLoading
+                ? const SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+                : SvgPicture.asset(
+              'assets/google_logo.svg',
+              width: 22,
+              height: 22,
+            ),
+            const SizedBox(width: 10),
+            Text(
+              'Google ile Giriş Yap',
+              style: GoogleFonts.plusJakartaSans(
+                color: Colors.black87,
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  Future<void> _loginWithGoogle() async {
+    if (!mounted) return;
+    setState(() => _isLoading = true);
+
+    try {
+      await GoogleSignIn.instance.signOut();
+      final account = await GoogleSignIn.instance.authenticate();
+      final idToken = account.authentication.idToken;
+
+      if (idToken == null) {
+        if (mounted) {
+          setState(() => _isLoading = false);
+          _showErrorDialog('Hata', 'Google token alınamadı.');
+        }
+        return;
+      }
+
+      if (!mounted) return;
+      _showLoadingDialog();
+
+      final responseData = await _apiService.googleLogin(idToken: idToken);
+
+      final user = responseData['user'];
+      final token = responseData['access_token'];
+      final refreshToken = responseData['refresh_token'];
+
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      await userProvider.setUser(
+        user['name'] ?? '',
+        user['id'] ?? 0,
+        user['avatar'] ?? '',
+        user['point'] ?? 0,
+        user['email'] ?? '',
+        user['phone'] ?? '',
+        user['phone_verified'] ?? false,
+        user['created_at'] ?? '',
+        user['city'] ?? '',
+        user['birth_year'] ?? 0,
+        user['team'] ?? '',
+      );
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('userId', user['id'].toString());
+      await prefs.setString('app_version', '3');
+      await storage.write(key: 'access_token', value: token);
+      await storage.write(key: 'refresh_token', value: refreshToken);
+
+      unawaited(_handleRevenueCat(user['id'].toString()));
+
+      Get.back();
+      await Get.off(() => MainScreen(), transition: Transition.fade);
+
+    } on GoogleSignInException catch (e) {
+      if (mounted) setState(() => _isLoading = false);
+      if (e.code == GoogleSignInExceptionCode.canceled) return;
+      if (mounted) _showErrorDialog('Hata', 'Google giriş hatası: ${e.code}');
+    } catch (e) {
+      Get.back();
+      if (mounted) {
+        setState(() => _isLoading = false);
+        _showErrorDialog('Hata', 'Google ile giriş başarısız: ${e.toString()}');
+      }
+    }
   }
 }
 class LoginButton extends StatefulWidget {
@@ -984,7 +1111,8 @@ class LoginButton extends StatefulWidget {
   _LoginButtonState createState() => _LoginButtonState();
 }
 
-class _LoginButtonState extends State<LoginButton> with SingleTickerProviderStateMixin {
+class _LoginButtonState extends State<LoginButton>
+    with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
   bool _isHovered = false;
@@ -1009,8 +1137,10 @@ class _LoginButtonState extends State<LoginButton> with SingleTickerProviderStat
 
   @override
   Widget build(BuildContext context) {
-    final baseColor = widget.isDarkMode ? const Color(0xFF1E3A8A) : const Color(0xFF2196F3);
-    final hoverColor = widget.isDarkMode ? const Color(0xFF2563EB) : const Color(0xFF1976D2);
+    final baseColor =
+        widget.isDarkMode ? const Color(0xFF1E3A8A) : const Color(0xFF2196F3);
+    final hoverColor =
+        widget.isDarkMode ? const Color(0xFF2563EB) : const Color(0xFF1976D2);
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
@@ -1032,14 +1162,16 @@ class _LoginButtonState extends State<LoginButton> with SingleTickerProviderStat
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
-                  color: (widget.isDarkMode ? baseColor : hoverColor).withOpacity(0.2),
+                  color: (widget.isDarkMode ? baseColor : hoverColor)
+                      .withOpacity(0.2),
                   blurRadius: _isHovered ? 12 : 8,
                   offset: const Offset(0, 4),
                   spreadRadius: _isHovered ? 2 : 0,
                 ),
                 if (_isHovered)
                   BoxShadow(
-                    color: (widget.isDarkMode ? baseColor : hoverColor).withOpacity(0.1),
+                    color: (widget.isDarkMode ? baseColor : hoverColor)
+                        .withOpacity(0.1),
                     blurRadius: 18,
                     offset: const Offset(0, 8),
                     spreadRadius: 3,
@@ -1072,6 +1204,7 @@ class _LoginButtonState extends State<LoginButton> with SingleTickerProviderStat
     );
   }
 }
+
 class CustomButton extends StatefulWidget {
   final VoidCallback onPressed;
   final bool isDarkMode;
@@ -1098,7 +1231,8 @@ class CustomButton extends StatefulWidget {
   _CustomButtonState createState() => _CustomButtonState();
 }
 
-class _CustomButtonState extends State<CustomButton> with SingleTickerProviderStateMixin {
+class _CustomButtonState extends State<CustomButton>
+    with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
   bool _isHovered = false;
@@ -1123,8 +1257,10 @@ class _CustomButtonState extends State<CustomButton> with SingleTickerProviderSt
 
   @override
   Widget build(BuildContext context) {
-    final baseColor = widget.isDarkMode ? widget.darkModeColor : widget.lightModeColor;
-    final hoverColor = widget.isDarkMode ? widget.darkHoverColor : widget.lightHoverColor;
+    final baseColor =
+        widget.isDarkMode ? widget.darkModeColor : widget.lightModeColor;
+    final hoverColor =
+        widget.isDarkMode ? widget.darkHoverColor : widget.lightHoverColor;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
@@ -1183,5 +1319,492 @@ class _CustomButtonState extends State<CustomButton> with SingleTickerProviderSt
         ),
       ),
     );
+  }
+}
+
+class OneTimePasswordResetScreen extends StatefulWidget {
+  final String userEmail;
+  final String userName;
+  final String accessToken;
+
+  const OneTimePasswordResetScreen({
+    Key? key,
+    required this.userEmail,
+    required this.userName,
+    required this.accessToken,
+  }) : super(key: key);
+
+  @override
+  _OneTimePasswordResetScreenState createState() =>
+      _OneTimePasswordResetScreenState();
+}
+
+class _OneTimePasswordResetScreenState
+    extends State<OneTimePasswordResetScreen> {
+  final TextEditingController _newPasswordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
+  final ApiService _apiService = ApiService();
+  bool _isLoading = false;
+  bool _obscureNewPassword = true;
+  bool _obscureConfirmPassword = true;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white, // ✅ Beyaz arka plan
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              children: [
+                SizedBox(height: 40),
+
+                // 🎨 Modern Logo ve Icon
+                Container(
+                  width: 100,
+                  height: 100,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Color(0xFFFF6B35), Color(0xFFFF8E35)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(25),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Color(0xFFFF6B35).withOpacity(0.3),
+                        blurRadius: 20,
+                        offset: Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: Icon(
+                    Icons.security_rounded,
+                    size: 50,
+                    color: Colors.white,
+                  ),
+                ),
+
+                SizedBox(height: 32),
+
+                // 📝 Başlık
+                Text(
+                  'Güvenlik Güncellemesi',
+                  style: GoogleFonts.inter(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1A1A1A),
+                  ),
+                ),
+
+                SizedBox(height: 16),
+
+                // 💬 Açıklama Metni - Profesyonel
+                Container(
+                  padding: EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Color(0xFFF8F9FA),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Color(0xFFE9ECEF)),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        'Merhaba ${widget.userName} 👋',
+                        style: GoogleFonts.inter(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF2D3748),
+                        ),
+                      ),
+                      SizedBox(height: 12),
+                      Text(
+                        'Güvenliğinizi ön planda tutuyoruz! Altyapımızı güncellediğimiz için şifrenizi bir kez yenilemenizi rica ediyoruz.',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.inter(
+                          fontSize: 15,
+                          height: 1.5,
+                          color: Color(0xFF4A5568),
+                        ),
+                      ),
+                      SizedBox(height: 8),
+                      Container(
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Color(0xFFFF6B35).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          '🔒 Bu işlem tek seferlik',
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xFFFF6B35),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                SizedBox(height: 40),
+
+                // 🔐 Yeni Şifre Input
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 10,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: TextField(
+                    controller: _newPasswordController,
+                    obscureText: _obscureNewPassword,
+                    style: GoogleFonts.inter(fontSize: 16),
+                    decoration: InputDecoration(
+                      labelText: 'Yeni Şifre',
+                      labelStyle: GoogleFonts.inter(color: Color(0xFF6B7280)),
+                      prefixIcon:
+                          Icon(Icons.lock_rounded, color: Color(0xFFFF6B35)),
+                      suffixIcon: IconButton(
+                        onPressed: () => setState(
+                            () => _obscureNewPassword = !_obscureNewPassword),
+                        icon: Icon(
+                          _obscureNewPassword
+                              ? Icons.visibility
+                              : Icons.visibility_off,
+                          color: Color(0xFF9CA3AF),
+                        ),
+                      ),
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Color(0xFFE5E7EB)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Color(0xFFE5E7EB)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide:
+                            BorderSide(color: Color(0xFFFF6B35), width: 2),
+                      ),
+                    ),
+                  ),
+                ),
+
+                SizedBox(height: 20),
+
+                // 🔐 Şifre Tekrar Input
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 10,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: TextField(
+                    controller: _confirmPasswordController,
+                    obscureText: _obscureConfirmPassword,
+                    style: GoogleFonts.inter(fontSize: 16),
+                    decoration: InputDecoration(
+                      labelText: 'Şifre Tekrar',
+                      labelStyle: GoogleFonts.inter(color: Color(0xFF6B7280)),
+                      prefixIcon: Icon(Icons.lock_outline_rounded,
+                          color: Color(0xFFFF6B35)),
+                      suffixIcon: IconButton(
+                        onPressed: () => setState(() =>
+                            _obscureConfirmPassword = !_obscureConfirmPassword),
+                        icon: Icon(
+                          _obscureConfirmPassword
+                              ? Icons.visibility
+                              : Icons.visibility_off,
+                          color: Color(0xFF9CA3AF),
+                        ),
+                      ),
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Color(0xFFE5E7EB)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Color(0xFFE5E7EB)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide:
+                            BorderSide(color: Color(0xFFFF6B35), width: 2),
+                      ),
+                    ),
+                  ),
+                ),
+
+                SizedBox(height: 32),
+
+                // 🚀 Güncelle Butonu - Premium Look
+                Container(
+                  width: double.infinity,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Color(0xFFFF6B35).withOpacity(0.4),
+                        blurRadius: 15,
+                        offset: Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: ElevatedButton(
+                    onPressed: _isLoading ? null : _updatePassword,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Color(0xFFFF6B35),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: _isLoading
+                        ? SizedBox(
+                            height: 24,
+                            width: 24,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2.5,
+                            ),
+                          )
+                        : Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.security_update, size: 20),
+                              SizedBox(width: 8),
+                              Text(
+                                'Şifremi Güncelle',
+                                style: GoogleFonts.inter(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                  ),
+                ),
+
+                SizedBox(height: 24),
+
+                // 🛡️ Güvenlik Notu
+                Container(
+                  padding: EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Color(0xFFF0F9FF),
+                    borderRadius: BorderRadius.circular(12),
+                    border:
+                        Border.all(color: Color(0xFF0EA5E9).withOpacity(0.2)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.info_outline_rounded,
+                        color: Color(0xFF0EA5E9),
+                        size: 20,
+                      ),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Şifreniz güvenli bir şekilde şifrelenerek saklanmaktadır.',
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            color: Color(0xFF0C4A6E),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                SizedBox(height: 40),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _updatePassword() async {
+    if (_newPasswordController.text.length < 6) {
+      _showError('Şifre en az 6 karakter olmalıdır.');
+      return;
+    }
+    if (_newPasswordController.text != _confirmPasswordController.text) {
+      _showError('Şifreler eşleşmiyor.');
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      // 1️⃣ Şifre güncelle
+      final response = await _apiService.updatePasswordOneTime(
+        email: widget.userEmail,
+        newPassword: _newPasswordController.text,
+        accessToken: widget.accessToken,
+      );
+
+      // 2️⃣ Supabase session güncelle
+      await _updateSupabaseSession();
+
+      // 3️⃣ Kullanıcı verilerini Supabase Profiles'tan çek
+      await _loadUserProfileFromSupabase();
+
+      if (!mounted) return;
+
+      // 4️⃣ Başarı mesajı
+      Get.snackbar(
+        'Tamamlandı! ✅',
+        'Şifreniz güncellendi. Profil bilgileri yükleniyor...',
+        snackPosition: SnackPosition.TOP,
+        backgroundColor: Colors.green.shade600,
+        colorText: Colors.white,
+        icon: Icon(Icons.check_circle, color: Colors.white),
+        duration: Duration(seconds: 2),
+      );
+
+      await Future.delayed(Duration(milliseconds: 1500));
+
+      if (!mounted) return;
+      Get.offAll(() => MainScreen());
+    } catch (e) {
+      if (!mounted) return;
+      _showError('Şifre güncellenirken hata oluştu: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+// 👤 Supabase Profiles'tan kullanıcı verilerini çek
+  Future<void> _loadUserProfileFromSupabase() async {
+    try {
+      // Aktif session'dan user ID'yi al
+      final session = Supabase.instance.client.auth.currentSession;
+      if (session?.user?.id == null) {
+        return;
+      }
+
+      final supabaseUserId = session!.user.id;
+
+      // Profiles tablosundan kullanıcı verilerini çek
+      final profileResponse = await Supabase.instance.client
+          .from('profiles')
+          .select('*')
+          .eq('id', supabaseUserId) // Auth User ID ile eşleş
+          .single();
+
+      if (profileResponse != null) {
+        // Provider'a yükle
+        final UserProvider userProvider =
+            Provider.of<UserProvider>(context, listen: false);
+        await userProvider.setUser(
+          profileResponse['name'] ?? '',
+          profileResponse['laravel_id'] ?? 0,
+          // Laravel ID
+          profileResponse['avatar'] ?? '',
+          profileResponse['point'] ?? 0,
+          profileResponse['email'] ?? '',
+          profileResponse['phone'] ?? '',
+          profileResponse['phone_verified'] ?? false,
+          profileResponse['created_at'] ?? '',
+          profileResponse['city'] ?? '',
+          profileResponse['birth_year'] ?? 0,
+          profileResponse['team'] ?? '',
+          streakCount: 0,
+          // Bu alanlar profiles'ta yoksa 0 ver
+          dailyRank: 0,
+          weeklyRank: 0,
+          monthlyRank: 0,
+          allTimeRank: 0,
+        );
+
+        // SharedPreferences güncelle
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(
+            'userId', profileResponse['laravel_id']?.toString() ?? '0');
+        await prefs.setString('supabase_user_id', supabaseUserId);
+        await prefs.setString('app_version', "3");
+      }
+    } catch (e) {
+      // Fallback: Laravel API'den çek
+    }
+  }
+
+// 🔄 Fallback: Laravel API'den kullanıcı verilerini çek
+  Future<void> _updateSupabaseSession() async {
+    try {
+      // Supabase'e yeni şifre ile giriş yap
+      final AuthResponse authResponse =
+          await Supabase.instance.client.auth.signInWithPassword(
+        email: widget.userEmail,
+        password: _newPasswordController.text,
+      );
+
+      if (authResponse.session != null) {
+        // Session bilgilerini local storage'a kaydet
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(
+            'supabase_access_token', authResponse.session!.accessToken);
+        await prefs.setString(
+            'supabase_refresh_token', authResponse.session!.refreshToken ?? '');
+        await prefs.setString('supabase_user_id', authResponse.user!.id);
+      } else {
+        throw Exception('Supabase session oluşturulamadı');
+      }
+    } catch (supabaseError) {}
+  }
+
+  void _showError(String message) {
+    // 🔧 Widget hala aktif mi kontrol et
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(Icons.error_outline, color: Colors.white),
+            SizedBox(width: 8),
+            Expanded(child: Text(message)),
+          ],
+        ),
+        backgroundColor: Colors.red.shade600,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        duration: Duration(seconds: 4), // ⏰ Süre ekle
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    // 🧹 Controller'ları temizle
+    _newPasswordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
   }
 }

@@ -145,26 +145,20 @@ class VIPAdvantagesPanelProvider extends ChangeNotifier {
 
   Future<void> checkAndShowPanel(BuildContext context) async {
     final subscriptionProvider =
-        Provider.of<SubscriptionProvider>(context, listen: false);
+    Provider.of<SubscriptionProvider>(context, listen: false);
     SharedPreferences prefs = await SharedPreferences.getInstance();
     bool hasShownVIPAdvantagesPanel = prefs.getBool('VIP') ?? false;
     final container = riverpod.ProviderScope.containerOf(context);
     var userProvider = Provider.of<UserProvider>(context, listen: false);
     container.read(globalUserIdProvider.notifier).state = userProvider.userId.toInt();
     container.read(globalUsernameProvider.notifier).state = userProvider.username;
-    print('userProvider.userId.toInt()');
-    print(userProvider.userId.toInt());
-    print(
-        "Subscription Status: isVip=${subscriptionProvider.isVip}, hasShownVIPAdvantagesPanel=$hasShownVIPAdvantagesPanel");
 
     if (subscriptionProvider.isVip && hasShownVIPAdvantagesPanel) {
-      print("Setting _shouldShowPanel = true");
       await prefs.setBool('VIP', false);
 
       _shouldShowPanel = true;
       notifyListeners();
     } else {
-      print("No need to show VIP panel");
     }
   }
 
@@ -206,7 +200,7 @@ class _RaceScreenState extends State<RaceScreen>
       barrierDismissible: false,
       builder: (ctx) => Dialog(
         shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
         child: Container(
           padding: EdgeInsets.all(20.w),
           decoration: BoxDecoration(
@@ -255,7 +249,7 @@ class _RaceScreenState extends State<RaceScreen>
                     borderRadius: BorderRadius.circular(30.r),
                   ),
                   padding:
-                      EdgeInsets.symmetric(horizontal: 30.w, vertical: 12.h),
+                  EdgeInsets.symmetric(horizontal: 30.w, vertical: 12.h),
                 ),
                 child: Text(
                   'Anladım',
@@ -638,7 +632,7 @@ class ProFeaturesList {
       'description': "Kelibu'nun tüm setlerine sınırsız erişim",
       'color': Colors.blue,
       'details':
-          'A1, A2 (temel), B1, B2 (orta) ve C1, C2 (ileri) seviye İngilizce setleri dahil, tüm dil seviyelerine uygun onlarca sete erişim. YÖKDİL, YDT gibi ÖSYM sınavları ile TOEFL, IELTS gibi uluslararası sınavlara özel hazırlık setleri de mevcut!',
+      'A1, A2 (temel), B1, B2 (orta) ve C1, C2 (ileri) seviye İngilizce setleri dahil, tüm dil seviyelerine uygun onlarca sete erişim. YÖKDİL, YDT gibi ÖSYM sınavları ile TOEFL, IELTS gibi uluslararası sınavlara özel hazırlık setleri de mevcut!',
     },
     {
       'icon': Icons.rocket_launch,
@@ -646,7 +640,7 @@ class ProFeaturesList {
       'description': 'Tüm yeni özelliklere öncelikli erişim',
       'color': Colors.orange,
       'details':
-          'Yeni çıkacak özellikleri, setleri ve güncellemeleri herkesten önce deneyimleyin. Kelibu\'nun geleceğini şekillendirmede söz sahibi olun!',
+      'Yeni çıkacak özellikleri, setleri ve güncellemeleri herkesten önce deneyimleyin. Kelibu\'nun geleceğini şekillendirmede söz sahibi olun!',
     },
     {
       'icon': Icons.menu_book,
@@ -654,7 +648,7 @@ class ProFeaturesList {
       'description': 'PhD Akademi Level 1-2-3 kitaplarına ücretsiz erişim',
       'color': Colors.purple,
       'details':
-          'PhD Akademi\'nin popüler Level 1, 2 ve 3 e-kitaplarına tamamen ücretsiz erişim sağlayın. Bu kitaplar, dil öğrenme yolculuğunuzda size rehberlik edecek.',
+      'PhD Akademi\'nin popüler Level 1, 2 ve 3 e-kitaplarına tamamen ücretsiz erişim sağlayın. Bu kitaplar, dil öğrenme yolculuğunuzda size rehberlik edecek.',
     },
     {
       'icon': Icons.phone_android,
@@ -662,7 +656,7 @@ class ProFeaturesList {
       'description': 'SelfEnglish uygulamasına özel beta erişimi',
       'color': Colors.teal,
       'details':
-          'Yakında çıkacak SelfEnglish uygulamamızın beta sürümüne erken erişim kazanın. Yapay zeka destekli bu yeni uygulamamızı ilk siz deneyin ve geri bildirimlerinizle şekillenmesine katkıda bulunun.',
+      'Yakında çıkacak SelfEnglish uygulamamızın beta sürümüne erken erişim kazanın. Yapay zeka destekli bu yeni uygulamamızı ilk siz deneyin ve geri bildirimlerinizle şekillenmesine katkıda bulunun.',
     },
     {
       'icon': Icons.analytics,
@@ -670,7 +664,7 @@ class ProFeaturesList {
       'description': 'Özelleştirilmiş ilerleme takibi ve analizler',
       'color': Colors.red,
       'details':
-          'Detaylı ilerleme grafikleri, kişiselleştirilmiş öğrenme önerileri ve haftalık performans raporları ile dil öğrenme yolculuğunuzu optimize edin. Güçlü ve zayıf yönlerinizi keşfedin.',
+      'Detaylı ilerleme grafikleri, kişiselleştirilmiş öğrenme önerileri ve haftalık performans raporları ile dil öğrenme yolculuğunuzu optimize edin. Güçlü ve zayıf yönlerinizi keşfedin.',
     },
     {
       'icon': Icons.edit_document,
@@ -678,7 +672,7 @@ class ProFeaturesList {
       'description': 'PDF düzenleme ve not alma özelliği',
       'color': Colors.indigo,
       'details':
-          'Kelibu Doodle ile PDF belgeleriniz üzerinde not alın, işaretlemeler yapın ve düzenlemeler gerçekleştirin. Level 1, 2 ve 3 kitapları üzerinde çalışırken interaktif bir deneyim yaşayın.',
+      'Kelibu Doodle ile PDF belgeleriniz üzerinde not alın, işaretlemeler yapın ve düzenlemeler gerçekleştirin. Level 1, 2 ve 3 kitapları üzerinde çalışırken interaktif bir deneyim yaşayın.',
     },
   ];
 }
@@ -761,7 +755,7 @@ class _KelibuProAdvantagesPanelState extends State<KelibuProAdvantagesPanel> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(
                 AdvantagesList.advantages.length,
-                (index) => Container(
+                    (index) => Container(
                   width: 8,
                   height: 8,
                   margin: EdgeInsets.symmetric(horizontal: 4),
@@ -769,7 +763,7 @@ class _KelibuProAdvantagesPanelState extends State<KelibuProAdvantagesPanel> {
                     shape: BoxShape.circle,
                     color: Theme.of(context).primaryColor.withOpacity(
                         _pageController.hasClients &&
-                                _pageController.page?.round() == index
+                            _pageController.page?.round() == index
                             ? 1
                             : 0.3),
                   ),
@@ -917,7 +911,7 @@ class KelibuProAdvantagesDialog extends StatelessWidget {
                     borderRadius: BorderRadius.circular(30.r),
                   ),
                   padding:
-                      EdgeInsets.symmetric(horizontal: 40.w, vertical: 16.h),
+                  EdgeInsets.symmetric(horizontal: 40.w, vertical: 16.h),
                   elevation: 0,
                 ),
                 child: Text(
@@ -1219,12 +1213,10 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       // Kritik verileri tek tek kontrollü şekilde yükle
       await _fetchData().catchError((e) {
-        print('Error in _fetchData: $e');
         // Kritik hata değilse devam et
       });
 
       await checkSubscriptionStatus().catchError((e) {
-        print('Error in checkSubscriptionStatus: $e');
         // Kritik hata değilse devam et
       });
 
@@ -1243,7 +1235,6 @@ class _HomeScreenState extends State<HomeScreen> {
       });
 
     } catch (e) {
-      print('General initialization error: $e');
       if (mounted) setState(() => _isLoading = false);
     }
 
@@ -1293,15 +1284,12 @@ class _HomeScreenState extends State<HomeScreen> {
     var userProvider = Provider.of<UserProvider>(context, listen: false);
     container.read(globalUserIdProvider.notifier).state = userProvider.userId.toInt();
     container.read(globalUsernameProvider.notifier).state = userProvider.username;
-    print('userProvider.userId.toInt()');
-    print(userProvider.userId.toInt());
     try {
       final response = await ApiService().getUsersCount();
       setState(() {
         activeUserCount = response['total_users'] ?? 0;
       });
     } catch (e) {
-      print('Error fetching active users: $e');
       setState(() {
         activeUserCount = 0;
       });
@@ -1375,7 +1363,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         fontSize: 12.sp,
                         fontWeight: FontWeight.w400,
                         color:
-                            _isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                        _isDarkMode ? Colors.grey[400] : Colors.grey[600],
                       ),
                     ),
                   ],
@@ -1400,7 +1388,7 @@ class _HomeScreenState extends State<HomeScreen> {
         barrierDismissible: false,
         builder: (ctx) => Dialog(
           shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
           child: EnhancedProBenefitsCard(
             onSubscribe: () {
               prefs.setBool('hasShownVipPanel', true);
@@ -1451,13 +1439,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 end: Alignment.bottomRight,
                 colors: isDarkMode
                     ? [
-                        Colors.grey[900]!,
-                        Colors.grey[850]!,
-                      ]
+                  Colors.grey[900]!,
+                  Colors.grey[850]!,
+                ]
                     : [
-                        Colors.white,
-                        Color(0xFFFFFBF0),
-                      ],
+                  Colors.white,
+                  Color(0xFFFFFBF0),
+                ],
               ),
             ),
             child: Container(
@@ -1515,7 +1503,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         "Avantajlarım",
                         style: GoogleFonts.poppins(
                           color:
-                              isDarkMode ? Colors.grey[300] : Colors.grey[600],
+                          isDarkMode ? Colors.grey[300] : Colors.grey[600],
                           fontSize: 13.sp,
                           fontWeight: FontWeight.w500,
                         ),
@@ -1538,7 +1526,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> checkSubscriptionStatus() async {
-    print('check');
     final provider = Provider.of<SubscriptionProvider>(context, listen: false);
     await provider.fetchSubscriptionStatus();
   }
@@ -1549,7 +1536,6 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() => promotionMessage = message);
     } catch (e) {
       setState(() => promotionMessage = 'Mesaj yüklenemedi');
-      print(e);
     }
   }
 
@@ -1565,7 +1551,6 @@ class _HomeScreenState extends State<HomeScreen> {
         await WordOfTheDayCache.cacheWordOfTheDay(_wordOfTheDay!);
         setState(() {});
       } catch (error) {
-        print('API Error: $error');
         _wordOfTheDay = await _loadWordFromPrefs();
         setState(() {});
       }
@@ -1599,21 +1584,20 @@ class _HomeScreenState extends State<HomeScreen> {
 
     try {
       Map<String, dynamic> userData =
-          await ApiService().fetchUserPoint(currentUserId);
+      await ApiService().fetchUserPoint(currentUserId);
       userProvider.addPoint(userData['point']);
       userProvider.updateUserAvatarUrl(userData['avatar']);
       userProvider.updateRankings(
         streakCount:
-            userData['streakCount'] is int ? userData['streakCount'] as int : 0,
+        userData['streakCount'] is int ? userData['streakCount'] as int : 0,
         dailyRank:
-            userData['dailyRank'] is int ? userData['dailyRank'] as int : 0,
+        userData['dailyRank'] is int ? userData['dailyRank'] as int : 0,
         weeklyRank: userData['weeklyRank'],
         monthlyRank: userData['monthlyRank'],
         allTimeRank: userData['allTimeRank'],
       );
       pointValueNotifier.value = userProvider.point;
     } catch (error) {
-      print("Error fetching user data: $error");
     }
 
     await fetchPackages(currentUserId);
@@ -1690,7 +1674,6 @@ class _HomeScreenState extends State<HomeScreen> {
         _packages = packages;
       });
     } catch (error) {
-      print("API Error, loading packages from prefs: $error");
     }
   }
   Widget _buildFcmErrorPanel(String errorMessage) {
@@ -1821,7 +1804,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> savePackagesToPrefs(List<Package> packages) async {
     final prefs = await SharedPreferences.getInstance();
     String encodedData =
-        json.encode(packages.map((package) => package.toJson()).toList());
+    json.encode(packages.map((package) => package.toJson()).toList());
     await prefs.setString('packages', encodedData);
   }
 
@@ -1897,7 +1880,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _checkAndShowVipPanel() async {
     final vipProvider =
-        Provider.of<VIPAdvantagesPanelProvider>(context, listen: false);
+    Provider.of<VIPAdvantagesPanelProvider>(context, listen: false);
     await vipProvider.checkAndShowPanel(context);
     if (vipProvider.shouldShowPanel) {
       // VIP panelini göster
@@ -1978,13 +1961,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 end: Alignment.bottomRight,
                 colors: isDarkMode
                     ? [
-                        Colors.grey[900]!,
-                        Colors.grey[850]!,
-                      ]
+                  Colors.grey[900]!,
+                  Colors.grey[850]!,
+                ]
                     : [
-                        Colors.white,
-                        Color(0xFFFFFBF0), // Sarımsı arka plan
-                      ],
+                  Colors.white,
+                  Color(0xFFFFFBF0), // Sarımsı arka plan
+                ],
               ),
             ),
             child: Container(
@@ -2010,7 +1993,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             padding: EdgeInsets.symmetric(
                                 horizontal: 5.w,
                                 vertical:
-                                    1.h), // PRO badge padding'ini küçülttüm
+                                1.h), // PRO badge padding'ini küçülttüm
                             decoration: BoxDecoration(
                               color: Colors.amber[600],
                               borderRadius: BorderRadius.circular(5.r),
@@ -2050,7 +2033,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         "Hemen Kelibu PRO'lu ol",
                         style: GoogleFonts.poppins(
                           color:
-                              isDarkMode ? Colors.grey[300] : Colors.grey[600],
+                          isDarkMode ? Colors.grey[300] : Colors.grey[600],
                           fontSize: 12.sp, // Font boyutunu küçülttüm
                           fontWeight: FontWeight.w500,
                         ),
@@ -2146,11 +2129,11 @@ class _HomeScreenState extends State<HomeScreen> {
                             border: Border.all(
                               color: isSubscribed
                                   ? (_isDarkMode
-                                      ? Colors.amberAccent
-                                      : Colors.amber)
+                                  ? Colors.amberAccent
+                                  : Colors.amber)
                                   : (_isDarkMode
-                                      ? Colors.greenAccent
-                                      : Colors.green),
+                                  ? Colors.greenAccent
+                                  : Colors.green),
                               width: isSubscribed ? 3.0 : 2.0,
                             ),
                             boxShadow: [
@@ -3037,12 +3020,9 @@ Kelime öğrenmenin tadını Kelibu ile çıkarın! 🍭📗
   }
 
   Widget _buildWordSetsList() {
-    print('packeage=');
-    print(_packages);
     if (_packages == null) {
       return Center(child: LogoLoadingIndicator());
     } else if (_packages!.isEmpty) {
-      print('eöpty');
       return _buildEmptyState();
     } else {
       return ListView.builder(
@@ -3891,42 +3871,42 @@ class ActionButtons extends StatelessWidget {
   }) : super(key: key);
 
   List<ActionButton> _getButtons(BuildContext context) => [
-        ActionButton(
-          icon: FontAwesomeIcons.gear,
-          color: Colors.blue,
-          onPressed: () => Navigator.of(context)
-              .push(MaterialPageRoute(builder: (context) => SettingsPage())),
-        ),
-        ActionButton(
-          icon: isDarkMode ? FontAwesomeIcons.moon : FontAwesomeIcons.sun,
-          color: isDarkMode ? Colors.indigo : Colors.orange,
-          onPressed: toggleDarkMode,
-        ),
-        ActionButton(
-          icon: FontAwesomeIcons.playCircle,
-          color: Colors.green,
-          onPressed: () => Navigator.push(
-            context,
-            MaterialPageRoute(
-                builder: (context) =>
-                    VideoPlayerScreen(videoUrl: AppUrls.homescreen)),
-          ),
-        ),
-        ActionButton(
-          icon: FontAwesomeIcons.shareNodes,
-          color: Colors.purple,
-          onPressed: shareApp,
-        ),
-        ActionButton(
-          icon: FontAwesomeIcons.magnifyingGlass,
-          color: Colors.teal,
-          onPressed: () => showDialog(
-            context: context,
-            builder: (BuildContext context) =>
-                SearchDialog(isDarkMode: isDarkMode),
-          ),
-        ),
-      ];
+    ActionButton(
+      icon: FontAwesomeIcons.gear,
+      color: Colors.blue,
+      onPressed: () => Navigator.of(context)
+          .push(MaterialPageRoute(builder: (context) => SettingsPage())),
+    ),
+    ActionButton(
+      icon: isDarkMode ? FontAwesomeIcons.moon : FontAwesomeIcons.sun,
+      color: isDarkMode ? Colors.indigo : Colors.orange,
+      onPressed: toggleDarkMode,
+    ),
+    ActionButton(
+      icon: FontAwesomeIcons.playCircle,
+      color: Colors.green,
+      onPressed: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+            builder: (context) =>
+                VideoPlayerScreen(videoUrl: AppUrls.homescreen)),
+      ),
+    ),
+    ActionButton(
+      icon: FontAwesomeIcons.shareNodes,
+      color: Colors.purple,
+      onPressed: shareApp,
+    ),
+    ActionButton(
+      icon: FontAwesomeIcons.magnifyingGlass,
+      color: Colors.teal,
+      onPressed: () => showDialog(
+        context: context,
+        builder: (BuildContext context) =>
+            SearchDialog(isDarkMode: isDarkMode),
+      ),
+    ),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -3999,7 +3979,7 @@ class EnhancedLoadingIndicator extends StatelessWidget {
   const EnhancedLoadingIndicator({
     Key? key,
     this.message =
-        "Sistemde gerekli ayarlar yapılıyor... Uygulamızı sizin için en iyi hale getiriyoruz. Merak etmeyin, uzun sürmeyecek.",
+    "Sistemde gerekli ayarlar yapılıyor... Uygulamızı sizin için en iyi hale getiriyoruz. Merak etmeyin, uzun sürmeyecek.",
   }) : super(key: key);
 
   @override
@@ -4029,7 +4009,7 @@ class EnhancedLoadingIndicator extends StatelessWidget {
             SizedBox(height: 16.0),
             LinearProgressIndicator(
               valueColor:
-                  AlwaysStoppedAnimation<Color>(Theme.of(context).primaryColor),
+              AlwaysStoppedAnimation<Color>(Theme.of(context).primaryColor),
               backgroundColor: Colors.grey[200],
             ),
           ],

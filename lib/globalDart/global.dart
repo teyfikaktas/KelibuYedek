@@ -1,4 +1,5 @@
 import 'package:kelibu/Models/wordDetaik.dart'; // WordDetail modelinizin importu
+
 abstract class StarredWordsEvent {}
 
 class LoadStarredWords extends StarredWordsEvent {}

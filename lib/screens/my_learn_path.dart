@@ -1,25 +1,26 @@
 import 'dart:async';
 import 'dart:ui';
+
+import 'package:auto_size_text/auto_size_text.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_tts/flutter_tts.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:kelibu/api.dart';
 import 'package:kelibu/screens/study_screen.dart';
 import 'package:kelibu/screens/video_player.dart';
 import 'package:kelibu/shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../Models/wordDetaik.dart';
 import '../globalDart/urls.dart';
 import '../providers/sub_provider.dart';
 import '../providers/user_provider.dart';
-import 'package:kelibu/api.dart';
-import 'package:kelibu/screens/study_screen_star.dart';
 import '../variables.dart';
 import 'game_screen_star.dart';
 import 'loadingIndicator.dart';
-import 'package:flutter_tts/flutter_tts.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:auto_size_text/auto_size_text.dart';
 
 class StarredWordsScreen extends StatefulWidget {
   const StarredWordsScreen({Key? key}) : super(key: key);
@@ -28,7 +29,8 @@ class StarredWordsScreen extends StatefulWidget {
   _StarredWordsScreenState createState() => _StarredWordsScreenState();
 }
 
-class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBindingObserver {
+class _StarredWordsScreenState extends State<StarredWordsScreen>
+    with WidgetsBindingObserver {
   bool isPageView = true;
   bool _hasMoreItems = true;
   Timer? _debounce;
@@ -40,13 +42,13 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
   final FlutterTts flutterTts = FlutterTts();
   bool _isDarkMode = false;
   bool isVIP = false;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _loadDarkModePreference();
-    isVIP =
-        Provider.of<SubscriptionProvider>(context, listen: false).isVip;
+    isVIP = Provider.of<SubscriptionProvider>(context, listen: false).isVip;
   }
 
   Future<void> _loadDarkModePreference() async {
@@ -74,24 +76,22 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
 
   Future<List<WordDetail>> fetchWords() async {
     try {
-      UserProvider userProvider = Provider.of<UserProvider>(context, listen: false);
+      UserProvider userProvider =
+          Provider.of<UserProvider>(context, listen: false);
 
       // Senkronizasyonu deneyin ve sonucu yazdırın
-      print("Syncronization completed");
 
-      var starredWordsSet = await StarredWordsService().loadAllStarredWordsAll();
-      print("Starred words set: $starredWordsSet");
+      var starredWordsSet =
+          await StarredWordsService().loadAllStarredWordsAll();
 
       var starredWordsList = starredWordsSet.toList();
       starredWordsString = starredWordsList.join(', ');
-      print("Starred words list: $starredWordsList");
 
-      List<WordDetail> newWordDetails = await ApiService().fetchWordsDetail(starredWordsList);
-      print("Fetched word details: ${newWordDetails.length}");
+      List<WordDetail> newWordDetails =
+          await ApiService().fetchWordsDetail(starredWordsList);
 
       return newWordDetails;
     } catch (error) {
-      print("Error fetching words: $error");
       throw error;
     }
   }
@@ -104,10 +104,11 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
           filteredWords = words;
           _hasMoreItems = false; // All items are loaded
         } else {
-          filteredWords = words.where((word) =>
-          word.word.toLowerCase().contains(query.toLowerCase()) ||
-              word.meaning.toLowerCase().contains(query.toLowerCase())
-          ).toList();
+          filteredWords = words
+              .where((word) =>
+                  word.word.toLowerCase().contains(query.toLowerCase()) ||
+                  word.meaning.toLowerCase().contains(query.toLowerCase()))
+              .toList();
           _hasMoreItems = false; // Filtering, no pagination
         }
       });
@@ -125,7 +126,6 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
     colors.putIfAbsent("text", () => Colors.black);
     colors.putIfAbsent("unselectedText", () => Colors.grey);
     colors.putIfAbsent("inputBackground", () => Colors.white);
-
 
     return Scaffold(
       backgroundColor: colors["background"]!,
@@ -152,10 +152,13 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
               });
             },
           ),
-          _buildRoundedIconButton(Icons.slow_motion_video_sharp, Colors.green, () {
+          _buildRoundedIconButton(Icons.slow_motion_video_sharp, Colors.green,
+              () {
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => VideoPlayerScreen(videoUrl: AppUrls.mystarwords)),
+              MaterialPageRoute(
+                  builder: (context) =>
+                      VideoPlayerScreen(videoUrl: AppUrls.mystarwords)),
             );
           }),
         ],
@@ -184,7 +187,9 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
                     Expanded(
                       child: words.isEmpty
                           ? _buildEmptyState(colors)
-                          : isPageView ? buildListView(colors) : buildPageView(colors),
+                          : isPageView
+                              ? buildListView(colors)
+                              : buildPageView(colors),
                     ),
                   ],
                 );
@@ -205,7 +210,8 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Container(
-                            padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 24, vertical: 12),
                             decoration: BoxDecoration(
                               color: Colors.orange,
                               borderRadius: BorderRadius.circular(20),
@@ -270,7 +276,8 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
           ),
           SizedBox(height: 20),
           CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(colors["buttonBackground"]!),
+            valueColor:
+                AlwaysStoppedAnimation<Color>(colors["buttonBackground"]!),
           ),
           SizedBox(height: 20),
           Text(
@@ -325,7 +332,8 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
     );
   }
 
-  Widget _buildRoundedIconButton(IconData icon, Color color, VoidCallback onPressed) {
+  Widget _buildRoundedIconButton(
+      IconData icon, Color color, VoidCallback onPressed) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8.0),
       child: InkWell(
@@ -406,6 +414,7 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
       ),
     );
   }
+
   Widget buildSearchInfo(Map<String, Color> colors) {
     if (searchController.text.isEmpty) return SizedBox.shrink();
 
@@ -441,18 +450,21 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
           controller: searchController,
           decoration: InputDecoration(
             hintText: "Kelime veya anlam ara...",
-            prefixIcon: Icon(Icons.search, color: colors["text"]!.withOpacity(0.5)),
+            prefixIcon:
+                Icon(Icons.search, color: colors["text"]!.withOpacity(0.5)),
             suffixIcon: searchController.text.isNotEmpty
                 ? IconButton(
-              icon: Icon(Icons.clear, color: colors["text"]!.withOpacity(0.5)),
-              onPressed: () {
-                searchController.clear();
-                filterWords('');
-              },
-            )
+                    icon: Icon(Icons.clear,
+                        color: colors["text"]!.withOpacity(0.5)),
+                    onPressed: () {
+                      searchController.clear();
+                      filterWords('');
+                    },
+                  )
                 : null,
             border: InputBorder.none,
-            hintStyle: TextStyle(color: colors["unselectedText"]!.withOpacity(0.7)),
+            hintStyle:
+                TextStyle(color: colors["unselectedText"]!.withOpacity(0.7)),
           ),
           onChanged: filterWords,
           style: TextStyle(color: colors["text"]),
@@ -487,7 +499,8 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
                     ? "https://cloud.phdakademi.com/uploads/kelibu.net/${word.image}"
                     : "https://kelibu.net/images/defaultimage.png",
                 fit: BoxFit.cover,
-                placeholder: (context, url) => Center(child: LogoLoadingIndicator()),
+                placeholder: (context, url) =>
+                    Center(child: LogoLoadingIndicator()),
                 errorWidget: (context, url, error) => Image.asset(
                   'assets/logo.png',
                   fit: BoxFit.contain,
@@ -518,7 +531,8 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
                     ),
                     if (word.type != null)
                       Container(
-                        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
                           color: colors["buttonBackground"]!.withOpacity(0.2),
                           borderRadius: BorderRadius.circular(10),
@@ -554,19 +568,24 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
                     InkWell(
                       onTap: () => speak(word.word),
                       child: Container(
-                        padding: EdgeInsets.symmetric(horizontal: 15, vertical: 8),
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 15, vertical: 8),
                         decoration: BoxDecoration(
                           color: colors["buttonBackground"],
                           borderRadius: BorderRadius.circular(20),
                         ),
-                        child: Row(children: [
-                          Icon(Icons.volume_up, color: colors["buttonText"], size: 20),
-                          SizedBox(width: 5),
-                          Text(
-                            'Dinle',
-                            style: TextStyle(color: colors["buttonText"], fontWeight: FontWeight.bold),
-                          ),
-                        ],
+                        child: Row(
+                          children: [
+                            Icon(Icons.volume_up,
+                                color: colors["buttonText"], size: 20),
+                            SizedBox(width: 5),
+                            Text(
+                              'Dinle',
+                              style: TextStyle(
+                                  color: colors["buttonText"],
+                                  fontWeight: FontWeight.bold),
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -650,7 +669,8 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
       ),
       child: InkWell(
         onTap: () {
-          Navigator.of(context).push(
+          Navigator.of(context)
+              .push(
             MaterialPageRoute(
               builder: (context) => StudyScreen(
                 words: [word],
@@ -659,7 +679,8 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
                 isStarred: true,
               ),
             ),
-          ).then((value) {
+          )
+              .then((value) {
             if (value != null) {
               setState(() {}); // Refresh the screen if needed
             }
@@ -678,7 +699,8 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
                   width: 70,
                   height: 70,
                   fit: BoxFit.cover,
-                  placeholder: (context, url) => Center(child: LogoLoadingIndicator()),
+                  placeholder: (context, url) =>
+                      Center(child: LogoLoadingIndicator()),
                   errorWidget: (context, url, error) => Image.asset(
                     'assets/logo.png',
                     width: 70,
@@ -710,13 +732,17 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
                         SizedBox(width: 8),
                         if (word.type != null)
                           Container(
-                            padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
-                              color: colors["buttonBackground"]!.withOpacity(0.2),
+                              color:
+                                  colors["buttonBackground"]!.withOpacity(0.2),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: AutoSizeText(
-                              word.type == "full" ? "Tip bulunamadı" : word.type!,
+                              word.type == "full"
+                                  ? "Tip bulunamadı"
+                                  : word.type!,
                               style: TextStyle(
                                 fontSize: 12,
                                 color: colors["buttonBackground"],
@@ -745,7 +771,8 @@ class _StarredWordsScreenState extends State<StarredWordsScreen> with WidgetsBin
               Column(
                 children: [
                   IconButton(
-                    icon: Icon(Icons.volume_up, color: colors["buttonBackground"], size: 24),
+                    icon: Icon(Icons.volume_up,
+                        color: colors["buttonBackground"], size: 24),
                     onPressed: () => speak(word.word),
                   ),
                 ],
