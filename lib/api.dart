@@ -19,6 +19,7 @@ import 'package:kelibu/shared_preferences/shared_preferences.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart' as sp_pkg;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uuid/uuid.dart';
 
 import '../auth/device_info.dart';
 import 'Models/announcement.dart';
@@ -1363,7 +1364,98 @@ class ApiService {
           .put('/user/$userId/updateUserPoint', data: {'point': newPoint});
     } catch (e) {}
   }
+// ===========================================================
+  // YENİ PUAN SİSTEMİ (point_transactions tabanlı)
+  // ===========================================================
 
+  /// Offline/Online entegre puan EKLEME (sanctum auth, token header'dan)
+  ///
+  /// - Her çağrı kendi benzersiz idempotency_key'ine sahiptir, bu yüzden
+  ///   aynı istek iki kez gönderilse bile sunucu puanı sadece BİR KERE işler.
+  /// - userId GÖNDERMİYORUZ - backend token'dan Auth::id() ile çözüyor.
+  /// - "Toplam puan" göndermiyoruz, sadece "bu işlemde kazanılan puan"ı
+  ///   gönderiyoruz. Toplam puan backend'de SUM ile hesaplanıyor.
+  /// - İnternet yoksa, transaction kendi key'i ile cache'e kaydedilir.
+  Future<void> addPoints({
+    required int points,
+    required String type,
+    Map<String, dynamic>? metadata,
+  }) async {
+    final idempotencyKey = const Uuid().v4();
+    final box = await Hive.openBox('pendingPointTransactions');
+    final payload = {
+      'points': points,
+      'type': type,
+      'idempotency_key': idempotencyKey,
+      'metadata': metadata,
+    };
+
+    try {
+      final token = await storage.read(key: 'access_token');
+
+      final response = await _dio.post(
+        '/points/add',
+        data: payload,
+        options: Options(
+          headers: {'Authorization': 'Bearer $token'},
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        await box.delete(idempotencyKey);
+      }
+    } on DioError catch (e) {
+      if (e.type == DioErrorType.connectionError ||
+          e.type == DioErrorType.unknown) {
+        await box.put(idempotencyKey, {
+          ...payload,
+          'timestamp': DateTime.now().toIso8601String(),
+        });
+        return;
+      }
+      rethrow;
+    }
+  }
+
+  /// Uygulama açılışında veya bağlantı geri geldiğinde çağır.
+  /// Kuyrukta bekleyen tüm puan transaction'larını sırayla sunucuya gönderir.
+  Future<void> syncPendingPoints() async {
+    final box = await Hive.openBox('pendingPointTransactions');
+    final keys = box.keys.toList();
+
+    for (final key in keys) {
+      final data = box.get(key);
+      if (data == null) continue;
+
+      try {
+        final response = await _dio.post('/points/add', data: {
+          'points': data['points'],
+          'type': data['type'],
+          'idempotency_key': data['idempotency_key'],
+          'metadata': data['metadata'],
+        });
+        if (response.statusCode == 200) {
+          await box.delete(key);
+        }
+      } on DioError catch (e) {
+        if (e.type == DioErrorType.connectionError ||
+            e.type == DioErrorType.unknown) {
+          // Hâlâ internet yok, kalanları bir sonraki senkronizasyona bırak
+          break;
+        }
+        // Başka türden hata (örn. 422 validation) - bu kaydı atla, devam et
+        continue;
+      } catch (e) {
+        continue;
+      }
+    }
+  }
+
+  /// Kuyrukta kaç bekleyen transaction var - debug/UI göstergesi için
+  Future<int> pendingPointsCount() async {
+    final box = await Hive.openBox('pendingPointTransactions');
+    return box.length;
+  }
   /// Offline/Online entegre puan güncellemesi
   ///
   /// - İnternet yoksa puan yerel cache'e kaydedilir.
@@ -1423,17 +1515,21 @@ class ApiService {
     }
   }
 
-  //-----------------------------------------------------
-  // KULLANICI RANK / PUAN BİLGİSİ
-  //-----------------------------------------------------
-  Future<Map<String, dynamic>> fetchUserPoint(int userId) async {
+//-----------------------------------------------------
+// KULLANICI RANK / PUAN BİLGİSİ
+//-----------------------------------------------------
+  Future<Map<String, dynamic>> fetchUserPoint() async {
     try {
-      final response =
-          await _dio.post('/user-ranking', data: {'user_id': userId});
+      final token = await storage.read(key: 'access_token');
+      final response = await _dio.get(
+        '/points/me',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+      print('POINTS ME STATUS: ${response.statusCode}');
+      print('POINTS ME DATA: ${response.data}');
       if (response.statusCode == 200) {
         final userData = response.data;
         final rankings = userData['rankings'] as Map<String, dynamic>;
-
         return {
           'point': _parseInt(userData['point']),
           'avatar': userData['avatar'] ?? '',
@@ -1452,10 +1548,10 @@ class ApiService {
         return _getDefaultUserData();
       }
     } catch (error) {
+      print('POINTS ME ERROR: $error');
       return _getDefaultUserData();
     }
   }
-
   int _parseInt(dynamic value) {
     if (value is int) return value;
     if (value is String) return int.tryParse(value) ?? 0;
@@ -2405,6 +2501,55 @@ class ApiService {
       return [];
     } catch (e) {
       return [];
+    }
+  }
+
+  Future<List<Announcement>> getNotifications() async {
+    try {
+      final token = await storage.read(key: 'access_token');
+      final response = await _dio.post(
+        '/notifications/fetch',
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Accept': 'application/json',
+          },
+        ),
+      );
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        final List<dynamic> notificationData = response.data['data'];
+        return notificationData
+            .map((json) => Announcement.fromJson(json))
+            .toList();
+      } else {
+        return [];
+      }
+    } on DioException {
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<bool> checkWelcomePopupStatus() async {
+    try {
+      final token = await storage.read(key: 'access_token');
+      final response = await _dio.get(
+        '/welcome-popup-status',
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Accept': 'application/json',
+          },
+        ),
+      );
+
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        return response.data['should_show_popup'] ?? false;
+      }
+      return false;
+    } catch (e) {
+      return false;
     }
   }
 }

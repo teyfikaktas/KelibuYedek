@@ -930,7 +930,7 @@ class _SplashScreenState extends State<SplashScreen>
     try {
       final userId = userProviderGlobal.userId;
       await userProviderGlobal.getUsernameHash();
-      final userData = await ApiService().fetchUserPoint(userId);
+      final userData = await ApiService().fetchUserPoint();
 
       if (_mounted) {
         await userProviderGlobal.addPoint(userData['point']);

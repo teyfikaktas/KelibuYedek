@@ -1938,7 +1938,6 @@ class _MatchingGameState extends State<MatchingGame>
               onTap: () {
                 // ✅ ScoreResult kullanarak kullanıcı puanını güncelle
                 int newUserPoints = _currentUserPoints + finalRoundScore;
-                _updateUserScore(newUserPoints,finalRoundScore);
                 _startNextRoundManually();
               },
               child: Container(

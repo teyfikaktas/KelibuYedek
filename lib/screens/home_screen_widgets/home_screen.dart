@@ -1224,10 +1224,9 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!mounted) return;
       setState(() => _isLoading = false);
 
-      // FCM token güncellemeyi gecikmeli başlat, diğer arka plan görevleriyle birlikte
       Future.delayed(Duration(milliseconds: 500), () {
         if (!mounted) return;
-        updateFcmToken(context); // catchError içinde değil, doğrudan çağırıyoruz
+        updateFcmToken(context);
         _loadWordOfTheDay();
         _loadDarkModePreference();
         _loadPromotionMessage();
@@ -1584,7 +1583,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     try {
       Map<String, dynamic> userData =
-      await ApiService().fetchUserPoint(currentUserId);
+      await ApiService().fetchUserPoint();
       userProvider.addPoint(userData['point']);
       userProvider.updateUserAvatarUrl(userData['avatar']);
       userProvider.updateRankings(
@@ -2251,10 +2250,16 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildActionButtons() {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 2.w, vertical: 1.h),
+      padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 2.h),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
+          _buildActionButton(
+            icon: Icons.notifications_outlined,
+            label: 'Bildirimler',
+            color: Colors.red[600]!,
+            onPressed: _showAnnouncements,
+          ),
           _buildActionButton(
             icon: Icons.settings_outlined,
             label: 'Ayarlar',
@@ -2266,13 +2271,6 @@ class _HomeScreenState extends State<HomeScreen> {
             label: _isDarkMode ? 'Aydınlık' : 'Karanlık',
             color: _isDarkMode ? Colors.orange[600]! : Colors.indigo[600]!,
             onPressed: _toggleDarkMode,
-          ),
-          _buildActionButton(
-            icon: Icons.campaign_outlined,
-            label: 'Duyurular',
-            color: Colors.amber[700]!,
-            hasNotification: true, // Yeni duyuru varsa true olacak
-            onPressed: _showAnnouncements,
           ),
           _buildActionButton(
             icon: Icons.play_circle_outline,
@@ -2312,34 +2310,41 @@ class _HomeScreenState extends State<HomeScreen> {
     required VoidCallback onPressed,
     bool hasNotification = false,
   }) {
-    // Eğer duyuru butonu ise özel widget'ı kullan
-    if (icon == Icons.campaign_outlined) {
-      return SimpleAnnouncementButton(
-        onTap: _showAnnouncements,
-        isDarkMode: _isDarkMode,
+    // Bildirim veya Duyuru butonu ise özel okundu/okunmadı mantığı olan widget'ı kullan
+    if (icon == Icons.notifications_outlined || icon == Icons.campaign_outlined) {
+      return Flexible(
+        child: SimpleAnnouncementButton(
+          onTap: onPressed,
+          isDarkMode: _isDarkMode,
+          icon: icon,
+          color: color,
+        ),
       );
     }
 
     // Diğer butonlar için mevcut implementasyon
-    return Container(
+    return Flexible(
       child: GestureDetector(
         onTap: onPressed,
         child: Container(
-          padding: EdgeInsets.all(3.w),
+          padding: EdgeInsets.all(2.w),
           child: Container(
-            padding: EdgeInsets.all(10.w),
+            padding: EdgeInsets.all(8.w),
             decoration: BoxDecoration(
               color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12.r),
+              borderRadius: BorderRadius.circular(10.r),
               border: Border.all(
                 color: color.withOpacity(0.2),
                 width: 1,
               ),
             ),
-            child: Icon(
-              icon,
-              color: color,
-              size: 24.sp,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Icon(
+                icon,
+                color: color,
+                size: 20.sp,
+              ),
             ),
           ),
         ),
@@ -2385,18 +2390,18 @@ class _HomeScreenState extends State<HomeScreen> {
                     Container(
                       padding: EdgeInsets.all(10.w),
                       decoration: BoxDecoration(
-                        color: Colors.amber[700]!.withOpacity(0.1),
+                        color: Colors.red[700]!.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(12.r),
                       ),
                       child: Icon(
-                        Icons.campaign_outlined,
+                        Icons.notifications_outlined,
                         size: 24.sp,
-                        color: Colors.amber[700],
+                        color: Colors.red[700],
                       ),
                     ),
                     SizedBox(width: 12.w),
                     Text(
-                      'Duyurular',
+                      'Bildirimler',
                       style: GoogleFonts.poppins(
                         fontSize: 20.sp,
                         fontWeight: FontWeight.w600,
@@ -2426,7 +2431,7 @@ class _HomeScreenState extends State<HomeScreen> {
               // Duyuru Listesi
               Expanded(
                 child: FutureBuilder<List<Announcement>>(
-                  future: ApiService().getAnnouncements(),
+                  future: ApiService().getNotifications(),
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
                       return Center(child: CircularProgressIndicator());
@@ -2435,7 +2440,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     if (snapshot.hasError) {
                       return Center(
                         child: Text(
-                          'Duyurular yüklenirken bir hata oluştu',
+                          'Bildirimler yüklenirken bir hata oluştu',
                           style: GoogleFonts.poppins(
                             color: Colors.grey,
                             fontSize: 14.sp,
@@ -2453,18 +2458,18 @@ class _HomeScreenState extends State<HomeScreen> {
                           Container(
                             padding: EdgeInsets.all(20.w),
                             decoration: BoxDecoration(
-                              color: Colors.amber[700]!.withOpacity(0.1),
+                              color: Colors.red[700]!.withOpacity(0.1),
                               shape: BoxShape.circle,
                             ),
                             child: Icon(
                               Icons.notifications_off_outlined,
                               size: 40.sp,
-                              color: Colors.amber[700],
+                              color: Colors.red[700],
                             ),
                           ),
                           SizedBox(height: 16.h),
                           Text(
-                            'Henüz duyuru bulunmuyor',
+                            'Henüz bildirim bulunmuyor',
                             style: GoogleFonts.poppins(
                               fontSize: 16.sp,
                               fontWeight: FontWeight.w600,
@@ -2473,7 +2478,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                           SizedBox(height: 8.h),
                           Text(
-                            'Yeni duyurular eklendiğinde burada görünecek',
+                            'Yeni bildirimler geldiğinde burada görünecek',
                             style: GoogleFonts.poppins(
                               fontSize: 14.sp,
                               color: Colors.grey,
@@ -2512,54 +2517,93 @@ class _HomeScreenState extends State<HomeScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Container(
-                                        padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
-                                        decoration: BoxDecoration(
-                                          color: Color(
-                                            int.parse(
-                                              announcement.category.color.replaceAll('#', '0xFF'),
-                                            ),
-                                          ).withOpacity(0.1),
-                                          borderRadius: BorderRadius.circular(6.r),
-                                        ),
-                                        child: Text(
-                                          announcement.category.name,
-                                          style: GoogleFonts.poppins(
-                                            color: Color(
-                                              int.parse(
-                                                announcement.category.color.replaceAll('#', '0xFF'),
+                                      Expanded(
+                                        child: Wrap(
+                                          spacing: 6.w,
+                                          runSpacing: 4.h,
+                                          children: [
+                                            // Metadata Tagleri (Yeni)
+                                            if (announcement.metadata != null && announcement.metadata!.isNotEmpty)
+                                              ..._buildMetadataTags(announcement.metadata!),
+                                            
+                                            // Varsayılan Kategori (Eğer metadata yoksa veya ek bilgi olarak)
+                                            if (announcement.metadata == null || !announcement.metadata!.contains('category:'))
+                                              Container(
+                                                padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                                                decoration: BoxDecoration(
+                                                  color: Color(
+                                                    int.parse(
+                                                      announcement.category.color.replaceAll('#', '0xFF'),
+                                                    ),
+                                                  ).withOpacity(0.1),
+                                                  borderRadius: BorderRadius.circular(6.r),
+                                                ),
+                                                child: Text(
+                                                  announcement.category.name,
+                                                  style: GoogleFonts.poppins(
+                                                    color: Color(
+                                                      int.parse(
+                                                        announcement.category.color.replaceAll('#', '0xFF'),
+                                                      ),
+                                                    ),
+                                                    fontSize: 10.sp,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
                                               ),
-                                            ),
-                                            fontSize: 12.sp,
-                                            fontWeight: FontWeight.w500,
-                                          ),
+                                            
+                                            if (announcement.isImportant)
+                                              Container(
+                                                padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.red[50],
+                                                  borderRadius: BorderRadius.circular(6.r),
+                                                ),
+                                                child: Text(
+                                                  'Önemli',
+                                                  style: GoogleFonts.poppins(
+                                                    color: Colors.red,
+                                                    fontSize: 10.sp,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ),
+
+                                            if (announcement.links.isNotEmpty)
+                                              Container(
+                                                padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.blue[50],
+                                                  borderRadius: BorderRadius.circular(6.r),
+                                                  border: Border.all(color: Colors.blue.withOpacity(0.2)),
+                                                ),
+                                                child: Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    Icon(Icons.link, size: 12.sp, color: Colors.blue[700]),
+                                                    SizedBox(width: 4.w),
+                                                    Text(
+                                                      'LİNK VAR',
+                                                      style: GoogleFonts.poppins(
+                                                        color: Colors.blue[700],
+                                                        fontSize: 9.sp,
+                                                        fontWeight: FontWeight.w800,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                          ],
                                         ),
                                       ),
-                                      if (announcement.isImportant) ...[
-                                        SizedBox(width: 8.w),
-                                        Container(
-                                          padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
-                                          decoration: BoxDecoration(
-                                            color: Colors.red[50],
-                                            borderRadius: BorderRadius.circular(6.r),
-                                          ),
-                                          child: Text(
-                                            'Önemli',
-                                            style: GoogleFonts.poppins(
-                                              color: Colors.red,
-                                              fontSize: 12.sp,
-                                              fontWeight: FontWeight.w500,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                      Spacer(),
+                                      SizedBox(width: 8.w),
                                       Text(
                                         formatDate(announcement.publishDate),
                                         style: GoogleFonts.poppins(
                                           color: Colors.grey,
-                                          fontSize: 12.sp,
+                                          fontSize: 11.sp,
                                         ),
                                       ),
                                     ],
@@ -2730,6 +2774,103 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         },
                       ),
+                      if (announcement.links.isNotEmpty) ...[
+                        SizedBox(height: 24.h),
+                        Divider(color: _isDarkMode ? Colors.grey[800] : Colors.grey[200]),
+                        SizedBox(height: 16.h),
+                        Row(
+                          children: [
+                            Icon(Icons.link, size: 20.sp, color: Colors.blue),
+                            SizedBox(width: 8.w),
+                            Text(
+                              'İlgili Bağlantılar',
+                              style: GoogleFonts.poppins(
+                                fontSize: 16.sp,
+                                fontWeight: FontWeight.bold,
+                                color: _isDarkMode ? Colors.white : Colors.black87,
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 12.h),
+                        ...announcement.links.map((link) {
+                          final uri = Uri.parse(link);
+                          final displayUrl = uri.host.isNotEmpty ? uri.host : link;
+                          
+                          return Padding(
+                            padding: EdgeInsets.only(bottom: 10.h),
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: () async {
+                                  if (await canLaunchUrl(uri)) {
+                                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                  }
+                                },
+                                borderRadius: BorderRadius.circular(12.r),
+                                child: Container(
+                                  padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+                                  decoration: BoxDecoration(
+                                    color: _isDarkMode ? Colors.blue.withOpacity(0.05) : Colors.blue.withOpacity(0.05),
+                                    borderRadius: BorderRadius.circular(12.r),
+                                    border: Border.all(
+                                      color: Colors.blue.withOpacity(0.2),
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        padding: EdgeInsets.all(8.w),
+                                        decoration: BoxDecoration(
+                                          color: Colors.blue.withOpacity(0.1),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Icon(
+                                          Icons.language,
+                                          color: Colors.blue,
+                                          size: 18.sp,
+                                        ),
+                                      ),
+                                      SizedBox(width: 12.w),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              displayUrl,
+                                              style: GoogleFonts.poppins(
+                                                fontSize: 16.sp,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.blue[800],
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            Text(
+                                              'Linke git',
+                                              style: GoogleFonts.poppins(
+                                                fontSize: 12.sp,
+                                                fontWeight: FontWeight.w500,
+                                                color: Colors.blue.withOpacity(0.7),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      Icon(
+                                        Icons.arrow_forward_ios,
+                                        color: Colors.blue.withOpacity(0.5),
+                                        size: 14.sp,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ],
                     ],
                   ),
                 ),
@@ -2745,6 +2886,66 @@ class _HomeScreenState extends State<HomeScreen> {
     String month = date.month.toString().padLeft(2, '0');
     String year = date.year.toString();
     return '$day.$month.$year';
+  }
+
+  List<Widget> _buildMetadataTags(String metadata) {
+    List<Widget> tags = [];
+    final parts = metadata.split(';');
+
+    for (var part in parts) {
+      if (part.startsWith('category:')) {
+        final categories = part.replaceFirst('category:', '').split('|');
+        for (var cat in categories) {
+          Color color = Colors.green; // Varsayılan yeşil
+          String label = cat;
+
+          if (cat == 'events') {
+            color = Colors.blueAccent;
+            label = 'Etkinlik';
+          } else if (cat == 'general') {
+            label = 'Genel';
+          } else if (cat == 'announcements') {
+            label = 'Duyuru';
+          }
+
+          tags.add(_buildTag(label, color));
+        }
+      } else if (part.startsWith('importance:')) {
+        final imp = part.replaceFirst('importance:', '').toLowerCase();
+        Color color = Colors.orange;
+        String label = 'Normal';
+
+        if (imp == 'high') {
+          color = Colors.red;
+          label = 'Yüksek Öncelik';
+        } else if (imp == 'low') {
+          color = Colors.grey;
+          label = 'Düşük Öncelik';
+        }
+
+        tags.add(_buildTag(label, color));
+      }
+    }
+    return tags;
+  }
+
+  Widget _buildTag(String label, Color color) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(6.r),
+        border: Border.all(color: color.withOpacity(0.2), width: 1),
+      ),
+      child: Text(
+        label.toUpperCase(),
+        style: GoogleFonts.poppins(
+          color: color,
+          fontSize: 9.sp,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
   }
   void _openSettings() {
     Navigator.of(context)
@@ -3872,6 +4073,11 @@ class ActionButtons extends StatelessWidget {
 
   List<ActionButton> _getButtons(BuildContext context) => [
     ActionButton(
+      icon: FontAwesomeIcons.bell,
+      color: Colors.red,
+      onPressed: () {},
+    ),
+    ActionButton(
       icon: FontAwesomeIcons.gear,
       color: Colors.blue,
       onPressed: () => Navigator.of(context)
@@ -3915,8 +4121,8 @@ class ActionButtons extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final double totalWidth = constraints.maxWidth;
-        final double maxIconSize = 70.w;
-        final double minSpacing = 8.w;
+        final double maxIconSize = 45.w;
+        final double minSpacing = 4.w;
 
         double iconSize =
             (totalWidth - (buttons.length - 1) * minSpacing) / buttons.length;
@@ -3925,7 +4131,7 @@ class ActionButtons extends StatelessWidget {
         return Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: buttons
-              .map((button) => _buildAnimatedButton(button, iconSize))
+              .map((button) => Flexible(child: _buildAnimatedButton(button, iconSize)))
               .toList(),
         );
       },

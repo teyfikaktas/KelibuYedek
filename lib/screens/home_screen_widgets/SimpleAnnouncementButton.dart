@@ -7,11 +7,15 @@ import '../../api.dart';
 class SimpleAnnouncementButton extends StatefulWidget {
   final VoidCallback onTap;
   final bool isDarkMode;
+  final IconData icon;
+  final Color color;
 
   const SimpleAnnouncementButton({
     Key? key,
     required this.onTap,
     required this.isDarkMode,
+    this.icon = Icons.campaign_outlined,
+    this.color = const Color(0xFFF57C00), // Colors.amber[700]
   }) : super(key: key);
 
   @override
@@ -41,16 +45,19 @@ class _SimpleAnnouncementButtonState extends State<SimpleAnnouncementButton>
     final lastViewed = prefs.getInt(_lastViewedKey) ?? 0;
 
     try {
-      final announcements = await ApiService().getAnnouncements();
+      // Artık yeni eklediğimiz getNotifications'ı kullanıyoruz
+      final announcements = await ApiService().getNotifications();
       if (announcements.isNotEmpty) {
         final latestAnnouncementTime =
             announcements.first.publishDate.millisecondsSinceEpoch;
 
         if (latestAnnouncementTime > lastViewed) {
-          setState(() {
-            hasUnreadAnnouncements = true;
-          });
-          _controller.repeat();
+          if (mounted) {
+            setState(() {
+              hasUnreadAnnouncements = true;
+            });
+            _controller.repeat();
+          }
         }
       }
     } catch (e) {
@@ -61,10 +68,12 @@ class _SimpleAnnouncementButtonState extends State<SimpleAnnouncementButton>
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_lastViewedKey, DateTime.now().millisecondsSinceEpoch);
 
-    setState(() {
-      hasUnreadAnnouncements = false;
-    });
-    _controller.stop();
+    if (mounted) {
+      setState(() {
+        hasUnreadAnnouncements = false;
+      });
+      _controller.stop();
+    }
     widget.onTap();
   }
 
@@ -83,36 +92,47 @@ class _SimpleAnnouncementButtonState extends State<SimpleAnnouncementButton>
         builder: (context, child) {
           return Transform.scale(
             scale:
-                hasUnreadAnnouncements ? 1.0 + (0.1 * _controller.value) : 1.0,
+                hasUnreadAnnouncements ? 1.0 + (0.05 * _controller.value) : 1.0,
             child: Stack(
               clipBehavior: Clip.none,
               children: [
                 Container(
-                  padding: EdgeInsets.all(10.w),
+                  padding: EdgeInsets.all(8.w),
                   decoration: BoxDecoration(
-                    color: Colors.amber[700]!.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12.r),
+                    color: widget.color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10.r),
                     border: Border.all(
-                      color: Colors.amber[700]!.withOpacity(0.2),
+                      color: widget.color.withOpacity(0.2),
                       width: 1,
                     ),
                   ),
-                  child: Icon(
-                    Icons.campaign_outlined,
-                    color: Colors.amber[700],
-                    size: 24.sp,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Icon(
+                      widget.icon,
+                      color: widget.color,
+                      size: 20.sp,
+                    ),
                   ),
                 ),
                 if (hasUnreadAnnouncements)
                   Positioned(
-                    right: -4,
-                    top: -4,
+                    right: -2,
+                    top: -2,
                     child: Container(
-                      width: 8.w,
-                      height: 8.w,
+                      width: 10.w,
+                      height: 10.w,
                       decoration: BoxDecoration(
                         color: Colors.red,
                         shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.2),
+                            blurRadius: 2,
+                            offset: const Offset(0, 1),
+                          ),
+                        ],
                       ),
                     ),
                   ),

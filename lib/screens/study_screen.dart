@@ -1824,8 +1824,15 @@ class _StudyScreenState extends State<StudyScreen>
           if (_wordFilteredSentences.containsKey(word.id)) {
             currentWordFilteredSentences = _wordFilteredSentences[word.id]!;
           } else {
-            currentWordFilteredSentences = List.from(sentencesData);
-            _wordFilteredSentences[word.id] = currentWordFilteredSentences;
+            // İlk yükleme — modu uygula
+            _wordFilteredSentences[word.id] = List.from(sentencesData);
+
+            // BUNU EKLE
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _applySentenceSelection(word, sentencesData);
+            });
+
+            currentWordFilteredSentences = _wordFilteredSentences[word.id]!;
           }
 
           return Column(

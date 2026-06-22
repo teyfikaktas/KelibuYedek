@@ -1356,35 +1356,46 @@ class _QuizScreenState extends State<QuizScreen> {
   void _answerQuestion(int selectedIndex) {
     var correctIndex = questions[currentQuestionIndex].correctOptionIndex;
     bool isCorrect = selectedIndex == correctIndex;
-
     if (!isCorrect && doubleAnswerActive) {
       doubleAnswerActive = false;
       showCustomFlushbar(context, "Yanlış cevap! İkinci şansınızı kullanın.");
       return;
     }
-
     questions[currentQuestionIndex].userAnswer = selectedIndex;
     int timeTaken = 15 - _remainingTime;
     int pointChange = isCorrect ? 5 + (15 - timeTaken) : -2;
-    int newScore = score + pointChange;
-
     questionStatuses[currentQuestionIndex] = isCorrect;
-    _updateUserScore(newScore);
+
+    // ✅ YENİ: Sadece bu sorudan kazanılan/kaybedilen puanı gönder
+    ApiService().addPoints(
+      points: pointChange,
+      type: 'quiz_question_answered',
+      metadata: {
+        'classroomId': widget.classroomId,
+        'studySetId': widget.studySetId,
+        'questionIndex': currentQuestionIndex,
+        'isCorrect': isCorrect,
+      },
+    );
+
+    // UI'da anlık göstermek için local state'i güncelle
+    setState(() {
+      score += pointChange;
+      pointValueNotifier.value = score;
+    });
 
     setState(() {
       optionColors[selectedIndex] =
-          isCorrect ? const Color(0xFF4CA64C) : const Color(0xFFFF4C4C);
+      isCorrect ? const Color(0xFF4CA64C) : const Color(0xFFFF4C4C);
       if (!isCorrect) {
         optionColors[correctIndex] = const Color(0xFF4CA64C);
       }
     });
-
     if (isCorrect) {
       playSoundCorrect('assets/correct.wav');
     } else {
       playSoundCorrect('assets/wrong.wav');
     }
-
     Future.delayed(const Duration(seconds: 1), () {
       if (currentQuestionIndex < questions.length - 1) {
         setState(() {
@@ -1402,7 +1413,6 @@ class _QuizScreenState extends State<QuizScreen> {
       }
     });
   }
-
   Widget _buildAnswerPanel() {
     return Container(
       height: 50,
