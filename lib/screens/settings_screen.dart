@@ -170,7 +170,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 MaterialPageRoute(builder: (context) => ContactFormPage()));
           }),
           _buildDivider(),
-          _buildSettingsItem(Icons.book, 'Hüküm ve Koşullar', () {
+          _buildSettingsItem(Icons.book, 'Kullanım Şartları', () {
             Navigator.push(
                 context,
                 MaterialPageRoute(

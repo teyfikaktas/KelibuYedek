@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
+import 'package:kelibu/screens/home_screen_widgets/score_display.dart';
 
 import 'package:another_flushbar/flushbar.dart';
 import 'package:audioplayers/audioplayers.dart';
@@ -11,6 +12,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:flutter_tts/flutter_tts.dart';
@@ -22,7 +24,7 @@ import 'package:kelibu/screens/loadingIndicator.dart';
 import 'package:kelibu/screens/video_player.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:percent_indicator/percent_indicator.dart';
-import 'package:provider/provider.dart';
+import 'package:provider/provider.dart' as prov;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../globalDart/urls.dart';
@@ -30,106 +32,6 @@ import '../providers/user_provider.dart';
 import '../providers/volume_provider.dart';
 import '../shared_preferences/shared_preferences.dart';
 import '../variables.dart';
-
-class ScoreDisplay extends StatefulWidget {
-  final ValueNotifier<int> userPointsNotifier;
-
-  const ScoreDisplay({Key? key, required this.userPointsNotifier})
-      : super(key: key);
-
-  @override
-  _ScoreDisplayState createState() => _ScoreDisplayState();
-}
-
-class _ScoreDisplayState extends State<ScoreDisplay>
-    with TickerProviderStateMixin {
-  late AnimationController _colorController;
-  late Animation<Color?> _colorAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-
-    _colorController = AnimationController(
-      duration: const Duration(milliseconds: 1000),
-      vsync: this,
-    );
-
-    _colorAnimation = ColorTween(
-      begin: Colors.green,
-      end: Colors.transparent,
-    ).animate(_colorController);
-
-    widget.userPointsNotifier.addListener(_onScoreChanged);
-  }
-
-  void _onScoreChanged() {
-    _colorController.forward(from: 0.0);
-  }
-
-  @override
-  void dispose() {
-    _colorController.dispose();
-    widget.userPointsNotifier.removeListener(_onScoreChanged);
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final backgroundColor = isDarkMode ? Colors.grey[900] : Colors.white;
-    final textColor = isDarkMode ? Colors.white : Colors.black87;
-    final borderColor = isDarkMode ? Colors.grey[700] : Colors.grey[300];
-
-    return AnimatedBuilder(
-      animation: _colorAnimation,
-      builder: (context, child) {
-        return Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: backgroundColor,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: borderColor!,
-              width: 1,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: _colorAnimation.value ?? Colors.transparent,
-                blurRadius: 10,
-                spreadRadius: 2,
-              ),
-            ],
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SvgPicture.asset(
-                'assets/trophy.svg',
-                width: 40,
-                height: 40,
-              ),
-              const SizedBox(width: 8),
-              ValueListenableBuilder<int>(
-                valueListenable: widget.userPointsNotifier,
-                builder: (context, value, child) {
-                  return Text(
-                    "$value",
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: textColor,
-                    ),
-                  );
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
 
 class ExampleSentenceContent extends StatelessWidget {
   final QuizQuestion question;
@@ -644,7 +546,7 @@ class _QuizScreenState extends State<QuizScreen> {
   }
 
   Future<void> playSoundCorrect(String path) async {
-    final volumeProvider = Provider.of<VolumeProvider>(context, listen: false);
+    final volumeProvider = prov.Provider.of<VolumeProvider>(context, listen: false);
     if (volumeProvider.isVolumeOn && isCorrectSoundOn) {
       // Ana ses ve doğru/yanlış sesi kontrolü
       AudioPlayer audioPlayer = AudioPlayer();
@@ -698,7 +600,7 @@ class _QuizScreenState extends State<QuizScreen> {
       builder: (BuildContext context) {
         return StatefulBuilder(
           builder: (context, setModalState) {
-            return Consumer<VolumeProvider>(
+            return prov.Consumer<VolumeProvider>(
               builder: (context, volumeProvider, child) {
                 return Container(
                   decoration: BoxDecoration(
@@ -908,7 +810,7 @@ class _QuizScreenState extends State<QuizScreen> {
 
 // _speak fonksiyonunu tamamen güncelleyin
   _speak() async {
-    final volumeProvider = Provider.of<VolumeProvider>(context, listen: false);
+    final volumeProvider = prov.Provider.of<VolumeProvider>(context, listen: false);
 
     if (!isSpeaking &&
         volumeProvider.isVolumeOn &&
@@ -1039,7 +941,7 @@ class _QuizScreenState extends State<QuizScreen> {
   Future<void> _updateUserScore(int newScore) async {
     try {
       UserProvider userProvider =
-          Provider.of<UserProvider>(context, listen: false);
+          prov.Provider.of<UserProvider>(context, listen: false);
       int currentPoints = userProvider.point;
 
       // Yeni puan 1 veya daha azsa, mevcut puanı koru
@@ -1080,17 +982,17 @@ class _QuizScreenState extends State<QuizScreen> {
     pointValueNotifier.value = score;
     Future.microtask(() {
       UserProvider userProviderPoint =
-          Provider.of<UserProvider>(context, listen: false);
+          prov.Provider.of<UserProvider>(context, listen: false);
       setState(() {
         score = userProviderPoint.point;
         pointValueNotifier.value = score;
       });
     });
     Future.microtask(() {
-      volumeProvider = Provider.of<VolumeProvider>(context, listen: false);
+      volumeProvider = prov.Provider.of<VolumeProvider>(context, listen: false);
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      final userProvider = prov.Provider.of<UserProvider>(context, listen: false);
       setState(() {
         userID = userProvider.userId;
       });
@@ -1102,7 +1004,7 @@ class _QuizScreenState extends State<QuizScreen> {
       });
 
       UserProvider userProviderPoint =
-          Provider.of<UserProvider>(context, listen: false);
+          prov.Provider.of<UserProvider>(context, listen: false);
       score = (userProviderPoint.point);
       _initializeQuiz();
       resetOptionColors();
@@ -1111,16 +1013,13 @@ class _QuizScreenState extends State<QuizScreen> {
       _loadStarredStatusAsync();
     });
   }
-
-  void finishQuiz() async {
-    int finalScore = score;
-    try {
-      await _updateUserScore(finalScore);
-    } catch (e) {}
+  void finishQuiz() {
+    // ✅ _updateUserScore kaldırıldı - her soru zaten kendi puanını
+    // _answerQuestion içinde addPoints() ile gönderdi.
+    _timer?.cancel();
     Navigator.of(context).push(MaterialPageRoute(
       builder: (context) => QuizResultsScreen(questions: questions),
     ));
-    _timer?.cancel();
   }
 
   void _updateStarredWordCount(ValueNotifier<bool> isStarredNotifier) {
@@ -1180,7 +1079,7 @@ class _QuizScreenState extends State<QuizScreen> {
                   _shuffleOrSortWords();
                 });
               }),
-              Consumer<LanguageProvider>(
+              prov.Consumer<LanguageProvider>(
                 builder: (context, languageProvider, child) {
                   return _buildControlButton(
                     languageProvider.isEnglish
@@ -1197,7 +1096,7 @@ class _QuizScreenState extends State<QuizScreen> {
                 },
               ),
               // Ses kontrolü için Consumer ekliyoruz
-              Consumer<VolumeProvider>(
+              prov.Consumer<VolumeProvider>(
                 builder: (context, volumeProvider, child) {
                   return _buildControlButton(
                       volumeProvider.isVolumeOn
@@ -1363,10 +1262,10 @@ class _QuizScreenState extends State<QuizScreen> {
     }
     questions[currentQuestionIndex].userAnswer = selectedIndex;
     int timeTaken = 15 - _remainingTime;
-    int pointChange = isCorrect ? 5 + (15 - timeTaken) : -2;
+    int pointChange = isCorrect ? (5 + (15 - timeTaken)) ~/ 2 : -2;
     questionStatuses[currentQuestionIndex] = isCorrect;
 
-    // ✅ YENİ: Sadece bu sorudan kazanılan/kaybedilen puanı gönder
+    // ✅ Puanı gönder
     ApiService().addPoints(
       points: pointChange,
       type: 'quiz_question_answered',
@@ -1378,11 +1277,9 @@ class _QuizScreenState extends State<QuizScreen> {
       },
     );
 
-    // UI'da anlık göstermek için local state'i güncelle
-    setState(() {
-      score += pointChange;
-      pointValueNotifier.value = score;
-    });
+    ProviderScope.containerOf(context)
+        .read(pointsProvider.notifier)
+        .addPoints(pointChange);
 
     setState(() {
       optionColors[selectedIndex] =
@@ -1391,11 +1288,13 @@ class _QuizScreenState extends State<QuizScreen> {
         optionColors[correctIndex] = const Color(0xFF4CA64C);
       }
     });
+
     if (isCorrect) {
       playSoundCorrect('assets/correct.wav');
     } else {
       playSoundCorrect('assets/wrong.wav');
     }
+
     Future.delayed(const Duration(seconds: 1), () {
       if (currentQuestionIndex < questions.length - 1) {
         setState(() {
@@ -1412,8 +1311,7 @@ class _QuizScreenState extends State<QuizScreen> {
         finishQuiz();
       }
     });
-  }
-  Widget _buildAnswerPanel() {
+  }  Widget _buildAnswerPanel() {
     return Container(
       height: 50,
       child: ListView.builder(
@@ -2964,7 +2862,7 @@ class _QuizScreenState extends State<QuizScreen> {
             ),
           ),
           _buildTimerWidget(),
-          ScoreDisplay(userPointsNotifier: pointValueNotifier),
+          ScoreDisplay(),
           _buildAnswerHistoryButton(),
           IconButton(
             icon: Icon(

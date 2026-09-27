@@ -2,7 +2,34 @@ import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive/hive.dart';
+
+// Riverpod points provider
+class PointsNotifier extends Notifier<int> {
+  @override
+  int build() => 0;
+
+  Future<void> setPoint(int newPoint) async {
+    state = newPoint;
+    var box = await Hive.openBox('userBox');
+    await box.put('point', newPoint);
+  }
+  Future<void> addPoints(int delta) async {
+    state = state + delta;
+    var box = await Hive.openBox('userBox');
+    await box.put('point', state);
+  }
+
+  Future<void> loadPoint() async {
+    var box = await Hive.openBox('userBox');
+    state = box.get('point') is int ? box.get('point') : 0;
+  }
+}
+
+final pointsProvider = NotifierProvider<PointsNotifier, int>(
+  PointsNotifier.new,
+);
 
 class UserProvider with ChangeNotifier {
   String _username = '';
@@ -18,7 +45,6 @@ class UserProvider with ChangeNotifier {
   String? _team;
   int _streakCount = 0;
 
-  // Yeni eklenen alanlar
   int _dailyRank = 0;
   int _weeklyRank = 0;
   int _monthlyRank = 0;
@@ -30,40 +56,22 @@ class UserProvider with ChangeNotifier {
     return digest.toString();
   }
 
-  // Getter'lar
   String get username => _username;
-
   int get userId => _userId;
-
   String get avatar => _avatar;
-
   int get point => _point;
-
   String get email => _email;
-
   String get phone => _phone;
-
   bool get phoneVerified => _phoneVerified;
-
   String get createdAt => _createdAt;
-
   String get city => _city;
-
   int get birthYear => _birthYear;
-
   String? get team => _team;
-
-  // Yeni getter'lar
   int get streakCount => _streakCount;
-
   int get dailyRank => _dailyRank;
-
   int get weeklyRank => _weeklyRank;
-
   int get monthlyRank => _monthlyRank;
-
   int get allTimeRank => _allTimeRank;
-
   bool get isLoggedIn => _username.isNotEmpty;
 
   Future<void> setUser(
@@ -79,10 +87,10 @@ class UserProvider with ChangeNotifier {
       int birthYear,
       String? team,
       {int streakCount = 0,
-      int dailyRank = 0,
-      int weeklyRank = 0,
-      int monthlyRank = 0,
-      int allTimeRank = 0}) async {
+        int dailyRank = 0,
+        int weeklyRank = 0,
+        int monthlyRank = 0,
+        int allTimeRank = 0}) async {
     _username = username;
     _userId = userId;
     _avatar = avatar;
@@ -134,10 +142,8 @@ class UserProvider with ChangeNotifier {
 
   Future<bool> loadUser() async {
     try {
-      // try-catch ekleyelim
       var box = await Hive.openBox('userBox');
 
-      // Özellikle bu alanları kontrol edelim
       var phoneVerifiedValue = box.get('phoneVerified');
       _phoneVerified = phoneVerifiedValue is bool ? phoneVerifiedValue : false;
 
@@ -207,7 +213,6 @@ class UserProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  // Yeni eklenen metod
   Future<void> updateRankings({
     required int streakCount,
     required int dailyRank,

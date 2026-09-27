@@ -6,6 +6,7 @@ import 'package:back_button_interceptor/back_button_interceptor.dart';
 import 'package:confetti/confetti.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dialogs/flutter_dialogs.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:kelibu/Models/wordDetaik.dart';
@@ -13,7 +14,7 @@ import 'package:kelibu/api.dart';
 import 'package:kelibu/providers/volume_provider.dart';
 import 'package:kelibu/screens/video_player.dart';
 import 'package:percent_indicator/circular_percent_indicator.dart';
-import 'package:provider/provider.dart';
+import 'package:provider/provider.dart' as prov;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../globalDart/urls.dart';
@@ -28,7 +29,7 @@ class WordData {
   WordData({required this.id, required this.meaning, this.imageUrl = ''});
 }
 
-class KelimeOyunu extends StatefulWidget {
+class KelimeOyunu extends ConsumerStatefulWidget {
   final int classroomId;
   final int studySetId;
   final List<WordDetail> words;
@@ -37,16 +38,16 @@ class KelimeOyunu extends StatefulWidget {
 
   KelimeOyunu(
       {Key? key,
-      required this.classroomId,
-      required this.studySetId,
-      required this.words})
+        required this.classroomId,
+        required this.studySetId,
+        required this.words})
       : super(key: key);
 
   @override
   _KelimeOyunuState createState() => _KelimeOyunuState();
 }
 
-class _KelimeOyunuState extends State<KelimeOyunu>
+class _KelimeOyunuState extends ConsumerState<KelimeOyunu>
     with TickerProviderStateMixin, WidgetsBindingObserver {
   late ConfettiController _confettiController;
   double kalanZamanSaniye = 15;
@@ -84,7 +85,6 @@ class _KelimeOyunuState extends State<KelimeOyunu>
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
   int userID = 2;
-  int score = 0;
   late AnimationController scoreTextAnimationController;
   late Animation<Offset> scoreTextSlideAnimation;
   OverlayEntry? scoreTextOverlayEntry;
@@ -131,7 +131,7 @@ class _KelimeOyunuState extends State<KelimeOyunu>
     List<int> wordIds = widget.words.map((e) => e.id).toList();
     try {
       Set<int> starredWordsSet =
-          await service.loadStarredWords(widget.classroomId, widget.studySetId);
+      await service.loadStarredWords(widget.classroomId, widget.studySetId);
       List<WordDetail> tempStarredWords = [];
       wordIds.forEach((id) {
         if (starredWordsSet.contains(id)) {
@@ -146,8 +146,7 @@ class _KelimeOyunuState extends State<KelimeOyunu>
       setState(() {
         starredWords = tempStarredWords;
       });
-    } catch (e) {
-    }
+    } catch (e) {}
   }
 
   @override
@@ -204,9 +203,6 @@ class _KelimeOyunuState extends State<KelimeOyunu>
       curve: Curves.easeOut,
     ));
 
-    UserProvider userProviderPoint =
-        Provider.of<UserProvider>(context, listen: false);
-    score = userProviderPoint.point;
     ValueNotifier<int> starredWordCount = ValueNotifier(0);
 
     centerCardColor = rastgeleAcikRenkUret();
@@ -232,7 +228,7 @@ class _KelimeOyunuState extends State<KelimeOyunu>
   Future<void> _loadStarredStatusAsync() async {
     final service = StarredWordsService();
     final starredWordIds =
-        await service.loadStarredWords(widget.classroomId, widget.studySetId);
+    await service.loadStarredWords(widget.classroomId, widget.studySetId);
 
     setState(() {
       int count = 0;
@@ -241,7 +237,7 @@ class _KelimeOyunuState extends State<KelimeOyunu>
           count++;
         }
       }
-      starredWordCount.value = count; // Yıldızlı kelime sayısını güncelle
+      starredWordCount.value = count;
     });
   }
 
@@ -362,7 +358,6 @@ class _KelimeOyunuState extends State<KelimeOyunu>
     zamanlayici.cancel();
     _animationController.dispose();
     _learnedWordsAnimationController.dispose();
-    zamanlayici.cancel();
     scoreAnimationController.dispose();
     scoreTextAnimationController.dispose();
     _confettiController.dispose();
@@ -404,7 +399,7 @@ class _KelimeOyunuState extends State<KelimeOyunu>
       builder: (BuildContext dialogContext) {
         return Dialog(
           shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.0)),
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.0)),
           child: Container(
             padding: EdgeInsets.all(20),
             decoration: BoxDecoration(
@@ -438,7 +433,7 @@ class _KelimeOyunuState extends State<KelimeOyunu>
                 ElevatedButton.icon(
                   icon: Icon(Icons.home, color: Colors.white),
                   label:
-                      Text("Ana Sayfa", style: TextStyle(color: Colors.white)),
+                  Text("Ana Sayfa", style: TextStyle(color: Colors.white)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blue,
                     shape: RoundedRectangleBorder(
@@ -468,8 +463,6 @@ class _KelimeOyunuState extends State<KelimeOyunu>
   List<WordDetail> starredWords = [];
 
   void checkCompletionAndShowDialog() {
-    int remainingWords =
-        isStarredMode ? starredWords.length : widget.words.length;
     if (tamamlananKelimeler.length > totalWordsCount) {
       showCompletionDialog();
     }
@@ -478,7 +471,7 @@ class _KelimeOyunuState extends State<KelimeOyunu>
   void secenekleriYenile() {
     setState(() {
       List<WordDetail> currentWords =
-          isStarredMode ? starredWords : widget.words;
+      isStarredMode ? starredWords : widget.words;
       List<WordDetail> filteredWords = currentWords
           .where((word) => !tamamlananKelimeler.contains(word.word))
           .toList();
@@ -486,12 +479,12 @@ class _KelimeOyunuState extends State<KelimeOyunu>
         aktifKelime =
             filteredWords[Random().nextInt(filteredWords.length)].word;
         List<String> tumSecenekler =
-            filteredWords.map((e) => e.meaning).toList()..shuffle();
+        filteredWords.map((e) => e.meaning).toList()..shuffle();
         int listSize = tumSecenekler.length;
         secenekler = tumSecenekler.sublist(0, min(8, listSize));
         if (!secenekler.contains(kelimeler[aktifKelime])) {
           secenekler[Random().nextInt(secenekler.length)] =
-              kelimeler[aktifKelime]!;
+          kelimeler[aktifKelime]!;
         }
         secenekler.shuffle();
         optionColors.clear();
@@ -522,10 +515,10 @@ class _KelimeOyunuState extends State<KelimeOyunu>
         return AlertDialog(
           title: Text("Tebrikler!",
               style:
-                  TextStyle(color: _isDarkMode ? Colors.white : Colors.black)),
+              TextStyle(color: _isDarkMode ? Colors.white : Colors.black)),
           content: Text("Tüm kelimeleri başarıyla tamamladınız.",
               style:
-                  TextStyle(color: _isDarkMode ? Colors.white : Colors.black)),
+              TextStyle(color: _isDarkMode ? Colors.white : Colors.black)),
           backgroundColor: _isDarkMode ? Colors.black : Colors.white,
           actions: <Widget>[
             TextButton(
@@ -628,7 +621,7 @@ class _KelimeOyunuState extends State<KelimeOyunu>
         title: Text(
           'Klasik Kelibu',
           style: TextStyle(
-            color: _isDarkMode ? Colors.white : Colors.white,
+            color: Colors.white,
             fontWeight: FontWeight.bold,
             fontSize: 24,
             letterSpacing: 1,
@@ -657,14 +650,14 @@ class _KelimeOyunuState extends State<KelimeOyunu>
             ),
           ),
           _buildRoundedIconButton(Icons.slow_motion_video_sharp, Colors.green,
-              () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (context) =>
-                      VideoPlayerScreen(videoUrl: AppUrls.classickelibu)),
-            );
-          }),
+                  () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) =>
+                          VideoPlayerScreen(videoUrl: AppUrls.classickelibu)),
+                );
+              }),
         ],
       ),
     );
@@ -723,7 +716,7 @@ class _KelimeOyunuState extends State<KelimeOyunu>
   }
 
   Widget buildVolumeButton() {
-    return Consumer<VolumeProvider>(
+    return prov.Consumer<VolumeProvider>(
       builder: (context, volumeProvider, child) {
         return ElevatedButton(
           onPressed: () {
@@ -736,7 +729,7 @@ class _KelimeOyunuState extends State<KelimeOyunu>
           ),
           style: ElevatedButton.styleFrom(
             backgroundColor:
-                _isDarkMode ? Colors.grey[700] : Colors.teal.withOpacity(0.1),
+            _isDarkMode ? Colors.grey[700] : Colors.teal.withOpacity(0.1),
             shape: CircleBorder(),
             padding: EdgeInsets.all(12),
             elevation: 0,
@@ -762,7 +755,7 @@ class _KelimeOyunuState extends State<KelimeOyunu>
             valueListenable: starredWordCount,
             builder: (context, value, child) {
               return Text(
-                '$value', // score yerine value kullanıyoruz
+                '$value',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -799,7 +792,7 @@ class _KelimeOyunuState extends State<KelimeOyunu>
         circularStrokeCap: CircularStrokeCap.round,
         progressColor: _isDarkMode ? Colors.white : Colors.teal,
         backgroundColor:
-            _isDarkMode ? Colors.grey[600]! : Colors.teal.withOpacity(0.2),
+        _isDarkMode ? Colors.grey[600]! : Colors.teal.withOpacity(0.2),
       ),
     );
   }
@@ -814,14 +807,14 @@ class _KelimeOyunuState extends State<KelimeOyunu>
         setState(() {
           isStarredMode = !isStarredMode;
           totalWordsCount =
-              isStarredMode ? starredWords.length : widget.words.length;
+          isStarredMode ? starredWords.length : widget.words.length;
           if (isStarredMode && starredWords.isEmpty) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content:
-                    Text('En az 1 yıldızlı kelimeniz olması gerekmektedir.'),
+                Text('En az 1 yıldızlı kelimeniz olması gerekmektedir.'),
                 backgroundColor:
-                    _isDarkMode ? Colors.grey[700] : Colors.grey[300],
+                _isDarkMode ? Colors.grey[700] : Colors.grey[300],
               ),
             );
             isStarredMode = false;
@@ -968,65 +961,10 @@ class _KelimeOyunuState extends State<KelimeOyunu>
             Text(
               '${tamamlananKelimeler.length} / $totalWordsCount',
               style:
-                  TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  void showModal(BuildContext context) {
-    showPlatformDialog(
-      context: context,
-      builder: (BuildContext dialogContext) => BasicDialogAlert(
-        title: Text("Ayarlar",
-            style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                IconButton(
-                  icon: Icon(Icons.volume_off),
-                  onPressed: () {
-                    Navigator.pop(dialogContext);
-                  },
-                ),
-                IconButton(
-                  icon: Icon(Icons.translate),
-                  onPressed: () {
-                    Navigator.pop(dialogContext);
-                  },
-                ),
-                IconButton(
-                  icon: Icon(Icons.image),
-                  onPressed: () {
-                    Navigator.pop(dialogContext);
-                  },
-                ),
-                IconButton(
-                  icon: Icon(Icons.star),
-                  onPressed: () {
-                    Navigator.pop(dialogContext);
-                  },
-                ),
-              ],
-            ),
-          ],
-        ),
-        actions: <Widget>[
-          BasicDialogAction(
-            title: Text("Kapat",
-                style: TextStyle(
-                    color: _isDarkMode ? Colors.white : Colors.black)),
-            onPressed: () {
-              Navigator.pop(dialogContext);
-            },
-          ),
-        ],
       ),
     );
   }
@@ -1043,12 +981,12 @@ class _KelimeOyunuState extends State<KelimeOyunu>
           child: ListView(
             children: tamamlananKelimeler
                 .map((kelime) => ListTile(
-                      title: Text(kelime,
-                          style: TextStyle(
-                              color:
-                                  _isDarkMode ? Colors.white : Colors.black)),
-                      trailing: Icon(Icons.check, color: Colors.green),
-                    ))
+              title: Text(kelime,
+                  style: TextStyle(
+                      color:
+                      _isDarkMode ? Colors.white : Colors.black)),
+              trailing: Icon(Icons.check, color: Colors.green),
+            ))
                 .toList(),
           ),
         );
@@ -1063,14 +1001,13 @@ class _KelimeOyunuState extends State<KelimeOyunu>
     final bool isCorrect = secenek == kelimeler[aktifKelime];
     int correctIndex = secenekler.indexOf(kelimeler[aktifKelime]!);
     int remainingSeconds = (15 * zamanCubuguDegeri).round();
-    int pointChange = isCorrect ? remainingSeconds : -remainingSeconds;
+    int pointChange = isCorrect ? (remainingSeconds / 2).round() : -remainingSeconds;
 
     setState(() {
       _isOptionSelectable = false;
       if (isCorrect) {
         kelimeDogruSayac[aktifKelime] =
             (kelimeDogruSayac[aktifKelime] ?? 0) + 1;
-        int newScore = score + pointChange;
         optionColors[index] = correctOptionColor;
         if (kelimeDogruSayac[aktifKelime]! >= 3) {
           tamamlananKelimeler.add(aktifKelime);
@@ -1079,16 +1016,28 @@ class _KelimeOyunuState extends State<KelimeOyunu>
           }
           _confettiController.play();
           showScoreTextAnimation(aktifKelime);
-          newScore += 30; // Bonus puan
+          pointChange += 5; // Bonus puan
         }
-        _updateUserScore(newScore, pointChange);
       } else {
         kelimeDogruSayac[aktifKelime] = 0;
-        int newScore = score + pointChange;
         optionColors[index] = wrongOptionColor;
         optionColors[correctIndex] = correctOptionColor;
-        _updateUserScore(newScore, pointChange);
       }
+
+      // ✅ YENİ: Sadece bu aksiyondan kazanılan/kaybedilen puanı gönder
+      ApiService().addPoints(
+        points: pointChange,
+        type: 'classic_kelibu',
+        metadata: {
+          'classroomId': widget.classroomId,
+          'studySetId': widget.studySetId,
+          'isCorrect': isCorrect,
+          'word': aktifKelime,
+        },
+      );
+
+      // ✅ Riverpod ile anlık UI güncellemesi
+      ref.read(pointsProvider.notifier).addPoints(pointChange);
 
       showScoreAnimation('${pointChange > 0 ? '+' : ''}$pointChange');
 
@@ -1100,40 +1049,6 @@ class _KelimeOyunuState extends State<KelimeOyunu>
         checkCompletionAndShowDialog();
       });
     });
-  }
-
-  Future<void> _updateUserScore(int newScore, int pointChange) async {
-    try {
-      UserProvider userProvider =
-          Provider.of<UserProvider>(context, listen: false);
-      int userId = userProvider.userId;
-      int currentPoints = userProvider.point;
-
-      print(
-          "Updating score - UserID: $userId, Current Points: $currentPoints, New Score: $newScore, Point Change: $pointChange");
-
-      // Yeni puan 1 veya daha azsa, mevcut puanı koru
-      if (newScore <= 1) {
-        newScore = currentPoints;
-      }
-
-      // Puan düşüşü kontrolü
-      if (newScore < currentPoints) {
-        print(
-            "Warning: New score ($newScore) is less than current points ($currentPoints).");
-      }
-
-      // API çağrısı ve local state güncellemesi
-      await Future.wait([
-        ApiService().updateUserPointTimePeriod(userId, newScore, pointChange),
-        userProvider.addPoint(newScore),
-      ]);
-
-      setState(() {
-        score = newScore;
-      });
-    } catch (e) {
-    }
   }
 
   void showFeedback({required bool isCorrect}) {
@@ -1184,11 +1099,11 @@ class WordGrid extends StatelessWidget {
             int optionIndex = index < 4 ? index : index - 1;
             return optionIndex < secenekler.length
                 ? OptionCard(
-                    secenek: secenekler[optionIndex],
-                    index: optionIndex,
-                    handleOptionTap: handleOptionTap,
-                    isDarkMode: isDarkMode,
-                  )
+              secenek: secenekler[optionIndex],
+              index: optionIndex,
+              handleOptionTap: handleOptionTap,
+              isDarkMode: isDarkMode,
+            )
                 : Container();
           }
         }),
@@ -1236,7 +1151,7 @@ class CenterCard extends StatelessWidget {
                   '${kelimeDogruSayac[aktifKelime] ?? 0}/3',
                   style: TextStyle(
                       color:
-                          isDarkMode ? Colors.white70 : Colors.teal.shade600),
+                      isDarkMode ? Colors.white70 : Colors.teal.shade600),
                 ),
               ],
             ),

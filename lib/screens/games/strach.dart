@@ -5,12 +5,12 @@ import 'dart:ui';
 import 'package:confetti/confetti.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kelibu/Models/wordDetaik.dart';
 import 'package:kelibu/api.dart';
-import 'package:kelibu/providers/user_provider.dart';
+import '../../providers/user_provider.dart';
 import 'package:lottie/lottie.dart';
-import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../widgets/match_mode_widget.dart';
@@ -106,7 +106,7 @@ class GameStats {
   }
 }
 
-class MatchingGame extends StatefulWidget {
+class MatchingGame extends ConsumerStatefulWidget {
   final List<WordDetail> words;
   final int classroomId;
   final int studySetId;
@@ -130,7 +130,7 @@ class MatchingGame extends StatefulWidget {
   _MatchingGameState createState() => _MatchingGameState();
 }
 
-class _MatchingGameState extends State<MatchingGame>
+class _MatchingGameState extends ConsumerState<MatchingGame>
     with TickerProviderStateMixin {
   late List<WordDetail> _allValidWords; // Tüm geçerli kelimeler
   late List<WordDetail> _gameWords; // Mevcut round için kelimeler
@@ -215,9 +215,10 @@ class _MatchingGameState extends State<MatchingGame>
 
   @override
   void initState() {
+    super.initState(); // ✅ önce bu
+
     _loadUserPoints();
 
-    _localPointsUpdated = false; // Başlangıçta false
     _initializeScoreManager();
     // ✅ DÜZELTME: Lottie controller'ı sadece bir kez oluştur
     _lottieChainController = AnimationController(
@@ -354,7 +355,6 @@ class _MatchingGameState extends State<MatchingGame>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _updateAllItemPositions();
     });
-    super.initState();
   }
 
   // 2. SCOREMANAGER'I BAŞLATMA
@@ -362,13 +362,13 @@ class _MatchingGameState extends State<MatchingGame>
     int initialTime;
     switch (widget.timeSelection) {
       case TimeSelection.short:
-        initialTime = 60;
+        initialTime = 30;
         break;
       case TimeSelection.medium:
-        initialTime = 120;
+        initialTime = 60;
         break;
       case TimeSelection.long:
-        initialTime = 180;
+        initialTime = 120;
         break;
       case TimeSelection.custom:
         int customTime = int.tryParse(widget.customTimeValue) ?? 120;
@@ -482,6 +482,26 @@ class _MatchingGameState extends State<MatchingGame>
     if (!mounted) return;
 
     _calculateFinalScore();
+
+    // ✅ Son round puanını gönder
+    if (_currentRoundResult != null) {
+      final streakBonus = (_scoreManager.bestStreak - 1).clamp(0, 50); // ✅ streak bonusu
+      final points = _currentRoundResult!.finalRoundScore + streakBonus; // ✅ ekledik
+
+      ApiService().addPoints(
+        points: points,
+        type: 'matching_game_round',
+        metadata: {
+          'round': _currentRound,
+          'difficulty': widget.difficulty.toString(),
+          'classroomId': widget.classroomId,
+          'studySetId': widget.studySetId,
+          'isFinalRound': true,
+          'streakBonus': streakBonus, // ✅ logda görünsün
+        },
+      );
+      ref.read(pointsProvider.notifier).addPoints(points);
+    }
 
     setState(() {
       _gameWon = true;
@@ -606,46 +626,19 @@ class _MatchingGameState extends State<MatchingGame>
     });
   }
 
-  Future<void> _updateUserScore(int newTotalScore, int roundpoint) async {
-    try {
-      UserProvider userProvider =
-          Provider.of<UserProvider>(context, listen: false);
-      int currentPoints = userProvider.point;
 
-      // Puan düşüşü kontrolü
-      if (newTotalScore < currentPoints) {
-        // Yine de güncelle, belki kasıtlı
-      }
-
-      // ✅ TEK SATIRDA HALLEDİYORUZ
-      await ApiService().updateUserPointTimePeriod(
-          userProvider.userId,
-          newTotalScore, // ✅ Toplam puanı gönder
-          roundpoint // time point - oyun süresi istemiyorsan 0 ver
-          );
-
-      // ✅ LOCAL STATE'İ GÜNCELLE
-      userProvider.addPoint(newTotalScore);
-
-      setState(() {
-        _currentUserPoints = newTotalScore;
-      });
-    } catch (e) {}
-  }
 
   Future<void> _loadUserPoints() async {
-    setState(() {
-      _isLoadingUserPoints = true;
-    });
-    UserProvider userProvider =
-        Provider.of<UserProvider>(context, listen: false);
+    setState(() => _isLoadingUserPoints = true);
+
+    // ✅ Önce Hive'dan yükle - pointsProvider 0 olsa bile doğru değeri alırız
+    await ref.read(pointsProvider.notifier).loadPoint();
+    final points = ref.read(pointsProvider);
 
     setState(() {
-      _currentUserPoints =
-          userProvider.point; // Kullanıcının genel, oyun dışı puanı
-      _displayedPoints =
-          userProvider.point; // Ekranda gösterilecek başlangıç puanı
-      _previousTotalPoints = userProvider.point; // Animasyon için başlangıç
+      _currentUserPoints = points;
+      _displayedPoints = points;
+      _previousTotalPoints = points;
       _isLoadingUserPoints = false;
     });
   }
@@ -660,7 +653,6 @@ class _MatchingGameState extends State<MatchingGame>
     } catch (e) {}
   }
 
-  bool _localPointsUpdated = false; // Class seviyesinde değişken ekle
 
 // Kullanıcı puanını yerel olarak güncelleme
 // ❌ SORUN: _updateLocalUserPoints'te sadece yeni puanı kaydediyor
@@ -1206,561 +1198,237 @@ class _MatchingGameState extends State<MatchingGame>
     if (_leftItems.isEmpty &&
         _rightItems.isEmpty &&
         _currentRound <= _totalRounds) {
-      // ✅ SCOREMANAGER'DAN PUAN HESAPLAMALARINI AL
       _scoreManager.timeRemaining = _timeRemaining;
       ScoreResult result = _scoreManager.calculateRoundResult();
 
-      // Debug için konsolda yazdır
-
-      return LayoutBuilder(
-        builder: (context, constraints) {
-          // Responsive değerler
-          bool isTablet = constraints.maxWidth > 600;
-          bool isMobile = constraints.maxWidth < 400;
-
-          double horizontalPadding = isMobile ? 16 : (isTablet ? 40 : 24);
-          double cardPadding = isMobile ? 16 : 24;
-          double titleSize = isMobile ? 20 : (isTablet ? 28 : 24);
-          double subtitleSize = isMobile ? 16 : (isTablet ? 22 : 20);
-          double textSize = isMobile ? 14 : (isTablet ? 18 : 16);
-
-          return SingleChildScrollView(
-            child: Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: horizontalPadding,
-                vertical: isMobile ? 16 : 24,
-              ),
-              child: Column(
-                children: [
-                  // ✅ ANİMASYONLU BAŞLIK
-                  TweenAnimationBuilder(
-                    duration: const Duration(milliseconds: 800),
-                    tween: Tween<double>(begin: 0, end: 1),
-                    builder: (context, double value, child) {
-                      return Transform.scale(
-                        scale: 0.8 + (0.2 * value),
-                        child: Opacity(
-                          opacity: value,
-                          child: Container(
-                            width: double.infinity,
-                            margin: const EdgeInsets.only(bottom: 20),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  colors['primary']!,
-                                  colors['secondary']!,
-                                  colors['primary']!.withOpacity(0.8),
-                                ],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                stops: [0.0, 0.5, 1.0],
-                              ),
-                              borderRadius: BorderRadius.circular(20),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: colors['primary']!.withOpacity(0.4),
-                                  blurRadius: 20,
-                                  offset: const Offset(0, 8),
-                                  spreadRadius: 2,
-                                ),
-                              ],
-                            ),
-                            child: Stack(
-                              children: [
-                                // Arka plan pattern
-                                Positioned.fill(
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(20),
-                                    child: CustomPaint(
-                                      painter: _PatternPainter(
-                                          Colors.white.withOpacity(0.1)),
-                                    ),
-                                  ),
-                                ),
-                                // İçerik
-                                Padding(
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: cardPadding,
-                                    vertical: isMobile ? 20 : 24,
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.all(12),
-                                        decoration: BoxDecoration(
-                                          color: Colors.white.withOpacity(0.2),
-                                          borderRadius:
-                                              BorderRadius.circular(12),
-                                        ),
-                                        child: Icon(
-                                          Icons.emoji_events,
-                                          color: Colors.white,
-                                          size: isMobile ? 28 : 36,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 16),
-                                      Flexible(
-                                        child: Column(
-                                          children: [
-                                            Text(
-                                              "Round $_currentRound",
-                                              style: GoogleFonts.poppins(
-                                                fontSize: titleSize,
-                                                fontWeight: FontWeight.bold,
-                                                color: Colors.white,
-                                                shadows: [
-                                                  Shadow(
-                                                    color: Colors.black
-                                                        .withOpacity(0.3),
-                                                    offset: const Offset(0, 2),
-                                                    blurRadius: 4,
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                            Text(
-                                              "Tamamlandı! 🎉",
-                                              style: GoogleFonts.poppins(
-                                                fontSize: textSize,
-                                                fontWeight: FontWeight.w600,
-                                                color: Colors.white
-                                                    .withOpacity(0.9),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      );
-                    },
+      return Container(
+        color: const Color(0xFFF5F5F5),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // ── HEADER ──────────────────────────────────────────
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE8490F),
+                    borderRadius: BorderRadius.circular(14),
                   ),
-
-                  // ✅ PUAN DETAY KARTI - ScoreManager verilerini kullan
-                  TweenAnimationBuilder(
-                    duration: const Duration(milliseconds: 1000),
-                    tween: Tween<double>(begin: 0, end: 1),
-                    builder: (context, double value, child) {
-                      return Transform.translate(
-                        offset: Offset(0, 30 * (1 - value)),
-                        child: Opacity(
-                          opacity: value,
-                          child: Container(
-                            width: double.infinity,
-                            margin: const EdgeInsets.only(bottom: 20),
-                            decoration: BoxDecoration(
-                              color: colors['cardBackground'],
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: colors['primary']!.withOpacity(0.2),
-                                width: 1,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: colors['primary']!.withOpacity(0.1),
-                                  blurRadius: 15,
-                                  offset: const Offset(0, 5),
-                                  spreadRadius: 1,
-                                ),
-                              ],
-                            ),
-                            child: Padding(
-                              padding: EdgeInsets.all(cardPadding),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  // Başlık
-                                  Row(
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.all(8),
-                                        decoration: BoxDecoration(
-                                          color: colors['primary']!
-                                              .withOpacity(0.1),
-                                          borderRadius:
-                                              BorderRadius.circular(8),
-                                        ),
-                                        child: Icon(
-                                          Icons.analytics_outlined,
-                                          color: colors['primary'],
-                                          size: 20,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Text(
-                                        "Puan Detayları",
-                                        style: GoogleFonts.poppins(
-                                          fontSize: subtitleSize,
-                                          fontWeight: FontWeight.bold,
-                                          color: colors['primary'],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-
-                                  const SizedBox(height: 20),
-
-                                  // ✅ SCOREMANAGER VERİLERİNİ KULLAN
-                                  // Temel Puanlar (seri bonusu dahil)
-                                  _buildAnimatedScoreRow(
-                                    "Temel Puanlar (Seri Dahil)",
-                                    "${result.baseScore}",
-                                    colors,
-                                    Icons.star_outline,
-                                    Colors.blue,
-                                    0,
-                                    textSize,
-                                  ),
-
-                                  // Zaman bonusu
-                                  if (result.timeBonus > 0)
-                                    _buildAnimatedScoreRow(
-                                      "Hız Bonusu",
-                                      "+${result.timeBonus}",
-                                      colors,
-                                      Icons.flash_on,
-                                      Colors.amber,
-                                      200,
-                                      textSize,
-                                    ),
-
-                                  // Mükemmel bonus
-                                  if (result.perfectBonus > 0)
-                                    _buildAnimatedScoreRow(
-                                      "Mükemmel Tur!",
-                                      "+${result.perfectBonus}",
-                                      colors,
-                                      Icons.workspace_premium,
-                                      Colors.purple,
-                                      400,
-                                      textSize,
-                                    ),
-
-                                  // En iyi seri bilgisi (puan değil, bilgi olarak)
-                                  if (result.bestStreak > 1)
-                                    _buildAnimatedScoreRow(
-                                      "En İyi Seri",
-                                      "x${result.bestStreak}",
-                                      colors,
-                                      Icons.local_fire_department,
-                                      Colors.deepOrange,
-                                      300,
-                                      textSize,
-                                    ),
-
-                                  // Ayırıcı çizgi
-                                  Container(
-                                    margin: const EdgeInsets.symmetric(
-                                        vertical: 16),
-                                    height: 1,
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        colors: [
-                                          Colors.transparent,
-                                          colors['border']!.withOpacity(0.3),
-                                          Colors.transparent,
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-
-                                  // Zorluk çarpanı
-                                  if (result.difficultyMultiplier != 1.0)
-                                    _buildAnimatedScoreRow(
-                                      "Zorluk Çarpanı",
-                                      "x${result.difficultyMultiplier.toStringAsFixed(1)}",
-                                      colors,
-                                      Icons.trending_up,
-                                      widget.difficulty == DifficultyLevel.hard
-                                          ? Colors.red
-                                          : Colors.green,
-                                      600,
-                                      textSize,
-                                    ),
-
-                                  const SizedBox(height: 8),
-
-                                  // ✅ TOPLAM PUAN - ScoreManager'dan al
-                                  TweenAnimationBuilder(
-                                    duration:
-                                        const Duration(milliseconds: 1200),
-                                    tween: Tween<double>(begin: 0, end: 1),
-                                    builder: (context, double value, child) {
-                                      return Transform.scale(
-                                        scale: 0.9 + (0.1 * value),
-                                        child: Container(
-                                          padding: const EdgeInsets.all(16),
-                                          decoration: BoxDecoration(
-                                            gradient: LinearGradient(
-                                              colors: [
-                                                colors['primary']!
-                                                    .withOpacity(0.1),
-                                                colors['secondary']!
-                                                    .withOpacity(0.05),
-                                              ],
-                                            ),
-                                            borderRadius:
-                                                BorderRadius.circular(12),
-                                            border: Border.all(
-                                              color: colors['primary']!
-                                                  .withOpacity(0.3),
-                                              width: 1,
-                                            ),
-                                          ),
-                                          child: Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              Text(
-                                                "Bu Turun Puanı:",
-                                                style: GoogleFonts.poppins(
-                                                  fontSize: textSize + 2,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: colors['text'],
-                                                ),
-                                              ),
-                                              Container(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                        horizontal: 12,
-                                                        vertical: 6),
-                                                decoration: BoxDecoration(
-                                                  color: colors['primary'],
-                                                  borderRadius:
-                                                      BorderRadius.circular(20),
-                                                  boxShadow: [
-                                                    BoxShadow(
-                                                      color: colors['primary']!
-                                                          .withOpacity(0.3),
-                                                      blurRadius: 8,
-                                                      offset:
-                                                          const Offset(0, 2),
-                                                    ),
-                                                  ],
-                                                ),
-                                                child: Text(
-                                                  "${result.finalRoundScore}",
-                                                  style: GoogleFonts.poppins(
-                                                    fontSize: textSize + 6,
-                                                    fontWeight: FontWeight.bold,
-                                                    color: Colors.white,
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ],
-                              ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.emoji_events, color: Colors.white, size: 24),
+                      const SizedBox(width: 14),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "Round $_currentRound tamamlandı",
+                            style: GoogleFonts.poppins(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.white,
                             ),
                           ),
-                        ),
-                      );
-                    },
+                          Text(
+                            "Devam et!",
+                            style: GoogleFonts.poppins(
+                              fontSize: 13,
+                              color: Colors.white.withOpacity(0.7),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
+                ),
 
-                  // ✅ TOPLAM PUAN KARTI (Son roundda göster)
-                  if (_currentRound == _totalRounds)
-                    TweenAnimationBuilder(
-                      duration: const Duration(milliseconds: 1600),
-                      tween: Tween<double>(begin: 0, end: 1),
-                      builder: (context, double value, child) {
-                        return Transform.translate(
-                            offset: Offset(0, 20 * (1 - value)),
-                            child: Opacity(
-                              opacity: value,
-                              child: Container(
-                                width: double.infinity,
-                                margin: const EdgeInsets.only(bottom: 20),
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [
-                                      Colors.amber.withOpacity(0.8),
-                                      Colors.orange.withOpacity(0.6),
-                                    ],
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                  ),
-                                  borderRadius: BorderRadius.circular(20),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.amber.withOpacity(0.4),
-                                      blurRadius: 20,
-                                      offset: const Offset(0, 8),
-                                      spreadRadius: 2,
-                                    ),
-                                  ],
-                                ),
-                                child: Padding(
-                                  padding: EdgeInsets.all(cardPadding),
-                                  child: Column(
-                                    children: [
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          Icon(
-                                            Icons.emoji_events,
-                                            color: Colors.white,
-                                            size: isMobile ? 24 : 28,
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Text(
-                                            "Oyun Tamamlandı!",
-                                            style: GoogleFonts.poppins(
-                                              fontSize: titleSize,
-                                              fontWeight: FontWeight.bold,
-                                              color: Colors.white,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 16),
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Text(
-                                            "Toplam Puanınız:",
-                                            style: GoogleFonts.poppins(
-                                              fontSize: textSize + 2,
-                                              fontWeight: FontWeight.bold,
-                                              color: Colors.white,
-                                            ),
-                                          ),
-                                          Row(
-                                            children: [
-                                              Text(
-                                                "${_currentUserPoints}",
-                                                style: GoogleFonts.poppins(
-                                                  fontSize: textSize,
-                                                  decoration: TextDecoration
-                                                      .lineThrough,
-                                                  decorationColor: Colors.white
-                                                      .withOpacity(0.7),
-                                                  color: Colors.white
-                                                      .withOpacity(0.7),
-                                                ),
-                                              ),
-                                              const SizedBox(width: 8),
-                                              const Icon(Icons.arrow_forward,
-                                                  color: Colors.white,
-                                                  size: 16),
-                                              const SizedBox(width: 8),
-                                              Text(
-                                                "${result.newUserTotal}",
-                                                style: GoogleFonts.poppins(
-                                                  fontSize: titleSize,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Colors.white,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ));
-                      },
-                    ),
+                const SizedBox(height: 10),
 
-                  // ✅ BUTONLAR
-                  TweenAnimationBuilder(
-                    duration: const Duration(milliseconds: 1400),
-                    tween: Tween<double>(begin: 0, end: 1),
-                    builder: (context, double value, child) {
-                      return Transform.translate(
-                        offset: Offset(0, 50 * (1 - value)),
-                        child: Opacity(
-                          opacity: value,
-                          child: Container(
-                            width: double.infinity,
-                            height: isMobile ? 60 : 70,
-                            child: _currentRound < _totalRounds
-                                ? _buildNextRoundButton(
-                                    colors,
-                                    result.finalRoundScore,
-                                    result.totalGameScore,
-                                    isMobile,
-                                    textSize)
-                                : _buildFinishGameButton(
-                                    colors,
-                                    result.finalRoundScore,
-                                    result.totalGameScore,
-                                    isMobile,
-                                    textSize),
-                          ),
-                        ),
-                      );
-                    },
+                // ── PUAN ÖZETİ KARTI ────────────────────────────────
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
                   ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "PUAN ÖZETİ",
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: const Color(0xFF999999),
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
 
-                  // ✅ PROGRESS INDICATOR
-                  if (_currentRound < _totalRounds)
-                    TweenAnimationBuilder(
-                      duration: const Duration(milliseconds: 1600),
-                      tween: Tween<double>(begin: 0, end: 1),
-                      builder: (context, double value, child) {
-                        return Opacity(
-                          opacity: value,
-                          child: Container(
-                            margin: const EdgeInsets.only(top: 20),
-                            child: Column(
-                              children: [
-                                Text(
-                                  "İlerleme: $_currentRound / $_totalRounds",
-                                  style: GoogleFonts.poppins(
-                                    fontSize: textSize - 2,
-                                    color: colors['text']?.withOpacity(0.7),
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Container(
-                                  height: 6,
-                                  decoration: BoxDecoration(
-                                    color: colors['border']?.withOpacity(0.3),
-                                    borderRadius: BorderRadius.circular(3),
-                                  ),
-                                  child: FractionallySizedBox(
-                                    alignment: Alignment.centerLeft,
-                                    widthFactor: _currentRound / _totalRounds,
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        gradient: LinearGradient(
-                                          colors: [
-                                            colors['primary']!,
-                                            colors['secondary']!
-                                          ],
-                                        ),
-                                        borderRadius: BorderRadius.circular(3),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
+                      // Temel Puanlar
+                      _buildScoreSummaryRow(
+                        icon: Icons.star_outline,
+                        iconBg: const Color(0xFFEBF3FF),
+                        iconColor: const Color(0xFF2563EB),
+                        label: "Temel puanlar",
+                        value: "${result.baseScore}",
+                        valueColor: const Color(0xFF2563EB),
+                      ),
+                      const SizedBox(height: 8),
+
+                      // Hız Bonusu
+                      if (result.timeBonus > 0) ...[
+                        _buildScoreSummaryRow(
+                          icon: Icons.flash_on,
+                          iconBg: const Color(0xFFFFF7E6),
+                          iconColor: const Color(0xFFD97706),
+                          label: "Hız bonusu",
+                          value: "+${result.timeBonus}",
+                          valueColor: const Color(0xFFD97706),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+
+                      // Mükemmel Bonus
+                      if (result.perfectBonus > 0) ...[
+                        _buildScoreSummaryRow(
+                          icon: Icons.workspace_premium,
+                          iconBg: const Color(0xFFF3EEFF),
+                          iconColor: const Color(0xFF7C3AED),
+                          label: "Mükemmel tur!",
+                          value: "+${result.perfectBonus}",
+                          valueColor: const Color(0xFF7C3AED),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+
+                      // En İyi Seri
+                      if (result.bestStreak > 1) ...[
+                        _buildScoreSummaryRow(
+                          icon: Icons.local_fire_department,
+                          iconBg: const Color(0xFFFFF0EC),
+                          iconColor: const Color(0xFFE8490F),
+                          label: "En iyi seri",
+                          value: "×${result.bestStreak}",
+                          valueColor: const Color(0xFFE8490F),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+
+                      // Zorluk Çarpanı
+                      if (result.difficultyMultiplier != 1.0) ...[
+                        _buildScoreSummaryRow(
+                          icon: Icons.trending_up,
+                          iconBg: const Color(0xFFEFFAF0),
+                          iconColor: const Color(0xFF16A34A),
+                          label: "Zorluk çarpanı",
+                          value: "×${result.difficultyMultiplier.toStringAsFixed(1)}",
+                          valueColor: const Color(0xFF16A34A),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+
+                      // Ayırıcı + Toplam
+                      const Divider(color: Color(0xFFF0F0F0), thickness: 1, height: 32),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            "Bu turun puanı",
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              color: const Color(0xFF666666),
                             ),
                           ),
-                        );
-                      },
-                    ),
-                ],
-              ),
+                          Text(
+                            "${result.finalRoundScore}",
+                            style: GoogleFonts.poppins(
+                              fontSize: 26,
+                              fontWeight: FontWeight.w500,
+                              color: const Color(0xFF111111),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 10),
+
+                // ── TOPLAM + İLERLEME ────────────────────────────────
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text("Toplam puan",
+                              style: GoogleFonts.poppins(
+                                  fontSize: 12, color: const Color(0xFF999999))),
+                          Text(
+                            "${_currentRound == _totalRounds ? result.newUserTotal : result.totalGameScore}",
+                            style: GoogleFonts.poppins(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w500,
+                              color: const Color(0xFF111111),
+                            ),
+                          ),
+                        ],
+                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text("İlerleme",
+                              style: GoogleFonts.poppins(
+                                  fontSize: 12, color: const Color(0xFF999999))),
+                          Text(
+                            "$_currentRound / $_totalRounds",
+                            style: GoogleFonts.poppins(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w500,
+                              color: const Color(0xFF111111),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // ── BUTON ────────────────────────────────────────────
+                SizedBox(
+                  height: 54,
+                  child: _currentRound < _totalRounds
+                      ? _buildNextRoundButton(
+                          colors,
+                          result.finalRoundScore,
+                          result.totalGameScore,
+                          true,
+                          14,
+                        )
+                      : _buildFinishGameButton(
+                          colors,
+                          result.finalRoundScore,
+                          result.totalGameScore,
+                          true,
+                          14,
+                        ),
+                ),
+              ],
             ),
-          );
-        },
+          ),
+        ),
       );
     }
     return Column(
@@ -1841,7 +1509,55 @@ class _MatchingGameState extends State<MatchingGame>
     );
   }
 
-// _buildAchievementBadge metodu - başarı rozeti
+  Widget _buildScoreSummaryRow({
+    required IconData icon,
+    required Color iconBg,
+    required Color iconColor,
+    required String label,
+    required String value,
+    required Color valueColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7F7F7),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: iconBg,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: iconColor, size: 17),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              label,
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                color: const Color(0xFF333333),
+              ),
+            ),
+          ),
+          Text(
+            value,
+            style: GoogleFonts.poppins(
+              fontSize: 15,
+              fontWeight: FontWeight.w500,
+              color: valueColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // _buildAchievementBadge metodu - başarı rozeti
   Widget _buildAnimatedScoreRow(
     String title,
     String value,
@@ -1908,7 +1624,6 @@ class _MatchingGameState extends State<MatchingGame>
     );
   }
 
-// ✅ SONRAKİ TUR BUTONU
   Widget _buildNextRoundButton(Map<String, Color> colors, int finalRoundScore,
       int totalGameScore, bool isMobile, double textSize) {
     return AnimatedBuilder(
@@ -1916,15 +1631,11 @@ class _MatchingGameState extends State<MatchingGame>
       builder: (context, child) {
         return Container(
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [colors['primary']!, colors['secondary']!],
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-            ),
+            color: colors['primary'],
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: colors['primary']!.withOpacity(0.4),
+                color: colors['primary']!.withValues(alpha: 0.4),
                 blurRadius: 15,
                 offset: const Offset(0, 5),
                 spreadRadius: 1,
@@ -1936,13 +1647,10 @@ class _MatchingGameState extends State<MatchingGame>
             child: InkWell(
               borderRadius: BorderRadius.circular(16),
               onTap: () {
-                // ✅ ScoreResult kullanarak kullanıcı puanını güncelle
-                int newUserPoints = _currentUserPoints + finalRoundScore;
                 _startNextRoundManually();
               },
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+                padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -1968,10 +1676,9 @@ class _MatchingGameState extends State<MatchingGame>
                     ),
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
+                        color: Colors.white.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
@@ -2018,6 +1725,26 @@ class _MatchingGameState extends State<MatchingGame>
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
           onTap: () {
+            // ✅ Son round puanını gönder
+            if (_currentRoundResult != null) {
+              final streakBonus = (_scoreManager.bestStreak - 1).clamp(0, 50); // ✅
+              final points = _currentRoundResult!.finalRoundScore + streakBonus; // ✅
+
+              ApiService().addPoints(
+                points: points,
+                type: 'matching_game_round',
+                metadata: {
+                  'round': _currentRound,
+                  'difficulty': widget.difficulty.toString(),
+                  'classroomId': widget.classroomId,
+                  'studySetId': widget.studySetId,
+                  'isFinalRound': true,
+                  'streakBonus': streakBonus,
+                },
+              );
+              ref.read(pointsProvider.notifier).addPoints(points);
+            }
+
             setState(() {
               _totalScore = newGrandTotal;
               _gameWon = true;
@@ -2099,39 +1826,8 @@ class _MatchingGameState extends State<MatchingGame>
     _lottieChainController.reverse(from: 1.0); // Sondan başa doğru
   }
 
-  void _pointAnimationStatusListener(AnimationStatus status) {
-    if (status == AnimationStatus.completed && !_localPointsUpdated) {
-      _localPointsUpdated = true;
-      _updateLocalUserPoints(_currentUserPoints);
-    }
-  }
 
-  Future<void> _sendRoundPointsToServer(int finalRoundPoints) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final userId = prefs.getString('userId');
 
-      if (userId == null) {
-        return;
-      }
-
-      int gameDuration = _initialTime - _timeRemaining;
-
-      // ✅ Sadece round puanı
-
-      // ✅ DOĞRU: Sunucuya sadece kazanılan puanı gönder
-      await ApiService().updateUserPointTimePeriod(
-          int.parse(userId),
-          finalRoundPoints, // ✅ Sadece bu roundda kazanılan puan
-          gameDuration);
-
-      // Log kaydı
-      await ApiService().logSetEntry(
-          'Eşleştirme Oyunu - Tur $_currentRound',
-          '${widget.difficulty.toString().split('.').last.toUpperCase()} zorluğunda $finalRoundPoints puan kazandı.',
-          'Süre: $gameDuration sn, Seri: $_bestStreak, Yeni Toplam: $_currentUserPoints');
-    } catch (e) {}
-  }
 
   void _filterValidWords() {
     // Boş verisi olmayan kelimeleri filtrele
@@ -2167,7 +1863,6 @@ class _MatchingGameState extends State<MatchingGame>
   }
 
   void initGame() {
-    _localPointsUpdated = false; // Her oyun başında sıfırla
 
     if (_currentRound == 1) {
       _scoreManager.resetGame(_currentUserPoints);
@@ -2492,6 +2187,22 @@ class _MatchingGameState extends State<MatchingGame>
         if (_currentRound < _totalRounds) {
           _loadNextRound();
         } else {
+          // ✅ Puan gönder
+          if (_currentRoundResult != null) {
+            final points = _currentRoundResult!.finalRoundScore;
+            ApiService().addPoints(
+              points: points,
+              type: 'matching_game_round',
+              metadata: {
+                'round': _currentRound,
+                'difficulty': widget.difficulty.toString(),
+                'classroomId': widget.classroomId,
+                'studySetId': widget.studySetId,
+                'isFinalRound': true,
+              },
+            );
+            ref.read(pointsProvider.notifier).addPoints(points);
+          }
           setState(() {
             _gameWon = true;
             _gameOver = true;
@@ -2617,33 +2328,41 @@ class _MatchingGameState extends State<MatchingGame>
 
   /// Sonraki tur başlatma (manuel)
   void _startNextRoundManually() {
-    if (_isRoundCompleting || _isGameCompleting) {
-      return;
-    }
+    if (_isRoundCompleting || _isGameCompleting) return;
 
-    // Kullanıcı puanını güncelle
     if (_currentRoundResult != null) {
-      int newUserPoints =
-          _currentUserPoints + _currentRoundResult!.finalRoundScore;
-      _updateUserScore(newUserPoints,_currentRoundResult!.finalRoundScore);
+      final points = _currentRoundResult!.finalRoundScore;
+      ApiService().addPoints(
+        points: points,
+        type: 'matching_game_round',
+        metadata: {
+          'round': _currentRound,
+          'difficulty': widget.difficulty.toString(),
+          'classroomId': widget.classroomId,
+          'studySetId': widget.studySetId,
+        },
+      );
+      ref.read(pointsProvider.notifier).addPoints(points);
+      setState(() {
+        _currentUserPoints += points;
+        _displayedPoints = _currentUserPoints;
+      });
     }
 
     setState(() {
       _currentRound++;
       _isPreparingNextRound = true;
-      _currentRoundResult = null; // Yeni tur için sıfırla
+      _currentRoundResult = null;
       _roundResultCalculated = false;
       _processedMatches.clear();
     });
 
-    // Kısa hazırlık animasyonu
     Future.delayed(const Duration(milliseconds: 800), () {
       if (mounted) {
         setState(() {
           _isPreparingNextRound = false;
-          initGame(); // Yeni round'u başlat
+          initGame();
         });
-
         WidgetsBinding.instance.addPostFrameCallback((_) {
           _updateAllItemPositions();
         });
@@ -2741,6 +2460,22 @@ class _MatchingGameState extends State<MatchingGame>
         if (_currentRound < _totalRounds) {
           _loadNextRound();
         } else {
+          // ✅ Puan gönder
+          if (_currentRoundResult != null) {
+            final points = _currentRoundResult!.finalRoundScore;
+            ApiService().addPoints(
+              points: points,
+              type: 'matching_game_round',
+              metadata: {
+                'round': _currentRound,
+                'difficulty': widget.difficulty.toString(),
+                'classroomId': widget.classroomId,
+                'studySetId': widget.studySetId,
+                'isFinalRound': true,
+              },
+            );
+            ref.read(pointsProvider.notifier).addPoints(points);
+          }
           setState(() {
             _gameWon = true;
             _gameOver = true;
@@ -2856,11 +2591,6 @@ class _MatchingGameState extends State<MatchingGame>
 
     // Final sonuç hesapla
     ScoreResult result = _scoreManager.calculateFinalGameResult();
-
-    // Debug bilgilerini yazdır
-
-    // Kullanıcı puanını güncelle
-    _updateUserScore(result.newUserTotal, 0);  // İki parametre
 
     // Başarı kontrolü
     if (result.perfectBonus > 0) {
@@ -3699,53 +3429,145 @@ class _MatchingGameState extends State<MatchingGame>
 // _buildGameOverOverlay metodunu güncelleyin
   Widget _buildGameOverOverlay(Map<String, Color> colors) {
     final bool isWin = _gameWon;
-
-    // ✅ DÜZELTME: Final oyun için özel hesaplama
     final ScoreResult finalResult = _scoreManager.calculateFinalGameResult();
 
+    // Oyun tamamlama bonusu HARİÇ toplam (gösterilen satırlarla tutarlı)
+    final int shownTotal = finalResult.baseScore + // tüm turların toplamı
+        finalResult.perfectBonus + // mükemmel oyun bonusu
+        (finalResult.streakBonus ?? 0); // seri bonusu
+
     return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Colors.black.withOpacity(0.8),
-            Colors.black.withOpacity(0.9),
-          ],
-        ),
-      ),
+      color: Colors.black.withOpacity(0.55),
       child: Center(
-        child: Card(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 24),
+          constraints: const BoxConstraints(maxWidth: 420),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF5F5F5),
+            borderRadius: BorderRadius.circular(18),
           ),
-          color: colors['cardBackground'],
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 450.0, minWidth: 300.0),
+          child: SingleChildScrollView(
             padding: const EdgeInsets.all(16),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Başlık
-                  Text(
-                    isWin ? "🎉 Oyun Tamamlandı!" : "⏰ Süre Doldu!",
-                    style: GoogleFonts.poppins(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: colors['text'],
-                    ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // ── HEADER ──────────────────────────────────────────
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE8490F),
+                    borderRadius: BorderRadius.circular(14),
                   ),
+                  child: Row(
+                    children: [
+                      Icon(isWin ? Icons.emoji_events : Icons.timer_off,
+                          color: Colors.white, size: 24),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Text(
+                          isWin ? "Oyun tamamlandı" : "Süre doldu",
+                          style: GoogleFonts.poppins(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
 
-                  const SizedBox(height: 16),
+                const SizedBox(height: 10),
 
-                  // ✅ FINAL SKOR DETAYLARI
-                  _buildFinalScoreDetails(finalResult, colors),
+                // ── FİNAL SKOR ÖZETİ ────────────────────────────────
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "FİNAL SKOR ÖZETİ",
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: const Color(0xFF999999),
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
 
-                  const SizedBox(height: 20),
-                  _buildActionButtons(colors),
-                ],
-              ),
+                      // Tüm turlardan toplam
+                      _buildScoreSummaryRow(
+                        icon: Icons.star_outline,
+                        iconBg: const Color(0xFFEBF3FF),
+                        iconColor: const Color(0xFF2563EB),
+                        label: "Tüm turlardan toplam",
+                        value: "${finalResult.baseScore}",
+                        valueColor: const Color(0xFF2563EB),
+                      ),
+
+                      // Mükemmel oyun bonusu
+                      if (finalResult.perfectBonus > 0) ...[
+                        const SizedBox(height: 8),
+                        _buildScoreSummaryRow(
+                          icon: Icons.workspace_premium,
+                          iconBg: const Color(0xFFF3EEFF),
+                          iconColor: const Color(0xFF7C3AED),
+                          label: "Mükemmel oyun",
+                          value: "+${finalResult.perfectBonus}",
+                          valueColor: const Color(0xFF7C3AED),
+                        ),
+                      ],
+
+                      // Seri bonusu
+                      if ((finalResult.streakBonus ?? 0) > 0) ...[
+                        const SizedBox(height: 8),
+                        _buildScoreSummaryRow(
+                          icon: Icons.local_fire_department,
+                          iconBg: const Color(0xFFFFF0EC),
+                          iconColor: const Color(0xFFE8490F),
+                          label: "Seri bonusu",
+                          value: "+${finalResult.streakBonus}",
+                          valueColor: const Color(0xFFE8490F),
+                        ),
+                      ],
+
+                      const Divider(
+                          color: Color(0xFFF0F0F0), thickness: 1, height: 32),
+
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            "Kazandığınız toplam puan",
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              color: const Color(0xFF666666),
+                            ),
+                          ),
+                          Text(
+                            "$shownTotal",
+                            style: GoogleFonts.poppins(
+                              fontSize: 26,
+                              fontWeight: FontWeight.w500,
+                              color: const Color(0xFF111111),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+                _buildActionButtons(colors),
+              ],
             ),
           ),
         ),
@@ -3753,180 +3575,6 @@ class _MatchingGameState extends State<MatchingGame>
     );
   }
 
-// ✅ YENİ: Final skor detayları widget'ı
-  Widget _buildFinalScoreDetails(
-      ScoreResult result, Map<String, Color> colors) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: colors['primary']?.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-            color: colors['primary']?.withOpacity(0.3) ??
-                Colors.blue.withOpacity(0.3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            "🏆 Final Skor Özeti",
-            style: GoogleFonts.poppins(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: colors['primary'],
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // Tüm roundlardan toplanan puanlar
-          _buildScoreRow("Tüm Turlardan Toplam", result.baseScore, colors),
-
-          // Final bonuslar
-          if (result.gameCompletionBonus != null &&
-              result.gameCompletionBonus! > 0)
-            _buildScoreRow(
-                "🎯 Oyun Bitirme Bonusu", result.gameCompletionBonus!, colors),
-
-          if (result.perfectBonus > 0)
-            _buildScoreRow(
-                "⭐ Mükemmel Seri Bonusu", result.perfectBonus, colors),
-
-          if (result.consistencyBonus != null && result.consistencyBonus! > 0)
-            _buildScoreRow(
-                "🔥 Tutarlılık Bonusu", result.consistencyBonus!, colors),
-
-          Divider(color: colors['border']),
-
-          // Zorluk çarpanı
-          _buildScoreRow("⚡ Zorluk Çarpanı",
-              "x${result.difficultyMultiplier.toStringAsFixed(1)}", colors,
-              isMultiplier: true),
-
-          const SizedBox(height: 8),
-
-          // GRAND TOTAL
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Colors.amber.withOpacity(0.3),
-                  Colors.orange.withOpacity(0.2),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.amber, width: 2),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.emoji_events,
-                        color: Colors.amber, size: 24),
-                    const SizedBox(width: 8),
-                    Text(
-                      "Toplam:",
-                      style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: colors['text'],
-                      ),
-                    ),
-                  ],
-                ),
-                Text(
-                  "${result.finalRoundScore}",
-                  style: GoogleFonts.poppins(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.amber[700],
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 12),
-
-          // Yeni toplam puan
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: colors['primary']?.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  "Yeni Toplam Puanınız:",
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    color: colors['text'],
-                  ),
-                ),
-                Row(
-                  children: [
-                    Icon(Icons.arrow_forward,
-                        size: 14, color: colors['primary']),
-                    Text(
-                      "${result.newUserTotal}",
-                      style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: colors['primary'],
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-// ✅ YENİ: Oyun özeti widget'ı
-  Widget _buildGameSummary(ScoreResult result, Map<String, Color> colors) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: colors['cardBackground']?.withOpacity(0.5),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-            color: colors['border']?.withOpacity(0.3) ??
-                Colors.grey.withOpacity(0.3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            "📊 Oyun Özeti",
-            style: GoogleFonts.poppins(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: colors['text']?.withOpacity(0.8),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildSummaryItem("Tur", "$_currentRound", Icons.flag, colors),
-              _buildSummaryItem("En İyi Seri", "${result.bestStreak}",
-                  Icons.local_fire_department, colors),
-              _buildSummaryItem(
-                  "Hamle", "${result.moves}", Icons.swap_horiz, colors),
-              _buildSummaryItem(
-                  "Mükemmel", "$_perfectRoundCount", Icons.star, colors),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildSummaryItem(
       String label, String value, IconData icon, Map<String, Color> colors) {
@@ -3953,113 +3601,6 @@ class _MatchingGameState extends State<MatchingGame>
     );
   }
 
-  Widget _buildScoreResultDetails(
-      ScoreResult result, Map<String, Color> colors) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: colors['primary']?.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-            color: colors['primary']?.withOpacity(0.3) ??
-                Colors.blue.withOpacity(0.3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            "Puan Detayları",
-            style: GoogleFonts.poppins(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: colors['primary'],
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          _buildScoreRow("Temel Puan", result.baseScore, colors),
-          if (result.timeBonus > 0)
-            _buildScoreRow("Zaman Bonusu", result.timeBonus, colors),
-          if (result.perfectBonus > 0)
-            _buildScoreRow("Mükemmel Bonus", result.perfectBonus, colors),
-
-          Divider(color: colors['border']),
-
-          _buildScoreRow("Zorluk Çarpanı",
-              "x${result.difficultyMultiplier.toStringAsFixed(1)}", colors,
-              isMultiplier: true),
-
-          const SizedBox(height: 8),
-
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: colors['primary']?.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  "Toplam Kazanılan:",
-                  style: GoogleFonts.poppins(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: colors['text'],
-                  ),
-                ),
-                Text(
-                  "${result.finalRoundScore}",
-                  style: GoogleFonts.poppins(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: colors['primary'],
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 12),
-
-          // Yeni toplam puan
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                "Yeni Toplam Puanınız:",
-                style: GoogleFonts.poppins(
-                  fontSize: 14,
-                  color: colors['text'],
-                ),
-              ),
-              Row(
-                children: [
-                  Text(
-                    "${result.newUserTotal - result.totalGameScore}",
-                    style: GoogleFonts.poppins(
-                      fontSize: 14,
-                      decoration: TextDecoration.lineThrough,
-                      color: colors['text']?.withOpacity(0.6),
-                    ),
-                  ),
-                  Icon(Icons.arrow_forward, size: 14, color: colors['primary']),
-                  Text(
-                    "${result.newUserTotal}",
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: colors['primary'],
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildScoreRow(String label, dynamic value, Map<String, Color> colors,
       {bool isMultiplier = false}) {
@@ -5061,7 +4602,6 @@ class ScoreManager {
   int _currentRoundScore = 0; // Bu rounddaki puan
   int _allRoundsScore = 0; // Tüm roundların toplamı
   int _userTotalPoints = 0; // Kullanıcının genel puanı
-
   // ✅ YENİ: Son hesaplanan round sonucunu sakla
   ScoreResult? _lastRoundResult;
 
@@ -5121,6 +4661,7 @@ class ScoreManager {
       moves: _moves,
       bestStreak: _bestStreak,
       timeRemaining: timeRemaining,
+      streakBonus: 0,
     );
 
     return _lastRoundResult!;
@@ -5166,19 +4707,14 @@ class ScoreManager {
   }
 
   int _calculateStreakBonus() {
-    if (_streak <= 1) return 0;
-
-    int bonus = (_streak - 1) * 2; // Her seri için 5 puan
-    if (_streak > 5) bonus += (_streak - 5) * 2; // 5'ten sonra 3 ek puan
-    if (_streak > 10) bonus += (_streak - 10) * 2; // 10'dan sonra 5 ek puan
-
-    return bonus;
+    int bonus = _bestStreak - 1;
+    return bonus.clamp(0, 50);
   }
 
   int _calculateTimeBonus() {
     double timeRatio = timeRemaining / initialTime;
-    if (timeRatio > 0.7) return 8;
-    if (timeRatio > 0.5) return 5;
+    if (timeRatio > 0.7) return 4;
+    if (timeRatio > 0.5) return 3;
     if (timeRatio > 0.3) return 2;
     return 0;
   }
@@ -5188,11 +4724,11 @@ class ScoreManager {
     if (_moves > 0 && _moves == _perfectMatches) {
       switch (difficulty) {
         case DifficultyLevel.easy:
-          return 15;
+          return 5;
         case DifficultyLevel.medium:
-          return 20;
+          return 8;
         case DifficultyLevel.hard:
-          return 30;
+          return 12;
       }
     }
     return 0;
@@ -5220,14 +4756,8 @@ class ScoreManager {
     // Temel puan
     int baseScore = _getBaseScore();
 
-    // Seri bonusu
-    int streakBonus = _calculateStreakBonus();
-
-    // Toplam puan
-    int matchScore = baseScore + streakBonus;
-
-    // Round skoruna ekle
-    _currentRoundScore += matchScore;
+    // streak bonusu yok artık
+    _currentRoundScore += baseScore;
 
     // ✅ YENİ: Joker kazanma kontrolü
     if (_streak == 10) {}
@@ -5265,11 +4795,11 @@ class ScoreManager {
     // Final oyun bonusları
     int gameCompletionBonus = 50; // Oyunu bitirme bonusu
     int perfectGameBonus = _calculatePerfectGameBonus();
-    int consistencyBonus = _calculateConsistencyBonus();
+    int streakBonus = _calculateStreakBonus(); // buraya eklendi
 
     // Final bonuslar toplamı
     int finalBonuses =
-        gameCompletionBonus + perfectGameBonus + consistencyBonus;
+        gameCompletionBonus + perfectGameBonus + streakBonus;
 
     // Toplam final skor (tüm roundlar + final bonuslar)
     int finalTotalScore = _allRoundsScore + finalBonuses;
@@ -5288,7 +4818,7 @@ class ScoreManager {
       timeRemaining: timeRemaining,
       // ✅ YENİ ÖZELLIKLER
       gameCompletionBonus: gameCompletionBonus,
-      consistencyBonus: consistencyBonus,
+      streakBonus: streakBonus,
       isGameFinal: true,
     );
   }
@@ -5313,14 +4843,6 @@ class ScoreManager {
       return (30 * perfectRatio).round();
     }
 
-    return 0;
-  }
-
-  // Tutarlılık bonusu (sürekli iyi performans)
-  int _calculateConsistencyBonus() {
-    if (_bestStreak >= _totalRounds * 3) return 50; // Çok uzun seri
-    if (_bestStreak >= _totalRounds * 2) return 35; // Uzun seri
-    if (_bestStreak >= _totalRounds) return 15; // Orta seri
     return 0;
   }
 
@@ -5354,7 +4876,7 @@ class ScoreResult {
 
   // ✅ YENİ ÖZELLIKLER
   final int? gameCompletionBonus;
-  final int? consistencyBonus;
+  final int? streakBonus;
   final bool isGameFinal;
 
   ScoreResult({
@@ -5369,7 +4891,7 @@ class ScoreResult {
     required this.bestStreak,
     required this.timeRemaining,
     this.gameCompletionBonus,
-    this.consistencyBonus,
+    this.streakBonus,
     this.isGameFinal = false,
   });
 }

@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:math';
-
+import 'package:kelibu/screens/home_screen_widgets/score_display.dart';
 import 'package:auto_size_text/auto_size_text.dart';
 import 'package:back_button_interceptor/back_button_interceptor.dart';
 import 'package:collection/collection.dart';
@@ -15,10 +15,10 @@ import 'package:kelibu/Models/wordDetaik.dart'; // WordDetail modelinizin import
 import 'package:kelibu/api.dart';
 import 'package:kelibu/providers/user_provider.dart'; // UserProvider importu
 import 'package:kelibu/screens/video_player.dart';
-import 'package:provider/provider.dart';
+import 'package:provider/provider.dart' as legacy;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../globalDart/urls.dart';
 import '../shared_preferences/shared_preferences.dart';
 import '../variables.dart';
@@ -659,107 +659,6 @@ class _AnimatedSentenceCarouselState extends State<AnimatedSentenceCarousel>
   }
 }
 
-class ScoreDisplay extends StatefulWidget {
-  final ValueNotifier<int> userPointsNotifier;
-
-  const ScoreDisplay({Key? key, required this.userPointsNotifier})
-      : super(key: key);
-
-  @override
-  _ScoreDisplayState createState() => _ScoreDisplayState();
-}
-
-class _ScoreDisplayState extends State<ScoreDisplay>
-    with TickerProviderStateMixin {
-  late AnimationController _colorController;
-  late Animation<Color?> _colorAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-
-    _colorController = AnimationController(
-      duration: const Duration(milliseconds: 1000),
-      vsync: this,
-    );
-
-    _colorAnimation = ColorTween(
-      begin: Colors.green,
-      end: Colors.transparent,
-    ).animate(_colorController);
-
-    widget.userPointsNotifier.addListener(_onScoreChanged);
-  }
-
-  void _onScoreChanged() {
-    _colorController.forward(from: 0.0);
-  }
-
-  @override
-  void dispose() {
-    _colorController.dispose();
-    widget.userPointsNotifier.removeListener(_onScoreChanged);
-
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final backgroundColor = isDarkMode ? Colors.grey[900] : Colors.white;
-    final textColor = isDarkMode ? Colors.white : Colors.black87;
-    final borderColor = isDarkMode ? Colors.grey[700] : Colors.grey[300];
-
-    return AnimatedBuilder(
-      animation: _colorAnimation,
-      builder: (context, child) {
-        return Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: backgroundColor,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: borderColor!,
-              width: 1,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: _colorAnimation.value ?? Colors.transparent,
-                blurRadius: 10,
-                spreadRadius: 2,
-              ),
-            ],
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SvgPicture.asset(
-                'assets/trophy.svg',
-                width: 30,
-                height: 30,
-              ),
-              const SizedBox(width: 8),
-              ValueListenableBuilder<int>(
-                valueListenable: widget.userPointsNotifier,
-                builder: (context, value, child) {
-                  return Text(
-                    "$value",
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: textColor,
-                    ),
-                  );
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
 class CustomLoadingIndicator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -773,7 +672,7 @@ class CustomLoadingIndicator extends StatelessWidget {
   }
 }
 
-class StudyScreen extends StatefulWidget {
+class StudyScreen extends ConsumerStatefulWidget {
   final List<WordDetail> words;
   final int classroomId;
   final int studySetId;
@@ -783,22 +682,20 @@ class StudyScreen extends StatefulWidget {
     required this.words,
     required this.classroomId,
     required this.studySetId,
-    this.isStarred = false, // Varsayılan değer false olarak ayarlandı
+    this.isStarred = false,
   });
 
   @override
   _StudyScreenState createState() => _StudyScreenState();
 }
 
-class _StudyScreenState extends State<StudyScreen>
+class _StudyScreenState extends ConsumerState<StudyScreen>
     with TickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   Map<int, ValueNotifier<bool>> starredNotifiers = {};
   late TabController _tabController;
   bool _isMenuExpanded = false;
   late ScaffoldMessengerState _scaffoldMessenger;
   @override
-  late UserProvider userProvider;
-  ValueNotifier<int> pointValueNotifier = ValueNotifier(0);
 
   bool get wantKeepAlive => true;
   late PageController _sentencePageController;
@@ -996,24 +893,22 @@ class _StudyScreenState extends State<StudyScreen>
   void initState() {
     super.initState();
     ApiService().logSetEntry('Çalış Modu', 'Çalış moduna ', '');
+
     _initializeTts();
     for (var word in widget.words) {
       _sentenceIndices[word.id] = ValueNotifier<int>(0);
     }
-
     // Kontrolcülerin başlatılması
     _scrollController = ScrollController();
     _tabController = TabController(length: 4, vsync: this);
     _pageController = PageController(initialPage: 0);
     _sentencePageController = PageController(initialPage: 0);
-
     // Dinleyicilerin eklenmesi
     _scrollController.addListener(_scrollListener);
     _filterPanelController = AnimationController(
       duration: const Duration(milliseconds: 250),
       vsync: this,
     );
-
     _filterPanelAnimation = CurvedAnimation(
       parent: _filterPanelController,
       curve: Curves.easeInOut,
@@ -1021,35 +916,19 @@ class _StudyScreenState extends State<StudyScreen>
     // Başlangıç değerlerinin ayarlanması
     _loadDarkModePreference();
     filteredWords = widget.words;
-
-    // UserProvider'dan bilgilerin alınması
-    var userProvider = Provider.of<UserProvider>(context, listen: false);
-    userID = userProvider.userId;
-    int currentPoints = userProvider.point;
-
-    // Kullanıcı puanının güncellenmesi
-    userProvider.addPoint(currentPoints + 1);
-    ApiService()
-        .updateUserPointTimePeriod(userProvider.userId, currentPoints, 1);
-
     // Kelime kontrolcülerinin oluşturulması
     for (var word in widget.words) {
       _sentencePageControllers[word.id] = PageController(initialPage: 0);
     }
-
     // Yıldızlı kelimelerin yüklenmesi
     _loadStarredStatusAsync();
-
     // Örnek cümlelerin yüklenmesi
     loadExampleSentences();
-
-    // Puan değerinin ayarlanması
-    pointValueNotifier.value = score;
-
     // Widget ağacı oluştuktan sonra yapılacak işlemler
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      userProvider = Provider.of<UserProvider>(context, listen: false);
-      pointValueNotifier.value = userProvider.point;
+      var userProvider = legacy.Provider.of<UserProvider>(context, listen: false);
+      userID = userProvider.userId;
+      _awardStudyPoint(1, 'study_mode_entered');
     });
   }
 
@@ -1102,31 +981,18 @@ class _StudyScreenState extends State<StudyScreen>
       return ["Cümle yüklenirken hata oluştu"];
     }
   }
-
-  Future<void> _updateUserScore(int newScore, int pointChange) async {
-    try {
-      UserProvider userProvider =
-          Provider.of<UserProvider>(context, listen: false);
-      int currentPoints = userProvider.point;
-
-      if (newScore <= 1) {
-        newScore = currentPoints;
-      }
-
-      if (newScore < currentPoints) {}
-
-      await Future.wait([
-        ApiService().updateUserPointTimePeriod(
-            userProvider.userId, newScore, pointChange),
-        userProvider.addPoint(newScore),
-      ]);
-
-      setState(() {
-        pointValueNotifier.value = newScore;
-      });
-    } catch (e) {
-      throw e;
-    }
+  void _awardStudyPoint(int delta, String reason) {
+    // Ledger'a delta gönder
+    ApiService().addPoints(
+      points: delta,
+      type: reason,
+      metadata: {
+        'classroomId': widget.classroomId,
+        'studySetId': widget.studySetId,
+      },
+    );
+    // Lokal state'i delta ile güncelle
+    ref.read(pointsProvider.notifier).addPoints(delta);
   }
 
 // Var olan _toggleFilterPanel fonksiyonunu değiştirin
@@ -1222,7 +1088,7 @@ class _StudyScreenState extends State<StudyScreen>
               _scaffoldKey.currentState?.openDrawer();
             },
           ),
-          ScoreDisplay(userPointsNotifier: pointValueNotifier),
+          ScoreDisplay(),
           _buildRoundedIconButton(
             Icons.slow_motion_video_sharp,
             Colors.green,
@@ -1555,13 +1421,7 @@ class _StudyScreenState extends State<StudyScreen>
       _selectedPageIndex.value = originalIndex;
     });
 
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
-    int currentPoints = userProvider.point;
-    int newPoints = currentPoints + 1;
-
-    try {
-      await _updateUserScore(newPoints, 1);
-    } catch (e) {}
+    _awardStudyPoint(1, 'study_word_tapped');
   }
 
   Widget buildPageView() {
@@ -1573,8 +1433,7 @@ class _StudyScreenState extends State<StudyScreen>
       onPageChanged: (index) async {
         if (index > currentWordIndex) {
           // Sağa kaydırıldı, puanı artır
-          int newPoints = pointValueNotifier.value + 1;
-          await _updateUserScore(newPoints, 1);
+          _awardStudyPoint(1, 'study_word_next');
         }
 
         // Önceki kelimeyi al
