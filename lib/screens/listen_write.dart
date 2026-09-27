@@ -1,14 +1,13 @@
-import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kelibu/Models/wordDetaik.dart';
+import 'package:kelibu/screens/home_screen_widgets/score_display.dart';
 import 'package:kelibu/screens/video_player.dart';
-import 'package:provider/provider.dart';
 import 'package:quickalert/models/quickalert_type.dart';
 import 'package:quickalert/widgets/quickalert_dialog.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -19,107 +18,7 @@ import '../providers/user_provider.dart';
 import '../shared_preferences/shared_preferences.dart';
 import '../variables.dart';
 
-class ScoreDisplay extends StatefulWidget {
-  final ValueNotifier<int> userPointsNotifier;
-
-  const ScoreDisplay({Key? key, required this.userPointsNotifier})
-      : super(key: key);
-
-  @override
-  _ScoreDisplayState createState() => _ScoreDisplayState();
-}
-
-class _ScoreDisplayState extends State<ScoreDisplay>
-    with TickerProviderStateMixin {
-  late AnimationController _colorController;
-  late Animation<Color?> _colorAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-
-    _colorController = AnimationController(
-      duration: const Duration(milliseconds: 1000),
-      vsync: this,
-    );
-
-    _colorAnimation = ColorTween(
-      begin: Colors.green,
-      end: Colors.transparent,
-    ).animate(_colorController);
-
-    widget.userPointsNotifier.addListener(_onScoreChanged);
-  }
-
-  void _onScoreChanged() {
-    _colorController.forward(from: 0.0);
-  }
-
-  @override
-  void dispose() {
-    _colorController.dispose();
-    widget.userPointsNotifier.removeListener(_onScoreChanged);
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final backgroundColor = isDarkMode ? Colors.grey[900] : Colors.white;
-    final textColor = isDarkMode ? Colors.white : Colors.black87;
-    final borderColor = isDarkMode ? Colors.grey[700] : Colors.grey[300];
-
-    return AnimatedBuilder(
-      animation: _colorAnimation,
-      builder: (context, child) {
-        return Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: backgroundColor,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: borderColor!,
-              width: 1,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: _colorAnimation.value ?? Colors.transparent,
-                blurRadius: 10,
-                spreadRadius: 2,
-              ),
-            ],
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SvgPicture.asset(
-                'assets/trophy.svg',
-                width: 40,
-                height: 40,
-              ),
-              const SizedBox(width: 8),
-              ValueListenableBuilder<int>(
-                valueListenable: widget.userPointsNotifier,
-                builder: (context, value, child) {
-                  return Text(
-                    "$value",
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: textColor,
-                    ),
-                  );
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-class ListenAndWriteScreen extends StatefulWidget {
+class ListenAndWriteScreen extends ConsumerStatefulWidget {
   final List<WordDetail> words;
   final int classroomId;
   final int studySetId;
@@ -135,7 +34,7 @@ class ListenAndWriteScreen extends StatefulWidget {
   _ListenAndWriteScreenState createState() => _ListenAndWriteScreenState();
 }
 
-class _ListenAndWriteScreenState extends State<ListenAndWriteScreen>
+class _ListenAndWriteScreenState extends ConsumerState<ListenAndWriteScreen>
     with SingleTickerProviderStateMixin {
   int currentWordIndex = 0;
   final FlutterTts flutterTts = FlutterTts();
@@ -143,8 +42,6 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen>
   String correctWordMeaning = '';
   late List<WordDetail> originalWords;
   late List<WordDetail> currentWords;
-  late UserProvider userProvider;
-  late ValueNotifier<int> _userPoints;
 
   TextEditingController textEditingController = TextEditingController();
   bool _isDarkMode = false;
@@ -152,41 +49,27 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen>
   late Animation<double> _animation;
   bool isVirtualKeyboardVisible = false;
   bool isMenuVisible = false;
-  ValueNotifier<bool> isRefreshOn = ValueNotifier(true);
-  ValueNotifier<bool> isMuteOn = ValueNotifier(true);
   ValueNotifier<int> starredWordCountNotifier = ValueNotifier(0);
   Map<int, ValueNotifier<bool>> starredNotifiers = {};
   Map<int, bool> starredStatus = {};
   bool showStarredOnly = false;
   List<String> enteredLetters = [];
-  ValueNotifier<int> pointValueNotifier = ValueNotifier(0);
-  int score = 0;
 
   @override
   void initState() {
     super.initState();
     ApiService().logSetEntry('Dinle yaz', 'Dinle ve Yaz moduna ', '');
 
-    _userPoints = ValueNotifier<int>(0);
     _animationController = AnimationController(
         duration: const Duration(milliseconds: 500), vsync: this);
     _animation =
         CurvedAnimation(parent: _animationController, curve: Curves.easeInOut);
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadUserPoints();
       _speakCurrentWord();
       _loadStarredStatusAsync();
     });
 
-    pointValueNotifier.value = score;
-    Future.microtask(() {
-      UserProvider userProviderPoint =
-          Provider.of<UserProvider>(context, listen: false);
-      setState(() {
-        score = userProviderPoint.point;
-        pointValueNotifier.value = score;
-      });
-    });
     originalWords = List.from(widget.words);
     _shuffleAndInitializeWords();
     _initializeEnteredLetters();
@@ -199,23 +82,8 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen>
     currentWordIndex = 0;
   }
 
-  void _updateEnteredLetters(String value) {
-    setState(() {
-      enteredLetters = value
-          .padRight(correctWord.length)
-          .split('')
-          .take(correctWord.length)
-          .toList();
-    });
-  }
-
   void _initializeEnteredLetters() {
     enteredLetters = List.filled(correctWord.length, '');
-  }
-
-  Future<void> _loadUserPoints() async {
-    userProvider = Provider.of<UserProvider>(context, listen: false);
-    _userPoints.value = userProvider.point;
   }
 
   Future<void> _loadDarkModePreference() async {
@@ -255,53 +123,25 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen>
     bool correct = enteredWord == correctWord;
 
     if (correct) {
-      int userGuessedLetters = enteredWord
-          .split('')
-          .where((letter) => !enteredLetters.contains(letter))
-          .length;
       int bonusPoints = correctWord.length -
           enteredLetters.where((letter) => letter.isNotEmpty).length;
       int pointsEarned = 3 + bonusPoints;
 
-      int currentPoints = _userPoints.value;
-      int newPoints = currentPoints + pointsEarned;
+      ApiService().addPoints(
+        points: pointsEarned,
+        type: 'listen_write_correct',
+        metadata: {
+          'classroomId': widget.classroomId,
+          'studySetId': widget.studySetId,
+          'word': correctWord,
+          'bonusPoints': bonusPoints,
+        },
+      );
 
-      UserProvider userProvider =
-          Provider.of<UserProvider>(context, listen: false);
-
-      try {
-        await _updateUserScore(newPoints, pointsEarned);
-        _userPoints.value = newPoints;
-        pointValueNotifier.value = newPoints;
-
-        _showSuccessDialog(bonusPoints);
-      } catch (e) {
-        _showErrorDialog("Puan güncellenirken bir hata oluştu.");
-      }
+      ref.read(pointsProvider.notifier).addPoints(pointsEarned);
+      _showSuccessDialog(bonusPoints);
     } else {
       _showErrorDialog("Yanlış cevap! Doğru kelime: $correctWord");
-    }
-  }
-
-  Future<void> _updateUserScore(int newScore, int pointChange) async {
-    try {
-      UserProvider userProvider =
-          Provider.of<UserProvider>(context, listen: false);
-      int currentPoints = userProvider.point;
-
-      if (newScore <= 1) {
-        newScore = currentPoints;
-      }
-
-      if (newScore < currentPoints) {}
-
-      await Future.wait([
-        ApiService().updateUserPointTimePeriod(
-            userProvider.userId, newScore, pointChange),
-        userProvider.addPoint(newScore),
-      ]);
-    } catch (e) {
-      throw e;
     }
   }
 
@@ -310,11 +150,10 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen>
       context: context,
       type: QuickAlertType.success,
       title: 'Doğru!',
-      text: 'Tebrikler! Kelimenin anlamı: $correctWordMeaning\n'
-          'Bonus Puan: $bonusPoints',
+      text: 'Tebrikler! Kelimenin anlamı: $correctWordMeaning\nBonus Puan: $bonusPoints',
       onConfirmBtnTap: () {
-        Navigator.of(context).pop(); // Dialog'u kapat
-        _proceedToNextWord(); // Sonraki kelimeye geç
+        Navigator.of(context).pop();
+        _proceedToNextWord();
       },
       barrierDismissible: false,
       confirmBtnText: 'Tamam',
@@ -351,8 +190,9 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen>
     }
   }
 
-  void _getHint() async {
-    if (_userPoints.value >= 1) {
+  void _getHint() {
+    final currentPoints = ref.read(pointsProvider);
+    if (currentPoints >= 1) {
       setState(() {
         List<int> emptyIndexes = [];
         for (int i = 0; i < correctWord.length; i++) {
@@ -364,9 +204,16 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen>
           int randomIndex = emptyIndexes[Random().nextInt(emptyIndexes.length)];
           enteredLetters[randomIndex] = correctWord[randomIndex];
 
-          int newPoints = _userPoints.value - 1;
-          _updateUserScore(newPoints, -1);
-          _userPoints.value = newPoints;
+          ApiService().addPoints(
+            points: -1,
+            type: 'listen_write_hint',
+            metadata: {
+              'classroomId': widget.classroomId,
+              'studySetId': widget.studySetId,
+              'word': correctWord,
+            },
+          );
+          ref.read(pointsProvider.notifier).addPoints(-1);
         }
       });
     } else {
@@ -426,7 +273,7 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen>
   void _loadStarredStatusAsync() async {
     final service = StarredWordsService();
     final starredWordIds =
-        await service.loadStarredWords(widget.classroomId, widget.studySetId);
+    await service.loadStarredWords(widget.classroomId, widget.studySetId);
     int newStarredCount = 0;
 
     setState(() {
@@ -434,9 +281,7 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen>
         bool isStarred = starredWordIds.contains(word.id);
         starredNotifiers[word.id] = ValueNotifier<bool>(isStarred);
         starredStatus[word.id] = isStarred;
-        if (isStarred) {
-          newStarredCount++;
-        }
+        if (isStarred) newStarredCount++;
       }
     });
     starredWordCountNotifier.value = newStarredCount;
@@ -447,14 +292,12 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen>
       final newStatus = !(starredStatus[wordId] ?? false);
       starredStatus[wordId] = newStatus;
       starredNotifiers[wordId]?.value = newStatus;
-
       if (newStatus) {
         starredWordCountNotifier.value++;
       } else {
         starredWordCountNotifier.value--;
       }
     });
-
     StarredWordsService().toggleWordStarStatus(
         wordId, starredStatus[wordId]!, widget.classroomId, widget.studySetId);
   }
@@ -467,10 +310,10 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen>
 
     return Scaffold(
       backgroundColor:
-          _isDarkMode ? darkModeColors["background"] : Colors.grey[100],
+      _isDarkMode ? darkModeColors["background"] : Colors.grey[100],
       appBar: AppBar(
         backgroundColor:
-            _isDarkMode ? darkModeColors["cardBackground"] : Colors.white,
+        _isDarkMode ? darkModeColors["cardBackground"] : Colors.white,
         elevation: 0,
         title: Text(
           'Dinle',
@@ -489,24 +332,16 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen>
           ),
           IconButton(
             icon: Icon(isMenuVisible ? Icons.menu_open : Icons.menu),
-            onPressed: () {
-              setState(() {
-                isMenuVisible = !isMenuVisible;
-              });
-            },
+            onPressed: () => setState(() => isMenuVisible = !isMenuVisible),
           ),
-          _buildRoundedIconButton(
-            Icons.slow_motion_video_sharp,
-            Colors.green,
-            () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (context) =>
-                        VideoPlayerScreen(videoUrl: AppUrls.listenandwrite)),
-              );
-            },
-          ),
+          _buildRoundedIconButton(Icons.slow_motion_video_sharp, Colors.green, () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (context) =>
+                      VideoPlayerScreen(videoUrl: AppUrls.listenandwrite)),
+            );
+          }),
         ],
       ),
       body: SingleChildScrollView(
@@ -519,7 +354,7 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen>
               SizedBox(height: 20),
               _buildWordCard(fullImageUrl),
               SizedBox(height: 20),
-              _buildLetterBoxes(), // Harf kutuları eklendi
+              _buildLetterBoxes(),
               SizedBox(height: 20),
               _buildInputField(),
               SizedBox(height: 20),
@@ -533,63 +368,50 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen>
     );
   }
 
-  Widget _buildRoundedIconButton(
-      IconData icon, Color color, VoidCallback onPressed) {
+  Widget _buildRoundedIconButton(IconData icon, Color color, VoidCallback onPressed) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8.0),
       child: InkWell(
         onTap: onPressed,
-        child: Image.asset(
-          'assets/videoplayer.png',
-          width: 40.sp,
-          height: 40.sp,
-        ),
+        child: Image.asset('assets/videoplayer.png', width: 40.sp, height: 40.sp),
       ),
     );
   }
 
   Widget _buildLetterBoxes() {
-    if (correctWord.isEmpty) {
-      return SizedBox(); // Eğer doğru kelime boşsa, boş bir widget döndür
-    }
-
+    if (correctWord.isEmpty) return SizedBox();
     return Wrap(
       alignment: WrapAlignment.center,
       spacing: 4,
       runSpacing: 4,
-      children: List.generate(
-        correctWord.length,
-        (index) {
-          // Eğer enteredLetters dizisi doğru uzunlukta değilse, düzelt
-          if (enteredLetters.length != correctWord.length) {
-            enteredLetters = List.filled(correctWord.length, '');
-          }
-
-          return Container(
-            width: 30,
-            height: 30,
-            decoration: BoxDecoration(
-              border: Border.all(
-                  color: _isDarkMode ? darkModeColors["text"]! : Colors.grey),
-              borderRadius: BorderRadius.circular(5),
-              color: enteredLetters[index].isNotEmpty
-                  ? (_isDarkMode
-                      ? darkModeColors["buttonBackground"]
-                      : Colors.blue.shade100)
-                  : Colors.transparent,
-            ),
-            child: Center(
-              child: Text(
-                enteredLetters[index],
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: _isDarkMode ? darkModeColors["text"] : Colors.black,
-                ),
+      children: List.generate(correctWord.length, (index) {
+        if (enteredLetters.length != correctWord.length) {
+          enteredLetters = List.filled(correctWord.length, '');
+        }
+        return Container(
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(
+            border: Border.all(
+                color: _isDarkMode ? darkModeColors["text"]! : Colors.grey),
+            borderRadius: BorderRadius.circular(5),
+            color: enteredLetters[index].isNotEmpty
+                ? (_isDarkMode
+                ? darkModeColors["buttonBackground"]
+                : Colors.blue.shade100)
+                : Colors.transparent,
+          ),
+          child: Center(
+            child: Text(
+              enteredLetters[index],
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: _isDarkMode ? darkModeColors["text"] : Colors.black,
               ),
             ),
-          );
-        },
-      ),
+          ),
+        );
+      }),
     );
   }
 
@@ -605,11 +427,7 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen>
         ),
         borderRadius: BorderRadius.circular(15),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            spreadRadius: 5,
-          ),
+          BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, spreadRadius: 5),
         ],
       ),
       child: TextField(
@@ -625,14 +443,11 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen>
                 color: _isDarkMode ? Colors.tealAccent[700] : Colors.indigo),
             onPressed: _getHint,
           ),
-          labelStyle: TextStyle(
-              color: _isDarkMode ? Colors.white70 : Colors.indigo[800]),
+          labelStyle: TextStyle(color: _isDarkMode ? Colors.white70 : Colors.indigo[800]),
           fillColor: _isDarkMode ? Color(0xFF2C3E50) : Colors.white,
           filled: true,
         ),
-        style: TextStyle(
-          color: _isDarkMode ? Colors.white : Colors.indigo[800],
-        ),
+        style: TextStyle(color: _isDarkMode ? Colors.white : Colors.indigo[800]),
       ),
     );
   }
@@ -646,11 +461,7 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen>
           color: _isDarkMode ? Colors.grey[800] : Colors.white,
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
+            BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 4, offset: const Offset(0, 2)),
           ],
         ),
         child: Row(
@@ -660,9 +471,7 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen>
               showStarredOnly ? Icons.star : Icons.star_border,
               color: showStarredOnly
                   ? Colors.amber
-                  : _isDarkMode
-                      ? darkModeColors["text"]
-                      : Colors.black,
+                  : _isDarkMode ? darkModeColors["text"] : Colors.black,
               size: 20,
             ),
             const SizedBox(width: 4),
@@ -698,11 +507,7 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen>
         ),
         borderRadius: BorderRadius.circular(15),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            spreadRadius: 5,
-          ),
+          BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, spreadRadius: 5),
         ],
       ),
       child: Row(
@@ -723,25 +528,21 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen>
                 SizedBox(height: 5),
                 LinearProgressIndicator(
                   value: (currentWordIndex + 1) / widget.words.length,
-                  backgroundColor:
-                      _isDarkMode ? Colors.grey[700] : Colors.grey[300],
+                  backgroundColor: _isDarkMode ? Colors.grey[700] : Colors.grey[300],
                   valueColor: AlwaysStoppedAnimation<Color>(
                       _isDarkMode ? Colors.tealAccent[700]! : Colors.indigo),
                 ),
                 SizedBox(height: 5),
                 Text(
                   '${currentWordIndex + 1} / ${widget.words.length}',
-                  style: TextStyle(
-                    color: _isDarkMode ? Colors.white70 : Colors.black54,
-                  ),
+                  style: TextStyle(color: _isDarkMode ? Colors.white70 : Colors.black54),
                 ),
               ],
             ),
           ),
           SizedBox(width: 20),
-          ScoreDisplay(
-            userPointsNotifier: _userPoints,
-          )
+          // ✅ Riverpod ScoreDisplay - parametre almıyor, pointsProvider'dan okuyor
+          ScoreDisplay(),
         ],
       ),
     );
@@ -759,11 +560,7 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen>
         ),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            spreadRadius: 5,
-          ),
+          BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, spreadRadius: 5),
         ],
       ),
       child: Padding(
@@ -776,11 +573,7 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen>
                 color: Colors.white,
                 shape: BoxShape.circle,
                 boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 10,
-                    spreadRadius: 5,
-                  ),
+                  BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, spreadRadius: 5),
                 ],
               ),
               child: ClipOval(
@@ -791,10 +584,8 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen>
                     width: 180,
                     height: 180,
                     fit: BoxFit.cover,
-                    errorBuilder: (BuildContext context, Object exception,
-                        StackTrace? stackTrace) {
-                      return Image.asset('assets/logo.png',
-                          width: 180, height: 180, fit: BoxFit.cover);
+                    errorBuilder: (context, exception, stackTrace) {
+                      return Image.asset('assets/logo.png', width: 180, height: 180, fit: BoxFit.cover);
                     },
                   ),
                 ),
@@ -817,16 +608,13 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen>
                 ElevatedButton.icon(
                   icon: Icon(Icons.volume_up, size: 24),
                   label: Text("Tekrar Dinle",
-                      style: GoogleFonts.poppins(
-                          fontSize: 16, fontWeight: FontWeight.w600)),
+                      style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600)),
                   onPressed: () => _speak(correctWord),
                   style: ElevatedButton.styleFrom(
                     foregroundColor: Colors.white,
-                    backgroundColor:
-                        _isDarkMode ? Colors.tealAccent[700] : Colors.indigo,
+                    backgroundColor: _isDarkMode ? Colors.tealAccent[700] : Colors.indigo,
                     padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                     elevation: 5,
                   ),
                 ),
@@ -838,14 +626,12 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen>
                       starredStatus[widget.words[currentWordIndex].id] ?? false
                           ? Icons.star
                           : Icons.star_border,
-                      color: starredStatus[widget.words[currentWordIndex].id] ??
-                              false
+                      color: starredStatus[widget.words[currentWordIndex].id] ?? false
                           ? Colors.amber
                           : Colors.grey[400],
                       size: 36,
                     ),
-                    onPressed: () =>
-                        _toggleStar(widget.words[currentWordIndex].id),
+                    onPressed: () => _toggleStar(widget.words[currentWordIndex].id),
                   ),
                 ),
               ],
@@ -864,8 +650,7 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen>
       style: ElevatedButton.styleFrom(
         foregroundColor: Colors.white,
         backgroundColor: _isDarkMode ? Colors.tealAccent[700] : Colors.indigo,
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(30.0)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30.0)),
         padding: EdgeInsets.symmetric(horizontal: 30, vertical: 15),
         elevation: 5,
       ),
@@ -874,35 +659,10 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen>
 
   Widget _buildKeyboard() {
     const List<String> letters = [
-      'Q',
-      'W',
-      'E',
-      'R',
-      'T',
-      'Y',
-      'U',
-      'I',
-      'O',
-      'P',
-      'A',
-      'S',
-      'D',
-      'F',
-      'G',
-      'H',
-      'J',
-      'K',
-      'L',
-      'Z',
-      'X',
-      'C',
-      'V',
-      'B',
-      'N',
-      'M',
-      ' '
+      'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P',
+      'A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L',
+      'Z', 'X', 'C', 'V', 'B', 'N', 'M', ' '
     ];
-
     return Wrap(
       alignment: WrapAlignment.center,
       spacing: 5,
@@ -916,18 +676,13 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen>
       child: Text(letter == ' ' ? 'Space' : letter),
       style: ElevatedButton.styleFrom(
         foregroundColor: Colors.white,
-        backgroundColor:
-            _isDarkMode ? darkModeColors["buttonBackground"] : Colors.blue,
+        backgroundColor: _isDarkMode ? darkModeColors["buttonBackground"] : Colors.blue,
         padding: EdgeInsets.all(10),
         minimumSize: Size(40, 40),
       ),
       onPressed: () {
         setState(() {
-          if (letter == ' ') {
-            textEditingController.text += ' ';
-          } else {
-            textEditingController.text += letter;
-          }
+          textEditingController.text += letter == ' ' ? ' ' : letter;
         });
       },
     );
@@ -941,24 +696,14 @@ class _ListenAndWriteScreenState extends State<ListenAndWriteScreen>
         color: _isDarkMode ? darkModeColors["cardBackground"] : Colors.white,
         borderRadius: BorderRadius.circular(15),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 4,
-            offset: Offset(0, 2),
-          ),
+          BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 4, offset: Offset(0, 2)),
         ],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          IconButton(
-            icon: Icon(Icons.shuffle),
-            onPressed: _shuffleWords,
-          ),
-          IconButton(
-            icon: Icon(Icons.skip_next),
-            onPressed: _proceedToNextWord,
-          ),
+          IconButton(icon: Icon(Icons.shuffle), onPressed: _shuffleWords),
+          IconButton(icon: Icon(Icons.skip_next), onPressed: _proceedToNextWord),
         ],
       ),
     );

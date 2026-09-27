@@ -1,108 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kelibu/api.dart';
-import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../providers/user_provider.dart';
 import '../../variables.dart';
+import '../home_screen_widgets/score_display.dart';
 
-// ScoreDisplay Widget - Kompakt ve responsive
-class WordQuizScoreDisplay extends StatefulWidget {
-  final ValueNotifier<int> userPointsNotifier;
-
-  const WordQuizScoreDisplay({Key? key, required this.userPointsNotifier})
-      : super(key: key);
-
-  @override
-  _WordQuizScoreDisplayState createState() => _WordQuizScoreDisplayState();
-}
-
-class _WordQuizScoreDisplayState extends State<WordQuizScoreDisplay>
-    with TickerProviderStateMixin {
-  late AnimationController _colorController;
-  late Animation<Color?> _colorAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-
-    _colorController = AnimationController(
-      duration: const Duration(milliseconds: 800),
-      vsync: this,
-    );
-
-    _colorAnimation = ColorTween(
-      begin: Color(0xFF58CC02),
-      end: Colors.transparent,
-    ).animate(_colorController);
-
-    widget.userPointsNotifier.addListener(_onScoreChanged);
-  }
-
-  void _onScoreChanged() {
-    _colorController.forward(from: 0.0);
-  }
-
-  @override
-  void dispose() {
-    _colorController.dispose();
-    widget.userPointsNotifier.removeListener(_onScoreChanged);
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _colorAnimation,
-      builder: (context, child) {
-        return Container(
-          padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16.r),
-            border: Border.all(color: Color(0xFFE5E5E5), width: 1),
-            boxShadow: [
-              BoxShadow(
-                color: _colorAnimation.value ?? Colors.transparent,
-                blurRadius: 8,
-                spreadRadius: 1,
-              ),
-            ],
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.emoji_events,
-                size: 14.sp,
-                color: Color(0xFFFFB800),
-              ),
-              SizedBox(width: 4.w),
-              ValueListenableBuilder<int>(
-                valueListenable: widget.userPointsNotifier,
-                builder: (context, value, child) {
-                  return Text(
-                    "$value",
-                    style: GoogleFonts.poppins(
-                      fontSize: 11.sp,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF3C3C3C),
-                    ),
-                  );
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-class WordQuizScreen extends StatefulWidget {
+class WordQuizScreen extends ConsumerStatefulWidget {
   final List<Map<String, dynamic>> questions;
   final String questionType;
 
@@ -116,7 +24,7 @@ class WordQuizScreen extends StatefulWidget {
   _WordQuizScreenState createState() => _WordQuizScreenState();
 }
 
-class _WordQuizScreenState extends State<WordQuizScreen>
+class _WordQuizScreenState extends ConsumerState<WordQuizScreen>
     with TickerProviderStateMixin {
   bool _isDarkMode = false;
   int currentQuestionIndex = 0;
@@ -124,10 +32,7 @@ class _WordQuizScreenState extends State<WordQuizScreen>
   int wrongAnswers = 0;
 
   // Puanlama sistemi
-  int score = 0;
-  int userID = 0;
-  ValueNotifier<int> pointValueNotifier = ValueNotifier(0);
-  static const int POINTS_PER_CORRECT = 50;
+  static const int POINTS_PER_CORRECT = 10;
 
   // TTS
   final FlutterTts _flutterTts = FlutterTts();
@@ -188,11 +93,6 @@ class _WordQuizScreenState extends State<WordQuizScreen>
     _successAnimation = Tween<double>(begin: 1, end: 1.1).animate(
       CurvedAnimation(parent: _successController, curve: Curves.easeOut),
     );
-
-    // Kullanıcı puanını yükle
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadUserScore();
-    });
 
     ApiService().sendUserLog(
       type: 'screen_entry',
@@ -256,35 +156,7 @@ class _WordQuizScreenState extends State<WordQuizScreen>
 
   // ---- TTS END ----
 
-  void _loadUserScore() {
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
-    setState(() {
-      userID = userProvider.userId;
-      score = userProvider.point;
-      pointValueNotifier.value = score;
-    });
-  }
 
-  Future<void> _updateUserScore(int pointsToAdd) async {
-    try {
-      UserProvider userProvider =
-      Provider.of<UserProvider>(context, listen: false);
-      int currentPoints = userProvider.point;
-      int newScore = currentPoints + pointsToAdd;
-
-      await Future.wait([
-        ApiService().updateUserPointTimePeriod(userID, newScore, pointsToAdd),
-        userProvider.addPoint(newScore),
-      ]);
-
-      setState(() {
-        score = newScore;
-        pointValueNotifier.value = newScore;
-      });
-    } catch (e) {
-      debugPrint('Puan güncellenirken hata: $e');
-    }
-  }
 
   @override
   void dispose() {
@@ -359,7 +231,12 @@ class _WordQuizScreenState extends State<WordQuizScreen>
       if (isCorrect) {
         correctAnswers++;
         _successController.forward().then((_) => _successController.reverse());
-        _updateUserScore(POINTS_PER_CORRECT);
+        ApiService().addPoints(
+          points: POINTS_PER_CORRECT,
+          type: 'word_quiz_correct',
+          metadata: {'questionIndex': questionIndex},
+        );
+        ref.read(pointsProvider.notifier).addPoints(POINTS_PER_CORRECT);
       } else {
         wrongAnswers++;
         _shakeController.forward().then((_) => _shakeController.reverse());
@@ -677,7 +554,7 @@ class _WordQuizScreenState extends State<WordQuizScreen>
                   ),
                 ),
               ),
-              WordQuizScoreDisplay(userPointsNotifier: pointValueNotifier),
+              const ScoreDisplay(),
             ],
           ),
         ),
@@ -1954,7 +1831,7 @@ class _WordQuizScreenState extends State<WordQuizScreen>
                     ),
                   ),
                   SizedBox(width: 8.w),
-                  WordQuizScoreDisplay(userPointsNotifier: pointValueNotifier),
+                  const ScoreDisplay(),
                 ],
               ),
             ),

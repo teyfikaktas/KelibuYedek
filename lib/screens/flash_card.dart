@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:kelibu/screens/home_screen_widgets/score_display.dart';
 
 import 'package:another_flushbar/flushbar.dart';
 import 'package:auto_size_text/auto_size_text.dart';
@@ -6,6 +7,7 @@ import 'package:back_button_interceptor/back_button_interceptor.dart';
 import 'package:flip_card/flip_card.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:flutter_tts/flutter_tts.dart';
@@ -13,7 +15,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:kelibu/Models/wordDetaik.dart';
 import 'package:kelibu/api.dart';
 import 'package:kelibu/screens/video_player.dart';
-import 'package:provider/provider.dart';
+import 'package:provider/provider.dart' as prov;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../globalDart/urls.dart';
@@ -23,105 +25,6 @@ import '../providers/volume_provider.dart';
 import '../shared_preferences/shared_preferences.dart';
 import '../variables.dart';
 
-class ScoreDisplay extends StatefulWidget {
-  final ValueNotifier<int> userPointsNotifier;
-
-  const ScoreDisplay({Key? key, required this.userPointsNotifier})
-      : super(key: key);
-
-  @override
-  _ScoreDisplayState createState() => _ScoreDisplayState();
-}
-
-class _ScoreDisplayState extends State<ScoreDisplay>
-    with TickerProviderStateMixin {
-  late AnimationController _colorController;
-  late Animation<Color?> _colorAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-
-    _colorController = AnimationController(
-      duration: const Duration(milliseconds: 1000),
-      vsync: this,
-    );
-
-    _colorAnimation = ColorTween(
-      begin: Colors.green,
-      end: Colors.transparent,
-    ).animate(_colorController);
-
-    widget.userPointsNotifier.addListener(_onScoreChanged);
-  }
-
-  void _onScoreChanged() {
-    _colorController.forward(from: 0.0);
-  }
-
-  @override
-  void dispose() {
-    _colorController.dispose();
-    widget.userPointsNotifier.removeListener(_onScoreChanged);
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final backgroundColor = isDarkMode ? Colors.grey[900] : Colors.white;
-    final textColor = isDarkMode ? Colors.white : Colors.black87;
-    final borderColor = isDarkMode ? Colors.grey[700] : Colors.grey[300];
-
-    return AnimatedBuilder(
-      animation: _colorAnimation,
-      builder: (context, child) {
-        return Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: backgroundColor,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: borderColor!,
-              width: 1,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: _colorAnimation.value ?? Colors.transparent,
-                blurRadius: 10,
-                spreadRadius: 2,
-              ),
-            ],
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SvgPicture.asset(
-                'assets/trophy.svg',
-                width: 40,
-                height: 40,
-              ),
-              const SizedBox(width: 8),
-              ValueListenableBuilder<int>(
-                valueListenable: widget.userPointsNotifier,
-                builder: (context, value, child) {
-                  return Text(
-                    "$value",
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: textColor,
-                    ),
-                  );
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
 
 class SwipeHintAnimation extends StatefulWidget {
   final Function onAnimationComplete;
@@ -676,7 +579,7 @@ class _FlashCardScreenState extends State<FlashCardScreen>
       });
     totalWords = widget.words.length;
     Future.microtask(() {
-      userProvider = Provider.of<UserProvider>(context, listen: false);
+      userProvider = prov.Provider.of<UserProvider>(context, listen: false);
       pointValueNotife.value = userProvider.point;
     });
   }
@@ -718,7 +621,7 @@ class _FlashCardScreenState extends State<FlashCardScreen>
 
     // Volume provider'ı başlat ve durumu güncelle
     Future.microtask(() {
-      volumeProvider = Provider.of<VolumeProvider>(context, listen: false);
+      volumeProvider = prov.Provider.of<VolumeProvider>(context, listen: false);
       if (savedVolumeState != volumeProvider.isVolumeOn) {
         // Eğer kaydedilen durum ve provider durumu farklıysa, provider'ı kaydedilen duruma getir
         if (!savedVolumeState) {
@@ -730,7 +633,7 @@ class _FlashCardScreenState extends State<FlashCardScreen>
   }
 
   Widget _buildVolumeControl(Color color) {
-    return Consumer<VolumeProvider>(
+    return prov.Consumer<VolumeProvider>(
       builder: (context, volumeProvider, child) {
         return IconButton(
           icon: Icon(
@@ -833,7 +736,7 @@ class _FlashCardScreenState extends State<FlashCardScreen>
 
     try {
       final volumeProvider =
-          Provider.of<VolumeProvider>(context, listen: false);
+      prov.Provider.of<VolumeProvider>(context, listen: false);
       if (volumeProvider.isVolumeOn) {
         // TTS işlemlerine geçmeden önce tekrar mounted kontrolü yap
         if (!mounted) return;
@@ -955,7 +858,7 @@ class _FlashCardScreenState extends State<FlashCardScreen>
   @override
   Widget build(BuildContext context) {
     final colors = _isDarkMode ? darkModeColors : lightModeColors;
-    userProvider = Provider.of<UserProvider>(context, listen: false);
+    userProvider = prov.Provider.of<UserProvider>(context, listen: false);
     List<Widget> cardDeck = widget.words.map((word) {
       return _buildCard(word.type, word.word, word.meaning, word.image, word.id,
           word, cardKeys[word.id]!);
@@ -987,7 +890,7 @@ class _FlashCardScreenState extends State<FlashCardScreen>
                   icon: Icon(Icons.format_quote, color: colors["text"]),
                   onPressed: () => _showExampleSentence(),
                 ),
-                ScoreDisplay(userPointsNotifier: pointValueNotife),
+                ScoreDisplay(),
                 const SizedBox(width: 16),
                 _buildRoundedIconButton(
                     Icons.slow_motion_video_sharp, Colors.green, () {
@@ -1083,7 +986,7 @@ class _FlashCardScreenState extends State<FlashCardScreen>
               isShuffled ? "Liste karıştırıldı." : "Liste Sıralandı.",
             );
           }),
-          Consumer<LanguageProvider>(
+          prov.Consumer<LanguageProvider>(
             builder: (context, languageProvider, child) {
               return _buildControlButton(
                 languageProvider.isEnglish ? Icons.language : Icons.translate,
@@ -1306,7 +1209,7 @@ class _FlashCardScreenState extends State<FlashCardScreen>
   }
 
   Widget _buildLanguageButton(Map<String, Color> colors) {
-    return Consumer<LanguageProvider>(
+    return prov.Consumer<LanguageProvider>(
       builder: (context, languageProvider, child) {
         return IconButton(
           icon: Icon(
@@ -1487,19 +1390,22 @@ class _FlashCardScreenState extends State<FlashCardScreen>
 
   Future<void> onCardSwiped() async {
     if (canSwipe()) {
-      // Hızlı kaydırmaları önlemek için
-      int newPoint = userProvider.point;
-      newPoint += 1;
-      pointValueNotife.value += 1;
+      // ✅ YENİ: Sadece bu kaydırmadan kazanılan puanı gönder
+      ApiService().addPoints(
+        points: 1,
+        type: 'flashcard_swipe',
+        metadata: {
+          'classroomId': widget.classroomId,
+          'studySetId': widget.studySetId,
+        },
+      );
 
-      await ApiService()
-          .updateUserPointTimePeriod(userProvider.userId, newPoint, 1);
-      userProvider.addPoint(newPoint);
-
-      // Kullanıcıya geri bildirim vermek için bir Flushbar gösterebilirsiniz
+      // ✅ Riverpod ile anlık UI güncellemesi
+      ProviderScope.containerOf(context)
+          .read(pointsProvider.notifier)
+          .addPoints(1);
     }
   }
-
   Widget _buildCard(
       String? type,
       String englishWord,
@@ -1515,7 +1421,7 @@ class _FlashCardScreenState extends State<FlashCardScreen>
     ValueNotifier<bool> isStarredNotifier =
         ValueNotifier<bool>(starredStatus[wordId] ?? false);
 
-    return Consumer<LanguageProvider>(
+    return prov.Consumer<LanguageProvider>(
       builder: (context, languageProvider, child) {
         return Container(
           margin: EdgeInsets.symmetric(horizontal: 20, vertical: 10),

@@ -2,6 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.transistorsoft.fetch</string>
+	</array>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
@@ -14,12 +18,19 @@
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.8</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>en</string>
+		<string>tr</string>
+	</array>
 	<key>CFBundleName</key>
 	<string>kelibu</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>4.3</string>
+	<string>4.9</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -29,57 +40,56 @@
 			</array>
 		</dict>
 	</array>
+	<key>CFBundleVersion</key>
+	<string>105</string>
+	<key>FirebaseAppDelegateProxyEnabled</key>
+	<true/>
+	<key>FirebaseMessagingAutoInitEnabled</key>
+	<true/>
 	<key>GIDClientID</key>
 	<string>859879146409-pn9j2d2me8o8obbn5qcb2sohgn70cbho.apps.googleusercontent.com</string>
-	<key>CFBundleSignature</key>
-	<string>????</string>
-	<key>CFBundleVersion</key>
-	<string>86</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.education</string>
-	<key>LSRequiresIPhoneOS</key>
-	<true/>
-	<key>NSCameraUsageDescription</key>
-	<string>Uygulama, fotoğraf çekmek için kameraya erişim gerektirir.</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>Bu uygulama mikrofonunuzu kullanarak ses tanıma özelliğini sağlar.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Uygulama, galeriden fotoğraf seçmek için fotoğraf kitaplığına erişim gerektirir.</string>
-	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>Uygulama ses komutlarını tanımak için erişim istiyor.</string>
-	<key>NSLocalNetworkUsageDescription</key>
-	<string>Bu uygulama internet bağlantınızı kontrol etmek için yerel ağ kullanır.</string>
-	<key>UIApplicationSupportsIndirectInputEvents</key>
-	<true/>
-	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>Ekran görüntülerini kaydetmek için fotoğraf galerisine erişim izni gerekiyor.</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Bu uygulama konum verilerine erişmez, ancak kullanılan kütüphaneler bu izni gerektirir.</string>
-	<key>NSBonjourServices</key>
-	<array>
-		<string>_dartobservatory._tcp</string>
-	</array>
-	<key>BGTaskSchedulerPermittedIdentifiers</key>
-	<array>
-		<string>com.transistorsoft.fetch</string>
-	</array>
-	<key>UILaunchStoryboardName</key>
-	<string>LaunchScreen</string>
-	<key>UIMainStoryboardFile</key>
-	<string>Main</string>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>whatsapp</string>
 	</array>
-	<key>FirebaseAppDelegateProxyEnabled</key>
+	<key>LSRequiresIPhoneOS</key>
 	<true/>
-	<key>FirebaseMessagingAutoInitEnabled</key>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+	</dict>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_dartobservatory._tcp</string>
+	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>Uygulama, fotoğraf çekmek için kameraya erişim gerektirir.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Bu uygulama internet bağlantınızı kontrol etmek için yerel ağ kullanır.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Bu uygulama konum verilerine erişmez, ancak kullanılan kütüphaneler bu izni gerektirir.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Bu uygulama mikrofonunuzu kullanarak ses tanıma özelliğini sağlar.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Ekran görüntülerini kaydetmek için fotoğraf galerisine erişim izni gerekiyor.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Uygulama, galeriden fotoğraf seçmek için fotoğraf kitaplığına erişim gerektirir.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Uygulama ses komutlarını tanımak için erişim istiyor.</string>
+	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>fetch</string>
 		<string>remote-notification</string>
 	</array>
+	<key>UILaunchStoryboardName</key>
+	<string>LaunchScreen</string>
+	<key>UIMainStoryboardFile</key>
+	<string>Main</string>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
@@ -87,10 +97,5 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-	<key>NSAppTransportSecurity</key>
-	<dict>
-		<key>NSAllowsArbitraryLoads</key>
-		<true/>
-	</dict>
 </dict>
 </plist>

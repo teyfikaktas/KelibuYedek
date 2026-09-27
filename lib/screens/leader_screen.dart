@@ -35,7 +35,6 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
   TextEditingController _searchController = TextEditingController();
   List<User>? _filteredUsers;
   bool _showScrollToTop = false;
-  bool _hasShownInitialRules = false;
 
   // Renk tanımlamaları
   final Map<String, Color> lightModeColors = {
@@ -98,7 +97,6 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
 
     try {
       final response = await ApiService().fetchInstitutionUsersPointPeriod(
-        currentUserId.toString(),
         timePeriod,
         _isInstitutionMode,
       );
@@ -126,14 +124,6 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
           _isUserRankComputed = true;
         }
       });
-
-      // Veriler başarıyla yüklendiğinde kuralları bir kez göster
-      if (!_hasShownInitialRules) {
-        _hasShownInitialRules = true;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          _showLeaderboardRules(context);
-        });
-      }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Veri yüklenirken bir hata oluştu: $e')),
@@ -185,223 +175,6 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
             .toList();
       });
     }
-  }
-
-  void _showLeaderboardRules(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.7,
-        minChildSize: 0.5,
-        maxChildSize: 0.95,
-        builder: (context, scrollController) => Container(
-          decoration: BoxDecoration(
-            color: _isDarkMode ? Color(0xFF1E1E1E) : Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(28.r)),
-          ),
-          child: Column(
-            children: [
-              Container(
-                margin: EdgeInsets.symmetric(vertical: 12.h),
-                width: 40.w,
-                height: 4.h,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              Expanded(
-                child: ListView(
-                  controller: scrollController,
-                  padding: EdgeInsets.symmetric(horizontal: 24.w),
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.emoji_events,
-                            color: Colors.amber, size: 32.sp),
-                        SizedBox(width: 12.w),
-                        Text(
-                          'Sıralama Kuralları',
-                          style: GoogleFonts.poppins(
-                            fontSize: 22.sp,
-                            fontWeight: FontWeight.bold,
-                            color: _isDarkMode ? Colors.white : Colors.black87,
-                          ),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: 24.h),
-                    // Sezon Promo Banner (Custom & Professional) - ÜSTE TAŞINDI
-                    Container(
-                      padding: EdgeInsets.all(24.w),
-                      decoration: BoxDecoration(
-                        color: _isDarkMode ? Color(0xFF1A1C2E) : Color(0xFFF5F7FF),
-                        borderRadius: BorderRadius.circular(20.r),
-                        border: Border.all(
-                          color: _isDarkMode ? Color(0xFF3D446E) : Color(0xFFDDE3FF),
-                          width: 2,
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Zirve Yarışı Başladı!',
-                            style: GoogleFonts.poppins(
-                              color: _isDarkMode ? Colors.white : Color(0xFF1E265C),
-                              fontWeight: FontWeight.w900,
-                              fontSize: 20.sp,
-                              letterSpacing: -0.5,
-                            ),
-                          ),
-                          SizedBox(height: 12.h),
-                          Container(
-                            padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
-                            decoration: BoxDecoration(
-                              color: Color(0xFF4F5EDF),
-                              borderRadius: BorderRadius.circular(8.r),
-                            ),
-                            child: Text(
-                              '2. SEZON',
-                              style: GoogleFonts.poppins(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 11.sp,
-                                letterSpacing: 1.2,
-                              ),
-                            ),
-                          ),
-                          SizedBox(height: 18.h),
-                          Text(
-                            'Yeni sezonda puanlar sıfırlandı! Her sezonun sonunda ilk 3\'e giren kullanıcılarımıza sürpriz hediyeler verilecektir. Çalışmaya başla, ödülleri kap.',
-                            style: GoogleFonts.poppins(
-                              color: _isDarkMode ? Colors.white70 : Color(0xFF4A5187),
-                              fontSize: 13.5.sp,
-                              height: 1.6,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          SizedBox(height: 20.h),
-                          Row(
-                            children: [
-                              Icon(Icons.calendar_today_rounded, size: 16.sp, color: Color(0xFF4F5EDF)),
-                              SizedBox(width: 8.w),
-                              Text(
-                                'Sezon Bitiş Tarihi: 30 Eylül',
-                                style: GoogleFonts.poppins(
-                                  color: Color(0xFF4F5EDF),
-                                  fontSize: 12.sp,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    SizedBox(height: 24.h),
-                    _buildRuleItem(
-                      icon: Icons.bolt,
-                      title: 'Puan Kazanma',
-                      description:
-                          'Çözdüğünüz her test ve öğrendiğiniz her kelime size puan kazandırır.',
-                      color: Colors.blue,
-                    ),
-                    _buildRuleItem(
-                      icon: Icons.local_fire_department,
-                      title: 'Seri (Streak)',
-                      description:
-                          'Her gün düzenli çalışarak serinizi koruyun. Yüksek seriler profilinizde parlar!',
-                      color: Colors.orange,
-                    ),
-                    _buildRuleItem(
-                      icon: Icons.timer,
-                      title: 'Zaman Aralıkları',
-                      description:
-                          'Günlük, haftalık ve aylık tablolarda en iyiler arasına girerek ödüller kazanın.',
-                      color: Colors.green,
-                    ),
-                    SizedBox(height: 32.h),
-                    ElevatedButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        foregroundColor: Colors.white,
-                        minimumSize: Size(double.infinity, 50.h),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16.r),
-                        ),
-                        elevation: 0,
-                      ),
-                      child: Text(
-                        'Anladım, Başlayalım!',
-                        style: GoogleFonts.poppins(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 16.sp,
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: 40.h),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRuleItem({
-    required IconData icon,
-    required String title,
-    required String description,
-    required Color color,
-  }) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: 20.h),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: EdgeInsets.all(12.w),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(14.r),
-            ),
-            child: Icon(icon, color: color, size: 24.sp),
-          ),
-          SizedBox(width: 16.w),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: GoogleFonts.poppins(
-                    fontSize: 16.sp,
-                    fontWeight: FontWeight.bold,
-                    color: _isDarkMode ? Colors.white : Colors.black87,
-                  ),
-                ),
-                SizedBox(height: 4.h),
-                Text(
-                  description,
-                  style: GoogleFonts.poppins(
-                    fontSize: 13.sp,
-                    color: _isDarkMode ? Colors.white60 : Colors.black54,
-                    height: 1.4,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   @override

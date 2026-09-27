@@ -1997,34 +1997,34 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> fetchInstitutionUsersPointPeriod(
-    String userId,
-    String period,
-    bool isInstitutionMode,
-  ) async {
-    final response = await _dio.post(
-      '/institution-users-point-period',
-      data: {
-        'user_id': userId,
+      String period,
+      bool isInstitutionMode,
+      ) async {
+    final token = await storage.read(key: 'access_token');
+    final response = await _dio.get(
+      '/points/institution-leaderboard',
+      queryParameters: {
         'period': period,
+        'limit': 1000,
         'is_institution_mode': isInstitutionMode,
       },
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+
     );
     if (response.statusCode == 200) {
-      var decodedResponse = response.data;
-      if (decodedResponse['has_institution'] == false && isInstitutionMode) {
+      var data = response.data;
+      if (data['has_institution'] == false && isInstitutionMode) {
         return {
           'has_institution': false,
-          'message': decodedResponse['message'],
+          'message': data['message'],
           'users': [],
         };
       }
-      return decodedResponse;
+      return data;
     } else {
-      throw Exception(
-          'Failed to load users. Status code: ${response.statusCode}');
+      throw Exception('Failed to load users. Status code: ${response.statusCode}');
     }
   }
-
   //-----------------------------------------------------
   // YILDIZLI KELİMELER
   //-----------------------------------------------------
@@ -2550,6 +2550,22 @@ class ApiService {
       return false;
     } catch (e) {
       return false;
+    }
+  }
+
+  Future<void> markWelcomePopupSeen() async {
+    try {
+      final token = await storage.read(key: 'access_token');
+      await _dio.post(
+        '/welcome-popup-seen',
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Accept': 'application/json',
+          },
+        ),
+      );
+    } catch (e) {
     }
   }
 }

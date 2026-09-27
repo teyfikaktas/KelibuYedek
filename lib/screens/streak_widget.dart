@@ -270,6 +270,24 @@ class _StreakWidgetState extends State<StreakWidget> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
+        Container(
+          padding: EdgeInsets.symmetric(
+              horizontal: 8 * scaleFactor, vertical: 2 * scaleFactor),
+          decoration: BoxDecoration(
+            color: Colors.orange.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(6 * scaleFactor),
+            border: Border.all(color: Colors.orange.withOpacity(0.3), width: 1),
+          ),
+          child: Text(
+            "2. SEZON",
+            style: GoogleFonts.permanentMarker(
+              fontSize: 11 * scaleFactor,
+              color: Colors.orange[800],
+              letterSpacing: 0.5,
+            ),
+          ),
+        ),
+        SizedBox(width: 8 * scaleFactor),
         Text(
           "Seri: ",
           style: GoogleFonts.indieFlower(
