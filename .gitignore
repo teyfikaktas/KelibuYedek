@@ -3,6 +3,7 @@
 *.log
 *.pyc
 *.swp
+*.zip
 .DS_Store
 .atom/
 .build/
@@ -31,7 +32,9 @@ migrate_working_dir/
 .flutter-plugins-dependencies
 .pub-cache/
 .pub/
-/build/
+build/
+**/build/
+**/.cxx/
 
 # Symbolication related
 app.*.symbols
